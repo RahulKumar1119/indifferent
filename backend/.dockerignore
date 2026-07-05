@@ -1,0 +1,11 @@
+# Ignore git and IDE files
+.git
+.gitignore
+*.md
+
+# Ignore test artifacts
+*_test.go
+**/*_test.go
+
+# Ignore templates not needed for renderer build context
+# (renderer downloads assets from S3 at runtime)

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>Answer Reveal — Question {{.QuestionNumber}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            padding: 60px 80px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .question-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: #4ecca3;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .progress {
+            font-size: 22px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .question-text {
+            font-size: 48px;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 60px;
+            max-width: 1600px;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            flex-grow: 1;
+            justify-content: center;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 28px 36px;
+        }
+
+        .option.correct {
+            background: rgba(78, 204, 163, 0.2);
+            border: 3px solid #4ecca3;
+            box-shadow: 0 0 20px rgba(78, 204, 163, 0.3);
+        }
+
+        .option-label {
+            font-size: 32px;
+            font-weight: 700;
+            color: #4ecca3;
+            margin-right: 28px;
+            min-width: 50px;
+        }
+
+        .option.correct .option-label {
+            color: #ffffff;
+        }
+
+        .option-text {
+            font-size: 32px;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .correct-badge {
+            margin-left: auto;
+            font-size: 24px;
+            font-weight: 700;
+            color: #4ecca3;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="question-number">Question {{.QuestionNumber}}</div>
+        <div class="progress">Question {{.QuestionNumber}} of {{.TotalQuestions}}</div>
+    </div>
+
+    <div class="question-text">{{.QuestionText}}</div>
+
+    <div class="options">
+        {{range $index, $opt := .Options}}
+        <div class="option {{if eq $index $.CorrectIndex}}correct{{end}}">
+            <span class="option-label">{{$opt.Label}}</span>
+            <span class="option-text">{{$opt.Text}}</span>
+            {{if eq $index $.CorrectIndex}}<span class="correct-badge">✓ Correct</span>{{end}}
+        </div>
+        {{end}}
+    </div>
+</body>
+</html>

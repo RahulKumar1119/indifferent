@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>Countdown — {{.Seconds}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .countdown-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .countdown-label {
+            font-size: 36px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        .countdown-number {
+            font-size: 240px;
+            font-weight: 800;
+            color: #4ecca3;
+            line-height: 1;
+            text-shadow: 0 0 40px rgba(78, 204, 163, 0.5);
+        }
+
+        .countdown-ring {
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            border: 8px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .countdown-ring::before {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            border: 8px solid transparent;
+            border-top-color: #4ecca3;
+            border-right-color: #4ecca3;
+        }
+    </style>
+</head>
+<body>
+    <div class="countdown-container">
+        <div class="countdown-label">Answer in</div>
+        <div class="countdown-ring">
+            <div class="countdown-number">{{.Seconds}}</div>
+        </div>
+    </div>
+</body>
+</html>

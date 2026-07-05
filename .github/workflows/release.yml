@@ -1,0 +1,201 @@
+name: Release to Production
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.24'
+  NODE_VERSION: '22'
+  TF_VERSION: '1.9'
+  AWS_REGION: us-east-1
+
+jobs:
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lambda: [api, parser, slidegen, narrator, renderer]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Build ${{ matrix.lambda }}
+        working-directory: backend
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          go build -ldflags="-s -w" -o bin/${{ matrix.lambda }}/bootstrap cmd/${{ matrix.lambda }}/main.go
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-${{ matrix.lambda }}
+          path: backend/bin/${{ matrix.lambda }}/bootstrap
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build production bundle
+        working-directory: frontend
+        run: npx ng build --configuration=production
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure (Production)
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRODUCTION }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/production
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: infrastructure/environments/production
+        run: terraform apply -auto-approve
+
+  deploy-backend:
+    name: Deploy Backend (Production)
+    runs-on: ubuntu-latest
+    needs: [build-backend, deploy-infrastructure]
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRODUCTION }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download all Lambda binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lambda-*
+          path: binaries/
+
+      - name: Deploy API Lambda
+        run: |
+          cd binaries/lambda-api
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-production-api \
+            --zip-file fileb://function.zip
+
+      - name: Deploy Parser Lambda
+        run: |
+          cd binaries/lambda-parser
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-production-parser \
+            --zip-file fileb://function.zip
+
+      - name: Deploy SlideGen Lambda
+        run: |
+          cd binaries/lambda-slidegen
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-production-slidegen \
+            --zip-file fileb://function.zip
+
+      - name: Deploy Narrator Lambda
+        run: |
+          cd binaries/lambda-narrator
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-production-narrator \
+            --zip-file fileb://function.zip
+
+      - name: Deploy Renderer Lambda
+        run: |
+          cd binaries/lambda-renderer
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-production-renderer \
+            --zip-file fileb://function.zip
+
+  deploy-frontend:
+    name: Deploy Frontend (Production)
+    runs-on: ubuntu-latest
+    needs: [build-frontend, deploy-infrastructure]
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRODUCTION }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync dist/ s3://${{ secrets.S3_BUCKET_PRODUCTION }} \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable" \
+            --exclude "index.html"
+          aws s3 cp dist/index.html s3://${{ secrets.S3_BUCKET_PRODUCTION }}/index.html \
+            --cache-control "no-cache, no-store, must-revalidate"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_PRODUCTION }} \
+            --paths "/*"
