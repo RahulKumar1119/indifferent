@@ -1,4 +1,4 @@
-export { ApiService, AuthService, ErrorService, ThemeService } from './services';
+export { ApiService, AuthService, ErrorService, ProjectService, ThemeService } from './services';
 export {
   AuthInterceptor,
   AUTH_INTERCEPTOR_PROVIDER,

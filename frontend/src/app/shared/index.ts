@@ -6,4 +6,5 @@ export type {
   PipelineProgress,
   CreateProjectRequest,
   AuthTokens,
+  UserProfile,
 } from './models';
