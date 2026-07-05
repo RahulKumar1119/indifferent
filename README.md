@@ -44,4 +44,4 @@ _Coming soon — project is under active development._
 
 ## License
 
-_TBD_
+This project is licensed under the [MIT License](LICENSE).
