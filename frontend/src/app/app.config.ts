@@ -5,6 +5,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideServiceWorker } from '@angular/service-worker';
 
 import { routes } from './app.routes';
+import { AUTH_INTERCEPTOR_PROVIDER, ERROR_INTERCEPTOR_PROVIDER } from './core';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -17,5 +18,7 @@ export const appConfig: ApplicationConfig = {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
     }),
+    AUTH_INTERCEPTOR_PROVIDER,
+    ERROR_INTERCEPTOR_PROVIDER,
   ],
 };
