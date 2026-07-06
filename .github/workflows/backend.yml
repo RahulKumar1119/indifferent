@@ -1,0 +1,162 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.24'
+  AWS_REGION: ap-south-1
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Download dependencies
+        working-directory: backend
+        run: go mod download
+
+      - name: Run tests
+        working-directory: backend
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: backend/coverage.out
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: backend
+
+  build:
+    name: Build Lambda Binaries
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    strategy:
+      matrix:
+        lambda: [api, parser, slidegen, narrator, renderer]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Build ${{ matrix.lambda }}
+        working-directory: backend
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          go build -ldflags="-s -w" -o bin/${{ matrix.lambda }}/bootstrap cmd/${{ matrix.lambda }}/main.go
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-${{ matrix.lambda }}
+          path: backend/bin/${{ matrix.lambda }}/bootstrap
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STAGING }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download all Lambda binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lambda-*
+          path: binaries/
+
+      - name: Deploy API Lambda
+        run: |
+          cd binaries/lambda-api
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-staging-api \
+            --zip-file fileb://function.zip
+
+      - name: Deploy Parser Lambda
+        run: |
+          cd binaries/lambda-parser
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-staging-parser \
+            --zip-file fileb://function.zip
+
+      - name: Deploy SlideGen Lambda
+        run: |
+          cd binaries/lambda-slidegen
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-staging-slidegen \
+            --zip-file fileb://function.zip
+
+      - name: Deploy Narrator Lambda
+        run: |
+          cd binaries/lambda-narrator
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-staging-narrator \
+            --zip-file fileb://function.zip
+
+      - name: Deploy Renderer Lambda
+        run: |
+          cd binaries/lambda-renderer
+          zip function.zip bootstrap
+          aws lambda update-function-code \
+            --function-name txt-to-video-staging-renderer \
+            --zip-file fileb://function.zip

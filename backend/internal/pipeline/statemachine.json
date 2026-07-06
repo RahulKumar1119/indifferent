@@ -1,0 +1,172 @@
+{
+  "Comment": "TXT-to-Video Pipeline: Parser → SlideGen → Narrator → Renderer",
+  "StartAt": "UpdateStatus_Parsing",
+  "States": {
+    "UpdateStatus_Parsing": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "status": "parsing"
+      },
+      "ResultPath": null,
+      "Next": "ParseTXT"
+    },
+    "ParseTXT": {
+      "Type": "Task",
+      "Resource": "${ParserLambdaArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "userId.$": "$.userId",
+        "s3Key.$": "$.s3Key"
+      },
+      "ResultPath": "$.parserOutput",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "States.Timeout"],
+          "IntervalSeconds": 3,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "UpdateStatus_GeneratingSlides"
+    },
+    "UpdateStatus_GeneratingSlides": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "status": "generating_slides"
+      },
+      "ResultPath": null,
+      "Next": "GenerateSlides"
+    },
+    "GenerateSlides": {
+      "Type": "Task",
+      "Resource": "${SlideGenLambdaArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "jsonKey.$": "$.parserOutput.s3Key",
+        "template.$": "$.template"
+      },
+      "ResultPath": "$.slideGenOutput",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "States.Timeout"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "UpdateStatus_Narrating"
+    },
+    "UpdateStatus_Narrating": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "status": "narrating"
+      },
+      "ResultPath": null,
+      "Next": "Narrate"
+    },
+    "Narrate": {
+      "Type": "Task",
+      "Resource": "${NarratorLambdaArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "jsonKey.$": "$.parserOutput.s3Key",
+        "voice.$": "$.voice"
+      },
+      "ResultPath": "$.narratorOutput",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "States.Timeout"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "UpdateStatus_Rendering"
+    },
+    "UpdateStatus_Rendering": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "status": "rendering"
+      },
+      "ResultPath": null,
+      "Next": "Render"
+    },
+    "Render": {
+      "Type": "Task",
+      "Resource": "${RendererLambdaArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "slideKeys.$": "$.slideGenOutput.slideKeys",
+        "audioKeys.$": "$.narratorOutput.audioKeys",
+        "jsonKey.$": "$.parserOutput.s3Key"
+      },
+      "ResultPath": "$.rendererOutput",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "States.Timeout"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "MarkCompleted"
+    },
+    "MarkCompleted": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "status": "completed",
+        "videoKey.$": "$.rendererOutput.videoKey",
+        "thumbnailKey.$": "$.rendererOutput.thumbnailKey"
+      },
+      "End": true
+    },
+    "MarkFailed": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "status": "failed",
+        "error.$": "$.error"
+      },
+      "End": true
+    }
+  }
+}

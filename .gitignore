@@ -1,0 +1,39 @@
+.kiro
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment files (contain secrets)
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+!**/.env.example
+frontend/src/environments/environment.ts
+frontend/src/environments/environment.production.ts
+
+# Deploy secrets
+deploy/*.env
+deploy/terraform.tfvars
+!deploy/.env.example
+
+# Terraform (legacy)
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform.lock.hcl
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

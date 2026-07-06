@@ -1,0 +1,328 @@
+@import "tailwindcss";
+
+/* Custom design tokens */
+:root {
+  --background: 0 0% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 6%;
+  --card-foreground: 0 0% 98%;
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 14.9%;
+  --muted-foreground: 0 0% 63.9%;
+  --accent: 262 83% 58%;
+  --accent-foreground: 0 0% 98%;
+  --border: 0 0% 14.9%;
+  --ring: 262 83% 58%;
+  --radius: 0.75rem;
+}
+
+.light {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 3.9%;
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 96.1%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96.1%;
+  --muted-foreground: 0 0% 45.1%;
+  --accent: 262 83% 58%;
+  --accent-foreground: 0 0% 98%;
+  --border: 0 0% 89.8%;
+  --ring: 262 83% 58%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Aurora gradient background */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse at 20% 50%, rgba(120, 60, 255, 0.15) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 20%, rgba(60, 120, 255, 0.1) 0%, transparent 50%),
+              radial-gradient(ellipse at 50% 80%, rgba(200, 60, 255, 0.08) 0%, transparent 50%);
+  animation: aurora-shift 15s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-shift {
+  0% { opacity: 0.6; transform: scale(1) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.05) rotate(1deg); }
+  100% { opacity: 0.8; transform: scale(1) rotate(-1deg); }
+}
+
+/* Glassmorphism card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius);
+}
+
+.dark .glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.light .glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Shimmer text effect */
+.shimmer-text {
+  background: linear-gradient(90deg, hsl(var(--foreground)) 0%, hsl(var(--primary)) 50%, hsl(var(--foreground)) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Glow button */
+.glow-btn {
+  position: relative;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  padding: 12px 32px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.glow-btn:hover {
+  box-shadow: 0 0 30px rgba(120, 60, 255, 0.4), 0 0 60px rgba(120, 60, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Moving border effect */
+.moving-border {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+
+.moving-border::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--angle, 0deg), transparent 70%, hsl(var(--primary)) 100%);
+  animation: rotate-border 4s linear infinite;
+  z-index: -1;
+}
+
+@keyframes rotate-border {
+  to { --angle: 360deg; }
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* Spotlight hover effect */
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.spotlight-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(120, 60, 255, 0.1) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.spotlight-card:hover::after {
+  opacity: 1;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: hsl(var(--background)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--muted)); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+
+/* ===== Angular Material Dark Theme Overrides ===== */
+
+/* Stepper */
+.mat-stepper-horizontal, .mat-stepper-vertical,
+.mat-horizontal-stepper-wrapper,
+.mat-horizontal-content-container {
+  background: transparent !important;
+}
+
+.mat-step-header .mat-step-label,
+.mat-step-header .mat-step-label.mat-step-label-active,
+.mat-step-header .mat-step-label.mat-step-label-selected {
+  color: hsl(var(--foreground)) !important;
+}
+
+.mat-step-header .mat-step-icon {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.mat-step-header .mat-step-icon-state-edit {
+  background-color: hsl(var(--primary)) !important;
+}
+
+.mat-horizontal-stepper-header-container {
+  background: transparent !important;
+}
+
+.mat-stepper-horizontal-line {
+  border-top-color: hsl(var(--border)) !important;
+}
+
+/* Cards */
+.mat-mdc-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Form Fields */
+.mat-mdc-form-field {
+  color: hsl(var(--foreground)) !important;
+}
+
+.mdc-text-field--filled {
+  background-color: hsl(var(--secondary)) !important;
+}
+
+.mat-mdc-input-element {
+  color: hsl(var(--foreground)) !important;
+}
+
+.mat-mdc-form-field-label,
+.mat-mdc-floating-label {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Select / Dropdown */
+.mat-mdc-select-value {
+  color: hsl(var(--foreground)) !important;
+}
+
+.mat-mdc-option {
+  color: hsl(var(--foreground)) !important;
+}
+
+.mat-mdc-select-panel {
+  background: hsl(var(--card)) !important;
+}
+
+/* Expansion Panel */
+.mat-expansion-panel {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.mat-expansion-panel-header-title {
+  color: hsl(var(--foreground)) !important;
+}
+
+.mat-expansion-panel-body {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Table */
+.mat-mdc-table {
+  background: transparent !important;
+}
+
+.mat-mdc-header-cell {
+  color: hsl(var(--muted-foreground)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+}
+
+.mat-mdc-cell {
+  color: hsl(var(--foreground)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+}
+
+.mat-mdc-row:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Progress Bar */
+.mat-mdc-progress-bar {
+  --mdc-linear-progress-active-indicator-color: hsl(var(--primary)) !important;
+  --mdc-linear-progress-track-color: hsl(var(--secondary)) !important;
+}
+
+/* Slide Toggle */
+.mat-mdc-slide-toggle {
+  --mdc-switch-selected-track-color: hsl(var(--primary)) !important;
+  --mdc-switch-selected-handle-color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Buttons */
+.mat-mdc-raised-button, .mat-mdc-flat-button {
+  --mdc-filled-button-container-color: hsl(var(--primary)) !important;
+  --mdc-filled-button-label-text-color: hsl(var(--primary-foreground)) !important;
+}
+
+/* List */
+.mat-mdc-list-item {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Divider */
+.mat-divider {
+  border-top-color: hsl(var(--border)) !important;
+}
+
+/* Checkbox */
+.mat-mdc-checkbox .mdc-form-field label {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Spinner */
+.mat-mdc-progress-spinner circle {
+  stroke: hsl(var(--primary)) !important;
+}
+
+/* Snackbar */
+.mat-mdc-snack-bar-container {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Dialog / Overlay backgrounds */
+.cdk-overlay-dark-backdrop {
+  background: rgba(0, 0, 0, 0.7) !important;
+}

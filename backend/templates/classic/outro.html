@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>Outro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .outro-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 48px;
+            text-align: center;
+        }
+
+        .channel-name {
+            font-size: 64px;
+            font-weight: 800;
+            color: #4ecca3;
+            letter-spacing: 2px;
+        }
+
+        .thanks-message {
+            font-size: 48px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        .cta {
+            display: flex;
+            gap: 40px;
+            margin-top: 20px;
+        }
+
+        .cta-button {
+            font-size: 28px;
+            font-weight: 600;
+            padding: 20px 48px;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .cta-subscribe {
+            background: #4ecca3;
+            color: #1a1a2e;
+        }
+
+        .cta-like {
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+        }
+
+        .divider {
+            width: 120px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="outro-container">
+        <div class="channel-name">{{.ChannelName}}</div>
+        <div class="divider"></div>
+        <div class="thanks-message">Thanks for watching!</div>
+        <div class="cta">
+            <div class="cta-button cta-subscribe">Subscribe</div>
+            <div class="cta-button cta-like">Like &amp; Share</div>
+        </div>
+    </div>
+</body>
+</html>
