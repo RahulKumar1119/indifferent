@@ -45,6 +45,11 @@ export const routes: Routes = [
       import('./pages/preview/preview.component').then((m) => m.PreviewComponent),
     canActivate: [authGuard],
   },
+  {
+    path: 'about',
+    loadComponent: () =>
+      import('./pages/about/about.component').then((m) => m.AboutComponent),
+  },
   { path: '', redirectTo: '/landing', pathMatch: 'full' },
   { path: '**', component: NotFoundComponent },
 ];
