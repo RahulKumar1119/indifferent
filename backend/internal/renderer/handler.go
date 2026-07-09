@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rahul/indifferent/backend/internal/models"
 )
@@ -140,6 +141,18 @@ func (h *Handler) HandleRequest(ctx context.Context, input models.RendererInput)
 	}, nil
 }
 
+// safeFileExt returns an allowlisted file extension for local temp files.
+// Unknown or unsafe extensions are dropped.
+func safeFileExt(key string) string {
+	ext := strings.ToLower(filepath.Ext(key))
+	switch ext {
+	case ".png", ".mp3", ".jpg", ".jpeg":
+		return ext
+	default:
+		return ""
+	}
+}
+
 // downloadAssets downloads files from S3 to a subdirectory within workDir.
 func (h *Handler) downloadAssets(ctx context.Context, workDir, subDir string, keys []string) ([]string, error) {
 	dir := filepath.Join(workDir, subDir)
@@ -154,7 +167,7 @@ func (h *Handler) downloadAssets(ctx context.Context, workDir, subDir string, ke
 			return nil, fmt.Errorf("failed to download %s (key=%s): %w", subDir, key, err)
 		}
 
-		filename := fmt.Sprintf("%s-%03d%s", subDir, i, filepath.Ext(key))
+		filename := fmt.Sprintf("%s-%03d%s", subDir, i, safeFileExt(key))
 		localPath := filepath.Join(dir, filename)
 		if err := os.WriteFile(localPath, data, 0o644); err != nil {
 			return nil, fmt.Errorf("failed to write %s to disk: %w", localPath, err)
