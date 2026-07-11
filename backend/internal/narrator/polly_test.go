@@ -115,7 +115,8 @@ func TestBuildAnswerNarrationText(t *testing.T) {
 			{Label: "C", Text: "London"},
 			{Label: "D", Text: "Madrid"},
 		},
-		CorrectIndex: 1,
+		CorrectIndex:   1,
+		CorrectIndices: []int{1},
 	}
 
 	result := BuildAnswerNarrationText(q)
@@ -133,7 +134,8 @@ func TestBuildAnswerNarrationText_NoCorrectAnswer(t *testing.T) {
 			{Label: "A", Text: "Language"},
 			{Label: "B", Text: "Game"},
 		},
-		CorrectIndex: -1,
+		CorrectIndex:   -1,
+		CorrectIndices: []int{},
 	}
 
 	result := BuildAnswerNarrationText(q)
@@ -301,4 +303,46 @@ func (c *capturingPollyClient) SynthesizeSpeech(ctx context.Context, params *pol
 	return &polly.SynthesizeSpeechOutput{
 		AudioStream: io.NopCloser(bytes.NewReader(c.audioOut)),
 	}, nil
+}
+
+func TestBuildAnswerNarrationText_MultipleCorrectAnswers(t *testing.T) {
+	q := models.Question{
+		Index: 0,
+		Text:  "Select TWO correct answers",
+		Options: []models.Option{
+			{Label: "A", Text: "Wrong"},
+			{Label: "B", Text: "Right one"},
+			{Label: "C", Text: "Wrong"},
+			{Label: "D", Text: "Right two"},
+		},
+		CorrectIndex:   1,
+		CorrectIndices: []int{1, 3},
+	}
+
+	result := BuildAnswerNarrationText(q)
+	expected := "The correct answers are Option B: Right one and Option D: Right two."
+	if result != expected {
+		t.Errorf("BuildAnswerNarrationText() =\n  %q\nwant:\n  %q", result, expected)
+	}
+}
+
+func TestBuildAnswerNarrationText_ThreeCorrectAnswers(t *testing.T) {
+	q := models.Question{
+		Index: 0,
+		Text:  "Select THREE correct answers",
+		Options: []models.Option{
+			{Label: "A", Text: "First"},
+			{Label: "B", Text: "Second"},
+			{Label: "C", Text: "Third"},
+			{Label: "D", Text: "Wrong"},
+		},
+		CorrectIndex:   0,
+		CorrectIndices: []int{0, 1, 2},
+	}
+
+	result := BuildAnswerNarrationText(q)
+	expected := "The correct answers are Option A: First, Option B: Second and Option C: Third."
+	if result != expected {
+		t.Errorf("BuildAnswerNarrationText() =\n  %q\nwant:\n  %q", result, expected)
+	}
 }

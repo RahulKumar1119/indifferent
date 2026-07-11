@@ -81,9 +81,40 @@ func BuildQuestionNarrationText(question models.Question) string {
 	return sb.String()
 }
 
-// BuildAnswerNarrationText constructs narration for announcing the correct answer.
+// BuildAnswerNarrationText constructs narration for announcing the correct answer(s).
 // Returns empty string if no correct answer is marked.
+// Supports multiple correct answers via CorrectIndices.
 func BuildAnswerNarrationText(question models.Question) string {
+	// Use CorrectIndices if available
+	if len(question.CorrectIndices) > 0 {
+		if len(question.CorrectIndices) == 1 {
+			idx := question.CorrectIndices[0]
+			if idx >= 0 && idx < len(question.Options) {
+				correctOpt := question.Options[idx]
+				return fmt.Sprintf("The correct answer is Option %s: %s.", correctOpt.Label, correctOpt.Text)
+			}
+			return ""
+		}
+
+		// Multiple correct answers
+		var sb strings.Builder
+		sb.WriteString("The correct answers are ")
+		for i, idx := range question.CorrectIndices {
+			if idx >= 0 && idx < len(question.Options) {
+				opt := question.Options[idx]
+				if i > 0 && i == len(question.CorrectIndices)-1 {
+					sb.WriteString(" and ")
+				} else if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(fmt.Sprintf("Option %s: %s", opt.Label, opt.Text))
+			}
+		}
+		sb.WriteString(".")
+		return sb.String()
+	}
+
+	// Fallback to legacy CorrectIndex for backward compat
 	if question.CorrectIndex < 0 || question.CorrectIndex >= len(question.Options) {
 		return ""
 	}

@@ -20,6 +20,7 @@ type QuestionSlideData struct {
 	QuestionText   string          `json:"questionText"`
 	Options        []models.Option `json:"options"`
 	CorrectIndex   int             `json:"correctIndex"`
+	CorrectIndices []int           `json:"correctIndices"`
 }
 
 // CountdownSlideData holds the template data for a countdown slide.

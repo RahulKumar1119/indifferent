@@ -151,13 +151,13 @@ func (r *NativeRenderer) drawAnswerRevealSlide(img *image.RGBA, data QuestionSli
 		y += 50
 	}
 
-	// Options with correct answer highlighted
+	// Options with correct answer(s) highlighted
 	y += 40
 	for i, opt := range data.Options {
 		prefix := fmt.Sprintf("%s)  ", opt.Label)
 		optColor := grayText
 		suffix := ""
-		if i == data.CorrectIndex {
+		if isCorrectIndex(i, data.CorrectIndices) {
 			optColor = green
 			suffix = "  ✓ Correct"
 		}
@@ -173,6 +173,16 @@ func (r *NativeRenderer) drawAnswerRevealSlide(img *image.RGBA, data QuestionSli
 		}
 		y += 15
 	}
+}
+
+// isCorrectIndex checks whether idx is in the correctIndices slice.
+func isCorrectIndex(idx int, correctIndices []int) bool {
+	for _, ci := range correctIndices {
+		if ci == idx {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *NativeRenderer) drawCountdownSlide(img *image.RGBA, data CountdownSlideData) {

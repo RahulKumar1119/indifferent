@@ -83,7 +83,13 @@ func ValidateQuestion(q models.Question) string {
 		}
 	}
 	// CorrectIndex of -1 means no answer was marked (acceptable)
-	// Only reject if it's a positive value that's out of range
+	// Only reject if any index is out of range
+	for _, idx := range q.CorrectIndices {
+		if idx >= len(q.Options) {
+			return "correct answer index out of range"
+		}
+	}
+	// Also check legacy CorrectIndex for backward compat
 	if q.CorrectIndex >= len(q.Options) {
 		return "correct answer index out of range"
 	}

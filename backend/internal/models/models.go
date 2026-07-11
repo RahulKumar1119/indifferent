@@ -26,10 +26,11 @@ type Warning struct {
 
 // Question represents a parsed multiple-choice question.
 type Question struct {
-	Index        int      `json:"index"`
-	Text         string   `json:"text"`
-	Options      []Option `json:"options"`
-	CorrectIndex int      `json:"correctIndex"`
+	Index          int      `json:"index"`
+	Text           string   `json:"text"`
+	Options        []Option `json:"options"`
+	CorrectIndex   int      `json:"correctIndex"`   // Kept for backward compat, first correct answer (-1 if none)
+	CorrectIndices []int    `json:"correctIndices"` // All correct answer indices
 }
 
 // Option represents an answer choice.

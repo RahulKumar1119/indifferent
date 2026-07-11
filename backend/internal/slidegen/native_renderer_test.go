@@ -54,7 +54,8 @@ func TestNativeRenderer_AnswerRevealSlide(t *testing.T) {
 			{Label: "C", Text: "Mars"},
 			{Label: "D", Text: "Earth"},
 		},
-		CorrectIndex: 1,
+		CorrectIndex:   1,
+		CorrectIndices: []int{1},
 	}
 
 	pngBytes, err := renderer.RenderTemplate("classic/answer-reveal.html", data)
@@ -145,5 +146,59 @@ func TestNativeRenderer_LongQuestionTextWraps(t *testing.T) {
 
 	if len(pngBytes) == 0 {
 		t.Fatal("expected non-empty PNG output")
+	}
+}
+
+func TestNativeRenderer_AnswerRevealSlide_MultipleCorrect(t *testing.T) {
+	renderer := NewNativeRenderer()
+
+	data := QuestionSlideData{
+		QuestionNumber: 1,
+		TotalQuestions: 3,
+		QuestionText:   "Select TWO correct answers.",
+		Options: []models.Option{
+			{Label: "A", Text: "Wrong"},
+			{Label: "B", Text: "Correct one"},
+			{Label: "C", Text: "Wrong"},
+			{Label: "D", Text: "Correct two"},
+		},
+		CorrectIndex:   1,
+		CorrectIndices: []int{1, 3},
+	}
+
+	pngBytes, err := renderer.RenderTemplate("classic/answer-reveal.html", data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	img, err := png.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		t.Fatalf("output is not a valid PNG: %v", err)
+	}
+
+	bounds := img.Bounds()
+	if bounds.Dx() != 1920 || bounds.Dy() != 1080 {
+		t.Errorf("expected 1920x1080, got %dx%d", bounds.Dx(), bounds.Dy())
+	}
+}
+
+func TestIsCorrectIndex(t *testing.T) {
+	tests := []struct {
+		idx     int
+		indices []int
+		want    bool
+	}{
+		{0, []int{0, 2}, true},
+		{1, []int{0, 2}, false},
+		{2, []int{0, 2}, true},
+		{0, []int{}, false},
+		{0, nil, false},
+	}
+
+	for _, tt := range tests {
+		got := isCorrectIndex(tt.idx, tt.indices)
+		if got != tt.want {
+			t.Errorf("isCorrectIndex(%d, %v) = %v, want %v", tt.idx, tt.indices, got, tt.want)
+		}
 	}
 }

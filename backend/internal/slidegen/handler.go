@@ -81,6 +81,7 @@ func (h *Handler) HandleRequest(ctx context.Context, input models.SlideGenInput)
 			QuestionText:   q.Text,
 			Options:        q.Options,
 			CorrectIndex:   q.CorrectIndex,
+			CorrectIndices: q.CorrectIndices,
 		}
 
 		questionKey := fmt.Sprintf("temp/%s/slides/q%d_question.png", input.ProjectID, q.Index)

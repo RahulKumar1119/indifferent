@@ -301,3 +301,31 @@ func TestSanitizeContent_LargeInput(t *testing.T) {
 		t.Error("SanitizeContent should not modify valid content without injection patterns")
 	}
 }
+
+func TestValidateQuestion_CorrectIndicesOutOfRange(t *testing.T) {
+	q := models.Question{
+		Index:          0,
+		Text:           "Test question",
+		Options:        []models.Option{{Label: "A", Text: "Opt1"}, {Label: "B", Text: "Opt2"}},
+		CorrectIndex:   0,
+		CorrectIndices: []int{0, 5}, // 5 is out of range
+	}
+	msg := ValidateQuestion(q)
+	if msg != "correct answer index out of range" {
+		t.Errorf("expected 'correct answer index out of range', got %q", msg)
+	}
+}
+
+func TestValidateQuestion_MultipleCorrectIndicesValid(t *testing.T) {
+	q := models.Question{
+		Index:          0,
+		Text:           "Select two",
+		Options:        []models.Option{{Label: "A", Text: "Opt1"}, {Label: "B", Text: "Opt2"}, {Label: "C", Text: "Opt3"}},
+		CorrectIndex:   0,
+		CorrectIndices: []int{0, 2},
+	}
+	msg := ValidateQuestion(q)
+	if msg != "" {
+		t.Errorf("expected no validation error, got %q", msg)
+	}
+}

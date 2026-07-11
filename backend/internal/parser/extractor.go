@@ -260,10 +260,11 @@ func (qb *questionBuilder) optionCount() int {
 
 func (qb *questionBuilder) build(index int) models.Question {
 	q := models.Question{
-		Index:        index,
-		Text:         strings.Join(qb.textLines, " "),
-		Options:      make([]models.Option, len(qb.options)),
-		CorrectIndex: -1, // default: no correct answer marked
+		Index:          index,
+		Text:           strings.Join(qb.textLines, " "),
+		Options:        make([]models.Option, len(qb.options)),
+		CorrectIndex:   -1, // default: no correct answer marked
+		CorrectIndices: []int{},
 	}
 
 	for i, opt := range qb.options {
@@ -272,7 +273,10 @@ func (qb *questionBuilder) build(index int) models.Question {
 			Text:  opt.text,
 		}
 		if opt.correct {
-			q.CorrectIndex = i
+			q.CorrectIndices = append(q.CorrectIndices, i)
+			if q.CorrectIndex == -1 {
+				q.CorrectIndex = i // First correct answer for backward compat
+			}
 		}
 	}
 

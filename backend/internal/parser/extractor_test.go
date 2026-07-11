@@ -404,3 +404,65 @@ B) Answer two`
 	var _ models.Question = questions[0]
 	var _ []models.Option = questions[0].Options
 }
+
+func TestExtractQuestions_MultipleCorrectAnswers(t *testing.T) {
+	content := `1. Select TWO correct answers.
+A) Wrong
+B) Correct one *
+C) Wrong
+D) Wrong
+E) Correct two *`
+
+	questions := ExtractQuestions(content, "numbered")
+	if len(questions) != 1 {
+		t.Fatalf("expected 1 question, got %d", len(questions))
+	}
+	if len(questions[0].CorrectIndices) != 2 {
+		t.Fatalf("expected 2 correct indices, got %d: %v", len(questions[0].CorrectIndices), questions[0].CorrectIndices)
+	}
+	if questions[0].CorrectIndices[0] != 1 || questions[0].CorrectIndices[1] != 4 {
+		t.Errorf("expected correct indices [1, 4], got %v", questions[0].CorrectIndices)
+	}
+	// CorrectIndex should be first correct (backward compat)
+	if questions[0].CorrectIndex != 1 {
+		t.Errorf("expected CorrectIndex 1, got %d", questions[0].CorrectIndex)
+	}
+}
+
+func TestExtractQuestions_SingleCorrectAnswer_PopulatesCorrectIndices(t *testing.T) {
+	content := `1. What is 2+2?
+A) 3
+B) 4 *
+C) 5`
+
+	questions := ExtractQuestions(content, "numbered")
+	if len(questions) != 1 {
+		t.Fatalf("expected 1 question, got %d", len(questions))
+	}
+	if len(questions[0].CorrectIndices) != 1 {
+		t.Fatalf("expected 1 correct index, got %d: %v", len(questions[0].CorrectIndices), questions[0].CorrectIndices)
+	}
+	if questions[0].CorrectIndices[0] != 1 {
+		t.Errorf("expected correct index [1], got %v", questions[0].CorrectIndices)
+	}
+	if questions[0].CorrectIndex != 1 {
+		t.Errorf("expected CorrectIndex 1, got %d", questions[0].CorrectIndex)
+	}
+}
+
+func TestExtractQuestions_NoCorrectAnswer_EmptyCorrectIndices(t *testing.T) {
+	content := `1. No correct answer marked
+A) Option one
+B) Option two`
+
+	questions := ExtractQuestions(content, "numbered")
+	if len(questions) != 1 {
+		t.Fatalf("expected 1 question, got %d", len(questions))
+	}
+	if len(questions[0].CorrectIndices) != 0 {
+		t.Errorf("expected empty CorrectIndices, got %v", questions[0].CorrectIndices)
+	}
+	if questions[0].CorrectIndex != -1 {
+		t.Errorf("expected CorrectIndex -1, got %d", questions[0].CorrectIndex)
+	}
+}

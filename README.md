@@ -1,202 +1,79 @@
-# TXT-to-Video SaaS
+# TXT2Video — indifferent.fun
 
-A SaaS platform that converts text-based quiz files (.txt) into narrated video content, ready for YouTube or other platforms.
+A SaaS platform that converts text-based quiz files (.txt) into narrated video content with answer reveals, ready for YouTube or any platform.
+
+**Live:** https://indifferent.fun
 
 ## Overview
 
-Upload a TXT file containing quiz questions, choose a template and voice, and the platform generates a fully rendered MP4 video with narration, countdown timers, and answer reveals.
+Upload a TXT file containing multiple-choice questions → choose a voice → get a professional MP4 video with narration, answer highlights, and smooth transitions — all automatically in under 2 minutes.
+
+## Step Functions Pipeline
+
+```
+┌─────────┐     ┌────────────────┐     ┌──────────┐     ┌────────┐
+│  Start  │────▶│   ParseTXT     │────▶│ Generate │────▶│Narrate │
+└─────────┘     │   (Lambda)     │     │  Slides  │     │(Polly) │
+                └────────────────┘     └──────────┘     └────────┘
+                                                              │
+                ┌────────────────┐     ┌──────────┐           │
+                │ MarkCompleted  │◀────│  Render  │◀──────────┘
+                │   (Lambda)     │     │ (FFmpeg) │
+                └────────────────┘     └──────────┘
+                        │
+                        ▼                    ┌──────────────┐
+                     [End]                   │  MarkFailed  │
+                                             │  (on error)  │
+                                             └──────────────┘
+```
+
+Each stage has retry policies (2 retries, exponential backoff). On failure at any stage, the pipeline catches the error and routes to `MarkFailed`.
+
+**Pipeline stages:**
+1. **ParseTXT** — Auto-detects format (numbered/bulleted/tabbed), extracts questions + correct answers
+2. **GenerateSlides** — Renders question slides + answer reveal slides as 1920×1080 PNGs
+3. **Narrate** — Generates question audio + answer audio using Amazon Polly (per question)
+4. **Render** — Composites slides + audio into MP4 using FFmpeg (ultrafast preset, 10GB Lambda)
+5. **MarkCompleted** — Updates DynamoDB with video/thumbnail S3 keys
+6. **MarkFailed** — Records error reason on any stage failure
 
 ## Architecture
 
+- **Frontend**: Angular 20, Tailwind CSS 4, GSAP, Lucide Icons
 - **Backend**: Go 1.24+ (Lambda functions on AWS)
-- **Frontend**: Angular 20 with Tailwind CSS 4, GSAP, Motion One, Lucide Icons
-- **Infrastructure**: AWS (API Gateway, Lambda, DynamoDB, S3, Step Functions, CloudFront)
-- **CI/CD**: GitHub Actions with Terraform
-
-## UI Design
-
-The frontend features a premium dark-mode-first design inspired by modern SaaS products:
-
-- **Dark mode by default** with light mode toggle
-- **Aurora gradient background** — animated radial gradients with subtle motion
-- **Glassmorphism** — frosted glass cards with `backdrop-blur` and semi-transparent borders
-- **GSAP animations** — hero text stagger reveals, timeline-based entrances
-- **Motion One** — micro-interactions on hover, focus, and page transitions
-- **Lucide Icons** — clean, consistent SVG icon set
-- **Shimmer text** — animated gradient text effect on headings
-- **Spotlight hover** — radial gradient follows cursor on interactive cards
-- **Moving borders** — animated conic gradient borders on selected elements
-- **Glow buttons** — hover state with box-shadow glow effect
-- **shadcn-style tokens** — CSS custom properties for colors, radii, spacing
-
-## Pipeline
-
-1. **Parser** — Auto-detects TXT format (numbered, bulleted, tabbed) and extracts structured question data
-2. **Slide Generator** — Renders HTML/CSS templates to PNG slides using Playwright
-3. **Narrator** — Generates MP3 audio per question using Amazon Polly (5 neural voice options)
-4. **Renderer** — Composes final MP4 video with FFmpeg (transitions, countdown, answer reveal, outro)
+- **Infrastructure**: AWS (API Gateway, Lambda, DynamoDB, S3, Step Functions, CloudFront, Polly)
+- **Region**: ap-south-1 (Mumbai)
+- **Domain**: indifferent.fun (frontend) / api.indifferent.fun (API)
 
 ## Features
 
 - Google OAuth authentication with JWT tokens
-- Project management (create, list, delete)
-- Real-time pipeline progress tracking with adaptive polling
-- Video preview and signed-URL download (24-hour expiration)
-- Dark/light theme with localStorage persistence
-- PWA support with service worker
-- Classic video template (more planned)
-- File validation (TXT only, max 5MB, content sanitization)
-- Premium glassmorphism UI with aurora gradients
-- GSAP-powered hero animations
-- Responsive mobile-first design
-
-## Tech Stack
-
-### Frontend
-| Technology | Purpose |
-|------------|---------|
-| Angular 20 | Framework (standalone components) |
-| Tailwind CSS 4 | Utility-first styling |
-| GSAP | Premium animations (hero reveals, timelines) |
-| Motion One | Micro-interactions (hover, entrance) |
-| Lucide Icons | SVG icon library |
-| Angular Material | Complex UI components (stepper, table, expansion) |
-
-### Backend
-| Technology | Purpose |
-|------------|---------|
-| Go 1.24 | Lambda function runtime |
-| AWS SDK v2 | Cloud service integration |
-| Playwright | HTML-to-PNG slide rendering |
-| Amazon Polly | Neural voice narration |
-| FFmpeg | Video composition |
-
-### Infrastructure
-| Technology | Purpose |
-|------------|---------|
-| Terraform | Infrastructure as code |
-| API Gateway | REST API with JWT authorizer |
-| Lambda | Serverless compute |
-| DynamoDB | NoSQL database (users, projects, sessions) |
-| S3 | Object storage (uploads, output, temp) |
-| Step Functions | Pipeline orchestration |
-| CloudFront | CDN for frontend |
-
-## Project Structure
-
-```
-├── backend/                 # Go Lambda functions and shared packages
-│   ├── cmd/                 # Lambda entry points
-│   │   ├── api/             # REST API handler
-│   │   ├── parser/          # TXT parsing Lambda
-│   │   ├── slidegen/        # Slide generation Lambda
-│   │   ├── narrator/        # Audio narration Lambda
-│   │   └── renderer/        # Video rendering Lambda (container)
-│   ├── internal/            # Shared internal packages
-│   │   ├── auth/            # Google OAuth + JWT
-│   │   ├── config/          # Configuration
-│   │   ├── models/          # Data models
-│   │   ├── narrator/        # Polly narration service
-│   │   ├── parser/          # Format detection + extraction
-│   │   ├── slidegen/        # Playwright slide renderer
-│   │   └── storage/         # S3 client wrapper
-│   └── templates/           # HTML/CSS slide templates
-│       └── classic/         # Classic quiz theme
-├── frontend/                # Angular 20 SPA
-│   └── src/
-│       ├── styles.css       # Global design system (aurora, glass, tokens)
-│       └── app/
-│           ├── auth/        # OAuth login + guards
-│           ├── core/        # Services + HTTP interceptors
-│           ├── pages/       # Page components
-│           │   ├── landing/         # GSAP-animated hero + features
-│           │   ├── dashboard/       # Glass stat cards + activity
-│           │   ├── projects/        # Glass table + status badges
-│           │   ├── create-project/  # Template/voice selectors
-│           │   ├── progress/        # Animated pipeline stepper
-│           │   ├── preview/         # Video player + download
-│           │   ├── account/         # User profile
-│           │   ├── settings/        # Theme toggle
-│           │   ├── help/            # FAQ accordion
-│           │   └── not-found/       # Shimmer 404
-│           └── shared/      # Models + utilities
-├── infrastructure/          # Terraform modules
-│   ├── modules/
-│   │   ├── api-gateway/     # REST API + CORS
-│   │   ├── lambda/          # Lambda functions
-│   │   ├── dynamodb/        # Database tables
-│   │   ├── s3/              # Storage bucket
-│   │   ├── step-functions/  # Pipeline orchestration
-│   │   └── iam/             # IAM roles + policies
-│   └── environments/
-│       ├── staging/
-│       └── production/
-└── .github/workflows/       # CI/CD pipelines
-    ├── backend.yml
-    ├── frontend.yml
-    ├── infrastructure.yml
-    └── release.yml
-```
-
-## Getting Started
-
-### Prerequisites
-
-- **Go** 1.24+
-- **Node.js** 22+
-- **npm** (comes with Node.js)
-- **Terraform** 1.9+ (for infrastructure)
-- **AWS CLI** configured with credentials (for deployment)
-
-### Frontend (Local Development)
-
-```bash
-cd frontend
-npm install
-npm start
-```
-
-The dev server starts at `http://localhost:4200` with hot reload. Dark mode is enabled by default.
-
-**Configuration:** Edit `src/environments/environment.ts`:
-```typescript
-export const environment = {
-  production: false,
-  apiUrl: 'http://localhost:3000',
-  googleClientId: '',
-  googleRedirectUri: 'http://localhost:4200/auth/callback',
-};
-```
-
-### Backend (Local Development)
-
-```bash
-cd backend
-go mod download
-go build ./...
-go test ./...
-```
-
-Individual Lambda handlers can be tested locally with [AWS SAM](https://aws.amazon.com/serverless/sam/).
-
-### Infrastructure
-
-```bash
-cd infrastructure/environments/staging
-terraform init
-terraform plan
-terraform apply
-```
+- Upload TXT quiz files with multiple-choice questions
+- Support for multiple correct answers (e.g., "Select TWO")
+- 5 AI voice options (Joanna, Matthew, Amy, Brian, Aditi) via Amazon Polly
+- White-background slides with purple accent and readable fonts
+- Answer reveal with green highlighting + narration ("The correct answer is...")
+- Real-time pipeline progress tracking
+- Video preview and download
+- Dark/light theme toggle
+- PWA support
 
 ## Supported TXT Formats
 
-### Numbered
+### Numbered (with correct answer marked by `*`)
 ```
 1. What is the capital of France?
 A) London
 B) Paris *
 C) Berlin
 D) Madrid
+
+2. Select TWO correct answers.
+A) Wrong
+B) Correct one *
+C) Wrong
+D) Wrong
+E) Correct two *
 ```
 
 ### Bulleted
@@ -205,80 +82,184 @@ What is the largest planet?
 - Jupiter *
 - Saturn
 - Earth
-- Mars
 ```
 
 ### Tabbed
 ```
-What is the speed of light?
-	A) 300,000 km/s *
-	B) 150,000 km/s
-	C) 1,000 km/s
+What is 2+2?
+	A) 3
+	B) 4 *
+	C) 5
 ```
 
-Mark the correct answer with `*` suffix or `(correct)` annotation.
+Mark correct answers with `*` suffix. Multiple `*` markers are supported for multi-select questions.
 
-## Available Voices
+## Tech Stack
 
-| Voice     | Description          |
-|-----------|---------------------|
-| Joanna    | US English, Female   |
-| Matthew   | US English, Male     |
-| Ruth      | US English, Female   |
-| Danielle  | US English, Female   |
-| Aditi     | Indian English, Female |
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Frontend | Angular 20 + Tailwind CSS 4 | SPA with glassmorphism UI |
+| Animations | GSAP + Motion One | Hero reveals, micro-interactions |
+| Icons | Lucide Icons | SVG icon library |
+| Backend | Go 1.24 | Lambda functions |
+| Auth | Google OAuth + JWT | Authentication |
+| Database | DynamoDB | Users, projects, sessions |
+| Storage | S3 | Uploads, slides, audio, videos |
+| Narration | Amazon Polly (Standard) | 5 English voices |
+| Video | FFmpeg (static binary) | MP4 composition |
+| Slides | Go native image rendering | 1920×1080 PNG generation |
+| Orchestration | Step Functions | Pipeline state machine |
+| CDN | CloudFront | Frontend hosting |
+| API | API Gateway (Regional) | REST API with custom domain |
+| DNS | Route 53 | indifferent.fun |
+| SSL | ACM | HTTPS certificates |
+
+## AWS Resources (ap-south-1)
+
+| Resource | Name |
+|----------|------|
+| DynamoDB Tables | `indifferent-fun-users`, `indifferent-fun-projects`, `indifferent-fun-sessions` |
+| S3 Buckets | `indifferent-fun-assets` (pipeline), `indifferent-fun-frontend` (static site) |
+| Lambda Functions | `indifferent-fun-api`, `-parser`, `-slidegen`, `-narrator`, `-renderer`, `-statusupdater` |
+| Step Functions | `indifferent-fun-pipeline` |
+| API Gateway | `indifferent-fun-api` → `api.indifferent.fun` |
+| CloudFront | `E8T1WZPS2A2JW` → `indifferent.fun` |
+| ECR | `indifferent-fun-renderer` (container image with FFmpeg) |
+
+## Project Structure
+
+```
+├── backend/                     # Go Lambda functions
+│   ├── cmd/
+│   │   ├── api/                 # REST API (all endpoints)
+│   │   ├── parser/              # TXT parsing
+│   │   ├── slidegen/            # PNG slide generation
+│   │   ├── narrator/            # Polly audio generation
+│   │   ├── renderer/            # FFmpeg video composition (container)
+│   │   └── statusupdater/       # DynamoDB status updates
+│   ├── internal/
+│   │   ├── api/                 # API handler + routing
+│   │   ├── auth/                # Google OAuth + JWT
+│   │   ├── models/              # Data structs
+│   │   ├── narrator/            # Polly service + handler
+│   │   ├── parser/              # Format detection + extraction
+│   │   ├── pipeline/            # Step Functions status
+│   │   ├── renderer/            # FFmpeg compositor + handler
+│   │   ├── slidegen/            # Native image renderer + handler
+│   │   └── storage/             # S3 client
+│   └── templates/classic/       # HTML slide templates (legacy)
+├── frontend/                    # Angular 20 SPA
+│   └── src/app/
+│       ├── auth/                # OAuth login + guards
+│       ├── core/                # Services + interceptors
+│       ├── pages/               # All page components
+│       └── shared/              # Models
+├── deploy/                      # AWS CLI deployment scripts
+│   ├── setup.sh                 # One-time infra setup
+│   ├── setup-apigateway.sh      # API Gateway config
+│   ├── setup-custom-domain.sh   # api.indifferent.fun
+│   └── setup-cloudfront.sh      # CloudFront + S3 hosting
+└── .github/workflows/           # CI/CD
+    ├── backend.yml
+    ├── frontend.yml
+    └── release.yml
+```
+
+## Getting Started
+
+### Prerequisites
+
+- Go 1.24+
+- Node.js 22+
+- Docker (for renderer container)
+- AWS CLI configured
+
+### Local Development
+
+```bash
+# Frontend
+cd frontend
+npm install
+npm start  # http://localhost:4200
+
+# Backend
+cd backend
+go mod download
+go build ./...
+go test ./...  # 128+ tests
+```
+
+### Deploy Scripts
+
+```bash
+# Set secrets
+export GOOGLE_CLIENT_ID='your-id.apps.googleusercontent.com'
+export GOOGLE_CLIENT_SECRET='your-secret'
+export JWT_SECRET=$(openssl rand -hex 32)
+
+# One-time infrastructure setup
+bash deploy/setup.sh
+
+# Redeploy a Lambda
+cd backend
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /tmp/bootstrap ./cmd/api
+cd /tmp && zip -j api.zip bootstrap
+aws lambda update-function-code --function-name indifferent-fun-api --zip-file fileb:///tmp/api.zip --region ap-south-1
+
+# Redeploy frontend
+cd frontend
+npx ng build --configuration=production
+aws s3 sync dist/frontend/browser/ s3://indifferent-fun-frontend/ --delete --cache-control "public, max-age=31536000, immutable" --exclude "index.html" --region ap-south-1
+aws s3 cp dist/frontend/browser/index.html s3://indifferent-fun-frontend/index.html --cache-control "no-cache, no-store, must-revalidate" --region ap-south-1
+aws cloudfront create-invalidation --distribution-id E8T1WZPS2A2JW --paths "/*"
+
+# Rebuild renderer container
+docker build -t indifferent-fun-renderer:latest -f cmd/renderer/Dockerfile .
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 438097524343.dkr.ecr.ap-south-1.amazonaws.com
+docker tag indifferent-fun-renderer:latest 438097524343.dkr.ecr.ap-south-1.amazonaws.com/indifferent-fun-renderer:latest
+docker push 438097524343.dkr.ecr.ap-south-1.amazonaws.com/indifferent-fun-renderer:latest
+aws lambda update-function-code --function-name indifferent-fun-renderer --image-uri 438097524343.dkr.ecr.ap-south-1.amazonaws.com/indifferent-fun-renderer:latest --region ap-south-1
+```
 
 ## API Endpoints
 
-| Method | Path                          | Description                    |
-|--------|-------------------------------|--------------------------------|
-| POST   | /auth/google/callback         | Exchange OAuth code for tokens |
-| POST   | /auth/refresh                 | Refresh access token           |
-| POST   | /auth/logout                  | Invalidate session             |
-| GET    | /projects                     | List user's projects           |
-| POST   | /projects                     | Create new project             |
-| GET    | /projects/:id                 | Get project details            |
-| DELETE | /projects/:id                 | Delete project                 |
-| POST   | /projects/:id/upload          | Get signed upload URL          |
-| GET    | /projects/:id/status          | Get pipeline progress          |
-| GET    | /projects/:id/download        | Get signed download URL        |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | /auth/google/callback | No | Exchange OAuth code for tokens |
+| POST | /auth/refresh | No | Refresh access token |
+| POST | /auth/logout | No | Invalidate session |
+| GET | /projects | Yes | List user's projects |
+| POST | /projects | Yes | Create new project |
+| GET | /projects/:id | Yes | Get project details |
+| DELETE | /projects/:id | Yes | Delete project |
+| POST | /projects/:id/upload | Yes | Get signed upload URL |
+| POST | /projects/:id/start | Yes | Start processing pipeline |
+| GET | /projects/:id/status | Yes | Get pipeline progress |
+| GET | /projects/:id/download | Yes | Get signed download URL |
 
-## Scripts
+## Video Output
 
-### Frontend
-```bash
-npm start       # Dev server (port 4200)
-npm run build   # Production build
-npm test        # Run unit tests
-```
-
-### Backend
-```bash
-go test ./...                    # Run all tests
-go build ./cmd/api/              # Build API Lambda
-go build ./cmd/parser/           # Build Parser Lambda
-go build ./cmd/slidegen/         # Build Slide Generator
-go build ./cmd/narrator/         # Build Narrator
-go build ./cmd/renderer/         # Build Renderer
-```
+- Resolution: 1920×1080
+- Codec: H.264 (libx264, ultrafast preset)
+- Audio: AAC 128kbps
+- FPS: 30
+- Structure per question: Question slide (with narration) → Answer slide (with answer narration)
+- Multiple correct answers highlighted in green with ✓
 
 ## Environment Variables (Lambda)
 
-| Variable               | Used By | Description                 |
-|------------------------|---------|------------------------------|
-| S3_BUCKET              | All     | S3 bucket name for storage   |
-| DYNAMODB_TABLE         | API     | DynamoDB table name          |
-| JWT_SECRET             | API     | JWT signing secret           |
-| GOOGLE_CLIENT_ID       | API     | Google OAuth client ID       |
-| GOOGLE_CLIENT_SECRET   | API     | Google OAuth client secret   |
-| TEMPLATE_DIR           | SlideGen| Path to HTML templates       |
-
-## Deployment
-
-Deployments are automated via GitHub Actions:
-- **Staging**: Triggers on push to `main`
-- **Production**: Triggers on release tag creation
+| Variable | Lambda | Description |
+|----------|--------|-------------|
+| S3_BUCKET | All | `indifferent-fun-assets` |
+| DYNAMODB_TABLE | API, StatusUpdater | `indifferent-fun-projects` |
+| USERS_TABLE | API | `indifferent-fun-users` |
+| SESSION_TABLE | API | `indifferent-fun-sessions` |
+| JWT_SECRET | API | JWT signing key |
+| GOOGLE_CLIENT_ID | API | OAuth client ID |
+| GOOGLE_CLIENT_SECRET | API | OAuth client secret |
+| GOOGLE_REDIRECT_URI | API | `https://indifferent.fun/auth/callback` |
+| STATE_MACHINE_ARN | API | Step Functions ARN |
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT License — see [LICENSE](LICENSE)
