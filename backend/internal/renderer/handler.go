@@ -143,16 +143,24 @@ func (h *Handler) HandleRequest(ctx context.Context, input models.RendererInput)
 	}, nil
 }
 
-// safeFileExt returns an allowlisted file extension for local temp files.
-// Unknown or unsafe extensions are dropped.
+// safeFileExt extracts a safe file extension from a key, stripping any path
+// traversal characters. Only alphanumeric characters and dots are kept.
 func safeFileExt(key string) string {
-	ext := strings.ToLower(filepath.Ext(key))
-	switch ext {
-	case ".png", ".mp3", ".jpg", ".jpeg":
-		return ext
-	default:
-		return ""
+	ext := filepath.Ext(filepath.Base(key))
+	// Only allow alphanumeric extensions with a leading dot
+	cleaned := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' {
+			return r
+		}
+		return -1
+	}, ext)
+	if cleaned == "" || cleaned == "." {
+		return ".bin"
 	}
+	if cleaned[0] != '.' {
+		cleaned = "." + cleaned
+	}
+	return cleaned
 }
 
 // downloadAssets downloads files from S3 to a subdirectory within workDir.
@@ -162,6 +170,12 @@ func (h *Handler) downloadAssets(ctx context.Context, workDir, subDir string, ke
 		return nil, fmt.Errorf("failed to create %s directory: %w", subDir, err)
 	}
 
+	// Resolve the absolute path of the safe directory for containment checks
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve directory path: %w", err)
+	}
+
 	var localFiles []string
 	for i, key := range keys {
 		data, err := h.Storage.GetObject(ctx, h.Bucket, key)
@@ -169,13 +183,21 @@ func (h *Handler) downloadAssets(ctx context.Context, workDir, subDir string, ke
 			return nil, fmt.Errorf("failed to download %s (key=%s): %w", subDir, key, err)
 		}
 
+		// Use sanitized extension and validate path stays within directory
 		filename := fmt.Sprintf("%s-%03d%s", subDir, i, safeFileExt(key))
 		localPath := filepath.Join(dir, filename)
-		if err := os.WriteFile(localPath, data, 0o644); err != nil {
-			return nil, fmt.Errorf("failed to write %s to disk: %w", localPath, err)
+
+		// Verify the resolved path is within the safe directory
+		absPath, err := filepath.Abs(localPath)
+		if err != nil || !strings.HasPrefix(absPath, absDir+string(os.PathSeparator)) && absPath != absDir {
+			return nil, fmt.Errorf("unsafe file path detected for key: %s", key)
 		}
 
-		localFiles = append(localFiles, localPath)
+		if err := os.WriteFile(absPath, data, 0o644); err != nil {
+			return nil, fmt.Errorf("failed to write %s to disk: %w", absPath, err)
+		}
+
+		localFiles = append(localFiles, absPath)
 	}
 
 	return localFiles, nil

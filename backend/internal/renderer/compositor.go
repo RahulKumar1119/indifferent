@@ -341,6 +341,16 @@ func DownloadAssets(ctx context.Context, storage StorageClient, bucket string, s
 		return nil, nil, fmt.Errorf("failed to create audio directory: %w", err)
 	}
 
+	// Resolve absolute paths for containment checks
+	absSlidesDir, err := filepath.Abs(slidesDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to resolve slides directory path: %w", err)
+	}
+	absAudioDir, err := filepath.Abs(audioDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to resolve audio directory path: %w", err)
+	}
+
 	// Download slides
 	var slideFiles []string
 	for _, key := range slideKeys {
@@ -349,11 +359,19 @@ func DownloadAssets(ctx context.Context, storage StorageClient, bucket string, s
 			return nil, nil, fmt.Errorf("failed to download slide (key=%s): %w", key, err)
 		}
 		filename := filepath.Base(key)
+		// Validate filename has no path traversal
+		if strings.Contains(filename, "..") || strings.ContainsAny(filename, `/\`) {
+			return nil, nil, fmt.Errorf("unsafe filename in key: %s", key)
+		}
 		localPath := filepath.Join(slidesDir, filename)
-		if err := os.WriteFile(localPath, data, 0o644); err != nil {
+		absPath, err := filepath.Abs(localPath)
+		if err != nil || !strings.HasPrefix(absPath, absSlidesDir+string(os.PathSeparator)) && absPath != absSlidesDir {
+			return nil, nil, fmt.Errorf("unsafe file path detected for slide key: %s", key)
+		}
+		if err := os.WriteFile(absPath, data, 0o644); err != nil {
 			return nil, nil, fmt.Errorf("failed to write slide: %w", err)
 		}
-		slideFiles = append(slideFiles, localPath)
+		slideFiles = append(slideFiles, absPath)
 	}
 
 	// Download audio
@@ -364,11 +382,19 @@ func DownloadAssets(ctx context.Context, storage StorageClient, bucket string, s
 			return nil, nil, fmt.Errorf("failed to download audio (key=%s): %w", key, err)
 		}
 		filename := filepath.Base(key)
+		// Validate filename has no path traversal
+		if strings.Contains(filename, "..") || strings.ContainsAny(filename, `/\`) {
+			return nil, nil, fmt.Errorf("unsafe filename in key: %s", key)
+		}
 		localPath := filepath.Join(audioDir, filename)
-		if err := os.WriteFile(localPath, data, 0o644); err != nil {
+		absPath, err := filepath.Abs(localPath)
+		if err != nil || !strings.HasPrefix(absPath, absAudioDir+string(os.PathSeparator)) && absPath != absAudioDir {
+			return nil, nil, fmt.Errorf("unsafe file path detected for audio key: %s", key)
+		}
+		if err := os.WriteFile(absPath, data, 0o644); err != nil {
 			return nil, nil, fmt.Errorf("failed to write audio: %w", err)
 		}
-		audioFiles = append(audioFiles, localPath)
+		audioFiles = append(audioFiles, absPath)
 	}
 
 	return slideFiles, audioFiles, nil
