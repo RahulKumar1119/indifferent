@@ -44,6 +44,8 @@ const retryDelay = 500 * time.Millisecond
 type NarrationService interface {
 	// Synthesize generates MP3 audio bytes for the given question using the specified voice.
 	Synthesize(ctx context.Context, question models.Question, voiceID string) ([]byte, error)
+	// SynthesizeText generates MP3 audio bytes for arbitrary text using the specified voice.
+	SynthesizeText(ctx context.Context, text string, voiceID string) ([]byte, error)
 }
 
 // PollyClient defines the subset of the Amazon Polly API used by the narration service.
@@ -62,9 +64,9 @@ func NewPollyNarrationService(client PollyClient) *PollyNarrationService {
 	return &PollyNarrationService{client: client}
 }
 
-// BuildNarrationText constructs the narration script from a question.
+// BuildQuestionNarrationText constructs narration for the question and options only.
 // Format: "<question text>. Option A: <text>. Option B: <text>. ..."
-func BuildNarrationText(question models.Question) string {
+func BuildQuestionNarrationText(question models.Question) string {
 	var sb strings.Builder
 	sb.WriteString(question.Text)
 	sb.WriteString(". ")
@@ -77,6 +79,27 @@ func BuildNarrationText(question models.Question) string {
 		}
 	}
 	return sb.String()
+}
+
+// BuildAnswerNarrationText constructs narration for announcing the correct answer.
+// Returns empty string if no correct answer is marked.
+func BuildAnswerNarrationText(question models.Question) string {
+	if question.CorrectIndex < 0 || question.CorrectIndex >= len(question.Options) {
+		return ""
+	}
+	correctOpt := question.Options[question.CorrectIndex]
+	return fmt.Sprintf("The correct answer is Option %s: %s.", correctOpt.Label, correctOpt.Text)
+}
+
+// BuildNarrationText constructs the full narration script from a question (kept for backward compatibility).
+// Format: "<question text>. Option A: <text>. Option B: <text>. ... The correct answer is Option X: <text>."
+func BuildNarrationText(question models.Question) string {
+	text := BuildQuestionNarrationText(question)
+	answerText := BuildAnswerNarrationText(question)
+	if answerText != "" {
+		text += " " + answerText
+	}
+	return text
 }
 
 // IsValidVoice checks whether the provided voice ID is in the supported voices list.
@@ -96,14 +119,29 @@ func (s *PollyNarrationService) Synthesize(ctx context.Context, question models.
 		return nil, fmt.Errorf("unsupported voice ID: %s", voiceID)
 	}
 
-	narrationText := BuildNarrationText(question)
+	narrationText := BuildQuestionNarrationText(question)
+	return s.synthesizeRaw(ctx, narrationText, voiceID)
+}
+
+// SynthesizeText generates MP3 audio bytes for arbitrary text using Amazon Polly.
+// It retries up to 2 additional times (3 total attempts) on Polly errors.
+func (s *PollyNarrationService) SynthesizeText(ctx context.Context, text string, voiceID string) ([]byte, error) {
+	if !IsValidVoice(voiceID) {
+		return nil, fmt.Errorf("unsupported voice ID: %s", voiceID)
+	}
+
+	return s.synthesizeRaw(ctx, text, voiceID)
+}
+
+// synthesizeRaw performs the actual Polly synthesis with retry logic.
+func (s *PollyNarrationService) synthesizeRaw(ctx context.Context, text string, voiceID string) ([]byte, error) {
 	voice := types.VoiceId(voiceID)
 
 	input := &polly.SynthesizeSpeechInput{
 		OutputFormat: types.OutputFormatMp3,
 		VoiceId:      voice,
 		Engine:       types.EngineStandard,
-		Text:         &narrationText,
+		Text:         &text,
 	}
 
 	var lastErr error

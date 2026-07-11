@@ -90,20 +90,7 @@ func (h *Handler) HandleRequest(ctx context.Context, input models.SlideGenInput)
 			slideKeys = append(slideKeys, questionKey)
 		}
 
-		// 2. Countdown slides (5, 4, 3, 2, 1)
-		if !questionFailed {
-			for sec := 5; sec >= 1; sec-- {
-				cData := CountdownSlideData{Seconds: sec}
-				countdownKey := fmt.Sprintf("temp/%s/slides/q%d_countdown_%d.png", input.ProjectID, q.Index, sec)
-				if err := h.renderAndUpload(ctx, input.Template, "countdown.html", cData, countdownKey); err != nil {
-					questionFailed = true
-					break
-				}
-				slideKeys = append(slideKeys, countdownKey)
-			}
-		}
-
-		// 3. Answer reveal slide
+		// 2. Answer reveal slide
 		if !questionFailed {
 			answerKey := fmt.Sprintf("temp/%s/slides/q%d_answer.png", input.ProjectID, q.Index)
 			if err := h.renderAndUpload(ctx, input.Template, "answer-reveal.html", qData, answerKey); err != nil {
@@ -116,16 +103,6 @@ func (h *Handler) HandleRequest(ctx context.Context, input models.SlideGenInput)
 		if questionFailed {
 			failed = append(failed, q.Index)
 		}
-	}
-
-	// Render outro slide
-	outroData := OutroSlideData{ChannelName: "Quiz Channel"}
-	outroKey := fmt.Sprintf("temp/%s/slides/outro.png", input.ProjectID)
-	if err := h.renderAndUpload(ctx, input.Template, "outro.html", outroData, outroKey); err != nil {
-		// Outro failure is non-fatal; we don't fail the whole job for it
-		_ = err
-	} else {
-		slideKeys = append(slideKeys, outroKey)
 	}
 
 	return models.SlideGenOutput{

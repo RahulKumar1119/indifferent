@@ -10,7 +10,9 @@ import (
 	"strings"
 
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font/gofont/gobold"
+	"golang.org/x/image/font/gofont/goregular"
+	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -20,23 +22,49 @@ const (
 )
 
 // NativeRenderer renders slides using Go's image package — no browser needed.
-// This is suitable for Lambda deployment where Playwright/Chromium is not available.
-type NativeRenderer struct{}
+type NativeRenderer struct {
+	regularFace font.Face
+	boldFace    font.Face
+	largeFace   font.Face
+}
 
-// NewNativeRenderer creates a NativeRenderer instance.
+// NewNativeRenderer creates a NativeRenderer instance with properly sized fonts.
 func NewNativeRenderer() *NativeRenderer {
-	return &NativeRenderer{}
+	r := &NativeRenderer{}
+
+	// Parse regular font
+	regularFont, _ := opentype.Parse(goregular.TTF)
+	r.regularFace, _ = opentype.NewFace(regularFont, &opentype.FaceOptions{
+		Size:    28,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+
+	// Parse bold font
+	boldFont, _ := opentype.Parse(gobold.TTF)
+	r.boldFace, _ = opentype.NewFace(boldFont, &opentype.FaceOptions{
+		Size:    36,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+
+	// Large font for countdown numbers
+	r.largeFace, _ = opentype.NewFace(boldFont, &opentype.FaceOptions{
+		Size:    200,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+
+	return r
 }
 
 // RenderTemplate renders a slide as a PNG using Go's native image library.
-// The templateName parameter is accepted for interface compatibility but the
-// rendering is done programmatically based on the data type.
 func (r *NativeRenderer) RenderTemplate(templateName string, data interface{}) ([]byte, error) {
 	img := image.NewRGBA(image.Rect(0, 0, slideWidth, slideHeight))
 
-	// Dark blue background
-	bgColor := color.RGBA{R: 26, G: 26, B: 46, A: 255}
-	draw.Draw(img, img.Bounds(), &image.Uniform{C: bgColor}, image.Point{}, draw.Src)
+	// White background
+	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	draw.Draw(img, img.Bounds(), &image.Uniform{C: white}, image.Point{}, draw.Src)
 
 	switch d := data.(type) {
 	case QuestionSlideData:
@@ -62,84 +90,122 @@ func (r *NativeRenderer) RenderTemplate(templateName string, data interface{}) (
 }
 
 func (r *NativeRenderer) drawQuestionSlide(img *image.RGBA, data QuestionSlideData) {
-	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	accent := color.RGBA{R: 78, G: 204, B: 163, A: 255}
+	darkText := color.RGBA{R: 30, G: 30, B: 30, A: 255}
+	accent := color.RGBA{R: 124, G: 58, B: 237, A: 255}  // Purple
+	grayText := color.RGBA{R: 80, G: 80, B: 80, A: 255}
 
-	// Header
+	// Draw purple accent bar at top
+	accentBar := image.Rect(0, 0, slideWidth, 8)
+	draw.Draw(img, accentBar, &image.Uniform{C: accent}, image.Point{}, draw.Src)
+
+	// Header - "Question X of Y"
 	header := fmt.Sprintf("Question %d of %d", data.QuestionNumber, data.TotalQuestions)
-	r.drawText(img, header, 80, 100, accent)
+	r.drawTextWithFace(img, header, 100, 80, accent, r.boldFace)
 
 	// Question text (wrapped)
-	lines := wrapText(data.QuestionText, 80)
-	y := 200
+	lines := wrapText(data.QuestionText, 60)
+	y := 160
 	for _, line := range lines {
-		r.drawText(img, line, 80, y, white)
-		y += 30
+		r.drawTextWithFace(img, line, 100, y, darkText, r.boldFace)
+		y += 50
 	}
 
 	// Options
 	y += 40
 	for _, opt := range data.Options {
-		optText := fmt.Sprintf("%s) %s", opt.Label, opt.Text)
-		r.drawText(img, optText, 120, y, white)
-		y += 50
+		prefix := fmt.Sprintf("%s)  ", opt.Label)
+		// Wrap option text at 75 chars (accounting for the label prefix)
+		optLines := wrapText(opt.Text, 75)
+		for i, line := range optLines {
+			if i == 0 {
+				r.drawTextWithFace(img, prefix+line, 140, y, grayText, r.regularFace)
+			} else {
+				// Indent continuation lines
+				r.drawTextWithFace(img, "     "+line, 140, y, grayText, r.regularFace)
+			}
+			y += 38
+		}
+		y += 15 // Extra spacing between options
 	}
 }
 
 func (r *NativeRenderer) drawAnswerRevealSlide(img *image.RGBA, data QuestionSlideData) {
-	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	accent := color.RGBA{R: 78, G: 204, B: 163, A: 255}
-	dimmed := color.RGBA{R: 150, G: 150, B: 150, A: 255}
+	darkText := color.RGBA{R: 30, G: 30, B: 30, A: 255}
+	accent := color.RGBA{R: 124, G: 58, B: 237, A: 255}
+	green := color.RGBA{R: 22, G: 163, B: 74, A: 255}      // Green for correct
+	grayText := color.RGBA{R: 140, G: 140, B: 140, A: 255}
+
+	// Purple accent bar
+	accentBar := image.Rect(0, 0, slideWidth, 8)
+	draw.Draw(img, accentBar, &image.Uniform{C: accent}, image.Point{}, draw.Src)
 
 	// Header
-	header := fmt.Sprintf("Question %d of %d - Answer", data.QuestionNumber, data.TotalQuestions)
-	r.drawText(img, header, 80, 100, accent)
+	header := fmt.Sprintf("Question %d of %d — Answer", data.QuestionNumber, data.TotalQuestions)
+	r.drawTextWithFace(img, header, 100, 80, accent, r.boldFace)
 
 	// Question text
-	lines := wrapText(data.QuestionText, 80)
-	y := 200
+	lines := wrapText(data.QuestionText, 60)
+	y := 160
 	for _, line := range lines {
-		r.drawText(img, line, 80, y, white)
-		y += 30
+		r.drawTextWithFace(img, line, 100, y, darkText, r.boldFace)
+		y += 50
 	}
 
 	// Options with correct answer highlighted
 	y += 40
 	for i, opt := range data.Options {
-		optText := fmt.Sprintf("%s) %s", opt.Label, opt.Text)
-		optColor := dimmed
+		prefix := fmt.Sprintf("%s)  ", opt.Label)
+		optColor := grayText
+		suffix := ""
 		if i == data.CorrectIndex {
-			optText = fmt.Sprintf("%s) %s  ✓", opt.Label, opt.Text)
-			optColor = accent
+			optColor = green
+			suffix = "  ✓ Correct"
 		}
-		r.drawText(img, optText, 120, y, optColor)
-		y += 50
+		// Wrap option text
+		optLines := wrapText(opt.Text+suffix, 75)
+		for j, line := range optLines {
+			if j == 0 {
+				r.drawTextWithFace(img, prefix+line, 140, y, optColor, r.regularFace)
+			} else {
+				r.drawTextWithFace(img, "     "+line, 140, y, optColor, r.regularFace)
+			}
+			y += 38
+		}
+		y += 15
 	}
 }
 
 func (r *NativeRenderer) drawCountdownSlide(img *image.RGBA, data CountdownSlideData) {
-	accent := color.RGBA{R: 78, G: 204, B: 163, A: 255}
-	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	accent := color.RGBA{R: 124, G: 58, B: 237, A: 255}
+	grayText := color.RGBA{R: 100, G: 100, B: 100, A: 255}
 
-	// Draw countdown number (centered, drawn multiple times for bold effect)
+	// Light gray background for countdown
+	lightBg := color.RGBA{R: 245, G: 245, B: 250, A: 255}
+	draw.Draw(img, img.Bounds(), &image.Uniform{C: lightBg}, image.Point{}, draw.Src)
+
+	// Draw large countdown number centered
 	numStr := fmt.Sprintf("%d", data.Seconds)
-	r.drawTextBold(img, numStr, 930, 540, accent)
+	r.drawTextWithFace(img, numStr, 880, 600, accent, r.largeFace)
 
 	// Label below
-	r.drawText(img, "seconds remaining", 860, 620, white)
+	r.drawTextWithFace(img, "seconds remaining", 800, 720, grayText, r.regularFace)
 }
 
 func (r *NativeRenderer) drawOutroSlide(img *image.RGBA, data OutroSlideData) {
-	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	accent := color.RGBA{R: 78, G: 204, B: 163, A: 255}
+	accent := color.RGBA{R: 124, G: 58, B: 237, A: 255}
+	darkText := color.RGBA{R: 30, G: 30, B: 30, A: 255}
+	grayText := color.RGBA{R: 100, G: 100, B: 100, A: 255}
 
-	r.drawTextBold(img, data.ChannelName, 750, 400, accent)
-	r.drawText(img, "Thanks for watching!", 780, 520, white)
-	r.drawText(img, "Subscribe & Like", 810, 620, white)
+	// Light purple background
+	lightBg := color.RGBA{R: 250, G: 245, B: 255, A: 255}
+	draw.Draw(img, img.Bounds(), &image.Uniform{C: lightBg}, image.Point{}, draw.Src)
+
+	r.drawTextWithFace(img, data.ChannelName, 700, 420, accent, r.largeFace)
+	r.drawTextWithFace(img, "Thanks for watching!", 720, 560, darkText, r.boldFace)
+	r.drawTextWithFace(img, "Subscribe & Like for more quiz videos", 640, 640, grayText, r.regularFace)
 }
 
-func (r *NativeRenderer) drawText(img *image.RGBA, text string, x, y int, col color.Color) {
-	face := basicfont.Face7x13
+func (r *NativeRenderer) drawTextWithFace(img *image.RGBA, text string, x, y int, col color.Color, face font.Face) {
 	point := fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y)}
 	d := &font.Drawer{
 		Dst:  img,
@@ -150,24 +216,7 @@ func (r *NativeRenderer) drawText(img *image.RGBA, text string, x, y int, col co
 	d.DrawString(text)
 }
 
-func (r *NativeRenderer) drawTextBold(img *image.RGBA, text string, x, y int, col color.Color) {
-	face := basicfont.Face7x13
-	// Draw multiple times with slight offsets for a bold effect
-	for dx := 0; dx < 3; dx++ {
-		for dy := 0; dy < 3; dy++ {
-			point := fixed.Point26_6{X: fixed.I(x + dx), Y: fixed.I(y + dy)}
-			d := &font.Drawer{
-				Dst:  img,
-				Src:  image.NewUniform(col),
-				Face: face,
-				Dot:  point,
-			}
-			d.DrawString(text)
-		}
-	}
-}
-
-// wrapText splits text into lines of at most maxWidth characters, breaking at word boundaries.
+// wrapText splits text into lines of at most maxWidth characters.
 func wrapText(text string, maxWidth int) []string {
 	words := strings.Fields(text)
 	var lines []string

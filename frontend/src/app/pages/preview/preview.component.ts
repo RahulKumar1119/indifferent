@@ -134,14 +134,23 @@ export class PreviewComponent implements OnInit {
       .get<{ downloadUrl: string }>(`/projects/${this.project.id}/download`)
       .subscribe({
         next: (res) => {
-          this.downloading = false;
-          const link = document.createElement('a');
-          link.href = res.downloadUrl;
-          link.download = `${this.project!.name}.mp4`;
-          link.target = '_blank';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          // Use fetch to download the file as a blob, then trigger download
+          fetch(res.downloadUrl)
+            .then(response => response.blob())
+            .then(blob => {
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `${this.project!.name || 'video'}.mp4`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+              this.downloading = false;
+            })
+            .catch(() => {
+              this.downloading = false;
+            });
         },
         error: () => {
           this.downloading = false;

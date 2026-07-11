@@ -43,7 +43,7 @@ func TestBuildNarrationText(t *testing.T) {
 	}
 
 	result := BuildNarrationText(q)
-	expected := "What is the capital of France. Option A: Berlin. Option B: Paris. Option C: London. Option D: Madrid."
+	expected := "What is the capital of France. Option A: Berlin. Option B: Paris. Option C: London. Option D: Madrid. The correct answer is Option B: Paris."
 	if result != expected {
 		t.Errorf("BuildNarrationText() =\n  %q\nwant:\n  %q", result, expected)
 	}
@@ -61,9 +61,84 @@ func TestBuildNarrationText_TwoOptions(t *testing.T) {
 	}
 
 	result := BuildNarrationText(q)
-	expected := "Is Go compiled. Option A: Yes. Option B: No."
+	expected := "Is Go compiled. Option A: Yes. Option B: No. The correct answer is Option A: Yes."
 	if result != expected {
 		t.Errorf("BuildNarrationText() =\n  %q\nwant:\n  %q", result, expected)
+	}
+}
+
+func TestBuildNarrationText_NoCorrectAnswer(t *testing.T) {
+	q := models.Question{
+		Index: 0,
+		Text:  "What is Go",
+		Options: []models.Option{
+			{Label: "A", Text: "Language"},
+			{Label: "B", Text: "Game"},
+		},
+		CorrectIndex: -1,
+	}
+
+	result := BuildNarrationText(q)
+	expected := "What is Go. Option A: Language. Option B: Game."
+	if result != expected {
+		t.Errorf("BuildNarrationText() =\n  %q\nwant:\n  %q", result, expected)
+	}
+}
+
+func TestBuildQuestionNarrationText(t *testing.T) {
+	q := models.Question{
+		Index: 0,
+		Text:  "What is the capital of France",
+		Options: []models.Option{
+			{Label: "A", Text: "Berlin"},
+			{Label: "B", Text: "Paris"},
+			{Label: "C", Text: "London"},
+			{Label: "D", Text: "Madrid"},
+		},
+		CorrectIndex: 1,
+	}
+
+	result := BuildQuestionNarrationText(q)
+	expected := "What is the capital of France. Option A: Berlin. Option B: Paris. Option C: London. Option D: Madrid."
+	if result != expected {
+		t.Errorf("BuildQuestionNarrationText() =\n  %q\nwant:\n  %q", result, expected)
+	}
+}
+
+func TestBuildAnswerNarrationText(t *testing.T) {
+	q := models.Question{
+		Index: 0,
+		Text:  "What is the capital of France",
+		Options: []models.Option{
+			{Label: "A", Text: "Berlin"},
+			{Label: "B", Text: "Paris"},
+			{Label: "C", Text: "London"},
+			{Label: "D", Text: "Madrid"},
+		},
+		CorrectIndex: 1,
+	}
+
+	result := BuildAnswerNarrationText(q)
+	expected := "The correct answer is Option B: Paris."
+	if result != expected {
+		t.Errorf("BuildAnswerNarrationText() =\n  %q\nwant:\n  %q", result, expected)
+	}
+}
+
+func TestBuildAnswerNarrationText_NoCorrectAnswer(t *testing.T) {
+	q := models.Question{
+		Index: 0,
+		Text:  "What is Go",
+		Options: []models.Option{
+			{Label: "A", Text: "Language"},
+			{Label: "B", Text: "Game"},
+		},
+		CorrectIndex: -1,
+	}
+
+	result := BuildAnswerNarrationText(q)
+	if result != "" {
+		t.Errorf("BuildAnswerNarrationText() = %q, want empty string", result)
 	}
 }
 

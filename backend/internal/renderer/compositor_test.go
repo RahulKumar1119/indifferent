@@ -29,8 +29,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.CountdownDuration != 5 {
 		t.Errorf("expected CountdownDuration 5, got %d", cfg.CountdownDuration)
 	}
-	if cfg.AnswerRevealDur != 3.0 {
-		t.Errorf("expected AnswerRevealDur 3.0, got %f", cfg.AnswerRevealDur)
+	if cfg.AnswerRevealDur != 5.0 {
+		t.Errorf("expected AnswerRevealDur 5.0, got %f", cfg.AnswerRevealDur)
 	}
 	if cfg.OutroDuration != 5.0 {
 		t.Errorf("expected OutroDuration 5.0, got %f", cfg.OutroDuration)
@@ -168,15 +168,9 @@ func TestWriteConcatList(t *testing.T) {
 func TestBuildSegments_SingleQuestion(t *testing.T) {
 	slideFiles := []string{
 		"/tmp/slides/q0_question.png",
-		"/tmp/slides/q0_countdown_1.png",
-		"/tmp/slides/q0_countdown_2.png",
-		"/tmp/slides/q0_countdown_3.png",
-		"/tmp/slides/q0_countdown_4.png",
-		"/tmp/slides/q0_countdown_5.png",
 		"/tmp/slides/q0_answer.png",
-		"/tmp/slides/outro.png",
 	}
-	audioFiles := []string{"/tmp/audio/q0.mp3"}
+	audioFiles := []string{"/tmp/audio/q0.mp3", "/tmp/audio/q0_answer.mp3"}
 
 	segments, outroSlide, err := BuildSegments(slideFiles, audioFiles, 1)
 	if err != nil {
@@ -191,8 +185,8 @@ func TestBuildSegments_SingleQuestion(t *testing.T) {
 	if seg.QuestionSlide != "/tmp/slides/q0_question.png" {
 		t.Errorf("question slide: got %s", seg.QuestionSlide)
 	}
-	if len(seg.CountdownSlides) != 5 {
-		t.Errorf("expected 5 countdown slides, got %d", len(seg.CountdownSlides))
+	if seg.CountdownSlides != nil {
+		t.Errorf("expected nil countdown slides, got %v", seg.CountdownSlides)
 	}
 	if seg.AnswerSlide != "/tmp/slides/q0_answer.png" {
 		t.Errorf("answer slide: got %s", seg.AnswerSlide)
@@ -200,30 +194,25 @@ func TestBuildSegments_SingleQuestion(t *testing.T) {
 	if seg.AudioFile != "/tmp/audio/q0.mp3" {
 		t.Errorf("audio file: got %s", seg.AudioFile)
 	}
-	if outroSlide != "/tmp/slides/outro.png" {
-		t.Errorf("outro: got %s", outroSlide)
+	if seg.AnswerAudio != "/tmp/audio/q0_answer.mp3" {
+		t.Errorf("answer audio: got %s", seg.AnswerAudio)
+	}
+	if outroSlide != "" {
+		t.Errorf("expected empty outro slide, got %s", outroSlide)
 	}
 }
 
 func TestBuildSegments_MultipleQuestions(t *testing.T) {
 	slideFiles := []string{
 		"/tmp/slides/q0_question.png",
-		"/tmp/slides/q0_countdown_1.png",
-		"/tmp/slides/q0_countdown_2.png",
-		"/tmp/slides/q0_countdown_3.png",
-		"/tmp/slides/q0_countdown_4.png",
-		"/tmp/slides/q0_countdown_5.png",
 		"/tmp/slides/q0_answer.png",
 		"/tmp/slides/q1_question.png",
-		"/tmp/slides/q1_countdown_1.png",
-		"/tmp/slides/q1_countdown_2.png",
-		"/tmp/slides/q1_countdown_3.png",
-		"/tmp/slides/q1_countdown_4.png",
-		"/tmp/slides/q1_countdown_5.png",
 		"/tmp/slides/q1_answer.png",
-		"/tmp/slides/outro.png",
 	}
-	audioFiles := []string{"/tmp/audio/q0.mp3", "/tmp/audio/q1.mp3"}
+	audioFiles := []string{
+		"/tmp/audio/q0.mp3", "/tmp/audio/q0_answer.mp3",
+		"/tmp/audio/q1.mp3", "/tmp/audio/q1_answer.mp3",
+	}
 
 	segments, outroSlide, err := BuildSegments(slideFiles, audioFiles, 2)
 	if err != nil {
@@ -241,14 +230,17 @@ func TestBuildSegments_MultipleQuestions(t *testing.T) {
 	if seg.AudioFile != "/tmp/audio/q1.mp3" {
 		t.Errorf("q1 audio: got %s", seg.AudioFile)
 	}
-	if outroSlide != "/tmp/slides/outro.png" {
-		t.Errorf("outro: got %s", outroSlide)
+	if seg.AnswerAudio != "/tmp/audio/q1_answer.mp3" {
+		t.Errorf("q1 answer audio: got %s", seg.AnswerAudio)
+	}
+	if outroSlide != "" {
+		t.Errorf("expected empty outro slide, got %s", outroSlide)
 	}
 }
 
 func TestBuildSegments_MissingSlides(t *testing.T) {
 	slideFiles := []string{"/tmp/slides/q0_question.png"}
-	audioFiles := []string{"/tmp/audio/q0.mp3"}
+	audioFiles := []string{"/tmp/audio/q0.mp3", "/tmp/audio/q0_answer.mp3"}
 
 	_, _, err := BuildSegments(slideFiles, audioFiles, 1)
 	if err == nil {
@@ -259,15 +251,9 @@ func TestBuildSegments_MissingSlides(t *testing.T) {
 func TestBuildSegments_MissingAudio(t *testing.T) {
 	slideFiles := []string{
 		"/tmp/slides/q0_question.png",
-		"/tmp/slides/q0_countdown_1.png",
-		"/tmp/slides/q0_countdown_2.png",
-		"/tmp/slides/q0_countdown_3.png",
-		"/tmp/slides/q0_countdown_4.png",
-		"/tmp/slides/q0_countdown_5.png",
 		"/tmp/slides/q0_answer.png",
-		"/tmp/slides/outro.png",
 	}
-	audioFiles := []string{}
+	audioFiles := []string{} // Need 2 audio files for 1 question
 
 	_, _, err := BuildSegments(slideFiles, audioFiles, 1)
 	if err == nil {
@@ -372,17 +358,15 @@ func TestComposeVideo_CallsFFmpeg(t *testing.T) {
 
 	segments := []SegmentInfo{
 		{
-			QuestionSlide: "/tmp/q0_question.png",
-			CountdownSlides: []string{
-				"/tmp/c1.png", "/tmp/c2.png", "/tmp/c3.png",
-				"/tmp/c4.png", "/tmp/c5.png",
-			},
-			AnswerSlide: "/tmp/q0_answer.png",
-			AudioFile:   "/tmp/q0.mp3",
+			QuestionSlide:   "/tmp/q0_question.png",
+			CountdownSlides: nil,
+			AnswerSlide:     "/tmp/q0_answer.png",
+			AudioFile:       "/tmp/q0.mp3",
+			AnswerAudio:     "/tmp/q0_answer.mp3",
 		},
 	}
 
-	outputPath, err := c.ComposeVideo(context.Background(), segments, "/tmp/outro.png")
+	outputPath, err := c.ComposeVideo(context.Background(), segments, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -391,9 +375,9 @@ func TestComposeVideo_CallsFFmpeg(t *testing.T) {
 		t.Errorf("expected output.mp4, got %s", outputPath)
 	}
 
-	// question + countdown + answer + concat-parts + outro + final-concat
-	if cmdCount < 5 {
-		t.Errorf("expected at least 5 FFmpeg calls, got %d", cmdCount)
+	// question + answer-with-audio + concat-parts + final-concat (no outro)
+	if cmdCount < 3 {
+		t.Errorf("expected at least 3 FFmpeg calls, got %d", cmdCount)
 	}
 }
 
@@ -408,17 +392,15 @@ func TestComposeVideo_FFmpegFailure(t *testing.T) {
 
 	segments := []SegmentInfo{
 		{
-			QuestionSlide: "/tmp/q0_question.png",
-			CountdownSlides: []string{
-				"/tmp/c1.png", "/tmp/c2.png", "/tmp/c3.png",
-				"/tmp/c4.png", "/tmp/c5.png",
-			},
-			AnswerSlide: "/tmp/q0_answer.png",
-			AudioFile:   "/tmp/q0.mp3",
+			QuestionSlide:   "/tmp/q0_question.png",
+			CountdownSlides: nil,
+			AnswerSlide:     "/tmp/q0_answer.png",
+			AudioFile:       "/tmp/q0.mp3",
+			AnswerAudio:     "/tmp/q0_answer.mp3",
 		},
 	}
 
-	_, err := c.ComposeVideo(context.Background(), segments, "/tmp/outro.png")
+	_, err := c.ComposeVideo(context.Background(), segments, "")
 	if err == nil {
 		t.Fatal("expected error when FFmpeg fails")
 	}

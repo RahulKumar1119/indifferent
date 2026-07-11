@@ -24,8 +24,8 @@ export class ThemeService {
     if (stored === 'dark' || stored === 'light') {
       return stored;
     }
-    // Default to dark if no preference stored
-    return 'dark';
+    // Default to light if no preference stored
+    return 'light';
   }
 
   private applyTheme(theme: Theme): void {

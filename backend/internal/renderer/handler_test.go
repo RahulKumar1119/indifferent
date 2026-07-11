@@ -95,6 +95,8 @@ func TestHandleRequest_SuccessfulRender(t *testing.T) {
 	store.objects["temp/proj1/slides/slide-002.png"] = []byte("slide2-png-data")
 	store.objects["temp/proj1/audio/audio-001.mp3"] = []byte("audio1-mp3-data")
 	store.objects["temp/proj1/audio/audio-002.mp3"] = []byte("audio2-mp3-data")
+	store.objects["temp/proj1/audio/audio-003.mp3"] = []byte("audio3-mp3-data")
+	store.objects["temp/proj1/audio/audio-004.mp3"] = []byte("audio4-mp3-data")
 
 	compositor := &mockHandlerCompositor{}
 	thumbnail := &mockHandlerThumbnail{}
@@ -104,8 +106,11 @@ func TestHandleRequest_SuccessfulRender(t *testing.T) {
 	input := models.RendererInput{
 		ProjectID: "proj1",
 		SlideKeys: []string{"temp/proj1/slides/slide-001.png", "temp/proj1/slides/slide-002.png"},
-		AudioKeys: []string{"temp/proj1/audio/audio-001.mp3", "temp/proj1/audio/audio-002.mp3"},
-		JSONKey:   "parsed/proj1/questions.json",
+		AudioKeys: []string{
+			"temp/proj1/audio/audio-001.mp3", "temp/proj1/audio/audio-002.mp3",
+			"temp/proj1/audio/audio-003.mp3", "temp/proj1/audio/audio-004.mp3",
+		},
+		JSONKey: "parsed/proj1/questions.json",
 	}
 
 	output, err := handler.HandleRequest(context.Background(), input)
@@ -149,8 +154,8 @@ func TestHandleRequest_SuccessfulRender(t *testing.T) {
 		t.Errorf("expected second put key '%s', got '%s'", expectedThumbnailKey, store.putKeys[1])
 	}
 
-	// Verify temp S3 objects were cleaned up
-	expectedDeleted := 4 // 2 slides + 2 audio
+	// Verify temp S3 objects were cleaned up (2 slides + 4 audio)
+	expectedDeleted := 6
 	if len(store.deletedKeys) != expectedDeleted {
 		t.Errorf("expected %d deleted keys, got %d: %v", expectedDeleted, len(store.deletedKeys), store.deletedKeys)
 	}
@@ -258,8 +263,11 @@ func TestHandleRequest_CleanupCalledOnSuccess(t *testing.T) {
 	store.objects["temp/proj5/slides/s2.png"] = []byte("s2")
 	store.objects["temp/proj5/slides/s3.png"] = []byte("s3")
 	store.objects["temp/proj5/audio/a1.mp3"] = []byte("a1")
+	store.objects["temp/proj5/audio/a1_answer.mp3"] = []byte("a1a")
 	store.objects["temp/proj5/audio/a2.mp3"] = []byte("a2")
+	store.objects["temp/proj5/audio/a2_answer.mp3"] = []byte("a2a")
 	store.objects["temp/proj5/audio/a3.mp3"] = []byte("a3")
+	store.objects["temp/proj5/audio/a3_answer.mp3"] = []byte("a3a")
 
 	compositor := &mockHandlerCompositor{}
 	thumbnail := &mockHandlerThumbnail{}
@@ -269,8 +277,12 @@ func TestHandleRequest_CleanupCalledOnSuccess(t *testing.T) {
 	input := models.RendererInput{
 		ProjectID: "proj5",
 		SlideKeys: []string{"temp/proj5/slides/s1.png", "temp/proj5/slides/s2.png", "temp/proj5/slides/s3.png"},
-		AudioKeys: []string{"temp/proj5/audio/a1.mp3", "temp/proj5/audio/a2.mp3", "temp/proj5/audio/a3.mp3"},
-		JSONKey:   "parsed/proj5/questions.json",
+		AudioKeys: []string{
+			"temp/proj5/audio/a1.mp3", "temp/proj5/audio/a1_answer.mp3",
+			"temp/proj5/audio/a2.mp3", "temp/proj5/audio/a2_answer.mp3",
+			"temp/proj5/audio/a3.mp3", "temp/proj5/audio/a3_answer.mp3",
+		},
+		JSONKey: "parsed/proj5/questions.json",
 	}
 
 	output, err := handler.HandleRequest(context.Background(), input)
@@ -282,19 +294,22 @@ func TestHandleRequest_CleanupCalledOnSuccess(t *testing.T) {
 		t.Errorf("expected project ID 'proj5', got '%s'", output.ProjectID)
 	}
 
-	// Verify all 6 temp objects (3 slides + 3 audio) were deleted
-	if len(store.deletedKeys) != 6 {
-		t.Errorf("expected 6 deleted keys for cleanup, got %d: %v", len(store.deletedKeys), store.deletedKeys)
+	// Verify all 9 temp objects (3 slides + 6 audio) were deleted
+	if len(store.deletedKeys) != 9 {
+		t.Errorf("expected 9 deleted keys for cleanup, got %d: %v", len(store.deletedKeys), store.deletedKeys)
 	}
 
 	// Verify the correct keys were deleted
 	expectedDeleted := map[string]bool{
-		"temp/proj5/slides/s1.png": true,
-		"temp/proj5/slides/s2.png": true,
-		"temp/proj5/slides/s3.png": true,
-		"temp/proj5/audio/a1.mp3":  true,
-		"temp/proj5/audio/a2.mp3":  true,
-		"temp/proj5/audio/a3.mp3":  true,
+		"temp/proj5/slides/s1.png":         true,
+		"temp/proj5/slides/s2.png":         true,
+		"temp/proj5/slides/s3.png":         true,
+		"temp/proj5/audio/a1.mp3":          true,
+		"temp/proj5/audio/a1_answer.mp3":   true,
+		"temp/proj5/audio/a2.mp3":          true,
+		"temp/proj5/audio/a2_answer.mp3":   true,
+		"temp/proj5/audio/a3.mp3":          true,
+		"temp/proj5/audio/a3_answer.mp3":   true,
 	}
 	for _, key := range store.deletedKeys {
 		if !expectedDeleted[key] {

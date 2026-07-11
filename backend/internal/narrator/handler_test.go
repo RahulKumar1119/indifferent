@@ -45,8 +45,10 @@ func (m *mockStorage) PutObject(ctx context.Context, bucket, key string, data []
 
 // mockNarrationService implements NarrationService for testing.
 type mockNarrationService struct {
-	synthesizeFunc func(ctx context.Context, question models.Question, voiceID string) ([]byte, error)
-	callCount      int
+	synthesizeFunc     func(ctx context.Context, question models.Question, voiceID string) ([]byte, error)
+	synthesizeTextFunc func(ctx context.Context, text string, voiceID string) ([]byte, error)
+	callCount          int
+	textCallCount      int
 }
 
 func (m *mockNarrationService) Synthesize(ctx context.Context, question models.Question, voiceID string) ([]byte, error) {
@@ -55,6 +57,14 @@ func (m *mockNarrationService) Synthesize(ctx context.Context, question models.Q
 		return m.synthesizeFunc(ctx, question, voiceID)
 	}
 	return []byte("fake-mp3-audio-data"), nil
+}
+
+func (m *mockNarrationService) SynthesizeText(ctx context.Context, text string, voiceID string) ([]byte, error) {
+	m.textCallCount++
+	if m.synthesizeTextFunc != nil {
+		return m.synthesizeTextFunc(ctx, text, voiceID)
+	}
+	return []byte("fake-answer-audio-data"), nil
 }
 
 func TestHandleRequest_SingleQuestion(t *testing.T) {
@@ -90,13 +100,19 @@ func TestHandleRequest_SingleQuestion(t *testing.T) {
 		t.Errorf("expected ProjectID 'proj1', got '%s'", output.ProjectID)
 	}
 
-	if len(output.AudioKeys) != 1 {
-		t.Fatalf("expected 1 audio key, got %d", len(output.AudioKeys))
+	// Now produces 2 audio keys per question: question + answer
+	if len(output.AudioKeys) != 2 {
+		t.Fatalf("expected 2 audio keys, got %d: %v", len(output.AudioKeys), output.AudioKeys)
 	}
 
-	expectedKey := "temp/proj1/audio/q0.mp3"
-	if output.AudioKeys[0] != expectedKey {
-		t.Errorf("expected audio key '%s', got '%s'", expectedKey, output.AudioKeys[0])
+	expectedQuestionKey := "temp/proj1/audio/q0.mp3"
+	if output.AudioKeys[0] != expectedQuestionKey {
+		t.Errorf("expected question audio key '%s', got '%s'", expectedQuestionKey, output.AudioKeys[0])
+	}
+
+	expectedAnswerKey := "temp/proj1/audio/q0_answer.mp3"
+	if output.AudioKeys[1] != expectedAnswerKey {
+		t.Errorf("expected answer audio key '%s', got '%s'", expectedAnswerKey, output.AudioKeys[1])
 	}
 
 	if len(output.Failed) != 0 {
@@ -105,6 +121,9 @@ func TestHandleRequest_SingleQuestion(t *testing.T) {
 
 	if narration.callCount != 1 {
 		t.Errorf("expected 1 synthesize call, got %d", narration.callCount)
+	}
+	if narration.textCallCount != 1 {
+		t.Errorf("expected 1 synthesizeText call, got %d", narration.textCallCount)
 	}
 }
 
@@ -134,14 +153,18 @@ func TestHandleRequest_MultipleQuestions(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(output.AudioKeys) != 3 {
-		t.Fatalf("expected 3 audio keys, got %d: %v", len(output.AudioKeys), output.AudioKeys)
+	// 3 questions × 2 audio files = 6 audio keys (interleaved)
+	if len(output.AudioKeys) != 6 {
+		t.Fatalf("expected 6 audio keys, got %d: %v", len(output.AudioKeys), output.AudioKeys)
 	}
 
 	expectedKeys := []string{
 		"temp/proj2/audio/q0.mp3",
+		"temp/proj2/audio/q0_answer.mp3",
 		"temp/proj2/audio/q1.mp3",
+		"temp/proj2/audio/q1_answer.mp3",
 		"temp/proj2/audio/q2.mp3",
+		"temp/proj2/audio/q2_answer.mp3",
 	}
 	for i, expected := range expectedKeys {
 		if output.AudioKeys[i] != expected {
@@ -155,6 +178,9 @@ func TestHandleRequest_MultipleQuestions(t *testing.T) {
 
 	if narration.callCount != 3 {
 		t.Errorf("expected 3 synthesize calls, got %d", narration.callCount)
+	}
+	if narration.textCallCount != 3 {
+		t.Errorf("expected 3 synthesizeText calls, got %d", narration.textCallCount)
 	}
 }
 
@@ -193,9 +219,9 @@ func TestHandleRequest_SynthesisFailure(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Questions 0 and 2 should succeed
-	if len(output.AudioKeys) != 2 {
-		t.Errorf("expected 2 audio keys, got %d: %v", len(output.AudioKeys), output.AudioKeys)
+	// Questions 0 and 2 succeed (2 audio keys each = 4 keys), question 1 fails
+	if len(output.AudioKeys) != 4 {
+		t.Errorf("expected 4 audio keys, got %d: %v", len(output.AudioKeys), output.AudioKeys)
 	}
 
 	// Question 1 should be in failed
@@ -253,7 +279,7 @@ func TestHandleRequest_S3UploadFailure(t *testing.T) {
 	store := newMockStorage()
 	store.objects["parsed/proj6/questions.json"] = jsonData
 
-	// Fail upload for question 0
+	// Fail upload for the first PutObject call (question 0's audio)
 	uploadCount := 0
 	store.putFunc = func(ctx context.Context, bucket, key string, data []byte, contentType string) error {
 		uploadCount++
@@ -277,9 +303,9 @@ func TestHandleRequest_S3UploadFailure(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Question 0 should fail due to upload error, question 1 should succeed
-	if len(output.AudioKeys) != 1 {
-		t.Errorf("expected 1 audio key, got %d: %v", len(output.AudioKeys), output.AudioKeys)
+	// Question 0 fails on first upload, question 1 succeeds (2 keys for q1)
+	if len(output.AudioKeys) != 2 {
+		t.Errorf("expected 2 audio keys, got %d: %v", len(output.AudioKeys), output.AudioKeys)
 	}
 
 	if len(output.Failed) != 1 || output.Failed[0] != 0 {

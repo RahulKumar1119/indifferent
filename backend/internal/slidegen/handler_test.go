@@ -91,8 +91,8 @@ func TestHandleRequest_SingleQuestion(t *testing.T) {
 		t.Errorf("expected ProjectID 'proj1', got '%s'", output.ProjectID)
 	}
 
-	// Expected slides: 1 question + 5 countdown + 1 answer + 1 outro = 8
-	expectedSlideCount := 8
+	// Expected slides: 1 question + 1 answer = 2
+	expectedSlideCount := 2
 	if len(output.SlideKeys) != expectedSlideCount {
 		t.Errorf("expected %d slide keys, got %d: %v", expectedSlideCount, len(output.SlideKeys), output.SlideKeys)
 	}
@@ -104,13 +104,7 @@ func TestHandleRequest_SingleQuestion(t *testing.T) {
 	// Verify slide key patterns
 	expectedKeys := []string{
 		"temp/proj1/slides/q0_question.png",
-		"temp/proj1/slides/q0_countdown_5.png",
-		"temp/proj1/slides/q0_countdown_4.png",
-		"temp/proj1/slides/q0_countdown_3.png",
-		"temp/proj1/slides/q0_countdown_2.png",
-		"temp/proj1/slides/q0_countdown_1.png",
 		"temp/proj1/slides/q0_answer.png",
-		"temp/proj1/slides/outro.png",
 	}
 
 	for i, expected := range expectedKeys {
@@ -150,8 +144,8 @@ func TestHandleRequest_MultipleQuestions(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// 3 questions × (1 question + 5 countdown + 1 answer) + 1 outro = 22
-	expectedSlideCount := 22
+	// 3 questions × (1 question + 1 answer) = 6
+	expectedSlideCount := 6
 	if len(output.SlideKeys) != expectedSlideCount {
 		t.Errorf("expected %d slide keys, got %d", expectedSlideCount, len(output.SlideKeys))
 	}
@@ -195,9 +189,9 @@ func TestHandleRequest_RenderFailure(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Question 0 should succeed (7 slides), question 1 should fail, outro should succeed
-	// q0: 1 question + 5 countdown + 1 answer = 7, plus outro = 8
-	expectedSlideCount := 8
+	// Question 0 should succeed (2 slides), question 1 should fail, no outro
+	// q0: 1 question + 1 answer = 2
+	expectedSlideCount := 2
 	if len(output.SlideKeys) != expectedSlideCount {
 		t.Errorf("expected %d slide keys, got %d: %v", expectedSlideCount, len(output.SlideKeys), output.SlideKeys)
 	}
@@ -245,7 +239,7 @@ func TestHandleRequest_S3ReadFailure(t *testing.T) {
 	}
 }
 
-func TestHandleRequest_CountdownFailureMarksQuestionFailed(t *testing.T) {
+func TestHandleRequest_AnswerFailureMarksQuestionFailed(t *testing.T) {
 	questions := []models.Question{
 		{Index: 0, Text: "Q1?", Options: []models.Option{{Label: "A", Text: "A1"}}, CorrectIndex: 0},
 	}
@@ -259,9 +253,9 @@ func TestHandleRequest_CountdownFailureMarksQuestionFailed(t *testing.T) {
 	renderer := &mockRenderer{
 		renderFunc: func(templateName string, data interface{}) ([]byte, error) {
 			callCount++
-			// Fail on the 3rd render call (countdown_4, which is the 2nd countdown)
-			if callCount == 3 {
-				return nil, fmt.Errorf("countdown render failure")
+			// Fail on the 2nd render call (answer slide)
+			if callCount == 2 {
+				return nil, fmt.Errorf("answer render failure")
 			}
 			return []byte("fake-png"), nil
 		},
@@ -280,53 +274,9 @@ func TestHandleRequest_CountdownFailureMarksQuestionFailed(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Question 0 should be marked as failed due to countdown failure
+	// Question 0 should be marked as failed due to answer render failure
 	if len(output.Failed) != 1 || output.Failed[0] != 0 {
 		t.Errorf("expected failed=[0], got %v", output.Failed)
 	}
 }
 
-func TestHandleRequest_OutroFailureNonFatal(t *testing.T) {
-	questions := []models.Question{
-		{Index: 0, Text: "Q1?", Options: []models.Option{{Label: "A", Text: "A1"}}, CorrectIndex: 0},
-	}
-
-	jsonData, _ := json.Marshal(questions)
-
-	store := newMockStorage()
-	store.objects["parsed/proj7/questions.json"] = jsonData
-
-	// Fail only on outro template
-	renderer := &mockRenderer{
-		renderFunc: func(templateName string, data interface{}) ([]byte, error) {
-			if _, ok := data.(OutroSlideData); ok {
-				return nil, fmt.Errorf("outro render failure")
-			}
-			return []byte("fake-png"), nil
-		},
-	}
-
-	handler := NewHandler(renderer, store, "test-bucket")
-
-	input := models.SlideGenInput{
-		ProjectID: "proj7",
-		JSONKey:   "parsed/proj7/questions.json",
-		Template:  "classic",
-	}
-
-	output, err := handler.HandleRequest(context.Background(), input)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Question slides should all succeed (7 total), outro won't be in slide keys
-	expectedSlideCount := 7
-	if len(output.SlideKeys) != expectedSlideCount {
-		t.Errorf("expected %d slide keys (no outro), got %d: %v", expectedSlideCount, len(output.SlideKeys), output.SlideKeys)
-	}
-
-	// No failed question indices
-	if len(output.Failed) != 0 {
-		t.Errorf("expected no failed indices (outro failure is non-fatal), got %v", output.Failed)
-	}
-}

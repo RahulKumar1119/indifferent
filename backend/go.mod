@@ -13,7 +13,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/mxschmitt/playwright-go v0.6100.0
-	golang.org/x/image v0.43.0
+	golang.org/x/image v0.44.0
 )
 
 require (
@@ -36,4 +36,5 @@ require (
 	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
+	golang.org/x/text v0.40.0 // indirect
 )

@@ -33,18 +33,20 @@ func (s *SimpleCompositor) ComposeVideo(ctx context.Context, workDir string, sli
 	cfg := DefaultConfig()
 	compositor := NewCompositor(cfg, workDir)
 
-	// For the simplified interface, we treat all slides as direct inputs
-	// and create a basic concatenation video.
-	// Build segments: pair each slide with its audio (1:1 mapping)
-	numQuestions := len(audioFiles)
-	if numQuestions == 0 {
+	// Audio files are interleaved: [q0.mp3, q0_answer.mp3, q1.mp3, q1_answer.mp3, ...]
+	// So numQuestions = len(audioFiles) / 2
+	if len(audioFiles) == 0 {
 		return "", fmt.Errorf("no audio files provided")
+	}
+	numQuestions := len(audioFiles) / 2
+	if numQuestions == 0 {
+		// Fallback: if odd number, treat as legacy (1 audio per question)
+		numQuestions = len(audioFiles)
 	}
 
 	segments, outroSlide, err := BuildSegments(slideFiles, audioFiles, numQuestions)
 	if err != nil {
-		// If structured segments can't be built, fall back to simple composition
-		return compositor.composeSimple(ctx, workDir, slideFiles, audioFiles)
+		return "", fmt.Errorf("failed to build segments: %w (slides=%d, audio=%d, questions=%d)", err, len(slideFiles), len(audioFiles), numQuestions)
 	}
 
 	return compositor.ComposeVideo(ctx, segments, outroSlide)

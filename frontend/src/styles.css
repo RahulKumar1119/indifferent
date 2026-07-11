@@ -2,24 +2,6 @@
 
 /* Custom design tokens */
 :root {
-  --background: 0 0% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 0 0% 6%;
-  --card-foreground: 0 0% 98%;
-  --primary: 262 83% 58%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 14.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 14.9%;
-  --muted-foreground: 0 0% 63.9%;
-  --accent: 262 83% 58%;
-  --accent-foreground: 0 0% 98%;
-  --border: 0 0% 14.9%;
-  --ring: 262 83% 58%;
-  --radius: 0.75rem;
-}
-
-.light {
   --background: 0 0% 100%;
   --foreground: 0 0% 3.9%;
   --card: 0 0% 100%;
@@ -33,6 +15,24 @@
   --accent: 262 83% 58%;
   --accent-foreground: 0 0% 98%;
   --border: 0 0% 89.8%;
+  --ring: 262 83% 58%;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 0 0% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 6%;
+  --card-foreground: 0 0% 98%;
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 14.9%;
+  --muted-foreground: 0 0% 63.9%;
+  --accent: 262 83% 58%;
+  --accent-foreground: 0 0% 98%;
+  --border: 0 0% 14.9%;
   --ring: 262 83% 58%;
 }
 
@@ -53,9 +53,9 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(ellipse at 20% 50%, rgba(120, 60, 255, 0.15) 0%, transparent 50%),
-              radial-gradient(ellipse at 80% 20%, rgba(60, 120, 255, 0.1) 0%, transparent 50%),
-              radial-gradient(ellipse at 50% 80%, rgba(200, 60, 255, 0.08) 0%, transparent 50%);
+  background: radial-gradient(ellipse at 20% 50%, rgba(120, 60, 255, 0.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 20%, rgba(60, 120, 255, 0.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 50% 80%, rgba(200, 60, 255, 0.04) 0%, transparent 50%);
   animation: aurora-shift 15s ease-in-out infinite alternate;
 }
 
@@ -67,21 +67,16 @@ html, body {
 
 /* Glassmorphism card */
 .glass-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--radius);
 }
 
 .dark .glass-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.light .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 /* Shimmer text effect */
@@ -118,7 +113,7 @@ html, body {
 }
 
 .glow-btn:hover {
-  box-shadow: 0 0 30px rgba(120, 60, 255, 0.4), 0 0 60px rgba(120, 60, 255, 0.2);
+  box-shadow: 0 0 20px rgba(120, 60, 255, 0.3), 0 0 40px rgba(120, 60, 255, 0.15);
   transform: translateY(-2px);
 }
 

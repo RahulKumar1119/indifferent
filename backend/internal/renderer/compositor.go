@@ -28,7 +28,7 @@ func DefaultConfig() CompositorConfig {
 		FPS:                30,
 		TransitionDuration: 0.5,
 		CountdownDuration:  5,
-		AnswerRevealDur:    3.0,
+		AnswerRevealDur:    5.0,
 		OutroDuration:      5.0,
 	}
 }
@@ -39,6 +39,7 @@ type SegmentInfo struct {
 	CountdownSlides []string
 	AnswerSlide     string
 	AudioFile       string
+	AnswerAudio     string // audio for the answer reveal slide
 }
 
 // Compositor implements CompositorInterface using FFmpeg for video composition.
@@ -69,7 +70,7 @@ func (c *Compositor) defaultRunCommand(name string, args []string) error {
 	return nil
 }
 
-// ComposeVideo composites segments and an outro into a final MP4 video.
+// ComposeVideo composites segments and an optional outro into a final MP4 video.
 // This satisfies the CompositorInterface when called from the handler via
 // the simplified interface adapter.
 func (c *Compositor) ComposeVideo(ctx context.Context, segments []SegmentInfo, outroSlide string) (string, error) {
@@ -83,13 +84,15 @@ func (c *Compositor) ComposeVideo(ctx context.Context, segments []SegmentInfo, o
 		segmentFiles = append(segmentFiles, segmentPath)
 	}
 
-	// Create outro video
-	outroPath := filepath.Join(c.WorkDir, "outro.mp4")
-	outroArgs := c.buildImageToVideoArgs(outroSlide, c.Config.OutroDuration, outroPath)
-	if err := c.RunCommand("ffmpeg", outroArgs); err != nil {
-		return "", fmt.Errorf("failed to create outro: %w", err)
+	// Only add outro if provided
+	if outroSlide != "" {
+		outroPath := filepath.Join(c.WorkDir, "outro.mp4")
+		outroArgs := c.buildImageToVideoArgs(outroSlide, c.Config.OutroDuration, outroPath)
+		if err := c.RunCommand("ffmpeg", outroArgs); err != nil {
+			return "", fmt.Errorf("failed to create outro: %w", err)
+		}
+		segmentFiles = append(segmentFiles, outroPath)
 	}
-	segmentFiles = append(segmentFiles, outroPath)
 
 	// Concatenate all segments
 	outputPath := filepath.Join(c.WorkDir, "output.mp4")
@@ -100,7 +103,7 @@ func (c *Compositor) ComposeVideo(ctx context.Context, segments []SegmentInfo, o
 	return outputPath, nil
 }
 
-// composeSegment creates a single question segment (question+countdown+answer).
+// composeSegment creates a single question segment (question + answer, no countdown).
 func (c *Compositor) composeSegment(ctx context.Context, index int, seg SegmentInfo) (string, error) {
 	// 1. Create question video with audio
 	questionPath := filepath.Join(c.WorkDir, fmt.Sprintf("question_%d.mp4", index))
@@ -109,23 +112,23 @@ func (c *Compositor) composeSegment(ctx context.Context, index int, seg SegmentI
 		return "", fmt.Errorf("failed to create question video: %w", err)
 	}
 
-	// 2. Create countdown video
-	countdownPath := filepath.Join(c.WorkDir, fmt.Sprintf("countdown_%d.mp4", index))
-	countdownArgs := c.buildCountdownArgs(seg.CountdownSlides, countdownPath)
-	if err := c.RunCommand("ffmpeg", countdownArgs); err != nil {
-		return "", fmt.Errorf("failed to create countdown video: %w", err)
-	}
-
-	// 3. Create answer reveal video
+	// 2. Create answer reveal video (with audio if available, otherwise silent)
 	answerPath := filepath.Join(c.WorkDir, fmt.Sprintf("answer_%d.mp4", index))
-	answerArgs := c.buildImageToVideoArgs(seg.AnswerSlide, c.Config.AnswerRevealDur, answerPath)
-	if err := c.RunCommand("ffmpeg", answerArgs); err != nil {
-		return "", fmt.Errorf("failed to create answer video: %w", err)
+	if seg.AnswerAudio != "" {
+		answerArgs := c.buildQuestionWithAudioArgs(seg.AnswerSlide, seg.AnswerAudio, answerPath)
+		if err := c.RunCommand("ffmpeg", answerArgs); err != nil {
+			return "", fmt.Errorf("failed to create answer video with audio: %w", err)
+		}
+	} else {
+		answerArgs := c.buildImageToVideoArgs(seg.AnswerSlide, c.Config.AnswerRevealDur, answerPath)
+		if err := c.RunCommand("ffmpeg", answerArgs); err != nil {
+			return "", fmt.Errorf("failed to create answer video: %w", err)
+		}
 	}
 
-	// 4. Concatenate question + countdown + answer into segment
+	// 3. Concatenate question + answer into segment (no countdown)
 	segmentPath := filepath.Join(c.WorkDir, fmt.Sprintf("segment_%d.mp4", index))
-	parts := []string{questionPath, countdownPath, answerPath}
+	parts := []string{questionPath, answerPath}
 	if err := c.concatenateSegments(parts, segmentPath); err != nil {
 		return "", fmt.Errorf("failed to concatenate segment parts: %w", err)
 	}
@@ -293,61 +296,37 @@ func (c *Compositor) composeSimple(ctx context.Context, workDir string, slideFil
 }
 
 // BuildSegments organizes slide and audio files into structured segments for composition.
-// Each question requires: 1 question slide, 5 countdown slides, 1 answer slide.
-// The last slide should be the outro.
+// Each question requires: 1 question slide + 1 answer slide (no countdown).
+// Audio files are interleaved: [q0.mp3, q0_answer.mp3, q1.mp3, q1_answer.mp3, ...]
 func BuildSegments(slideFiles, audioFiles []string, numQuestions int) ([]SegmentInfo, string, error) {
-	slidesPerQuestion := 7 // question + 5 countdown + answer
-	expectedSlides := numQuestions*slidesPerQuestion + 1 // +1 for outro
+	slidesPerQuestion := 2 // question + answer (no countdown)
+	audiosPerQuestion := 2 // question audio + answer audio
+	expectedSlides := numQuestions * slidesPerQuestion
+	expectedAudios := numQuestions * audiosPerQuestion
 
 	if len(slideFiles) < expectedSlides {
-		// Determine what's missing
-		for q := 0; q < numQuestions; q++ {
-			baseIdx := q * slidesPerQuestion
-			if baseIdx >= len(slideFiles) {
-				return nil, "", fmt.Errorf("missing question slide for question %d", q)
-			}
-			for c := 1; c <= 5; c++ {
-				countdownIdx := baseIdx + c
-				if countdownIdx >= len(slideFiles) {
-					return nil, "", fmt.Errorf("missing countdown slide %d for question %d", c, q)
-				}
-			}
-			answerIdx := baseIdx + 6
-			if answerIdx >= len(slideFiles) {
-				return nil, "", fmt.Errorf("missing answer slide for question %d", q)
-			}
-		}
-		outroIdx := numQuestions * slidesPerQuestion
-		if outroIdx >= len(slideFiles) {
-			return nil, "", fmt.Errorf("missing outro slide")
-		}
+		return nil, "", fmt.Errorf("not enough slides: have %d, need %d", len(slideFiles), expectedSlides)
+	}
+	if len(audioFiles) < expectedAudios {
+		return nil, "", fmt.Errorf("not enough audio files: have %d, need %d", len(audioFiles), expectedAudios)
 	}
 
 	var segments []SegmentInfo
 	for q := 0; q < numQuestions; q++ {
-		baseIdx := q * slidesPerQuestion
-
-		if q >= len(audioFiles) {
-			return nil, "", fmt.Errorf("missing audio file for question %d", q)
-		}
+		slideIdx := q * slidesPerQuestion
+		audioIdx := q * audiosPerQuestion
 
 		seg := SegmentInfo{
-			QuestionSlide: slideFiles[baseIdx],
-			CountdownSlides: []string{
-				slideFiles[baseIdx+1],
-				slideFiles[baseIdx+2],
-				slideFiles[baseIdx+3],
-				slideFiles[baseIdx+4],
-				slideFiles[baseIdx+5],
-			},
-			AnswerSlide: slideFiles[baseIdx+6],
-			AudioFile:   audioFiles[q],
+			QuestionSlide:   slideFiles[slideIdx],
+			CountdownSlides: nil,
+			AnswerSlide:     slideFiles[slideIdx+1],
+			AudioFile:       audioFiles[audioIdx],
+			AnswerAudio:     audioFiles[audioIdx+1],
 		}
 		segments = append(segments, seg)
 	}
 
-	outroSlide := slideFiles[numQuestions*slidesPerQuestion]
-	return segments, outroSlide, nil
+	return segments, "", nil
 }
 
 // DownloadAssets downloads slide and audio files from S3 to local directories.
