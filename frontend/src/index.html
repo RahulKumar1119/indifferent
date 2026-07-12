@@ -2,21 +2,52 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>TXT2Video</title>
+  <title>TXT2Video — Convert Quiz Files to Narrated Videos</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Convert your TXT quiz files into professional narrated MP4 videos with AI voice-over, answer reveals, and smooth transitions. Upload, choose a voice, and download — all automatically.">
+  <meta name="keywords" content="txt to video, quiz video maker, text to video converter, AI narration, multiple choice video, education video generator">
+  <meta name="author" content="TXT2Video">
+  <meta name="robots" content="index, follow">
+  <!-- Open Graph / Social sharing -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="TXT2Video — Convert Quiz Files to Narrated Videos">
+  <meta property="og:description" content="Upload a TXT file with multiple-choice questions and get a professional MP4 video with AI narration, answer highlights, and smooth transitions.">
+  <meta property="og:url" content="https://indifferent.fun">
+  <meta property="og:site_name" content="TXT2Video">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="TXT2Video — Convert Quiz Files to Narrated Videos">
+  <meta name="twitter:description" content="Upload a TXT file with multiple-choice questions and get a professional MP4 video with AI narration and answer reveals.">
+  <!-- Theme color -->
+  <meta name="theme-color" content="#7c3aed">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-D2GB04M42D"></script>
+  <!-- Google Analytics (deferred until user interaction) -->
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-D2GB04M42D');
+
+    function loadGtag() {
+      if (window._gtagLoaded) return;
+      window._gtagLoaded = true;
+      var s = document.createElement('script');
+      s.src = 'https://www.googletagmanager.com/gtag/js?id=G-D2GB04M42D';
+      s.async = true;
+      document.head.appendChild(s);
+      gtag('js', new Date());
+      gtag('config', 'G-D2GB04M42D');
+    }
+
+    // Load after user interaction or 3s timeout
+    ['scroll', 'click', 'touchstart', 'keydown'].forEach(function(evt) {
+      window.addEventListener(evt, loadGtag, {once: true, passive: true});
+    });
+    setTimeout(loadGtag, 3000);
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- Font -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
