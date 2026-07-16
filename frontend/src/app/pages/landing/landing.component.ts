@@ -13,8 +13,7 @@ import gsap from 'gsap';
       class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 glass-card !rounded-none !border-t-0 !border-x-0"
     >
       <a routerLink="/landing" class="flex items-center gap-2 text-xl font-bold">
-        <svg lucideIcon="video" [size]="24" class="text-[hsl(var(--primary))]"></svg>
-        <span>TXT2Video</span>
+        <img src="logo.svg" alt="Indifferent" class="h-8">
       </a>
       <a routerLink="/login" class="glow-btn !py-2 !px-5 !text-sm">Sign In</a>
     </nav>
@@ -93,7 +92,7 @@ import gsap from 'gsap';
     <!-- Footer -->
     <footer class="py-8 px-6 border-t border-[hsl(var(--border))]">
       <div class="max-w-6xl mx-auto text-center text-[hsl(var(--muted-foreground))] text-sm">
-        &copy; {{ currentYear }} TXT2Video. All rights reserved.
+        &copy; {{ currentYear }} Indifferent. All rights reserved.
       </div>
     </footer>
   `,

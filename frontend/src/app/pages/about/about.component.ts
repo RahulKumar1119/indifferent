@@ -10,7 +10,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
     <div class="max-w-4xl mx-auto px-6 py-12">
       <!-- Header -->
       <div class="text-center mb-12">
-        <h1 class="text-4xl font-bold mb-4 shimmer-text">About TXT2Video</h1>
+        <h1 class="text-4xl font-bold mb-4 shimmer-text">About Indifferent</h1>
         <p class="text-lg text-[hsl(var(--muted-foreground))]">
           Transforming text-based quizzes into professional video content
         </p>
@@ -25,7 +25,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <h2 class="text-2xl font-semibold">Our Mission</h2>
         </div>
         <p class="text-[hsl(var(--muted-foreground))] leading-relaxed">
-          TXT2Video makes it effortless to convert your multiple-choice quiz files into engaging,
+          Indifferent makes it effortless to convert your multiple-choice quiz files into engaging,
           YouTube-ready video content. Whether you're an educator, content creator, or training
           professional, our platform automates the entire video production process — from parsing
           your questions to generating narrated, animated videos with countdown timers and answer reveals.
@@ -82,7 +82,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <h2 class="text-2xl font-semibold">Creator</h2>
         </div>
         <p class="text-[hsl(var(--muted-foreground))] leading-relaxed">
-          TXT2Video is built and maintained by a passionate developer focused on making
+          Indifferent is built and maintained by a passionate developer focused on making
           content creation accessible to everyone. We believe that creating engaging video
           content shouldn't require expensive software or video editing skills.
         </p>

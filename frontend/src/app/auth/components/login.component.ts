@@ -22,7 +22,7 @@ import { environment } from '../../../environments/environment';
             <div class="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
               <svg lucideIcon="video" [size]="22" class="text-white"></svg>
             </div>
-            <span class="text-xl font-bold">TXT2Video</span>
+            <span class="text-xl font-bold">Indifferent</span>
           </a>
         </div>
 
@@ -66,7 +66,7 @@ import { environment } from '../../../environments/environment';
         <!-- Footer -->
         <div class="relative z-10">
           <p class="text-purple-200/50 text-sm">
-            © {{ currentYear }} TXT2Video. All rights reserved.
+            © {{ currentYear }} Indifferent. All rights reserved.
           </p>
         </div>
       </div>
@@ -79,7 +79,7 @@ import { environment } from '../../../environments/environment';
             <div class="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
               <svg lucideIcon="video" [size]="22" class="text-violet-600"></svg>
             </div>
-            <span class="text-xl font-bold text-gray-900">TXT2Video</span>
+            <span class="text-xl font-bold text-gray-900">Indifferent</span>
           </div>
 
           <!-- Header -->

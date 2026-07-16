@@ -1,6 +1,6 @@
 {
-  "name": "frontend",
-  "short_name": "frontend",
+  "name": "Indifferent",
+  "short_name": "Indifferent",
   "display": "standalone",
   "scope": "./",
   "start_url": "./",
