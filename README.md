@@ -41,7 +41,7 @@ Each stage has retry policies (2 retries, exponential backoff). On failure at an
 
 - **Frontend**: Angular 20, Tailwind CSS 4, GSAP, Lucide Icons
 - **Backend**: Go 1.24+ (Lambda functions)
-- **Infrastructure**: AWS (API Gateway, Lambda, DynamoDB, S3, Step Functions, CloudFront, Polly)
+- **Infrastructure**: AWS (API Gateway, Lambda, DynamoDB, S3, Step Functions, Amplify, Polly)
 
 ## Features
 
@@ -107,7 +107,7 @@ Mark correct answers with `*` suffix. Multiple `*` markers are supported for mul
 | Video | FFmpeg (static binary) | MP4 composition |
 | Slides | Go native image rendering | 1920×1080 PNG generation |
 | Orchestration | Step Functions | Pipeline state machine |
-| CDN | CloudFront | Frontend hosting |
+| CDN | Amplify Hosting | Frontend hosting |
 | API | API Gateway | REST API with custom domain |
 | DNS | Route 53 | Custom domain |
 | SSL | ACM | HTTPS certificates |
@@ -144,7 +144,6 @@ Mark correct answers with `*` suffix. Multiple `*` markers are supported for mul
 │   ├── setup.sh                 # One-time infra setup
 │   ├── setup-apigateway.sh      # API Gateway config
 │   ├── setup-custom-domain.sh   # Custom domain setup
-│   └── setup-cloudfront.sh      # CloudFront + S3 hosting
 └── .github/workflows/           # CI/CD
     ├── backend.yml
     ├── frontend.yml

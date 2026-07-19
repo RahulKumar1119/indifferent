@@ -155,7 +155,7 @@ export class AboutComponent {
     { name: 'Amazon Polly', role: 'Narration' },
     { name: 'FFmpeg', role: 'Video' },
     { name: 'DynamoDB', role: 'Database' },
-    { name: 'S3 + CloudFront', role: 'Storage & CDN' },
+    { name: 'Amplify Hosting', role: 'CDN' },
     { name: 'Step Functions', role: 'Orchestration' },
     { name: 'GSAP', role: 'Animations' },
   ];
