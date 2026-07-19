@@ -1,11 +1,12 @@
 import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-about',
   standalone: true,
-  imports: [RouterLink, LucideDynamicIcon],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon],
   styles: [`
     :host {
       display: block;
@@ -112,17 +113,15 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <h2 class="text-2xl font-semibold about-heading">How It Works</h2>
         </div>
         <div class="grid gap-6">
-          @for (step of steps; track step.number) {
-            <div class="flex gap-4 items-start">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 about-accent-solid">
-                {{ step.number }}
-              </div>
-              <div>
-                <h3 class="font-medium mb-1 about-heading">{{ step.title }}</h3>
-                <p class="text-sm about-muted">{{ step.description }}</p>
-              </div>
+          <div class="flex gap-4 items-start" *ngFor="let step of steps; trackBy: trackByNumber">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 about-accent-solid">
+              {{ step.number }}
             </div>
-          }
+            <div>
+              <h3 class="font-medium mb-1 about-heading">{{ step.title }}</h3>
+              <p class="text-sm about-muted">{{ step.description }}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -135,12 +134,10 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <h2 class="text-2xl font-semibold about-heading">Supported Formats</h2>
         </div>
         <div class="grid gap-3">
-          @for (format of supportedFormats; track format.label) {
-            <div class="flex items-center gap-3">
-              <svg lucideIcon="check" [size]="16" class="shrink-0 about-accent"></svg>
-              <span class="text-sm about-muted">{{ format.label }}</span>
-            </div>
-          }
+          <div class="flex items-center gap-3" *ngFor="let format of supportedFormats; trackBy: trackByLabel">
+            <svg lucideIcon="check" [size]="16" class="shrink-0 about-accent"></svg>
+            <span class="text-sm about-muted">{{ format.label }}</span>
+          </div>
         </div>
       </div>
 
@@ -153,15 +150,13 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <h2 class="text-2xl font-semibold about-heading">Video Templates</h2>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          @for (tpl of videoTemplates; track tpl.name) {
-            <div class="about-card p-4 flex items-start gap-3">
-              <svg [lucideIcon]="tpl.icon" [size]="18" class="shrink-0 mt-0.5 about-accent"></svg>
-              <div>
-                <p class="font-medium text-sm">{{ tpl.name }}</p>
-                <p class="text-xs mt-0.5 about-muted">{{ tpl.description }}</p>
-              </div>
+          <div class="about-card p-4 flex items-start gap-3" *ngFor="let tpl of videoTemplates; trackBy: trackByName">
+            <svg [lucideIcon]="tpl.icon" [size]="18" class="shrink-0 mt-0.5 about-accent"></svg>
+            <div>
+              <p class="font-medium text-sm">{{ tpl.name }}</p>
+              <p class="text-xs mt-0.5 about-muted">{{ tpl.description }}</p>
             </div>
-          }
+          </div>
         </div>
       </div>
 
@@ -174,17 +169,15 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <h2 class="text-2xl font-semibold about-heading">AI Voices</h2>
         </div>
         <div class="grid gap-4">
-          @for (voice of aiVoices; track voice.name) {
-            <div class="flex items-center gap-4">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 about-accent-bg">
-                <svg lucideIcon="volume-2" [size]="14" class="about-accent"></svg>
-              </div>
-              <div>
-                <p class="font-medium text-sm">{{ voice.name }}</p>
-                <p class="text-xs about-muted">{{ voice.description }}</p>
-              </div>
+          <div class="flex items-center gap-4" *ngFor="let voice of aiVoices; trackBy: trackByName">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 about-accent-bg">
+              <svg lucideIcon="volume-2" [size]="14" class="about-accent"></svg>
             </div>
-          }
+            <div>
+              <p class="font-medium text-sm">{{ voice.name }}</p>
+              <p class="text-xs about-muted">{{ voice.description }}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -197,12 +190,10 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <h2 class="text-2xl font-semibold about-heading">Video Specifications</h2>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          @for (spec of videoSpecs; track spec.label) {
-            <div class="flex items-center gap-3">
-              <svg [lucideIcon]="spec.icon" [size]="16" class="shrink-0 about-accent"></svg>
-              <span class="text-sm about-muted">{{ spec.label }}</span>
-            </div>
-          }
+          <div class="flex items-center gap-3" *ngFor="let spec of videoSpecs; trackBy: trackByLabel">
+            <svg [lucideIcon]="spec.icon" [size]="16" class="shrink-0 about-accent"></svg>
+            <span class="text-sm about-muted">{{ spec.label }}</span>
+          </div>
         </div>
       </div>
 
@@ -215,17 +206,15 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <h2 class="text-2xl font-semibold about-heading">Use Cases</h2>
         </div>
         <div class="grid gap-4">
-          @for (useCase of useCases; track useCase.title) {
-            <div class="flex items-start gap-4">
-              <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 about-accent-bg">
-                <svg [lucideIcon]="useCase.icon" [size]="18" class="about-accent"></svg>
-              </div>
-              <div>
-                <p class="font-medium text-sm">{{ useCase.title }}</p>
-                <p class="text-xs mt-0.5 about-muted">{{ useCase.description }}</p>
-              </div>
+          <div class="flex items-start gap-4" *ngFor="let useCase of useCases; trackBy: trackByTitle">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 about-accent-bg">
+              <svg [lucideIcon]="useCase.icon" [size]="18" class="about-accent"></svg>
             </div>
-          }
+            <div>
+              <p class="font-medium text-sm">{{ useCase.title }}</p>
+              <p class="text-xs mt-0.5 about-muted">{{ useCase.description }}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -238,12 +227,10 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <h2 class="text-2xl font-semibold about-heading">Built With</h2>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          @for (tech of technologies; track tech.name) {
-            <div class="about-card p-4 text-center">
-              <p class="font-medium text-sm">{{ tech.name }}</p>
-              <p class="text-xs mt-1 about-muted">{{ tech.role }}</p>
-            </div>
-          }
+          <div class="about-card p-4 text-center" *ngFor="let tech of technologies; trackBy: trackByName">
+            <p class="font-medium text-sm">{{ tech.name }}</p>
+            <p class="text-xs mt-1 about-muted">{{ tech.role }}</p>
+          </div>
         </div>
       </div>
 
@@ -291,6 +278,19 @@ import { LucideDynamicIcon } from '@lucide/angular';
   `,
 })
 export class AboutComponent {
+  trackByNumber(index: number, item: { number: number }): number {
+    return item.number;
+  }
+  trackByLabel(index: number, item: { label: string }): string {
+    return item.label;
+  }
+  trackByName(index: number, item: { name: string }): string {
+    return item.name;
+  }
+  trackByTitle(index: number, item: { title: string }): string {
+    return item.title;
+  }
+
   steps = [
     {
       number: 1,
