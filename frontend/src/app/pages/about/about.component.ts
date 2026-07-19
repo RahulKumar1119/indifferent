@@ -7,7 +7,17 @@ import { LucideDynamicIcon } from '@lucide/angular';
   standalone: true,
   imports: [RouterLink, LucideDynamicIcon],
   template: `
-    <div class="max-w-4xl mx-auto px-6 py-12">
+    <!-- Navbar -->
+    <nav
+      class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 glass-card !rounded-none !border-t-0 !border-x-0"
+    >
+      <a routerLink="/" class="flex items-center gap-2 text-xl font-bold">
+        <img src="logo.svg" alt="Indifferent" class="h-8">
+      </a>
+      <a routerLink="/login" class="glow-btn !py-2 !px-5 !text-sm">Sign In</a>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-6 py-12 pt-24">
       <!-- Header -->
       <div class="text-center mb-12">
         <h1 class="text-4xl font-bold mb-4 shimmer-text">About Indifferent</h1>
@@ -55,6 +65,109 @@ import { LucideDynamicIcon } from '@lucide/angular';
         </div>
       </div>
 
+      <!-- Supported Formats -->
+      <div class="glass-card p-8 mb-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center">
+            <svg lucideIcon="file-text" [size]="20" class="text-[hsl(var(--primary))]"></svg>
+          </div>
+          <h2 class="text-2xl font-semibold">Supported Formats</h2>
+        </div>
+        <div class="grid gap-3">
+          @for (format of supportedFormats; track format.label) {
+            <div class="flex items-center gap-3">
+              <svg lucideIcon="check" [size]="16" class="text-[hsl(var(--primary))] shrink-0"></svg>
+              <span class="text-[hsl(var(--muted-foreground))] text-sm">{{ format.label }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Video Templates -->
+      <div class="glass-card p-8 mb-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center">
+            <svg lucideIcon="palette" [size]="20" class="text-[hsl(var(--primary))]"></svg>
+          </div>
+          <h2 class="text-2xl font-semibold">Video Templates</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          @for (tpl of videoTemplates; track tpl.name) {
+            <div class="glass-card p-4 flex items-start gap-3">
+              <svg [lucideIcon]="tpl.icon" [size]="18" class="text-[hsl(var(--primary))] shrink-0 mt-0.5"></svg>
+              <div>
+                <p class="font-medium text-sm">{{ tpl.name }}</p>
+                <p class="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{{ tpl.description }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- AI Voices -->
+      <div class="glass-card p-8 mb-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center">
+            <svg lucideIcon="mic" [size]="20" class="text-[hsl(var(--primary))]"></svg>
+          </div>
+          <h2 class="text-2xl font-semibold">AI Voices</h2>
+        </div>
+        <div class="grid gap-4">
+          @for (voice of aiVoices; track voice.name) {
+            <div class="flex items-center gap-4">
+              <div class="w-8 h-8 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center shrink-0">
+                <svg lucideIcon="volume-2" [size]="14" class="text-[hsl(var(--primary))]"></svg>
+              </div>
+              <div>
+                <p class="font-medium text-sm">{{ voice.name }}</p>
+                <p class="text-xs text-[hsl(var(--muted-foreground))]">{{ voice.description }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Video Specifications -->
+      <div class="glass-card p-8 mb-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center">
+            <svg lucideIcon="monitor" [size]="20" class="text-[hsl(var(--primary))]"></svg>
+          </div>
+          <h2 class="text-2xl font-semibold">Video Specifications</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          @for (spec of videoSpecs; track spec.label) {
+            <div class="flex items-center gap-3">
+              <svg [lucideIcon]="spec.icon" [size]="16" class="text-[hsl(var(--primary))] shrink-0"></svg>
+              <span class="text-sm text-[hsl(var(--muted-foreground))]">{{ spec.label }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Use Cases -->
+      <div class="glass-card p-8 mb-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center">
+            <svg lucideIcon="users" [size]="20" class="text-[hsl(var(--primary))]"></svg>
+          </div>
+          <h2 class="text-2xl font-semibold">Use Cases</h2>
+        </div>
+        <div class="grid gap-4">
+          @for (useCase of useCases; track useCase.title) {
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center shrink-0">
+                <svg [lucideIcon]="useCase.icon" [size]="18" class="text-[hsl(var(--primary))]"></svg>
+              </div>
+              <div>
+                <p class="font-medium text-sm">{{ useCase.title }}</p>
+                <p class="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{{ useCase.description }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
       <!-- Technology Section -->
       <div class="glass-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-6">
@@ -92,7 +205,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
       <div class="glass-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-4">
           <div class="w-10 h-10 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center">
-            <svg lucideIcon="help-circle" [size]="20" class="text-[hsl(var(--primary))]"></svg>
+            <svg lucideIcon="message-circle" [size]="20" class="text-[hsl(var(--primary))]"></svg>
           </div>
           <h2 class="text-2xl font-semibold">Get In Touch</h2>
         </div>
@@ -100,13 +213,9 @@ import { LucideDynamicIcon } from '@lucide/angular';
           Have questions, feedback, or feature requests? We'd love to hear from you.
         </p>
         <div class="flex flex-wrap gap-4">
-          <a href="mailto:support@indifferent.fun" class="glow-btn text-sm">
-            <svg lucideIcon="mail" [size]="16"></svg>
-            support&#64;indifferent.fun
-          </a>
-          <a routerLink="/help" class="glow-btn text-sm !bg-[hsl(var(--secondary))]">
-            <svg lucideIcon="help-circle" [size]="16"></svg>
-            Help Center
+          <a href="https://github.com/RahulKumar1119/indifferent/issues" target="_blank" rel="noopener" class="glow-btn text-sm">
+            <svg lucideIcon="github" [size]="16"></svg>
+            Open an Issue on GitHub
           </a>
         </div>
       </div>
@@ -114,7 +223,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
       <!-- Back to Home -->
       <div class="text-center">
         <a routerLink="/" class="text-[hsl(var(--primary))] hover:underline text-sm">
-          ← Back to Home
+          &larr; Back to Home
         </a>
       </div>
     </div>
@@ -146,6 +255,47 @@ export class AboutComponent {
       description:
         'Preview your video in-browser and download the MP4 file ready for YouTube, social media, or any platform.',
     },
+  ];
+
+  supportedFormats = [
+    { label: 'Numbered questions (1. Question text)' },
+    { label: 'Bulleted questions (• or - Question text)' },
+    { label: 'Tab-indented answers' },
+    { label: 'Multiple correct answers supported' },
+    { label: 'Maximum file size: 5MB' },
+  ];
+
+  videoTemplates = [
+    { name: 'Classic', icon: 'layout-template', description: 'Clean blue theme, professional look' },
+    { name: 'Modern', icon: 'sparkles', description: 'Gradient backgrounds, contemporary design' },
+    { name: 'Education', icon: 'graduation-cap', description: 'Warm colors, classroom-friendly' },
+    { name: 'Dark', icon: 'moon', description: 'Dark mode, high contrast for readability' },
+    { name: 'Minimal', icon: 'minus-square', description: 'Simple white, distraction-free' },
+    { name: 'Neon', icon: 'lightbulb', description: 'Vibrant colors, energetic style' },
+  ];
+
+  aiVoices = [
+    { name: 'Joanna', description: 'US English, female, clear and professional' },
+    { name: 'Matthew', description: 'US English, male, warm and authoritative' },
+    { name: 'Amy', description: 'British English, female, polished' },
+    { name: 'Brian', description: 'British English, male, natural' },
+    { name: 'Aditi', description: 'Indian English, female, approachable' },
+  ];
+
+  videoSpecs = [
+    { icon: 'monitor', label: 'Resolution: 1920×1080 (Full HD)' },
+    { icon: 'film', label: 'Format: MP4 (H.264)' },
+    { icon: 'volume-2', label: 'Audio: AAC' },
+    { icon: 'layers', label: 'Includes: Question slides, answer reveals, AI narration' },
+    { icon: 'image', label: 'Automatic thumbnail generation' },
+  ];
+
+  useCases = [
+    { icon: 'book-open', title: 'Teachers & Educators', description: 'Create revision videos for students' },
+    { icon: 'youtube', title: 'YouTube Creators', description: 'Scale quiz/trivia content production' },
+    { icon: 'laptop', title: 'E-learning Platforms', description: 'Automate video course creation' },
+    { icon: 'briefcase', title: 'Corporate Trainers', description: 'Turn compliance quizzes into video assessments' },
+    { icon: 'pencil', title: 'Students', description: 'Make study materials more engaging' },
   ];
 
   technologies = [
