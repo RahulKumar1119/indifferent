@@ -113,7 +113,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
 
       <!-- Back to Home -->
       <div class="text-center">
-        <a routerLink="/landing" class="text-[hsl(var(--primary))] hover:underline text-sm">
+        <a routerLink="/" class="text-[hsl(var(--primary))] hover:underline text-sm">
           ← Back to Home
         </a>
       </div>

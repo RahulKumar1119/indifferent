@@ -4,7 +4,7 @@ import { LandingComponent } from './pages/landing';
 import { NotFoundComponent } from './pages/not-found';
 
 export const routes: Routes = [
-  { path: 'landing', component: LandingComponent },
+  { path: '', component: LandingComponent, pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
   { path: 'auth/callback', component: AuthCallbackComponent },
   {
@@ -50,6 +50,5 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/about/about.component').then((m) => m.AboutComponent),
   },
-  { path: '', redirectTo: '/landing', pathMatch: 'full' },
   { path: '**', component: NotFoundComponent },
 ];

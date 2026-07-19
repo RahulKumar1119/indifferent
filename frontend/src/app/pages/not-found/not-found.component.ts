@@ -18,7 +18,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
         The page you're looking for doesn't exist or has been moved.
       </p>
       <div class="mt-8 flex gap-4">
-        <a routerLink="/landing" class="glow-btn">
+        <a routerLink="/" class="glow-btn">
           <svg lucideIcon="home" [size]="18"></svg>
           Go Home
         </a>

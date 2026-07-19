@@ -18,7 +18,7 @@ import { environment } from '../../../environments/environment';
 
         <!-- Logo & Nav -->
         <div class="relative z-10">
-          <a routerLink="/landing" class="flex items-center gap-3 text-white">
+          <a routerLink="/" class="flex items-center gap-3 text-white">
             <div class="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
               <svg lucideIcon="video" [size]="22" class="text-white"></svg>
             </div>
@@ -146,7 +146,7 @@ import { environment } from '../../../environments/environment';
 
           <!-- Back to Home -->
           <div class="text-center">
-            <a routerLink="/landing" class="text-sm text-gray-500 hover:text-violet-600 transition-colors">
+            <a routerLink="/" class="text-sm text-gray-500 hover:text-violet-600 transition-colors">
               ← Back to home
             </a>
           </div>

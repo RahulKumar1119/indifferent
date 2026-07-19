@@ -12,7 +12,7 @@ import gsap from 'gsap';
     <nav
       class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 glass-card !rounded-none !border-t-0 !border-x-0"
     >
-      <a routerLink="/landing" class="flex items-center gap-2 text-xl font-bold">
+      <a routerLink="/" class="flex items-center gap-2 text-xl font-bold">
         <img src="logo.svg" alt="Indifferent" class="h-8">
       </a>
       <a routerLink="/login" class="glow-btn !py-2 !px-5 !text-sm">Sign In</a>
@@ -90,9 +90,39 @@ import gsap from 'gsap';
     </section>
 
     <!-- Footer -->
-    <footer class="py-8 px-6 border-t border-[hsl(var(--border))]">
-      <div class="max-w-6xl mx-auto text-center text-[hsl(var(--muted-foreground))] text-sm">
-        &copy; {{ currentYear }} Indifferent. All rights reserved.
+    <footer class="py-12 px-6 border-t border-[hsl(var(--border))]">
+      <div class="max-w-6xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+          <!-- Brand -->
+          <div class="md:col-span-2">
+            <a routerLink="/" class="flex items-center gap-2 text-lg font-bold mb-3">
+              <img src="logo.svg" alt="Indifferent" class="h-7">
+            </a>
+            <p class="text-sm text-[hsl(var(--muted-foreground))] max-w-sm">
+              Transform your text-based quizzes into professional YouTube-ready videos with AI narration, custom templates, and fast serverless rendering.
+            </p>
+          </div>
+          <!-- Product Links -->
+          <div>
+            <h4 class="font-semibold text-sm mb-3">Product</h4>
+            <ul class="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
+              <li><a routerLink="/login" class="hover:text-[hsl(var(--primary))] transition-colors">Get Started</a></li>
+              <li><a routerLink="/about" class="hover:text-[hsl(var(--primary))] transition-colors">About</a></li>
+            </ul>
+          </div>
+          <!-- Connect -->
+          <div>
+            <h4 class="font-semibold text-sm mb-3">Connect</h4>
+            <ul class="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
+              <li><a href="https://github.com/RahulKumar1119/indifferent" target="_blank" rel="noopener" class="hover:text-[hsl(var(--primary))] transition-colors">GitHub</a></li>
+            </ul>
+          </div>
+        </div>
+        <!-- Bottom bar -->
+        <div class="pt-8 border-t border-[hsl(var(--border))] flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[hsl(var(--muted-foreground))]">
+          <span>&copy; {{ currentYear }} Indifferent. All rights reserved.</span>
+          <span>Built with Angular, Go & AWS</span>
+        </div>
       </div>
     </footer>
   `,
