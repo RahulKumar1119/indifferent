@@ -9,50 +9,91 @@ import { LucideDynamicIcon } from '@lucide/angular';
   styles: [`
     :host {
       display: block;
+      background-color: #F8FAFC;
+    }
+    .about-card {
+      background-color: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 0.75rem;
+    }
+    .about-heading {
+      color: #0F172A;
     }
     .about-muted {
-      color: hsl(var(--muted-foreground)) !important;
+      color: #475569;
     }
-    .about-primary {
-      color: hsl(var(--primary)) !important;
+    .about-accent {
+      color: #0D9488;
     }
-    .about-primary-bg {
-      background-color: hsl(var(--primary) / 0.1);
+    .about-accent-bg {
+      background-color: #CCFBF1;
     }
-    .about-primary-bg-solid {
-      background-color: hsl(var(--primary));
+    .about-accent-solid {
+      background-color: #0D9488;
+      color: #FFFFFF;
     }
-    .about-primary-fg {
-      color: hsl(var(--primary-foreground)) !important;
+    .about-nav {
+      background-color: rgba(255, 255, 255, 0.85);
+      border-bottom: 1px solid #E2E8F0;
+      backdrop-filter: blur(12px);
+    }
+    .about-signin-btn {
+      background-color: #0D9488;
+      color: #FFFFFF;
+      padding: 0.5rem 1.25rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+      text-decoration: none;
+      transition: background-color 0.2s;
+    }
+    .about-signin-btn:hover {
+      background-color: #0F766E;
+    }
+    .about-cta-btn {
+      background-color: #0D9488;
+      color: #FFFFFF;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1.25rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+      text-decoration: none;
+      transition: background-color 0.2s;
+    }
+    .about-cta-btn:hover {
+      background-color: #0F766E;
     }
   `],
   template: `
     <!-- Navbar -->
     <nav
-      class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 glass-card !rounded-none !border-t-0 !border-x-0"
+      class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 about-nav"
     >
       <a routerLink="/" class="flex items-center gap-2 text-xl font-bold">
         <img src="logo.svg" alt="Indifferent" class="h-8">
       </a>
-      <a routerLink="/login" class="glow-btn !py-2 !px-5 !text-sm">Sign In</a>
+      <a routerLink="/login" class="about-signin-btn">Sign In</a>
     </nav>
 
     <div class="max-w-4xl mx-auto px-6 py-12 pt-24">
       <!-- Header -->
       <div class="text-center mb-12">
-        <h1 class="text-4xl font-bold mb-4 shimmer-text">About Indifferent</h1>
+        <h1 class="text-4xl font-bold mb-4 about-heading">About Indifferent</h1>
         <p class="text-lg about-muted">
           Transforming text-based quizzes into professional video content
         </p>
       </div>
 
       <!-- Mission Section -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="video" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="video" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">Our Mission</h2>
+          <h2 class="text-2xl font-semibold about-heading">Our Mission</h2>
         </div>
         <p class="leading-relaxed about-muted">
           Indifferent makes it effortless to convert your multiple-choice quiz files into engaging,
@@ -63,21 +104,21 @@ import { LucideDynamicIcon } from '@lucide/angular';
       </div>
 
       <!-- How It Works -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-6">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="zap" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="zap" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">How It Works</h2>
+          <h2 class="text-2xl font-semibold about-heading">How It Works</h2>
         </div>
         <div class="grid gap-6">
           @for (step of steps; track step.number) {
             <div class="flex gap-4 items-start">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 about-primary-bg-solid about-primary-fg">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 about-accent-solid">
                 {{ step.number }}
               </div>
               <div>
-                <h3 class="font-medium mb-1">{{ step.title }}</h3>
+                <h3 class="font-medium mb-1 about-heading">{{ step.title }}</h3>
                 <p class="text-sm about-muted">{{ step.description }}</p>
               </div>
             </div>
@@ -86,17 +127,17 @@ import { LucideDynamicIcon } from '@lucide/angular';
       </div>
 
       <!-- Supported Formats -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-6">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="file-text" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="file-text" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">Supported Formats</h2>
+          <h2 class="text-2xl font-semibold about-heading">Supported Formats</h2>
         </div>
         <div class="grid gap-3">
           @for (format of supportedFormats; track format.label) {
             <div class="flex items-center gap-3">
-              <svg lucideIcon="check" [size]="16" class="shrink-0 about-primary"></svg>
+              <svg lucideIcon="check" [size]="16" class="shrink-0 about-accent"></svg>
               <span class="text-sm about-muted">{{ format.label }}</span>
             </div>
           }
@@ -104,17 +145,17 @@ import { LucideDynamicIcon } from '@lucide/angular';
       </div>
 
       <!-- Video Templates -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-6">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="palette" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="palette" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">Video Templates</h2>
+          <h2 class="text-2xl font-semibold about-heading">Video Templates</h2>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           @for (tpl of videoTemplates; track tpl.name) {
-            <div class="glass-card p-4 flex items-start gap-3">
-              <svg [lucideIcon]="tpl.icon" [size]="18" class="shrink-0 mt-0.5 about-primary"></svg>
+            <div class="about-card p-4 flex items-start gap-3">
+              <svg [lucideIcon]="tpl.icon" [size]="18" class="shrink-0 mt-0.5 about-accent"></svg>
               <div>
                 <p class="font-medium text-sm">{{ tpl.name }}</p>
                 <p class="text-xs mt-0.5 about-muted">{{ tpl.description }}</p>
@@ -125,18 +166,18 @@ import { LucideDynamicIcon } from '@lucide/angular';
       </div>
 
       <!-- AI Voices -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-6">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="mic" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="mic" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">AI Voices</h2>
+          <h2 class="text-2xl font-semibold about-heading">AI Voices</h2>
         </div>
         <div class="grid gap-4">
           @for (voice of aiVoices; track voice.name) {
             <div class="flex items-center gap-4">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 about-primary-bg">
-                <svg lucideIcon="volume-2" [size]="14" class="about-primary"></svg>
+              <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 about-accent-bg">
+                <svg lucideIcon="volume-2" [size]="14" class="about-accent"></svg>
               </div>
               <div>
                 <p class="font-medium text-sm">{{ voice.name }}</p>
@@ -148,17 +189,17 @@ import { LucideDynamicIcon } from '@lucide/angular';
       </div>
 
       <!-- Video Specifications -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-6">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="monitor" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="monitor" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">Video Specifications</h2>
+          <h2 class="text-2xl font-semibold about-heading">Video Specifications</h2>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           @for (spec of videoSpecs; track spec.label) {
             <div class="flex items-center gap-3">
-              <svg [lucideIcon]="spec.icon" [size]="16" class="shrink-0 about-primary"></svg>
+              <svg [lucideIcon]="spec.icon" [size]="16" class="shrink-0 about-accent"></svg>
               <span class="text-sm about-muted">{{ spec.label }}</span>
             </div>
           }
@@ -166,18 +207,18 @@ import { LucideDynamicIcon } from '@lucide/angular';
       </div>
 
       <!-- Use Cases -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-6">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="users" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="users" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">Use Cases</h2>
+          <h2 class="text-2xl font-semibold about-heading">Use Cases</h2>
         </div>
         <div class="grid gap-4">
           @for (useCase of useCases; track useCase.title) {
             <div class="flex items-start gap-4">
-              <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 about-primary-bg">
-                <svg [lucideIcon]="useCase.icon" [size]="18" class="about-primary"></svg>
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 about-accent-bg">
+                <svg [lucideIcon]="useCase.icon" [size]="18" class="about-accent"></svg>
               </div>
               <div>
                 <p class="font-medium text-sm">{{ useCase.title }}</p>
@@ -189,16 +230,16 @@ import { LucideDynamicIcon } from '@lucide/angular';
       </div>
 
       <!-- Technology Section -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-6">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="settings" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="settings" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">Built With</h2>
+          <h2 class="text-2xl font-semibold about-heading">Built With</h2>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
           @for (tech of technologies; track tech.name) {
-            <div class="spotlight-card glass-card p-4 text-center">
+            <div class="about-card p-4 text-center">
               <p class="font-medium text-sm">{{ tech.name }}</p>
               <p class="text-xs mt-1 about-muted">{{ tech.role }}</p>
             </div>
@@ -207,12 +248,12 @@ import { LucideDynamicIcon } from '@lucide/angular';
       </div>
 
       <!-- Team / Creator Section -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="user" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="user" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">Creator</h2>
+          <h2 class="text-2xl font-semibold about-heading">Creator</h2>
         </div>
         <p class="leading-relaxed about-muted">
           Indifferent is built and maintained by a passionate developer focused on making
@@ -222,18 +263,18 @@ import { LucideDynamicIcon } from '@lucide/angular';
       </div>
 
       <!-- Contact Section -->
-      <div class="glass-card p-8 mb-8">
+      <div class="about-card p-8 mb-8">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center about-primary-bg">
-            <svg lucideIcon="message-circle" [size]="20" class="about-primary"></svg>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg">
+            <svg lucideIcon="message-circle" [size]="20" class="about-accent"></svg>
           </div>
-          <h2 class="text-2xl font-semibold">Get In Touch</h2>
+          <h2 class="text-2xl font-semibold about-heading">Get In Touch</h2>
         </div>
         <p class="mb-4 about-muted">
           Have questions, feedback, or feature requests? We'd love to hear from you.
         </p>
         <div class="flex flex-wrap gap-4">
-          <a href="https://github.com/RahulKumar1119/indifferent/issues" target="_blank" rel="noopener" class="glow-btn text-sm">
+          <a href="https://github.com/RahulKumar1119/indifferent/issues" target="_blank" rel="noopener" class="about-cta-btn">
             <svg lucideIcon="github" [size]="16"></svg>
             Open an Issue on GitHub
           </a>
@@ -242,7 +283,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
 
       <!-- Back to Home -->
       <div class="text-center">
-        <a routerLink="/" class="hover:underline text-sm about-primary">
+        <a routerLink="/" class="hover:underline text-sm about-accent">
           &larr; Back to Home
         </a>
       </div>
