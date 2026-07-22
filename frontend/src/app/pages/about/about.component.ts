@@ -419,12 +419,17 @@ import { RouterLink } from '@angular/router';
         </div>
       </section>
 
-      <!-- Back to Home -->
-      <div class="text-center">
-        <a routerLink="/" class="hover:underline text-sm about-accent">
-          &larr; Back to Home
-        </a>
-      </div>
+      <!-- Footer -->
+      <footer class="mt-12 pt-8 border-t border-gray-200">
+        <div class="flex flex-wrap justify-center gap-6 text-sm about-muted mb-4">
+          <a routerLink="/" class="hover:underline about-accent">Home</a>
+          <a routerLink="/about" class="hover:underline about-accent">About</a>
+          <a routerLink="/contact" class="hover:underline about-accent">Contact</a>
+          <a routerLink="/privacy" class="hover:underline about-accent">Privacy Policy</a>
+          <a routerLink="/terms" class="hover:underline about-accent">Terms of Service</a>
+        </div>
+        <p class="text-center text-xs about-muted">&copy; 2025 Indifferent. All rights reserved.</p>
+      </footer>
     </main>
   `,
 })

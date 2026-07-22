@@ -94,7 +94,7 @@ import gsap from 'gsap';
       <div class="max-w-6xl mx-auto">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <!-- Brand -->
-          <div class="md:col-span-2">
+          <div class="md:col-span-1">
             <a routerLink="/" class="flex items-center gap-2 text-lg font-bold mb-3">
               <img src="logo.svg" alt="Indifferent" class="h-7">
             </a>
@@ -108,6 +108,15 @@ import gsap from 'gsap';
             <ul class="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
               <li><a routerLink="/login" class="hover:text-[hsl(var(--primary))] transition-colors">Get Started</a></li>
               <li><a routerLink="/about" class="hover:text-[hsl(var(--primary))] transition-colors">About</a></li>
+              <li><a routerLink="/contact" class="hover:text-[hsl(var(--primary))] transition-colors">Contact</a></li>
+            </ul>
+          </div>
+          <!-- Legal -->
+          <div>
+            <h4 class="font-semibold text-sm mb-3">Legal</h4>
+            <ul class="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
+              <li><a routerLink="/privacy" class="hover:text-[hsl(var(--primary))] transition-colors">Privacy Policy</a></li>
+              <li><a routerLink="/terms" class="hover:text-[hsl(var(--primary))] transition-colors">Terms of Service</a></li>
             </ul>
           </div>
           <!-- Connect -->
