@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/rahul/indifferent/backend/internal/models"
 )
 
@@ -50,6 +51,8 @@ type DynamoDBClient interface {
 	PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
 	GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
+	UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
 }
 
 // HTTPClient defines the HTTP operations needed by the auth service.
@@ -265,10 +268,15 @@ func (s *googleAuthService) createSession(ctx context.Context, userID string, no
 	// Store session in DynamoDB with TTL
 	expiresAt := now.Add(RefreshTokenTTL).Unix()
 
+	// Generate a new familyId for this login session
+	familyId := uuid.New().String()
+
 	item := map[string]dbtypes.AttributeValue{
 		"PK":           &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
 		"SK":           &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
 		"refreshToken": &dbtypes.AttributeValueMemberS{Value: tokenHash},
+		"userId":       &dbtypes.AttributeValueMemberS{Value: userID},
+		"familyId":     &dbtypes.AttributeValueMemberS{Value: familyId},
 		"expiresAt":    &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", expiresAt)},
 		"createdAt":    &dbtypes.AttributeValueMemberS{Value: now.UTC().Format(time.RFC3339)},
 	}

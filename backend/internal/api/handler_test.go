@@ -24,6 +24,8 @@ type mockDynamoDB struct {
 	getItemFunc    func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	deleteItemFunc func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
 	queryFunc      func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
+	updateItemFunc func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	scanFunc       func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
 }
 
 func (m *mockDynamoDB) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
@@ -52,6 +54,20 @@ func (m *mockDynamoDB) Query(ctx context.Context, params *dynamodb.QueryInput, o
 		return m.queryFunc(ctx, params, optFns...)
 	}
 	return &dynamodb.QueryOutput{Items: []map[string]dbtypes.AttributeValue{}}, nil
+}
+
+func (m *mockDynamoDB) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+	if m.updateItemFunc != nil {
+		return m.updateItemFunc(ctx, params, optFns...)
+	}
+	return &dynamodb.UpdateItemOutput{}, nil
+}
+
+func (m *mockDynamoDB) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+	if m.scanFunc != nil {
+		return m.scanFunc(ctx, params, optFns...)
+	}
+	return &dynamodb.ScanOutput{Items: []map[string]dbtypes.AttributeValue{}}, nil
 }
 
 // mockSFN is a mock Step Functions client.
@@ -188,14 +204,15 @@ func TestAuthValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up mock to return empty project list for valid auth
-			handler.DB = &mockDynamoDB{
+			db := &mockDynamoDB{
 				queryFunc: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 					return &dynamodb.QueryOutput{Items: []map[string]dbtypes.AttributeValue{}}, nil
 				},
 			}
+			handler.DB = db
 			handler.JWTService = &auth.JWTService{
 				Secret:       testSecret,
-				DB:           handler.DB,
+				DB:           db,
 				SessionTable: "sessions-table",
 			}
 
@@ -220,14 +237,15 @@ func TestAuthValidation(t *testing.T) {
 
 func TestInputValidation(t *testing.T) {
 	handler := newTestHandler()
-	handler.DB = &mockDynamoDB{
+	db := &mockDynamoDB{
 		putItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 			return &dynamodb.PutItemOutput{}, nil
 		},
 	}
+	handler.DB = db
 	handler.JWTService = &auth.JWTService{
 		Secret:       testSecret,
-		DB:           handler.DB,
+		DB:           db,
 		SessionTable: "sessions-table",
 	}
 	ctx := context.Background()

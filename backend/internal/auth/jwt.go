@@ -13,8 +13,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/rahul/indifferent/backend/internal/models"
 )
+
+// RotatedSessionTTL is the time a rotated session is kept for reuse detection.
+const RotatedSessionTTL = 5 * time.Minute
 
 var (
 	// ErrInvalidToken is returned when a JWT token is malformed or has an invalid signature.
@@ -25,6 +29,8 @@ var (
 	ErrSessionNotFound = errors.New("session not found")
 	// ErrSessionExpired is returned when a refresh token session has expired.
 	ErrSessionExpired = errors.New("session expired")
+	// ErrTokenReuse is returned when a rotated refresh token is reused (possible theft).
+	ErrTokenReuse = errors.New("refresh token reuse detected")
 )
 
 // JWTService provides JWT token management including validation, refresh, and logout.
@@ -96,13 +102,12 @@ func (s *JWTService) ExtractUserID(tokenString string) (string, error) {
 }
 
 // RefreshToken validates a refresh token and issues new access and refresh tokens.
-// It hashes the provided refresh token, looks up the session in DynamoDB,
-// verifies it hasn't expired, deletes the old session, and creates a new one.
+// It implements token family reuse detection: if a rotated token is presented again,
+// all sessions in that family are invalidated (theft detection).
 func (s *JWTService) RefreshToken(ctx context.Context, refreshToken string) (*models.AuthTokens, error) {
 	tokenHash := hashToken(refreshToken)
 
 	// Look up session in DynamoDB.
-	// Sessions created by JWTService use PK=SESSION#<hash>, SK=SESSION.
 	result, err := s.DB.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(s.SessionTable),
 		Key: map[string]dbtypes.AttributeValue{
@@ -117,6 +122,18 @@ func (s *JWTService) RefreshToken(ctx context.Context, refreshToken string) (*mo
 
 	if result.Item == nil {
 		return nil, ErrSessionNotFound
+	}
+
+	// Check if this token was already rotated (reuse detection)
+	if rotatedAttr, ok := result.Item["rotated"]; ok {
+		if boolVal, ok := rotatedAttr.(*dbtypes.AttributeValueMemberBOOL); ok && boolVal.Value {
+			// THEFT DETECTED! Invalidate all sessions in this family
+			familyID := extractStringAttr(result.Item, "familyId")
+			if familyID != "" {
+				s.invalidateFamily(ctx, familyID)
+			}
+			return nil, ErrTokenReuse
+		}
 	}
 
 	// Extract userId from the session item
@@ -140,22 +157,17 @@ func (s *JWTService) RefreshToken(ctx context.Context, refreshToken string) (*mo
 		}
 	}
 
-	// Extract email from session
-	var email string
-	if emailAttr, ok := result.Item["email"]; ok {
-		if emailVal, ok := emailAttr.(*dbtypes.AttributeValueMemberS); ok {
-			email = emailVal.Value
-		}
+	// Extract email and familyId from session
+	email := extractStringAttr(result.Item, "email")
+	familyID := extractStringAttr(result.Item, "familyId")
+
+	// If no familyId exists (legacy session), generate one for forward compatibility
+	if familyID == "" {
+		familyID = uuid.New().String()
 	}
 
-	// Delete old session
-	_, _ = s.DB.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-		TableName: aws.String(s.SessionTable),
-		Key: map[string]dbtypes.AttributeValue{
-			"PK": &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
-			"SK": &dbtypes.AttributeValueMemberS{Value: "SESSION"},
-		},
-	})
+	// Mark old session as rotated (keep for reuse detection window)
+	s.markSessionRotated(ctx, tokenHash)
 
 	// Generate new access token
 	accessToken, err := s.GenerateAccessToken(userID, email)
@@ -163,8 +175,8 @@ func (s *JWTService) RefreshToken(ctx context.Context, refreshToken string) (*mo
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
 
-	// Generate new refresh token and store new session
-	newRefreshToken, err := s.createSession(ctx, userID, email)
+	// Generate new refresh token and store new session with same familyId
+	newRefreshToken, err := s.createSessionWithFamily(ctx, userID, email, familyID)
 	if err != nil {
 		return nil, fmt.Errorf("create new session: %w", err)
 	}
@@ -214,8 +226,16 @@ func (s *JWTService) GenerateAccessToken(userID, email string) (string, error) {
 	return signed, nil
 }
 
-// createSession generates a new refresh token, hashes it, and stores the session in DynamoDB.
+// createSession generates a new refresh token, hashes it, and stores the session in DynamoDB
+// with a new familyId (used on initial login).
 func (s *JWTService) createSession(ctx context.Context, userID, email string) (string, error) {
+	familyID := uuid.New().String()
+	return s.createSessionWithFamily(ctx, userID, email, familyID)
+}
+
+// createSessionWithFamily generates a new refresh token and stores the session with
+// the given familyId. Used during token rotation to preserve the family chain.
+func (s *JWTService) createSessionWithFamily(ctx context.Context, userID, email, familyID string) (string, error) {
 	tokenBytes := make([]byte, RefreshTokenBytes)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return "", fmt.Errorf("generate random token: %w", err)
@@ -231,6 +251,7 @@ func (s *JWTService) createSession(ctx context.Context, userID, email string) (s
 		"SK":        &dbtypes.AttributeValueMemberS{Value: "SESSION"},
 		"userId":    &dbtypes.AttributeValueMemberS{Value: userID},
 		"email":     &dbtypes.AttributeValueMemberS{Value: email},
+		"familyId":  &dbtypes.AttributeValueMemberS{Value: familyID},
 		"expiresAt": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", expiresAt)},
 		"createdAt": &dbtypes.AttributeValueMemberS{Value: now.UTC().Format(time.RFC3339)},
 	}
@@ -244,4 +265,65 @@ func (s *JWTService) createSession(ctx context.Context, userID, email string) (s
 	}
 
 	return refreshToken, nil
+}
+
+// markSessionRotated marks a session as already used. The session is kept
+// for a short window (RotatedSessionTTL) so that reuse can be detected.
+func (s *JWTService) markSessionRotated(ctx context.Context, tokenHash string) {
+	rotatedExpiresAt := time.Now().Add(RotatedSessionTTL).Unix()
+
+	_, _ = s.DB.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.SessionTable),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+		},
+		UpdateExpression: aws.String("SET rotated = :r, expiresAt = :e"),
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":r": &dbtypes.AttributeValueMemberBOOL{Value: true},
+			":e": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", rotatedExpiresAt)},
+		},
+	})
+}
+
+// invalidateFamily deletes all sessions belonging to the given token family.
+// This is called when token reuse is detected to protect the user.
+func (s *JWTService) invalidateFamily(ctx context.Context, familyID string) {
+	// Scan for all sessions with matching familyId
+	scanOutput, err := s.DB.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(s.SessionTable),
+		FilterExpression: aws.String("familyId = :fid"),
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":fid": &dbtypes.AttributeValueMemberS{Value: familyID},
+		},
+	})
+	if err != nil {
+		return
+	}
+
+	// Delete each session in the family
+	for _, item := range scanOutput.Items {
+		pkAttr, pkOk := item["PK"].(*dbtypes.AttributeValueMemberS)
+		skAttr, skOk := item["SK"].(*dbtypes.AttributeValueMemberS)
+		if !pkOk || !skOk {
+			continue
+		}
+		_, _ = s.DB.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+			TableName: aws.String(s.SessionTable),
+			Key: map[string]dbtypes.AttributeValue{
+				"PK": &dbtypes.AttributeValueMemberS{Value: pkAttr.Value},
+				"SK": &dbtypes.AttributeValueMemberS{Value: skAttr.Value},
+			},
+		})
+	}
+}
+
+// extractStringAttr extracts a string attribute from a DynamoDB item.
+func extractStringAttr(item map[string]dbtypes.AttributeValue, key string) string {
+	if attr, ok := item[key]; ok {
+		if val, ok := attr.(*dbtypes.AttributeValueMemberS); ok {
+			return val.Value
+		}
+	}
+	return ""
 }

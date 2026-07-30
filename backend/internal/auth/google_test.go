@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -19,6 +20,8 @@ type mockDynamoDBClient struct {
 	putItemFunc    func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
 	getItemFunc    func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	deleteItemFunc func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
+	updateItemFunc func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	scanFunc       func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
 	putItemCalls   int
 }
 
@@ -42,6 +45,20 @@ func (m *mockDynamoDBClient) DeleteItem(ctx context.Context, params *dynamodb.De
 		return m.deleteItemFunc(ctx, params, optFns...)
 	}
 	return &dynamodb.DeleteItemOutput{}, nil
+}
+
+func (m *mockDynamoDBClient) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+	if m.updateItemFunc != nil {
+		return m.updateItemFunc(ctx, params, optFns...)
+	}
+	return &dynamodb.UpdateItemOutput{}, nil
+}
+
+func (m *mockDynamoDBClient) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+	if m.scanFunc != nil {
+		return m.scanFunc(ctx, params, optFns...)
+	}
+	return &dynamodb.ScanOutput{Items: []map[string]dbtypes.AttributeValue{}}, nil
 }
 
 // testHTTPClient wraps an http.Client for use in tests.

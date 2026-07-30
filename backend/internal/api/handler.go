@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -180,6 +181,9 @@ func (h *APIHandler) handleRefresh(ctx context.Context, req events.APIGatewayPro
 
 	tokens, err := h.JWTService.RefreshToken(ctx, body.RefreshToken)
 	if err != nil {
+		if errors.Is(err, auth.ErrTokenReuse) {
+			return errorResponse(http.StatusUnauthorized, "SESSION_REVOKED", "Your session has been revoked for security. Please sign in again."), nil
+		}
 		return errorResponse(http.StatusUnauthorized, "REFRESH_FAILED", "Token refresh failed"), nil
 	}
 
