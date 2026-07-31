@@ -114,8 +114,8 @@ import gsap from 'gsap';
                   </div>
                 </div>
                 <!-- Play button overlay -->
-                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20">
-                  <div class="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg animate-[pulse_2s_ease-in-out_infinite]">
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <div class="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                     <div class="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-[hsl(var(--primary))] border-b-[8px] border-b-transparent ml-1"></div>
                   </div>
                 </div>
