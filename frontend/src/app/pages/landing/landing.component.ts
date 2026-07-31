@@ -7,6 +7,17 @@ import gsap from 'gsap';
   selector: 'app-landing',
   standalone: true,
   imports: [RouterLink, LucideDynamicIcon],
+  styles: [`
+    .thumbnail-card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .thumbnail-card:hover {
+      transform: translateY(-4px);
+    }
+    .thumbnail-card:hover .aspect-video {
+      box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.3);
+    }
+  `],
   template: `
     <!-- Navbar -->
     <nav
@@ -67,6 +78,59 @@ import gsap from 'gsap';
               </div>
               <h3 class="font-semibold text-lg mb-2">{{ feature.title }}</h3>
               <p class="text-sm text-[hsl(var(--muted-foreground))]">{{ feature.description }}</p>
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Sample Videos Section -->
+    <section class="py-24 px-6 relative" #thumbnailSection>
+      <div class="max-w-6xl mx-auto">
+        <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">
+          See What You Can Create
+        </h2>
+        <p class="text-center text-[hsl(var(--muted-foreground))] mb-16 max-w-2xl mx-auto">
+          Professional quiz videos generated automatically from simple text files
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          @for (thumb of thumbnails; track thumb.title) {
+            <div class="thumbnail-card group cursor-pointer" (mousemove)="onSpotlightMove($event)">
+              <!-- 16:9 Thumbnail Container -->
+              <div class="relative aspect-video rounded-xl overflow-hidden mb-3" [style.background]="'linear-gradient(to bottom right, ' + thumb.colors[0] + ', ' + thumb.colors[1] + ')'">
+                <!-- Animated background elements -->
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <!-- Simulated quiz slide content -->
+                  <div class="text-center px-4">
+                    <div class="w-16 h-2 bg-white/30 rounded mx-auto mb-3 animate-pulse"></div>
+                    <div class="w-24 h-2 bg-white/20 rounded mx-auto mb-2"></div>
+                    <div class="w-20 h-2 bg-white/20 rounded mx-auto mb-4"></div>
+                    <div class="grid grid-cols-2 gap-2 px-4">
+                      <div class="h-6 bg-white/15 rounded animate-[pulse_2s_ease-in-out_infinite]"></div>
+                      <div class="h-6 bg-white/15 rounded animate-[pulse_2s_ease-in-out_0.5s_infinite]"></div>
+                      <div class="h-6 bg-white/15 rounded animate-[pulse_2s_ease-in-out_1s_infinite]"></div>
+                      <div class="h-6 bg-white/15 rounded animate-[pulse_2s_ease-in-out_1.5s_infinite]"></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Play button overlay -->
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20">
+                  <div class="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg animate-[pulse_2s_ease-in-out_infinite]">
+                    <div class="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-[hsl(var(--primary))] border-b-[8px] border-b-transparent ml-1"></div>
+                  </div>
+                </div>
+                <!-- Duration badge -->
+                <div class="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-medium px-2 py-0.5 rounded">
+                  {{ thumb.duration }}
+                </div>
+                <!-- Category badge -->
+                <div class="absolute top-2 left-2 bg-white/20 backdrop-blur-sm text-white text-xs font-medium px-2 py-0.5 rounded">
+                  {{ thumb.category }}
+                </div>
+              </div>
+              <!-- Title -->
+              <h3 class="font-medium text-sm group-hover:text-[hsl(var(--primary))] transition-colors">{{ thumb.title }}</h3>
+              <p class="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">Auto-generated • HD 1080p</p>
             </div>
           }
         </div>
@@ -140,6 +204,7 @@ export class LandingComponent implements AfterViewInit {
   @ViewChild('heroTitle') heroTitle!: ElementRef;
   @ViewChild('heroSubtitle') heroSubtitle!: ElementRef;
   @ViewChild('heroCta') heroCta!: ElementRef;
+  @ViewChild('thumbnailSection') thumbnailSection!: ElementRef;
 
   currentYear = new Date().getFullYear();
 
@@ -166,6 +231,15 @@ export class LandingComponent implements AfterViewInit {
     },
   ];
 
+  thumbnails = [
+    { title: 'World History Quiz', duration: '3:24', colors: ['#6366f1', '#9333ea'], category: 'Education' },
+    { title: 'Science Trivia Challenge', duration: '4:12', colors: ['#10b981', '#0d9488'], category: 'Science' },
+    { title: 'Math Practice Test', duration: '2:58', colors: ['#f97316', '#dc2626'], category: 'Mathematics' },
+    { title: 'English Grammar Quiz', duration: '3:45', colors: ['#3b82f6', '#06b6d4'], category: 'Language' },
+    { title: 'Geography Explorer', duration: '4:30', colors: ['#ec4899', '#e11d48'], category: 'Geography' },
+    { title: 'Computer Science Basics', duration: '3:15', colors: ['#8b5cf6', '#d946ef'], category: 'Technology' },
+  ];
+
   ngAfterViewInit(): void {
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
@@ -186,6 +260,13 @@ export class LandingComponent implements AfterViewInit {
         { opacity: 1, y: 0, duration: 0.6 },
         '-=0.3'
       );
+
+    // Animate thumbnails with stagger
+    gsap.fromTo(
+      this.thumbnailSection.nativeElement.querySelectorAll('.thumbnail-card'),
+      { opacity: 0, y: 40 },
+      { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, delay: 0.5, ease: 'power2.out' }
+    );
   }
 
   onSpotlightMove(event: MouseEvent): void {
