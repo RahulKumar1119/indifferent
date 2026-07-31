@@ -12,7 +12,7 @@ customHeaders:
       - key: Content-Security-Policy
         value: >-
           default-src 'self';
-          script-src 'self' 'unsafe-inline' 'unsafe-eval' https://dataplane.rum.ap-south-1.amazonaws.com;
+          script-src 'self' https://dataplane.rum.ap-south-1.amazonaws.com;
           style-src 'self' 'unsafe-inline';
           img-src 'self' data: https:;
           font-src 'self' data:;
@@ -20,6 +20,7 @@ customHeaders:
           frame-ancestors 'none';
           base-uri 'self';
           form-action 'self';
+          object-src 'none';
           upgrade-insecure-requests
       - key: Permissions-Policy
         value: camera=(), microphone=(), geolocation=(), payment=()
