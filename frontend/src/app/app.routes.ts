@@ -65,5 +65,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/terms/terms.component').then((m) => m.TermsComponent),
   },
+  {
+    path: 'tools',
+    loadComponent: () =>
+      import('./pages/tools/tools.component').then((m) => m.ToolsComponent),
+  },
   { path: '**', component: NotFoundComponent },
 ];

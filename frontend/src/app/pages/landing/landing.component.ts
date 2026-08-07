@@ -26,7 +26,11 @@ import gsap from 'gsap';
       <a routerLink="/" class="flex items-center gap-2 text-xl font-bold">
         <img src="logo.svg" alt="Indifferent" class="h-8">
       </a>
-      <a routerLink="/login" class="glow-btn !py-2 !px-5 !text-sm">Sign In</a>
+      <div class="flex items-center gap-6">
+        <a routerLink="/tools" class="text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors">Tools</a>
+        <a routerLink="/about" class="text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors">About</a>
+        <a routerLink="/login" class="glow-btn !py-2 !px-5 !text-sm">Sign In</a>
+      </div>
     </nav>
 
     <!-- Hero Section -->
