@@ -27,7 +27,90 @@ import gsap from 'gsap';
         <img src="logo.svg" alt="Indifferent" class="h-8">
       </a>
       <div class="flex items-center gap-6">
-        <a routerLink="/tools" class="text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors">Tools</a>
+        <!-- Tools Dropdown -->
+        <div class="relative group">
+          <button class="text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none">
+            Tools
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <!-- Dropdown Panel -->
+          <div class="absolute top-full right-0 mt-2 w-[520px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ease-out translate-y-2 group-hover:translate-y-0">
+            <div class="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-xl p-6 grid grid-cols-2 gap-8">
+              <!-- Column 1: Converters -->
+              <div>
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-4">Converters</h4>
+                <ul class="space-y-3">
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">TV</span>
+                      <span>TXT to Video</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">PV</span>
+                      <span>PDF to Video</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">QV</span>
+                      <span>Quiz to Video</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">TS</span>
+                      <span>Text to Speech</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">SG</span>
+                      <span>Subtitle Generator</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <!-- Column 2: Use Cases -->
+              <div>
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))] mb-4">Use Cases</h4>
+                <ul class="space-y-3">
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">📚</span>
+                      <span>Education Videos</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">▶️</span>
+                      <span>YouTube Quiz Content</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">🏢</span>
+                      <span>Corporate Training</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">💻</span>
+                      <span>E-learning Courses</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a routerLink="/tools" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">📝</span>
+                      <span>Exam Preparation</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
         <a routerLink="/about" class="text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors">About</a>
         <a routerLink="/login" class="glow-btn !py-2 !px-5 !text-sm">Sign In</a>
       </div>
