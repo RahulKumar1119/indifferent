@@ -14,7 +14,7 @@ customHeaders:
           default-src 'self';
           script-src 'self' 'unsafe-inline' https://dataplane.rum.ap-south-1.amazonaws.com;
           style-src 'self' 'unsafe-inline';
-          img-src 'self' data: https:;
+          img-src 'self' data: blob: https:;
           font-src 'self' data:;
           connect-src 'self' https://api.indifferent.fun https://dataplane.rum.ap-south-1.amazonaws.com https://cognito-identity.ap-south-1.amazonaws.com;
           frame-ancestors 'none';
