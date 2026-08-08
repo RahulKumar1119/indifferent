@@ -75,5 +75,45 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/tools/watermark/watermark.component').then((m) => m.WatermarkComponent),
   },
+  {
+    path: 'blog',
+    loadComponent: () =>
+      import('./pages/blog/blog.component').then((m) => m.BlogComponent),
+  },
+  {
+    path: 'blog/quiz-videos-youtube',
+    loadComponent: () =>
+      import('./pages/blog/articles/quiz-videos-youtube.component').then(
+        (m) => m.QuizVideosYoutubeComponent,
+      ),
+  },
+  {
+    path: 'blog/educational-video-best-practices',
+    loadComponent: () =>
+      import('./pages/blog/articles/educational-video-best-practices.component').then(
+        (m) => m.EducationalVideoBestPracticesComponent,
+      ),
+  },
+  {
+    path: 'blog/quiz-file-format-guide',
+    loadComponent: () =>
+      import('./pages/blog/articles/quiz-file-format-guide.component').then(
+        (m) => m.QuizFileFormatGuideComponent,
+      ),
+  },
+  {
+    path: 'blog/video-template-comparison',
+    loadComponent: () =>
+      import('./pages/blog/articles/video-template-comparison.component').then(
+        (m) => m.VideoTemplateComparisonComponent,
+      ),
+  },
+  {
+    path: 'blog/ai-narration-guide',
+    loadComponent: () =>
+      import('./pages/blog/articles/ai-narration-guide.component').then(
+        (m) => m.AiNarrationGuideComponent,
+      ),
+  },
   { path: '**', component: NotFoundComponent },
 ];

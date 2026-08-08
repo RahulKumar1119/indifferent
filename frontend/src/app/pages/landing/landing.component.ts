@@ -266,6 +266,7 @@ import gsap from 'gsap';
               <li><a routerLink="/login" class="hover:text-[hsl(var(--primary))] transition-colors">Get Started</a></li>
               <li><a routerLink="/about" class="hover:text-[hsl(var(--primary))] transition-colors">About</a></li>
               <li><a routerLink="/contact" class="hover:text-[hsl(var(--primary))] transition-colors">Contact</a></li>
+              <li><a routerLink="/blog" class="hover:text-[hsl(var(--primary))] transition-colors">Blog</a></li>
             </ul>
           </div>
           <!-- Legal -->
