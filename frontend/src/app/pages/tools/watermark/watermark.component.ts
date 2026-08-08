@@ -10,278 +10,327 @@ import { FormsModule } from '@angular/forms';
   styles: [`
     :host {
       display: block;
+      background: #f8fafc;
       min-height: 100vh;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
-    .editor-nav {
-      background: rgba(15, 23, 42, 0.8);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(20px);
+    .wm-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      background: rgba(255,255,255,0.9);
+      border-bottom: 1px solid #e2e8f0;
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
-    .editor-container {
+    .wm-logo img {
+      height: 2rem;
+    }
+    .wm-signin {
+      background: #0d9488;
+      color: #fff;
+      padding: 0.5rem 1.25rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+      text-decoration: none;
+    }
+    .wm-signin:hover { background: #0f766e; }
+    .wm-header {
+      text-align: center;
+      padding: 3rem 2rem 2rem;
+    }
+    .wm-header h1 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 0.75rem;
+    }
+    .wm-header p {
+      color: #64748b;
+      font-size: 1.1rem;
+      margin: 0;
+    }
+    .wm-upload-wrapper {
+      display: flex;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .wm-dropzone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 1rem;
+      padding: 4rem 3rem;
+      text-align: center;
+      cursor: pointer;
+      max-width: 500px;
+      width: 100%;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .wm-dropzone:hover, .wm-dropzone.active {
+      border-color: #0d9488;
+      background: #f0fdfa;
+    }
+    .wm-dropzone svg {
+      display: block;
+      margin: 0 auto 1.25rem;
+    }
+    .wm-dropzone h3 {
+      color: #0f172a;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+    }
+    .wm-dropzone p {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin: 0;
+    }
+    .wm-editor {
       display: grid;
-      grid-template-columns: 1fr 320px;
+      grid-template-columns: 1fr 300px;
       gap: 1.5rem;
-      max-width: 1400px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 1.5rem;
-      min-height: calc(100vh - 140px);
+      padding: 0 2rem 2rem;
     }
     @media (max-width: 768px) {
-      .editor-container {
-        grid-template-columns: 1fr;
-      }
+      .wm-editor { grid-template-columns: 1fr; }
     }
-    .canvas-area {
-      background: rgba(30, 41, 59, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 1rem;
+    .wm-canvas-wrapper {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.75rem;
       display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
-      overflow: hidden;
-      cursor: crosshair;
       min-height: 400px;
+      cursor: crosshair;
+      overflow: hidden;
+      padding: 1rem;
     }
-    .canvas-area canvas {
+    .wm-canvas-wrapper canvas {
       max-width: 100%;
-      max-height: 70vh;
+      max-height: 60vh;
       border-radius: 0.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     }
-    .controls-panel {
-      background: rgba(30, 41, 59, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    .wm-drag-label {
+      position: absolute;
+      bottom: 0.75rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(13,148,136,0.1);
+      color: #0d9488;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.3rem 0.75rem;
       border-radius: 1rem;
-      backdrop-filter: blur(20px);
+      pointer-events: none;
+    }
+    .wm-controls {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.75rem;
       padding: 1.5rem;
       height: fit-content;
       position: sticky;
       top: 5rem;
     }
-    .panel-title {
-      color: #f1f5f9;
-      font-size: 1.125rem;
+    .wm-controls h3 {
+      font-size: 1rem;
       font-weight: 700;
-      margin-bottom: 1.5rem;
+      color: #0f172a;
+      margin: 0 0 1.5rem;
     }
-    .control-group {
+    .wm-field {
       margin-bottom: 1.25rem;
     }
-    .control-label {
+    .wm-field label {
       display: block;
       font-size: 0.75rem;
       font-weight: 600;
-      color: #94a3b8;
+      color: #64748b;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.4rem;
     }
-    .control-input {
+    .wm-field input[type="text"] {
       width: 100%;
-      padding: 0.625rem 0.875rem;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #e2e8f0;
       border-radius: 0.5rem;
       font-size: 0.875rem;
-      color: #f1f5f9;
+      color: #0f172a;
       outline: none;
-      transition: border-color 0.2s;
+      box-sizing: border-box;
     }
-    .control-input:focus {
+    .wm-field input[type="text"]:focus {
       border-color: #0d9488;
     }
-    .control-input::placeholder {
-      color: #64748b;
-    }
-    .slider-row {
+    .wm-slider-row {
       display: flex;
       align-items: center;
       gap: 0.75rem;
     }
-    .slider-row input[type="range"] {
+    .wm-slider-row input[type="range"] {
       flex: 1;
-      height: 4px;
+      height: 5px;
       -webkit-appearance: none;
       appearance: none;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
+      background: #e2e8f0;
+      border-radius: 3px;
       outline: none;
     }
-    .slider-row input[type="range"]::-webkit-slider-thumb {
+    .wm-slider-row input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      appearance: none;
       width: 16px;
       height: 16px;
       border-radius: 50%;
       background: #0d9488;
       cursor: pointer;
-      box-shadow: 0 0 8px rgba(13, 148, 136, 0.4);
     }
-    .slider-row input[type="range"]::-moz-range-thumb {
+    .wm-slider-row input[type="range"]::-moz-range-thumb {
       width: 16px;
       height: 16px;
       border-radius: 50%;
       background: #0d9488;
       cursor: pointer;
       border: none;
-      box-shadow: 0 0 8px rgba(13, 148, 136, 0.4);
     }
-    .slider-value {
+    .wm-slider-row span {
       font-size: 0.75rem;
       font-weight: 600;
       color: #0d9488;
       min-width: 2.5rem;
       text-align: right;
     }
-    .color-row {
+    .wm-color-row {
       display: flex;
       align-items: center;
       gap: 0.75rem;
     }
-    .color-row input[type="color"] {
+    .wm-color-row input[type="color"] {
       width: 36px;
       height: 36px;
-      border: 2px solid rgba(255, 255, 255, 0.1);
-      border-radius: 0.5rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 0.375rem;
       cursor: pointer;
       padding: 2px;
-      background: transparent;
     }
-    .color-hex {
+    .wm-color-row span {
       font-size: 0.75rem;
-      color: #64748b;
+      color: #94a3b8;
       font-family: monospace;
     }
-    .btn-primary {
+    .wm-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e2e8f0;
+    }
+    .wm-btn-primary {
       width: 100%;
       padding: 0.75rem;
-      background: linear-gradient(135deg, #0d9488, #0f766e);
-      color: #ffffff;
+      background: #0d9488;
+      color: #fff;
       border: none;
       border-radius: 0.5rem;
       font-weight: 600;
       font-size: 0.875rem;
       cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
     }
-    .btn-primary:hover {
-      opacity: 0.9;
-    }
-    .btn-primary:active {
-      transform: scale(0.98);
-    }
-    .btn-primary:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    .btn-secondary {
+    .wm-btn-primary:hover { background: #0f766e; }
+    .wm-btn-primary:disabled { background: #cbd5e1; cursor: not-allowed; }
+    .wm-btn-secondary {
       width: 100%;
       padding: 0.625rem;
       background: transparent;
-      color: #94a3b8;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #64748b;
+      border: 1px solid #e2e8f0;
       border-radius: 0.5rem;
       font-weight: 600;
       font-size: 0.8rem;
       cursor: pointer;
-      transition: border-color 0.2s, color 0.2s;
     }
-    .btn-secondary:hover {
-      border-color: #0d9488;
-      color: #0d9488;
-    }
-    .drop-zone {
-      border: 2px dashed rgba(255, 255, 255, 0.15);
-      border-radius: 1rem;
+    .wm-btn-secondary:hover { border-color: #0d9488; color: #0d9488; }
+    .wm-coming-soon {
+      text-align: center;
       padding: 4rem 2rem;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.2s, background-color 0.2s;
-      width: 100%;
-      max-width: 500px;
     }
-    .drop-zone:hover,
-    .drop-zone.drag-over {
-      border-color: #0d9488;
-      background: rgba(13, 148, 136, 0.05);
-    }
-    .drop-title {
-      color: #e2e8f0;
+    .wm-badge {
+      display: inline-block;
+      background: #fef3c7;
+      color: #92400e;
+      font-size: 0.75rem;
       font-weight: 600;
-      font-size: 1rem;
-      margin-bottom: 0.5rem;
-    }
-    .drop-subtitle {
-      color: #64748b;
-      font-size: 0.875rem;
-    }
-    .drag-hint {
-      position: absolute;
-      bottom: 1rem;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(13, 148, 136, 0.15);
-      color: #5eead4;
-      font-size: 0.7rem;
-      padding: 0.35rem 0.75rem;
+      padding: 0.25rem 0.75rem;
       border-radius: 1rem;
-      pointer-events: none;
+      margin-bottom: 1rem;
     }
-    .divider {
-      height: 1px;
-      background: rgba(255, 255, 255, 0.06);
-      margin: 1.25rem 0;
+    .wm-coming-soon h2 {
+      color: #0f172a;
+      font-size: 1.5rem;
+      margin: 0 0 0.5rem;
     }
-    .footer-dark {
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      padding: 1.5rem;
+    .wm-coming-soon p {
+      color: #64748b;
+      margin: 0 0 1.5rem;
+    }
+    .wm-footer {
       text-align: center;
+      padding: 2rem;
+      border-top: 1px solid #e2e8f0;
+      margin-top: 2rem;
     }
-    .footer-dark a {
+    .wm-footer a {
       color: #64748b;
       font-size: 0.8rem;
       text-decoration: none;
-      margin: 0 0.75rem;
-      transition: color 0.2s;
+      margin: 0 0.5rem;
     }
-    .footer-dark a:hover {
-      color: #0d9488;
-    }
-    .footer-dark p {
-      color: #475569;
+    .wm-footer a:hover { color: #0d9488; }
+    .wm-footer p {
+      color: #94a3b8;
       font-size: 0.7rem;
-      margin-top: 0.75rem;
+      margin-top: 0.5rem;
     }
   `],
   template: `
     <!-- Navbar -->
-    <nav class="editor-nav" style="position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem;">
-      <a routerLink="/" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none;">
-        <img src="logo.svg" alt="Indifferent" style="height: 2rem;">
-      </a>
-      <a routerLink="/login" class="btn-primary" style="width: auto; padding: 0.5rem 1.25rem;">Sign In</a>
+    <nav class="wm-nav">
+      <a routerLink="/" class="wm-logo"><img src="logo.svg" alt="Indifferent" /></a>
+      <a routerLink="/login" class="wm-signin">Sign In</a>
     </nav>
 
-    <!-- No File: Full-width drop zone -->
-    <div *ngIf="!file" style="display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 140px);">
+    <!-- Page Header -->
+    <div class="wm-header">
+      <h1>Add Watermark</h1>
+      <p>Add text watermarks to your images — free, private, processed in your browser</p>
+    </div>
+
+    <!-- Upload State -->
+    <div *ngIf="!file" class="wm-upload-wrapper">
       <div
-        class="drop-zone"
-        [class.drag-over]="isDragOver"
+        class="wm-dropzone"
+        [class.active]="isDragOver"
         (click)="fileInput.click()"
         (dragover)="onDragOver($event)"
         (dragleave)="onDragLeave($event)"
         (drop)="onDrop($event)"
       >
-        <div style="margin-bottom: 1rem;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto; display: block;">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-        </div>
-        <p class="drop-title">Drop your file here or click to browse</p>
-        <p class="drop-subtitle">Supports JPG, PNG, WebP, MP4, WebM</p>
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <h3>Drop your image here or click to upload</h3>
+        <p>JPG, PNG, WebP — up to 20MB</p>
       </div>
       <input
         #fileInput
@@ -292,125 +341,65 @@ import { FormsModule } from '@angular/forms';
       />
     </div>
 
-    <!-- Video Coming Soon -->
-    <div *ngIf="file && fileType === 'video'" style="display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 140px);">
-      <div style="text-align: center; color: #e2e8f0;">
-        <p style="display: inline-block; background: #fef3c7; color: #92400e; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.5rem; border-radius: 0.25rem; margin-bottom: 1rem;">Coming Soon</p>
-        <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">Video Watermark</h2>
-        <p style="color: #94a3b8; margin-bottom: 1.5rem;">Video watermarking is coming in a future update. Please use an image file.</p>
-        <button class="btn-secondary" style="width: auto; padding: 0.5rem 1.5rem;" (click)="reset()">Upload a Different File</button>
-      </div>
-    </div>
-
-    <!-- Image Editor: Canvas + Controls -->
-    <div *ngIf="file && fileType === 'image'" class="editor-container">
-      <!-- Canvas Area -->
+    <!-- Editor State -->
+    <div *ngIf="file && fileType === 'image'" class="wm-editor">
       <div
-        class="canvas-area"
+        class="wm-canvas-wrapper"
         (mousedown)="onCanvasMouseDown($event)"
         (mousemove)="onCanvasMouseMove($event)"
         (mouseup)="onCanvasMouseUp()"
         (mouseleave)="onCanvasMouseUp()"
       >
         <canvas #previewCanvas></canvas>
-        <span class="drag-hint">Click and drag to reposition watermark</span>
+        <span class="wm-drag-label">Drag to move watermark</span>
       </div>
-
-      <!-- Controls Panel -->
-      <div class="controls-panel">
-        <h3 class="panel-title">Watermark Settings</h3>
-
-        <!-- Text Input -->
-        <div class="control-group">
-          <label class="control-label">Text</label>
-          <input
-            type="text"
-            class="control-input"
-            [(ngModel)]="watermarkText"
-            (ngModelChange)="updatePreview()"
-            placeholder="Enter watermark text"
-          />
+      <div class="wm-controls">
+        <h3>Settings</h3>
+        <div class="wm-field">
+          <label>Watermark Text</label>
+          <input type="text" [(ngModel)]="watermarkText" (ngModelChange)="updatePreview()" />
         </div>
-
-        <!-- Font Size -->
-        <div class="control-group">
-          <label class="control-label">Font Size</label>
-          <div class="slider-row">
-            <input
-              type="range"
-              min="12"
-              max="72"
-              step="1"
-              [(ngModel)]="fontSize"
-              (ngModelChange)="updatePreview()"
-            />
-            <span class="slider-value">{{ fontSize }}px</span>
+        <div class="wm-field">
+          <label>Font Size</label>
+          <div class="wm-slider-row">
+            <input type="range" min="12" max="72" step="1" [(ngModel)]="fontSize" (ngModelChange)="updatePreview()" />
+            <span>{{ fontSize }}px</span>
           </div>
         </div>
-
-        <!-- Opacity -->
-        <div class="control-group">
-          <label class="control-label">Opacity</label>
-          <div class="slider-row">
-            <input
-              type="range"
-              min="0.1"
-              max="1"
-              step="0.05"
-              [(ngModel)]="opacity"
-              (ngModelChange)="updatePreview()"
-            />
-            <span class="slider-value">{{ (opacity * 100).toFixed(0) }}%</span>
+        <div class="wm-field">
+          <label>Opacity</label>
+          <div class="wm-slider-row">
+            <input type="range" min="0.1" max="1" step="0.05" [(ngModel)]="opacity" (ngModelChange)="updatePreview()" />
+            <span>{{ (opacity * 100).toFixed(0) }}%</span>
           </div>
         </div>
-
-        <!-- Color -->
-        <div class="control-group">
-          <label class="control-label">Color</label>
-          <div class="color-row">
-            <input
-              type="color"
-              [(ngModel)]="color"
-              (ngModelChange)="updatePreview()"
-            />
-            <span class="color-hex">{{ color }}</span>
+        <div class="wm-field">
+          <label>Color</label>
+          <div class="wm-color-row">
+            <input type="color" [(ngModel)]="color" (ngModelChange)="updatePreview()" />
+            <span>{{ color }}</span>
           </div>
         </div>
-
-        <!-- Rotation -->
-        <div class="control-group">
-          <label class="control-label">Rotation</label>
-          <div class="slider-row">
-            <input
-              type="range"
-              min="-180"
-              max="180"
-              step="1"
-              [(ngModel)]="rotation"
-              (ngModelChange)="updatePreview()"
-            />
-            <span class="slider-value">{{ rotation }}&deg;</span>
+        <div class="wm-field">
+          <label>Rotation</label>
+          <div class="wm-slider-row">
+            <input type="range" min="-180" max="180" step="1" [(ngModel)]="rotation" (ngModelChange)="updatePreview()" />
+            <span>{{ rotation }}&deg;</span>
           </div>
         </div>
-
-        <div class="divider"></div>
-
-        <!-- Download -->
-        <div class="control-group">
-          <button
-            class="btn-primary"
-            (click)="download()"
-            [disabled]="!downloadUrl"
-          >
-            Download Image
-          </button>
-        </div>
-
-        <!-- Reset -->
-        <div class="control-group" style="margin-bottom: 0;">
-          <button class="btn-secondary" (click)="reset()">Reset</button>
+        <div class="wm-actions">
+          <button class="wm-btn-primary" (click)="download()" [disabled]="!downloadUrl">Download</button>
+          <button class="wm-btn-secondary" (click)="reset()">Reset</button>
         </div>
       </div>
+    </div>
+
+    <!-- Video Coming Soon -->
+    <div *ngIf="file && fileType === 'video'" class="wm-coming-soon">
+      <span class="wm-badge">Coming Soon</span>
+      <h2>Video Watermark</h2>
+      <p>Video support arriving soon. Please upload an image.</p>
+      <button class="wm-btn-secondary" style="width: auto; display: inline-block; padding: 0.5rem 1.5rem;" (click)="reset()">Try Another File</button>
     </div>
 
     <!-- Hidden file input for editor view -->
@@ -424,15 +413,15 @@ import { FormsModule } from '@angular/forms';
     />
 
     <!-- Footer -->
-    <footer class="footer-dark">
+    <footer class="wm-footer">
       <div>
-        <a routerLink="/">Home</a>
-        <a routerLink="/about">About</a>
-        <a routerLink="/contact">Contact</a>
-        <a routerLink="/privacy">Privacy</a>
+        <a routerLink="/">Home</a> &middot;
+        <a routerLink="/about">About</a> &middot;
+        <a routerLink="/contact">Contact</a> &middot;
+        <a routerLink="/privacy">Privacy</a> &middot;
         <a routerLink="/terms">Terms</a>
       </div>
-      <p>&copy; 2025 Indifferent. All rights reserved.</p>
+      <p>&copy; 2025 Indifferent</p>
     </footer>
   `,
 })
