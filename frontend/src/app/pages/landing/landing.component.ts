@@ -70,6 +70,12 @@ import gsap from 'gsap';
                       <span>Subtitle Generator</span>
                     </a>
                   </li>
+                  <li>
+                    <a routerLink="/tools/add-watermark" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
+                      <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">WM</span>
+                      <span>Add Watermark</span>
+                    </a>
+                  </li>
                 </ul>
               </div>
               <!-- Column 2: Use Cases -->

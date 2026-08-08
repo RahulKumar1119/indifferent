@@ -70,5 +70,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/tools/tools.component').then((m) => m.ToolsComponent),
   },
+  {
+    path: 'tools/add-watermark',
+    loadComponent: () =>
+      import('./pages/tools/watermark/watermark.component').then((m) => m.WatermarkComponent),
+  },
   { path: '**', component: NotFoundComponent },
 ];
