@@ -119,6 +119,18 @@ import { RouterLink } from '@angular/router';
         </p>
       </section>
 
+      <!-- Add Watermark -->
+      <section class="about-card p-8 mb-8">
+        <div class="flex items-center gap-3 mb-4">
+          <div aria-hidden="true" class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg"></div>
+          <h2 class="text-2xl font-semibold about-heading">Add Watermark</h2>
+        </div>
+        <p class="leading-relaxed about-muted mb-4">
+          Add text watermarks to your images &mdash; processed entirely in your browser. No uploads, no data leaves your device.
+        </p>
+        <a routerLink="/tools/add-watermark" class="about-signin-btn">Try Now</a>
+      </section>
+
       <!-- Footer -->
       <footer class="mt-12 pt-8 border-t border-gray-200">
         <div class="flex flex-wrap justify-center gap-6 text-sm about-muted mb-4">
