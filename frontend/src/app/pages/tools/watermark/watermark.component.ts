@@ -1,11 +1,12 @@
 import { Component, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-watermark',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule],
   styles: [`
     :host {
       display: block;
@@ -208,153 +209,145 @@ import { FormsModule } from '@angular/forms';
       </header>
 
       <!-- Upload Area -->
-      @if (!file) {
-        <section class="about-card p-8 mb-8">
-          <div
-            class="drop-zone"
-            [class.drag-over]="isDragOver"
-            (click)="fileInput.click()"
-            (dragover)="onDragOver($event)"
-            (dragleave)="onDragLeave($event)"
-            (drop)="onDrop($event)"
-          >
-            <div class="mb-3">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </div>
-            <p class="font-semibold about-heading mb-1">Drop your file here or click to browse</p>
-            <p class="text-sm about-muted">Supports JPG, PNG, WebP, MP4, WebM</p>
+      <section *ngIf="!file" class="about-card p-8 mb-8">
+        <div
+          class="drop-zone"
+          [class.drag-over]="isDragOver"
+          (click)="fileInput.click()"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+        >
+          <div class="mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
           </div>
-          <input
-            #fileInput
-            type="file"
-            accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-            (change)="onFileSelected($event)"
-            class="hidden"
-          />
-        </section>
-      }
+          <p class="font-semibold about-heading mb-1">Drop your file here or click to browse</p>
+          <p class="text-sm about-muted">Supports JPG, PNG, WebP, MP4, WebM</p>
+        </div>
+        <input
+          #fileInput
+          type="file"
+          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+          (change)="onFileSelected($event)"
+          style="display:none"
+        />
+      </section>
 
       <!-- Video Coming Soon -->
-      @if (file && fileType === 'video') {
-        <section class="about-card p-8 mb-8 text-center">
-          <div class="mb-4">
-            <span class="badge-coming-soon">Coming Soon</span>
-          </div>
-          <h2 class="text-xl font-semibold about-heading mb-2">Video Watermark</h2>
-          <p class="about-muted mb-6">
-            Video watermarking is coming in a future update. For now, please use an image file (JPG, PNG, or WebP).
-          </p>
-          <button class="btn-reset" (click)="reset()">Upload a Different File</button>
-        </section>
-      }
+      <section *ngIf="file && fileType === 'video'" class="about-card p-8 mb-8 text-center">
+        <div class="mb-4">
+          <span class="badge-coming-soon">Coming Soon</span>
+        </div>
+        <h2 class="text-xl font-semibold about-heading mb-2">Video Watermark</h2>
+        <p class="about-muted mb-6">
+          Video watermarking is coming in a future update. For now, please use an image file (JPG, PNG, or WebP).
+        </p>
+        <button class="btn-reset" (click)="reset()">Upload a Different File</button>
+      </section>
 
       <!-- Image Watermark Editor -->
-      @if (file && fileType === 'image') {
-        <!-- Controls -->
-        <section class="about-card p-8 mb-8">
-          <h2 class="text-xl font-semibold about-heading mb-6">Watermark Settings</h2>
+      <!-- Controls -->
+      <section *ngIf="file && fileType === 'image'" class="about-card p-8 mb-8">
+        <h2 class="text-xl font-semibold about-heading mb-6">Watermark Settings</h2>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Left column -->
-            <div>
-              <div class="control-group">
-                <label for="watermarkText" class="control-label">Watermark Text</label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Left column -->
+          <div>
+            <div class="control-group">
+              <label for="watermarkText" class="control-label">Watermark Text</label>
+              <input
+                id="watermarkText"
+                type="text"
+                class="control-input"
+                [(ngModel)]="watermarkText"
+                (ngModelChange)="updatePreview()"
+                placeholder="Enter watermark text"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="position" class="control-label">Position</label>
+              <select
+                id="position"
+                class="control-select"
+                [(ngModel)]="position"
+                (ngModelChange)="updatePreview()"
+              >
+                <option *ngFor="let pos of positions" [value]="pos.value">{{ pos.label }}</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">Color</label>
+              <div class="color-picker-wrapper">
                 <input
-                  id="watermarkText"
-                  type="text"
-                  class="control-input"
-                  [(ngModel)]="watermarkText"
+                  type="color"
+                  [(ngModel)]="color"
                   (ngModelChange)="updatePreview()"
-                  placeholder="Enter watermark text"
                 />
+                <span class="text-sm about-muted">{{ color }}</span>
               </div>
+            </div>
+          </div>
 
-              <div class="control-group">
-                <label for="position" class="control-label">Position</label>
-                <select
-                  id="position"
-                  class="control-select"
-                  [(ngModel)]="position"
+          <!-- Right column -->
+          <div>
+            <div class="control-group">
+              <label class="control-label">Font Size: {{ fontSize }}px</label>
+              <div class="slider-container">
+                <input
+                  type="range"
+                  min="12"
+                  max="72"
+                  step="1"
+                  [(ngModel)]="fontSize"
                   (ngModelChange)="updatePreview()"
-                >
-                  @for (pos of positions; track pos.value) {
-                    <option [value]="pos.value">{{ pos.label }}</option>
-                  }
-                </select>
-              </div>
-
-              <div class="control-group">
-                <label class="control-label">Color</label>
-                <div class="color-picker-wrapper">
-                  <input
-                    type="color"
-                    [(ngModel)]="color"
-                    (ngModelChange)="updatePreview()"
-                  />
-                  <span class="text-sm about-muted">{{ color }}</span>
-                </div>
+                />
+                <span class="slider-value">{{ fontSize }}px</span>
               </div>
             </div>
 
-            <!-- Right column -->
-            <div>
-              <div class="control-group">
-                <label class="control-label">Font Size: {{ fontSize }}px</label>
-                <div class="slider-container">
-                  <input
-                    type="range"
-                    min="12"
-                    max="72"
-                    step="1"
-                    [(ngModel)]="fontSize"
-                    (ngModelChange)="updatePreview()"
-                  />
-                  <span class="slider-value">{{ fontSize }}px</span>
-                </div>
-              </div>
-
-              <div class="control-group">
-                <label class="control-label">Opacity: {{ (opacity * 100).toFixed(0) }}%</label>
-                <div class="slider-container">
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="1"
-                    step="0.05"
-                    [(ngModel)]="opacity"
-                    (ngModelChange)="updatePreview()"
-                  />
-                  <span class="slider-value">{{ (opacity * 100).toFixed(0) }}%</span>
-                </div>
+            <div class="control-group">
+              <label class="control-label">Opacity: {{ (opacity * 100).toFixed(0) }}%</label>
+              <div class="slider-container">
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  [(ngModel)]="opacity"
+                  (ngModelChange)="updatePreview()"
+                />
+                <span class="slider-value">{{ (opacity * 100).toFixed(0) }}%</span>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <!-- Preview -->
-        <section class="about-card p-8 mb-8">
-          <h2 class="text-xl font-semibold about-heading mb-4">Preview</h2>
-          <div class="preview-area">
-            <canvas #previewCanvas></canvas>
-          </div>
-        </section>
+      <!-- Preview -->
+      <section *ngIf="file && fileType === 'image'" class="about-card p-8 mb-8">
+        <h2 class="text-xl font-semibold about-heading mb-4">Preview</h2>
+        <div class="preview-area">
+          <canvas #previewCanvas></canvas>
+        </div>
+      </section>
 
-        <!-- Actions -->
-        <section class="flex items-center justify-center gap-4 mb-8">
-          <button class="btn-reset" (click)="reset()">Start Over</button>
-          <button
-            class="about-signin-btn"
-            (click)="download()"
-            [disabled]="!downloadUrl"
-          >
-            Download Watermarked Image
-          </button>
-        </section>
-      }
+      <!-- Actions -->
+      <section *ngIf="file && fileType === 'image'" class="flex items-center justify-center gap-4 mb-8">
+        <button class="btn-reset" (click)="reset()">Start Over</button>
+        <button
+          class="about-signin-btn"
+          (click)="download()"
+          [disabled]="!downloadUrl"
+        >
+          Download Watermarked Image
+        </button>
+      </section>
 
       <!-- Footer -->
       <footer class="mt-12 pt-8 border-t border-gray-200">
