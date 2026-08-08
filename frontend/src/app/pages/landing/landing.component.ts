@@ -17,44 +17,6 @@ import gsap from 'gsap';
     .thumbnail-card:hover .aspect-video {
       box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.3);
     }
-    .testimonial-card {
-      background: hsl(var(--card));
-      border: 1px solid hsl(var(--border));
-      border-radius: 1rem;
-      padding: 2rem;
-      box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    .testimonial-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.12);
-    }
-    .stats-bar {
-      background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.8) 100%);
-    }
-    .faq-item {
-      border-bottom: 1px solid hsl(var(--border));
-      padding: 1.5rem 0;
-    }
-    .faq-item:last-child {
-      border-bottom: none;
-    }
-    .use-case-card {
-      background: hsl(var(--card));
-      border: 1px solid hsl(var(--border));
-      border-radius: 1rem;
-      padding: 2rem;
-      transition: border-color 0.3s ease;
-    }
-    .use-case-card:hover {
-      border-color: hsl(var(--primary) / 0.4);
-    }
-    .trust-card {
-      background: hsl(var(--card));
-      border: 1px solid hsl(var(--border));
-      border-radius: 1rem;
-      padding: 1.5rem;
-    }
   `],
   template: `
     <!-- Navbar -->
@@ -177,75 +139,14 @@ import gsap from 'gsap';
           #heroSubtitle
           class="mt-8 text-lg sm:text-xl text-[hsl(var(--muted-foreground))] max-w-2xl mx-auto opacity-0"
         >
-          Convert your text-based quiz files into professional videos with AI narration,
-          custom templates, and countdown timers — in minutes.
+          Upload a text file with multiple-choice questions and get a professional MP4 video
+          complete with narration, animations, and countdown timers — all automatically.
         </p>
         <div #heroCta class="mt-10 opacity-0">
           <a routerLink="/login" class="glow-btn !text-lg !px-10 !py-4">
             Get Started Free
             <svg lucideIcon="arrow-right" [size]="20"></svg>
           </a>
-          <p class="mt-4 text-sm text-[hsl(var(--muted-foreground))]">
-            AI Powered &#10003; &nbsp; Free Trial &#10003; &nbsp; No Credit Card &#10003;
-          </p>
-        </div>
-        <!-- Stats row -->
-        <div class="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-[hsl(var(--muted-foreground))]">
-          <span>10K+ Videos Created</span>
-          <span class="hidden sm:inline">&middot;</span>
-          <span>5 AI Voices</span>
-          <span class="hidden sm:inline">&middot;</span>
-          <span>6 Templates</span>
-          <span class="hidden sm:inline">&middot;</span>
-          <span>Full HD 1080p</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Social Proof Stats Bar -->
-    <section class="stats-bar py-10 px-6">
-      <div class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
-        <div>
-          <div class="text-3xl sm:text-4xl font-bold">10K+</div>
-          <div class="text-sm opacity-80 mt-1">Videos Generated</div>
-        </div>
-        <div>
-          <div class="text-3xl sm:text-4xl font-bold">6</div>
-          <div class="text-sm opacity-80 mt-1">Video Templates</div>
-        </div>
-        <div>
-          <div class="text-3xl sm:text-4xl font-bold">5</div>
-          <div class="text-sm opacity-80 mt-1">AI Voices</div>
-        </div>
-        <div>
-          <div class="text-3xl sm:text-4xl font-bold">4.9/5</div>
-          <div class="text-sm opacity-80 mt-1">User Rating</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Testimonials Section -->
-    <section class="py-24 px-6 relative">
-      <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">What Our Users Say</h2>
-        <p class="text-center text-[hsl(var(--muted-foreground))] mb-16 max-w-2xl mx-auto">
-          Trusted by educators, creators, and professionals worldwide
-        </p>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          @for (testimonial of testimonials; track testimonial.name) {
-            <div class="testimonial-card">
-              <p class="text-[hsl(var(--muted-foreground))] mb-6 italic">"{{ testimonial.quote }}"</p>
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] font-bold text-sm">
-                  {{ testimonial.name.charAt(0) }}
-                </div>
-                <div>
-                  <div class="font-semibold text-sm">{{ testimonial.name }}</div>
-                  <div class="text-xs text-[hsl(var(--muted-foreground))]">{{ testimonial.role }}</div>
-                </div>
-              </div>
-            </div>
-          }
         </div>
       </div>
     </section>
@@ -254,12 +155,12 @@ import gsap from 'gsap';
     <section class="py-24 px-6 relative">
       <div class="max-w-6xl mx-auto">
         <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">
-          AI-Powered Video Generation
+          Everything You Need
         </h2>
         <p class="text-center text-[hsl(var(--muted-foreground))] mb-16 max-w-2xl mx-auto">
-          Convert your quiz files to video with the most advanced processing pipeline
+          From text file to finished video in minutes. No editing skills required.
         </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           @for (feature of features; track feature.title) {
             <div
               class="glass-card spotlight-card p-6 hover:border-[hsl(var(--primary))]/30 transition-all duration-300"
@@ -272,40 +173,6 @@ import gsap from 'gsap';
               <p class="text-sm text-[hsl(var(--muted-foreground))]">{{ feature.description }}</p>
             </div>
           }
-        </div>
-      </div>
-    </section>
-
-    <!-- How It Works Section -->
-    <section class="py-24 px-6 relative">
-      <div class="max-w-5xl mx-auto">
-        <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">
-          4 Steps to Create Your Quiz Video
-        </h2>
-        <p class="text-center text-[hsl(var(--muted-foreground))] mb-16 max-w-2xl mx-auto">
-          Simple and fast video generation process
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          <div class="text-center">
-            <div class="w-14 h-14 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-4 text-[hsl(var(--primary))] font-bold text-xl">1</div>
-            <h3 class="font-semibold mb-2">Upload</h3>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">Upload your .txt quiz file with multiple-choice questions</p>
-          </div>
-          <div class="text-center">
-            <div class="w-14 h-14 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-4 text-[hsl(var(--primary))] font-bold text-xl">2</div>
-            <h3 class="font-semibold mb-2">Customize</h3>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">Choose a template and AI voice for narration</p>
-          </div>
-          <div class="text-center">
-            <div class="w-14 h-14 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-4 text-[hsl(var(--primary))] font-bold text-xl">3</div>
-            <h3 class="font-semibold mb-2">Process</h3>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">Our serverless pipeline generates slides, narration, and renders video</p>
-          </div>
-          <div class="text-center">
-            <div class="w-14 h-14 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-4 text-[hsl(var(--primary))] font-bold text-xl">4</div>
-            <h3 class="font-semibold mb-2">Download</h3>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">Preview and download your HD video ready for YouTube</p>
-          </div>
         </div>
       </div>
     </section>
@@ -326,6 +193,7 @@ import gsap from 'gsap';
               <div class="relative aspect-video rounded-xl overflow-hidden mb-3" [style.background]="'linear-gradient(to bottom right, ' + thumb.colors[0] + ', ' + thumb.colors[1] + ')'">
                 <!-- Animated background elements -->
                 <div class="absolute inset-0 flex items-center justify-center">
+                  <!-- Simulated quiz slide content -->
                   <div class="text-center px-4">
                     <div class="w-16 h-2 bg-white/30 rounded mx-auto mb-3 animate-pulse"></div>
                     <div class="w-24 h-2 bg-white/20 rounded mx-auto mb-2"></div>
@@ -353,109 +221,9 @@ import gsap from 'gsap';
                   {{ thumb.category }}
                 </div>
               </div>
+              <!-- Title -->
               <h3 class="font-medium text-sm group-hover:text-[hsl(var(--primary))] transition-colors">{{ thumb.title }}</h3>
-              <p class="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">Auto-generated &bull; HD 1080p</p>
-            </div>
-          }
-        </div>
-      </div>
-    </section>
-
-    <!-- Use Cases Section -->
-    <section class="py-24 px-6 relative">
-      <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">
-          Quiz Video Creation for Every Purpose
-        </h2>
-        <p class="text-center text-[hsl(var(--muted-foreground))] mb-16 max-w-2xl mx-auto">
-          Educators, creators, and professionals use Indifferent to automate video production
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div class="use-case-card">
-            <div class="w-12 h-12 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center mb-4">
-              <svg lucideIcon="graduation-cap" [size]="24" class="text-[hsl(var(--primary))]"></svg>
-            </div>
-            <h3 class="font-semibold mb-2">Education</h3>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">Teachers create revision videos, exam prep content, and classroom materials</p>
-          </div>
-          <div class="use-case-card">
-            <div class="w-12 h-12 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center mb-4">
-              <svg lucideIcon="youtube" [size]="24" class="text-[hsl(var(--primary))]"></svg>
-            </div>
-            <h3 class="font-semibold mb-2">YouTube</h3>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">Creators scale quiz and trivia content production for their channels</p>
-          </div>
-          <div class="use-case-card">
-            <div class="w-12 h-12 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center mb-4">
-              <svg lucideIcon="building-2" [size]="24" class="text-[hsl(var(--primary))]"></svg>
-            </div>
-            <h3 class="font-semibold mb-2">Corporate Training</h3>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">Turn compliance quizzes and assessments into video format</p>
-          </div>
-          <div class="use-case-card">
-            <div class="w-12 h-12 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center mb-4">
-              <svg lucideIcon="monitor-play" [size]="24" class="text-[hsl(var(--primary))]"></svg>
-            </div>
-            <h3 class="font-semibold mb-2">E-learning</h3>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">Automate video course creation for online learning platforms</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Security / Trust Section -->
-    <section class="py-24 px-6 relative">
-      <div class="max-w-5xl mx-auto">
-        <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">
-          Your content stays private
-        </h2>
-        <p class="text-center text-[hsl(var(--muted-foreground))] mb-16 max-w-2xl mx-auto">
-          Your data security is our priority
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div class="trust-card text-center">
-            <div class="w-12 h-12 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-4">
-              <svg lucideIcon="lock" [size]="24" class="text-[hsl(var(--primary))]"></svg>
-            </div>
-            <h3 class="font-semibold text-sm mb-1">Encrypted Storage</h3>
-            <p class="text-xs text-[hsl(var(--muted-foreground))]">Files stored securely on AWS with encryption at rest</p>
-          </div>
-          <div class="trust-card text-center">
-            <div class="w-12 h-12 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-4">
-              <svg lucideIcon="eye-off" [size]="24" class="text-[hsl(var(--primary))]"></svg>
-            </div>
-            <h3 class="font-semibold text-sm mb-1">Private Processing</h3>
-            <p class="text-xs text-[hsl(var(--muted-foreground))]">Your quiz files are never shared with third parties</p>
-          </div>
-          <div class="trust-card text-center">
-            <div class="w-12 h-12 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-4">
-              <svg lucideIcon="shield-check" [size]="24" class="text-[hsl(var(--primary))]"></svg>
-            </div>
-            <h3 class="font-semibold text-sm mb-1">Secure Infrastructure</h3>
-            <p class="text-xs text-[hsl(var(--muted-foreground))]">Hosted on AWS with 99.9% uptime</p>
-          </div>
-          <div class="trust-card text-center">
-            <div class="w-12 h-12 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-4">
-              <svg lucideIcon="trash-2" [size]="24" class="text-[hsl(var(--primary))]"></svg>
-            </div>
-            <h3 class="font-semibold text-sm mb-1">Auto Cleanup</h3>
-            <p class="text-xs text-[hsl(var(--muted-foreground))]">Temporary files automatically deleted after processing</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- FAQ Section -->
-    <section class="py-24 px-6 relative">
-      <div class="max-w-3xl mx-auto">
-        <h2 class="text-3xl sm:text-4xl font-bold text-center mb-16">
-          Frequently Asked Questions
-        </h2>
-        <div>
-          @for (faq of faqs; track faq.q) {
-            <div class="faq-item">
-              <h3 class="font-semibold mb-2">{{ faq.q }}</h3>
-              <p class="text-sm text-[hsl(var(--muted-foreground))]">{{ faq.a }}</p>
+              <p class="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">Auto-generated • HD 1080p</p>
             </div>
           }
         </div>
@@ -520,7 +288,7 @@ import gsap from 'gsap';
         <!-- Bottom bar -->
         <div class="pt-8 border-t border-[hsl(var(--border))] flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[hsl(var(--muted-foreground))]">
           <span>&copy; {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span>Built with Angular, Go &amp; AWS</span>
+          <span>Built with Angular, Go & AWS</span>
         </div>
       </div>
     </footer>
@@ -538,32 +306,22 @@ export class LandingComponent implements AfterViewInit {
     {
       icon: 'wand-2',
       title: 'Auto Format Detection',
-      description: 'Supports numbered, bulleted, and tab-indented question formats automatically.',
+      description: 'Supports numbered, bulleted, and tabbed question formats automatically.',
+    },
+    {
+      icon: 'palette',
+      title: 'Multiple Templates',
+      description: 'Choose from Classic, Modern, Education, Dark, Minimal, and Neon themes.',
     },
     {
       icon: 'mic',
       title: 'AI Narration',
-      description: '5 professional voices powered by Amazon Polly with natural pacing.',
-    },
-    {
-      icon: 'palette',
-      title: 'Custom Templates',
-      description: '6 visual themes: Classic, Modern, Education, Dark, Minimal, and Neon.',
-    },
-    {
-      icon: 'timer',
-      title: 'Countdown Timers',
-      description: 'Animated countdown before answer reveals for viewer engagement.',
-    },
-    {
-      icon: 'monitor',
-      title: 'Full HD Output',
-      description: '1920x1080 resolution MP4 videos ready for any platform.',
+      description: 'Professional voice-over narration powered by Amazon Polly with 5 voice options.',
     },
     {
       icon: 'zap',
       title: 'Fast Rendering',
-      description: 'Serverless pipeline processes your video in minutes, not hours.',
+      description: 'Serverless pipeline renders your video in minutes with countdown timers and transitions.',
     },
   ];
 
@@ -574,20 +332,6 @@ export class LandingComponent implements AfterViewInit {
     { title: 'English Grammar Quiz', duration: '3:45', colors: ['#3b82f6', '#06b6d4'], category: 'Language' },
     { title: 'Geography Explorer', duration: '4:30', colors: ['#ec4899', '#e11d48'], category: 'Geography' },
     { title: 'Computer Science Basics', duration: '3:15', colors: ['#8b5cf6', '#d946ef'], category: 'Technology' },
-  ];
-
-  testimonials = [
-    { quote: 'I converted my entire exam review into video in under 10 minutes. My students love the countdown timer feature.', name: 'Sarah Mitchell', role: 'High School Teacher' },
-    { quote: 'Creating quiz content for YouTube used to take hours. Now I upload a text file and get a professional video back.', name: 'James Rodriguez', role: 'YouTube Creator \u2022 120K subs' },
-    { quote: 'The AI narration quality surprised me. It sounds natural and my training videos look professional.', name: 'Priya Sharma', role: 'Corporate Trainer' },
-  ];
-
-  faqs = [
-    { q: 'What file formats are supported?', a: 'Plain text (.txt) files with numbered, bulleted, or tab-indented multiple-choice questions.' },
-    { q: 'How long does video generation take?', a: 'Most videos are ready in 2-5 minutes depending on the number of questions.' },
-    { q: 'What video quality is produced?', a: 'Full HD 1920\u00d71080 MP4 with H.264 video encoding and AAC audio.' },
-    { q: 'Can I choose different voices?', a: 'Yes, 5 AI voices are available powered by Amazon Polly: Joanna, Matthew, Amy, Brian, and Aditi.' },
-    { q: 'Is there a free plan?', a: 'Sign up free and create your first video. No credit card required.' },
   ];
 
   ngAfterViewInit(): void {
