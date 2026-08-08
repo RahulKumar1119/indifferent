@@ -17,3 +17,7 @@ applications:
         paths:
           - frontend/node_modules/**/*
     appRoot: .
+customRules:
+  - source: '/<*>'
+    target: /index.html
+    status: '404-200'
