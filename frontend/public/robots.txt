@@ -2,3 +2,8 @@ User-agent: *
 Allow: /
 
 Sitemap: https://indifferent.fun/sitemap.xml
+
+# Disallow private/authenticated pages from crawling
+Disallow: /dashboard
+Disallow: /projects
+Disallow: /auth/callback
