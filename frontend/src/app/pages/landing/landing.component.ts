@@ -24,12 +24,12 @@ import gsap from 'gsap';
       class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 glass-card !rounded-none !border-t-0 !border-x-0"
     >
       <a routerLink="/" class="flex items-center gap-2 text-xl font-bold">
-        <img src="logo.svg" alt="Indifferent" class="h-8">
+        <img src="logo.svg" alt="Indifferent" class="h-12">
       </a>
       <div class="flex items-center gap-6">
         <!-- Tools Dropdown -->
         <div class="relative group">
-          <button class="text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none">
+          <button class="text-base font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none">
             Tools
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
           </button>
@@ -48,13 +48,15 @@ import gsap from 'gsap';
                   <a routerLink="/tools/add-watermark" class="flex items-center gap-3 text-sm hover:text-[hsl(var(--primary))] transition-colors">
                     <span class="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))] text-xs font-bold">WM</span>
                     <span>Add Watermark</span>
+                    <span class="ml-auto text-[10px] font-bold uppercase bg-green-500 text-white px-1.5 py-0.5 rounded">New</span>
                   </a>
                 </li>
               </ul>
             </div>
           </div>
         </div>
-        <a routerLink="/about" class="text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors">About</a>
+        <a routerLink="/about" class="text-base font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors">About</a>
+        <a routerLink="/blog" class="text-base font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors">Blog</a>
         <a routerLink="/login" class="glow-btn !py-2 !px-5 !text-sm">Sign In</a>
       </div>
     </nav>
@@ -67,14 +69,14 @@ import gsap from 'gsap';
       <div class="max-w-4xl mx-auto text-center">
         <h1
           #heroTitle
-          class="text-4xl sm:text-5xl md:text-7xl font-extrabold leading-tight opacity-0"
+          class="text-5xl sm:text-6xl md:text-8xl font-extrabold leading-tight opacity-0"
         >
           Turn Your TXT Quizzes Into
           <span class="shimmer-text block mt-2">YouTube-Ready Videos</span>
         </h1>
         <p
           #heroSubtitle
-          class="mt-8 text-lg sm:text-xl text-[hsl(var(--muted-foreground))] max-w-2xl mx-auto opacity-0"
+          class="mt-8 text-xl sm:text-2xl text-[hsl(var(--muted-foreground))] max-w-3xl mx-auto opacity-0"
         >
           Upload a text file with multiple-choice questions and get a professional MP4 video
           complete with narration, animations, and countdown timers — all automatically.
@@ -84,6 +86,42 @@ import gsap from 'gsap';
             Get Started Free
             <svg lucideIcon="arrow-right" [size]="20"></svg>
           </a>
+          <p class="mt-5 text-sm text-[hsl(var(--muted-foreground))]">
+            ✓ AI Powered &nbsp;&nbsp; ✓ Free to Start &nbsp;&nbsp; ✓ No Credit Card Required
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="py-20 px-6 relative">
+      <div class="max-w-5xl mx-auto">
+        <h2 class="text-4xl sm:text-5xl font-bold text-center mb-4">How It Works</h2>
+        <p class="text-center text-lg text-[hsl(var(--muted-foreground))] mb-16 max-w-2xl mx-auto">
+          Three simple steps to create professional quiz videos
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+          <div class="text-center">
+            <div class="w-16 h-16 rounded-2xl bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-5">
+              <span class="text-2xl font-bold text-[hsl(var(--primary))]">1</span>
+            </div>
+            <h3 class="text-xl font-bold mb-3">Upload Your Quiz</h3>
+            <p class="text-[hsl(var(--muted-foreground))]">Upload a .txt file with your multiple-choice questions. We detect the format automatically.</p>
+          </div>
+          <div class="text-center">
+            <div class="w-16 h-16 rounded-2xl bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-5">
+              <span class="text-2xl font-bold text-[hsl(var(--primary))]">2</span>
+            </div>
+            <h3 class="text-xl font-bold mb-3">Choose Style & Voice</h3>
+            <p class="text-[hsl(var(--muted-foreground))]">Pick from 6 video templates and 5 AI narration voices to match your content.</p>
+          </div>
+          <div class="text-center">
+            <div class="w-16 h-16 rounded-2xl bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-5">
+              <span class="text-2xl font-bold text-[hsl(var(--primary))]">3</span>
+            </div>
+            <h3 class="text-xl font-bold mb-3">Download Your Video</h3>
+            <p class="text-[hsl(var(--muted-foreground))]">Get a Full HD MP4 video with narration, countdown timers, and answer reveals — ready for YouTube.</p>
+          </div>
         </div>
       </div>
     </section>
@@ -91,7 +129,7 @@ import gsap from 'gsap';
     <!-- Features Section -->
     <section class="py-24 px-6 relative">
       <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">
+        <h2 class="text-4xl sm:text-5xl font-bold text-center mb-4">
           Everything You Need
         </h2>
         <p class="text-center text-[hsl(var(--muted-foreground))] mb-16 max-w-2xl mx-auto">
@@ -106,8 +144,8 @@ import gsap from 'gsap';
               <div class="w-12 h-12 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center mb-4">
                 <svg [lucideIcon]="feature.icon" [size]="24" class="text-[hsl(var(--primary))]"></svg>
               </div>
-              <h3 class="font-semibold text-lg mb-2">{{ feature.title }}</h3>
-              <p class="text-sm text-[hsl(var(--muted-foreground))]">{{ feature.description }}</p>
+              <h3 class="font-semibold text-xl mb-2">{{ feature.title }}</h3>
+              <p class="text-base text-[hsl(var(--muted-foreground))]">{{ feature.description }}</p>
             </div>
           }
         </div>
@@ -117,7 +155,7 @@ import gsap from 'gsap';
     <!-- Sample Videos Section -->
     <section class="py-24 px-6 relative" #thumbnailSection>
       <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">
+        <h2 class="text-4xl sm:text-5xl font-bold text-center mb-4">
           See What You Can Create
         </h2>
         <p class="text-center text-[hsl(var(--muted-foreground))] mb-16 max-w-2xl mx-auto">
@@ -170,7 +208,7 @@ import gsap from 'gsap';
     <!-- CTA Section -->
     <section class="py-24 px-6 relative">
       <div class="max-w-3xl mx-auto text-center glass-card p-12">
-        <h2 class="text-3xl sm:text-4xl font-bold mb-4 shimmer-text inline-block">
+        <h2 class="text-4xl sm:text-5xl font-bold mb-4 shimmer-text inline-block">
           Ready to Create Your First Video?
         </h2>
         <p class="text-[hsl(var(--muted-foreground))] mb-8 text-lg">
@@ -190,7 +228,7 @@ import gsap from 'gsap';
           <!-- Brand -->
           <div class="md:col-span-1">
             <a routerLink="/" class="flex items-center gap-2 text-lg font-bold mb-3">
-              <img src="logo.svg" alt="Indifferent" class="h-7">
+              <img src="logo.svg" alt="Indifferent" class="h-10">
             </a>
             <p class="text-sm text-[hsl(var(--muted-foreground))] max-w-sm">
               Transform your text-based quizzes into professional YouTube-ready videos with AI narration, custom templates, and fast serverless rendering.
