@@ -36,7 +36,7 @@ export class ProjectService {
       fileName: file.name,
       contentType: file.type,
     }).pipe(
-      switchMap((res) => this.api.put<void>(res.uploadUrl, file))
+      switchMap((res) => this.api.putAbsolute<void>(res.uploadUrl, file))
     );
   }
 

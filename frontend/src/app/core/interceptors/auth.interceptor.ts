@@ -10,18 +10,19 @@ import {
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, filter, switchMap, take } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
+import { environment } from '../../../environments/environment';
 
 const AUTH_ENDPOINTS = ['/auth/google/callback', '/auth/refresh', '/auth/logout'];
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
   private isRefreshing = false;
-  private readonly refreshTokenSubject = new BehaviorSubject<string | null>(null);
+  private refreshTokenSubject = new BehaviorSubject<string | null>(null);
 
   constructor(private readonly authService: AuthService) {}
 
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
-    if (this.isAuthEndpoint(req.url)) {
+    if (this.isAuthEndpoint(req.url) || !this.isApiRequest(req.url)) {
       return next.handle(req);
     }
 
@@ -55,6 +56,9 @@ export class AuthInterceptor implements HttpInterceptor {
         catchError((err) => {
           this.isRefreshing = false;
           this.authService.logout();
+          // Unblock queued requests: they must error instead of hanging forever.
+          this.refreshTokenSubject.error(err);
+          this.refreshTokenSubject = new BehaviorSubject<string | null>(null);
           return throwError(() => err);
         }),
       );
@@ -76,6 +80,16 @@ export class AuthInterceptor implements HttpInterceptor {
 
   private isAuthEndpoint(url: string): boolean {
     return AUTH_ENDPOINTS.some((endpoint) => url.includes(endpoint));
+  }
+
+  private isApiRequest(url: string): boolean {
+    // Only attach Authorization to our own API (presigned S3 PUTs must stay unsigned).
+    if (url.startsWith('/')) return true; // relative in tests / proxy setups
+    try {
+      return url.startsWith(environment.apiUrl);
+    } catch {
+      return true;
+    }
   }
 }
 

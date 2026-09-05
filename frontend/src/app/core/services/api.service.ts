@@ -9,25 +9,30 @@ export class ApiService {
 
   constructor(private readonly http: HttpClient) {}
 
-  get<T>(path: string, params?: Record<string, string | number | boolean>): Observable<T> {
+  get<T>(path: string, params?: Record<string, string | number | boolean>, withCredentials = true): Observable<T> {
     let httpParams = new HttpParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         httpParams = httpParams.set(key, String(value));
       });
     }
-    return this.http.get<T>(`${this.baseUrl}${path}`, { params: httpParams });
+    return this.http.get<T>(`${this.baseUrl}${path}`, { params: httpParams, withCredentials });
   }
 
-  post<T>(path: string, body: unknown = {}): Observable<T> {
-    return this.http.post<T>(`${this.baseUrl}${path}`, body);
+  post<T>(path: string, body: unknown = {}, withCredentials = true): Observable<T> {
+    return this.http.post<T>(`${this.baseUrl}${path}`, body, { withCredentials });
   }
 
-  put<T>(path: string, body: unknown = {}): Observable<T> {
-    return this.http.put<T>(`${this.baseUrl}${path}`, body);
+  put<T>(path: string, body: unknown = {}, withCredentials = true): Observable<T> {
+    return this.http.put<T>(`${this.baseUrl}${path}`, body, { withCredentials });
+  }
+
+  /** PUT to an absolute URL (e.g. S3 presigned URL) — no cookies/auth headers. */
+  putAbsolute<T>(url: string, body: unknown): Observable<T> {
+    return this.http.put<T>(url, body, { withCredentials: false });
   }
 
   delete<T>(path: string): Observable<T> {
-    return this.http.delete<T>(`${this.baseUrl}${path}`);
+    return this.http.delete<T>(`${this.baseUrl}${path}`, { withCredentials: true });
   }
 }
