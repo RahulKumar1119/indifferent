@@ -1,13 +1,31 @@
-# customHeaders:
-#   - pattern: '**/*'
-#     headers:
-#       - key: Strict-Transport-Security
-#         value: max-age=63072000; includeSubDomains; preload
-#       - key: X-Content-Type-Options
-#         value: nosniff
-#       - key: X-Frame-Options
-#         value: DENY
-#       - key: Referrer-Policy
-#         value: strict-origin-when-cross-origin
-#       - key: Permissions-Policy
-#         value: camera=(), microphone=(), geolocation=(), payment=()
+customHeaders:
+  - pattern: '**/*'
+    headers:
+      - key: Strict-Transport-Security
+        value: max-age=63072000; includeSubDomains; preload
+      - key: X-Content-Type-Options
+        value: nosniff
+      - key: X-Frame-Options
+        value: DENY
+      - key: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - key: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), payment=()
+  # Never cache the entry point + SW manifest: stale copies point at
+  # old hashed filenames and cause text/html-for-JS (MIME block) errors.
+  - pattern: '/index.html'
+    headers:
+      - key: Cache-Control
+        value: no-cache, no-store, must-revalidate
+  - pattern: '/ngsw.json'
+    headers:
+      - key: Cache-Control
+        value: no-cache, no-store, must-revalidate
+  - pattern: '/ngsw-worker.js'
+    headers:
+      - key: Cache-Control
+        value: no-cache, no-store, must-revalidate
+  - pattern: '/manifest.webmanifest'
+    headers:
+      - key: Cache-Control
+        value: no-cache, no-store, must-revalidate
