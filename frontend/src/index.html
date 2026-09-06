@@ -55,5 +55,23 @@
 <body>
   <app-root></app-root>
   <noscript>Please enable JavaScript to continue using this application.</noscript>
+  <script>
+    // Unregister any existing service worker and clear its caches
+    // (the app no longer uses a service worker)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (var registration of registrations) {
+          registration.unregister();
+        }
+      });
+      if (window.caches && caches.keys) {
+        caches.keys().then(function (names) {
+          for (var name of names) {
+            caches.delete(name);
+          }
+        });
+      }
+    }
+  </script>
 </body>
 </html>
