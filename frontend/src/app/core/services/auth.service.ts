@@ -1,9 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, catchError, finalize, map, of, tap } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, finalize, map, of, tap, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { AuthTokens } from '../../shared';
+
+/** localStorage key for the refresh token. The access token stays memory-only. */
+const REFRESH_TOKEN_KEY = 'indifferent.refreshToken';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -24,14 +27,29 @@ export class AuthService {
     return this.accessToken$.getValue();
   }
 
+  /** Refresh token persisted across reloads (the API expects it in the request body). */
+  getRefreshToken(): string | null {
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
+  }
+
   setTokens(tokens: AuthTokens): void {
     this.accessToken$.next(tokens.accessToken);
-    // Refresh token is stored as httpOnly cookie by the API response
+    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
   }
 
   refreshToken(): Observable<AuthTokens> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      // No session to restore — fail fast instead of sending {}
+      // (the API rejects it with 400 INVALID_INPUT).
+      return throwError(() => new Error('No refresh token available'));
+    }
     return this.http
-      .post<AuthTokens>(`${environment.apiUrl}/auth/refresh`, {}, { withCredentials: true })
+      .post<AuthTokens>(
+        `${environment.apiUrl}/auth/refresh`,
+        { refreshToken },
+        { withCredentials: true },
+      )
       .pipe(tap((tokens) => this.setTokens(tokens)));
   }
 
@@ -56,11 +74,13 @@ export class AuthService {
 
   clearAccessToken(): void {
     this.accessToken$.next(null);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
   }
 
   logout(): void {
+    const refreshToken = this.getRefreshToken();
     this.http
-      .post(`${environment.apiUrl}/auth/logout`, {}, { withCredentials: true })
+      .post(`${environment.apiUrl}/auth/logout`, { refreshToken }, { withCredentials: true })
       .subscribe({
         complete: () => {
           this.clearAccessToken();
