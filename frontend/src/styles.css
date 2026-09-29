@@ -186,16 +186,31 @@ html, body {
 .mat-step-header .mat-step-label,
 .mat-step-header .mat-step-label.mat-step-label-active,
 .mat-step-header .mat-step-label.mat-step-label-selected {
-  color: hsl(var(--foreground)) !important;
+  color: #1A1714 !important;
+}
+
+.mat-step-header[aria-disabled="true"] .mat-step-label {
+  color: #6B6560 !important;
 }
 
 .mat-step-header .mat-step-icon {
-  background-color: hsl(var(--primary)) !important;
-  color: hsl(var(--primary-foreground)) !important;
+  background-color: #D8D2C4 !important;
+  color: #6B6560 !important;
+}
+
+.mat-step-header .mat-step-icon-selected {
+  background-color: #BC5227 !important;
+  color: #fff !important;
+}
+
+.mat-step-header .mat-step-icon-state-done {
+  background-color: #1E3A2A !important;
+  color: #EDE8DB !important;
 }
 
 .mat-step-header .mat-step-icon-state-edit {
-  background-color: hsl(var(--primary)) !important;
+  background-color: #1A1714 !important;
+  color: #FAF7F2 !important;
 }
 
 .mat-horizontal-stepper-header-container {
@@ -203,7 +218,7 @@ html, body {
 }
 
 .mat-stepper-horizontal-line {
-  border-top-color: hsl(var(--border)) !important;
+  border-top-color: rgba(26,23,20,0.12) !important;
 }
 
 /* Cards */
