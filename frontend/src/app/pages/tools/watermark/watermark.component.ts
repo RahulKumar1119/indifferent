@@ -28,7 +28,6 @@ import { FormsModule } from '@angular/forms';
       <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
         <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
           <a routerLink="/" class="flex items-center gap-2 text-[#FAF7F2]">
-            <img src="logo.svg" alt="Indifferent" class="h-6 invert">
             <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
           </a>
           <div class="hidden md:flex items-center gap-7 text-[13.5px] text-white/70">
