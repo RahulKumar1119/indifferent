@@ -1,266 +1,103 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+interface DocSection {
+  id: string;
+  n: string;
+  title: string;
+  body?: string;
+  items?: string[];
+}
+
 @Component({
   selector: 'app-privacy',
   standalone: true,
   imports: [RouterLink],
   styles: [`
-    :host {
-      display: block;
-      background-color: #F8FAFC;
-    }
-    .about-card {
-      background-color: #FFFFFF;
-      border: 1px solid #E2E8F0;
-      border-radius: 0.75rem;
-    }
-    .about-heading {
-      color: #0F172A;
-    }
-    .about-muted {
-      color: #475569;
-    }
-    .about-accent {
-      color: #0D9488;
-    }
-    .about-accent-bg {
-      background-color: #CCFBF1;
-    }
-    .about-accent-solid {
-      background-color: #0D9488;
-      color: #FFFFFF;
-    }
-    .about-marker {
-      display: block;
-    }
-    .about-nav {
-      background-color: rgba(255, 255, 255, 0.85);
-      border-bottom: 1px solid #E2E8F0;
-      backdrop-filter: blur(12px);
-    }
-    .about-signin-btn {
-      background-color: #0D9488;
-      color: #FFFFFF;
-      padding: 0.5rem 1.25rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      font-size: 0.875rem;
-      text-decoration: none;
-      transition: background-color 0.2s;
-    }
-    .about-signin-btn:hover {
-      background-color: #0F766E;
-    }
-    .about-cta-btn {
-      background-color: #0D9488;
-      color: #FFFFFF;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1.25rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      font-size: 0.875rem;
-      text-decoration: none;
-      transition: background-color 0.2s;
-    }
-    .about-cta-btn:hover {
-      background-color: #0F766E;
+    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
+    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
+    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
+    .btn-primary:hover { transform: translateY(-1px); }
+    .grain::before {
+      content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .05;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
     }
   `],
   template: `
-    <!-- Navbar -->
-    <nav
-      class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 about-nav"
-    >
-      <a routerLink="/" class="flex items-center gap-2 text-xl font-bold">
-        <img src="logo.svg" alt="Indifferent" class="h-8">
-      </a>
-      <a routerLink="/login" class="about-signin-btn">Sign In</a>
-    </nav>
-
-    <main class="max-w-4xl mx-auto px-6 py-12 pt-24">
-      <!-- Header -->
-      <header class="text-center mb-12">
-        <h1 class="text-4xl font-bold mb-4 about-heading">Privacy Policy</h1>
-        <p class="text-lg about-muted">
-          Last updated: January 2025
-        </p>
+    <div class="grain sans bg-[#FAF7F2] text-[#1A1714] antialiased">
+      <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
+        <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
+          <a routerLink="/" class="flex items-center gap-2 text-[#FAF7F2]">
+            <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
+          </a>
+          <a routerLink="/login" class="btn-primary inline-flex items-center h-10 px-5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">Sign in</a>
+        </nav>
       </header>
 
-      <!-- Information We Collect -->
-      <section class="about-card p-8 mb-8">
-        <div class="flex items-center gap-3 mb-6">
-          <div aria-hidden="true" class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg about-marker"></div>
-          <h2 class="text-2xl font-semibold about-heading">Information We Collect</h2>
+      <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-14">
+        <div class="absolute inset-0" style="background: radial-gradient(ellipse at 30% 10%, rgba(217,108,61,0.18), transparent 55%), linear-gradient(to bottom, #141310, #0F0E0B);"></div>
+        <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
+          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-white/15 text-white/70">Legal · Privacy</p>
+          <h1 class="serif mt-5 font-medium leading-[0.95] text-[clamp(2.6rem,6vw,4.6rem)]">Privacy Policy.</h1>
+          <p class="mt-4 text-white/60">Last updated: January 2025</p>
         </div>
-        <ul class="grid gap-3 list-none p-0 m-0">
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Account information (email, name via Google OAuth)</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Uploaded quiz files (.txt)</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Generated video content</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Usage data (pages visited, features used)</span>
-          </li>
-        </ul>
       </section>
 
-      <!-- How We Use Your Information -->
-      <section class="about-card p-8 mb-8">
-        <div class="flex items-center gap-3 mb-6">
-          <div aria-hidden="true" class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg about-marker"></div>
-          <h2 class="text-2xl font-semibold about-heading">How We Use Your Information</h2>
+      <main class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-14 md:py-20 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
+        <aside class="hidden lg:block">
+          <nav class="sticky top-24 rounded-[20px] bg-white border border-black/[0.07] p-6">
+            <p class="text-[11px] uppercase tracking-[0.2em] text-[#6B6560] mb-4">Contents</p>
+            <ol class="space-y-2.5 text-[13.5px]">
+              @for (s of sections; track s.id) {
+                <li><a [href]="'#' + s.id" class="text-[#3E3A33] hover:text-[#1E3A2A] transition-colors"><span class="serif italic text-[#1E3A2A] mr-2">{{ s.n }}</span>{{ s.title }}</a></li>
+              }
+            </ol>
+          </nav>
+        </aside>
+        <div>
+          @for (s of sections; track s.id) {
+            <section [id]="s.id" class="scroll-mt-28 rounded-[20px] bg-white border border-black/[0.07] p-8 md:p-10 mb-5">
+              <h2 class="flex items-baseline gap-4"><span class="serif italic text-[28px] text-[#1E3A2A]">{{ s.n }}</span><span class="serif text-[30px] leading-tight">{{ s.title }}</span></h2>
+              @if (s.body) { <p class="mt-4 text-[15px] text-[#3E3A33] leading-relaxed">{{ s.body }}</p> }
+              @if (s.items) {
+                <ul class="mt-4 space-y-2.5">
+                  @for (it of s.items; track it) {
+                    <li class="flex gap-2.5 text-[14.5px] text-[#3E3A33]"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#1E3A2A] shrink-0"></span>{{ it }}</li>
+                  }
+                </ul>
+              }
+              @if (s.id === 'contact') {
+                <p class="mt-4 text-[15px] text-[#3E3A33]">For privacy questions, contact <a href="mailto:support@indifferent.fun" class="font-semibold underline underline-offset-4 decoration-black/25 hover:decoration-black">support&#64;indifferent.fun</a></p>
+              }
+            </section>
+          }
         </div>
-        <ul class="grid gap-3 list-none p-0 m-0">
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">To provide the video generation service</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">To improve our platform</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">To communicate service updates</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">To provide technical support</span>
-          </li>
-        </ul>
-      </section>
+      </main>
 
-      <!-- Data Storage & Security -->
-      <section class="about-card p-8 mb-8">
-        <div class="flex items-center gap-3 mb-6">
-          <div aria-hidden="true" class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg about-marker"></div>
-          <h2 class="text-2xl font-semibold about-heading">Data Storage &amp; Security</h2>
+      <section class="bg-[#0F0E0B] text-[#F4EFE6]">
+        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/40">
+          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
+          <span class="flex gap-5">
+            <a routerLink="/" class="hover:text-white">Home</a>
+            <a routerLink="/about" class="hover:text-white">Studio</a>
+            <a routerLink="/contact" class="hover:text-white">Contact</a>
+            <a routerLink="/terms" class="hover:text-white">Terms</a>
+          </span>
         </div>
-        <ul class="grid gap-3 list-none p-0 m-0">
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Files stored securely on AWS S3</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Data encrypted in transit and at rest</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">We do not sell your personal information</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">You can request data deletion at any time</span>
-          </li>
-        </ul>
       </section>
-
-      <!-- Third-Party Services -->
-      <section class="about-card p-8 mb-8">
-        <div class="flex items-center gap-3 mb-6">
-          <div aria-hidden="true" class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg about-marker"></div>
-          <h2 class="text-2xl font-semibold about-heading">Third-Party Services</h2>
-        </div>
-        <ul class="grid gap-3 list-none p-0 m-0">
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">AWS (hosting, storage, compute)</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Google (authentication)</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Amazon Polly (text-to-speech)</span>
-          </li>
-        </ul>
-      </section>
-
-      <!-- Your Rights -->
-      <section class="about-card p-8 mb-8">
-        <div class="flex items-center gap-3 mb-6">
-          <div aria-hidden="true" class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg about-marker"></div>
-          <h2 class="text-2xl font-semibold about-heading">Your Rights</h2>
-        </div>
-        <ul class="grid gap-3 list-none p-0 m-0">
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Access your personal data</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Request data deletion</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Export your content</span>
-          </li>
-          <li class="flex items-center gap-3">
-            <div aria-hidden="true" class="w-4 h-4 shrink-0 rounded-full about-accent-bg about-marker"></div>
-            <span class="text-sm about-muted">Opt out of communications</span>
-          </li>
-        </ul>
-      </section>
-
-      <!-- Cookies -->
-      <section class="about-card p-8 mb-8">
-        <div class="flex items-center gap-3 mb-4">
-          <div aria-hidden="true" class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg about-marker"></div>
-          <h2 class="text-2xl font-semibold about-heading">Cookies</h2>
-        </div>
-        <p class="leading-relaxed about-muted">
-          We use essential cookies for authentication and session management only.
-        </p>
-      </section>
-
-      <!-- Changes to This Policy -->
-      <section class="about-card p-8 mb-8">
-        <div class="flex items-center gap-3 mb-4">
-          <div aria-hidden="true" class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg about-marker"></div>
-          <h2 class="text-2xl font-semibold about-heading">Changes to This Policy</h2>
-        </div>
-        <p class="leading-relaxed about-muted">
-          We may update this policy periodically. Changes will be posted on this page.
-        </p>
-      </section>
-
-      <!-- Contact -->
-      <section class="about-card p-8 mb-8">
-        <div class="flex items-center gap-3 mb-4">
-          <div aria-hidden="true" class="w-10 h-10 rounded-full flex items-center justify-center about-accent-bg about-marker"></div>
-          <h2 class="text-2xl font-semibold about-heading">Contact</h2>
-        </div>
-        <p class="about-muted">
-          For privacy questions, contact
-          <a href="mailto:support@indifferent.fun" class="about-accent hover:underline">support&#64;indifferent.fun</a>
-        </p>
-      </section>
-
-      <!-- Footer -->
-      <footer class="mt-12 pt-8 border-t border-gray-200">
-        <div class="flex flex-wrap justify-center gap-6 text-sm about-muted mb-4">
-          <a routerLink="/" class="hover:underline about-accent">Home</a>
-          <a routerLink="/about" class="hover:underline about-accent">About</a>
-          <a routerLink="/contact" class="hover:underline about-accent">Contact</a>
-          <a routerLink="/privacy" class="hover:underline about-accent">Privacy Policy</a>
-          <a routerLink="/terms" class="hover:underline about-accent">Terms of Service</a>
-        </div>
-        <p class="text-center text-xs about-muted">&copy; 2025 Indifferent. All rights reserved.</p>
-      </footer>
-    </main>
+    </div>
   `,
 })
-export class PrivacyComponent {}
+export class PrivacyComponent {
+  currentYear = new Date().getFullYear();
+  sections: DocSection[] = [
+    { id: 'collect', n: '01', title: 'Information We Collect', items: ['Account information (email, name via Google OAuth)', 'Uploaded quiz files (.txt)', 'Generated video content', 'Usage data (pages visited, features used)'] },
+    { id: 'use', n: '02', title: 'How We Use It', items: ['To provide the video generation service', 'To improve our platform', 'To communicate service updates', 'To provide technical support'] },
+    { id: 'storage', n: '03', title: 'Data Storage & Security', items: ['Files stored securely on AWS S3', 'Data encrypted in transit and at rest', 'We do not sell your personal information', 'You can request data deletion at any time'] },
+    { id: 'third-party', n: '04', title: 'Third-Party Services', items: ['AWS (hosting, storage, compute)', 'Google (authentication)', 'Amazon Polly (text-to-speech)'] },
+    { id: 'rights', n: '05', title: 'Your Rights', items: ['Access your personal data', 'Request data deletion', 'Export your content', 'Opt out of communications'] },
+    { id: 'cookies', n: '06', title: 'Cookies', body: 'We use essential cookies for authentication and session management only.' },
+    { id: 'changes', n: '07', title: 'Changes to This Policy', body: 'We may update this policy periodically. Changes will be posted on this page.' },
+    { id: 'contact', n: '08', title: 'Contact' },
+  ];
+}
