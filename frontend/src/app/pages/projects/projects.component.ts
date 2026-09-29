@@ -13,59 +13,99 @@ import { Project, ProjectStatus } from '../../shared/models/project.model';
     RouterLink,
     LucideDynamicIcon,
   ],
+  styles: [`
+    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
+    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
+    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
+    .btn-primary:hover { transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(1px) scale(.98); }
+    .row-hover { transition: background-color .2s; }
+    .row-hover:hover { background-color: rgba(26,23,20,0.04); }
+    @media (prefers-reduced-motion: reduce) {
+      .btn-primary, .row-hover { transition: none; }
+    }
+  `],
   template: `
-    <div class="p-6 max-w-7xl mx-auto">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-semibold">Projects</h1>
-        <a routerLink="/projects/new" class="glow-btn !py-2 !px-5 !text-sm">
-          <svg lucideIcon="plus" [size]="18"></svg>
-          Create New Project
-        </a>
-      </div>
-
-      <div class="glass-card overflow-hidden">
-        @if (projects.length === 0) {
-          <div class="py-16 text-center text-[hsl(var(--muted-foreground))]">
-            <svg lucideIcon="video" [size]="64" class="mx-auto mb-4 opacity-30"></svg>
-            <p class="text-lg mb-4">No projects yet</p>
-            <a routerLink="/projects/new" class="glow-btn !py-2 !px-5 !text-sm">
-              Create Your First Project
+    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
+      <!-- App header -->
+      <header class="border-b border-black/[0.07] bg-[#FAF7F2]/90 backdrop-blur sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
+          <a routerLink="/" class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></a>
+          <div class="flex items-center gap-2 sm:gap-3">
+            <a routerLink="/" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Home</a>
+            <a routerLink="/dashboard" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Dashboard</a>
+            <a routerLink="/projects/new" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white pl-4 pr-1.5 py-1.5 text-[13.5px] font-semibold">
+              New project
+              <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
+                <svg lucideIcon="plus" [size]="15"></svg>
+              </span>
             </a>
           </div>
-        } @else {
-          <!-- Table Header -->
-          <div class="hidden sm:grid grid-cols-12 gap-4 px-6 py-3 border-b border-[hsl(var(--border))] text-sm font-semibold text-[hsl(var(--muted-foreground))]">
-            <div class="col-span-4">Name</div>
-            <div class="col-span-3">Template</div>
-            <div class="col-span-3">Status</div>
-            <div class="col-span-2">Created</div>
-          </div>
+        </div>
+      </header>
 
-          <!-- Table Rows -->
-          @for (project of projects; track project.id) {
-            <div
-              class="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 px-6 py-4 border-b border-[hsl(var(--border))]/50 cursor-pointer hover:bg-white/5 transition-colors"
-              (click)="navigateToProject(project)"
-              (keydown.enter)="navigateToProject(project)"
-              tabindex="0"
-              role="row"
-            >
-              <div class="sm:col-span-4 font-medium truncate">{{ project.name }}</div>
-              <div class="sm:col-span-3 text-[hsl(var(--muted-foreground))]">{{ project.template | titlecase }}</div>
-              <div class="sm:col-span-3">
-                <span
-                  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium"
-                  [ngClass]="getStatusBadgeClasses(project.status)"
-                >
-                  <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getStatusDotClass(project.status)"></span>
-                  {{ getStatusLabel(project.status) }}
-                </span>
-              </div>
-              <div class="sm:col-span-2 text-sm text-[hsl(var(--muted-foreground))]">{{ formatDate(project.createdAt) }}</div>
+      <main class="max-w-7xl mx-auto px-5 md:px-8 py-10 md:py-14">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="text-[11.5px] uppercase tracking-[0.2em] text-[#6B6560]">Studio · Library</p>
+            <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">Projects.</h1>
+          </div>
+          <p class="text-[13.5px] text-[#6B6560]">{{ projects.length }} {{ projects.length === 1 ? 'film' : 'films' }} in the cutting room</p>
+        </div>
+
+        <section class="mt-8 rounded-[20px] bg-white border border-black/[0.07] overflow-hidden">
+          @if (projects.length === 0) {
+            <div class="py-16 text-center px-6">
+              <p class="serif text-[30px]">No projects yet.</p>
+              <p class="mt-2 text-[14.5px] text-[#6B6560]">Upload a TXT file and render your first quiz video.</p>
+              <a routerLink="/projects/new" class="btn-primary mt-6 inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white px-7 py-3.5 font-semibold text-[14.5px]">
+                Create your first project →
+              </a>
             </div>
+          } @else {
+            <!-- Table Header -->
+            <div class="hidden sm:grid grid-cols-12 gap-4 px-6 py-3.5 border-b border-black/[0.07] text-[11.5px] font-semibold uppercase tracking-[0.12em] text-[#6B6560]">
+              <div class="col-span-4">Name</div>
+              <div class="col-span-3">Template</div>
+              <div class="col-span-3">Status</div>
+              <div class="col-span-2">Created</div>
+            </div>
+
+            <!-- Table Rows -->
+            @for (project of projects; track project.id) {
+              <div
+                class="row-hover grid grid-cols-1 sm:grid-cols-12 gap-1.5 sm:gap-4 px-6 py-4 border-b border-black/[0.05] last:border-b-0 cursor-pointer"
+                (click)="navigateToProject(project)"
+                (keydown.enter)="navigateToProject(project)"
+                tabindex="0"
+                role="row"
+              >
+                <div class="sm:col-span-4 font-medium truncate text-[15px]">{{ project.name }}</div>
+                <div class="sm:col-span-3 text-[13.5px] text-[#6B6560]">{{ project.template | titlecase }}</div>
+                <div class="sm:col-span-3">
+                  <span
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
+                    [ngClass]="getStatusBadgeClasses(project.status)"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getStatusDotClass(project.status)"></span>
+                    {{ getStatusLabel(project.status) }}
+                  </span>
+                </div>
+                <div class="sm:col-span-2 text-[13px] text-[#6B6560]">{{ formatDate(project.createdAt) }}</div>
+              </div>
+            }
           }
-        }
-      </div>
+        </section>
+
+        <footer class="mt-10 pt-6 border-t border-black/[0.07] flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-[#6B6560]">
+          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
+          <span class="flex gap-5">
+            <a routerLink="/" class="hover:text-[#1A1714]">Home</a>
+            <a routerLink="/dashboard" class="hover:text-[#1A1714]">Dashboard</a>
+            <a routerLink="/contact" class="hover:text-[#1A1714]">Contact</a>
+          </span>
+        </footer>
+      </main>
     </div>
   `,
 })
@@ -73,6 +113,7 @@ export class ProjectsComponent implements OnInit {
   private readonly projectService = inject(ProjectService);
   private readonly router = inject(Router);
 
+  currentYear = new Date().getFullYear();
   projects: Project[] = [];
 
   ngOnInit(): void {
@@ -108,27 +149,27 @@ export class ProjectsComponent implements OnInit {
 
   getStatusBadgeClasses(status: ProjectStatus): Record<string, boolean> {
     return {
-      'bg-green-500/10 text-green-400': status === 'completed',
-      'bg-blue-500/10 text-blue-400':
+      'bg-[#1E3A2A]/10 text-[#1E3A2A]': status === 'completed',
+      'bg-[#956400]/10 text-[#956400]':
         status === 'parsing' ||
         status === 'generating_slides' ||
         status === 'narrating' ||
         status === 'rendering',
-      'bg-red-500/10 text-red-400': status === 'failed',
-      'bg-[hsl(var(--muted))]/50 text-[hsl(var(--muted-foreground))]': status === 'created',
+      'bg-[#BC5227]/10 text-[#BC5227]': status === 'failed',
+      'bg-black/[0.05] text-[#6B6560]': status === 'created',
     };
   }
 
   getStatusDotClass(status: ProjectStatus): Record<string, boolean> {
     return {
-      'bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.5)]': status === 'completed',
-      'bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.5)]':
+      'bg-[#1E3A2A]': status === 'completed',
+      'bg-[#956400]':
         status === 'parsing' ||
         status === 'generating_slides' ||
         status === 'narrating' ||
         status === 'rendering',
-      'bg-red-400': status === 'failed',
-      'bg-gray-400': status === 'created',
+      'bg-[#BC5227]': status === 'failed',
+      'bg-[#6B6560]': status === 'created',
     };
   }
 
