@@ -52,6 +52,10 @@ import { RouterLink } from '@angular/router';
                     <span class="block text-white text-[13.5px] font-medium">Watermark tool</span>
                     <span class="block text-white/50 text-[12px] mt-0.5">Draggable text watermarks on JPG, PNG, WebP — size, opacity, color, rotation. Free, private, 100% in-browser with full-resolution PNG export.</span>
                   </a>
+                  <a routerLink="/shorts" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                    <span class="block text-white text-[13.5px] font-medium">AI Shorts generator</span>
+                    <span class="block text-white/50 text-[12px] mt-0.5">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions — AI finds the most engaging moments automatically.</span>
+                  </a>
                 </div>
               </div>
             </div>
@@ -333,6 +337,7 @@ import { RouterLink } from '@angular/router';
                   <li><a routerLink="/login" class="hover:text-white">Templates</a></li>
                   <li><a routerLink="/blog" class="hover:text-white">Journal</a></li>
                   <li><a routerLink="/tools/add-watermark" class="hover:text-white">Watermark tool</a></li>
+                  <li><a routerLink="/shorts" class="hover:text-white">AI Shorts generator</a></li>
                 </ul>
               </div>
               <div>
