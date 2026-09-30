@@ -2,11 +2,13 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/rahul/indifferent/backend/internal/models"
 )
 
 // mockDynamoDBClient implements DynamoDBClient for testing.
@@ -266,5 +268,149 @@ func TestExtractErrorMessage(t *testing.T) {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
 		})
+	}
+}
+
+func TestUpdateShortsStatus_Stages(t *testing.T) {
+	// Non-terminal shorts stages update status + updatedAt only, keyed to SHORTS#.
+	stages := []string{
+		ShortsStatusUploaded,
+		ShortsStatusTranscribing,
+		ShortsStatusRanking,
+		ShortsStatusRendering,
+	}
+
+	for _, stage := range stages {
+		t.Run(stage, func(t *testing.T) {
+			mock := &mockDynamoDBClient{}
+			updater := &StatusUpdater{DB: mock, TableName: "projects-table", Bucket: "test-bucket"}
+
+			err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
+				JobID:  "job-123",
+				UserID: "user-456",
+				Status: stage,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			pk := mock.updateItemInput.Key["PK"].(*types.AttributeValueMemberS).Value
+			sk := mock.updateItemInput.Key["SK"].(*types.AttributeValueMemberS).Value
+			if pk != "USER#user-456" {
+				t.Errorf("expected PK 'USER#user-456', got %q", pk)
+			}
+			if sk != "SHORTS#job-123" {
+				t.Errorf("expected SK 'SHORTS#job-123', got %q", sk)
+			}
+
+			statusVal := mock.updateItemInput.ExpressionAttributeValues[":status"].(*types.AttributeValueMemberS).Value
+			if statusVal != stage {
+				t.Errorf("expected status %q, got %q", stage, statusVal)
+			}
+			if _, ok := mock.updateItemInput.ExpressionAttributeValues[":updatedAt"]; !ok {
+				t.Error("expected :updatedAt to be set")
+			}
+			// No clips/error/completedAt for non-terminal stages.
+			if _, ok := mock.updateItemInput.ExpressionAttributeValues[":clips"]; ok {
+				t.Errorf("unexpected :clips for stage %q", stage)
+			}
+			if _, ok := mock.updateItemInput.ExpressionAttributeValues[":error"]; ok {
+				t.Errorf("unexpected :error for stage %q", stage)
+			}
+			if _, ok := mock.updateItemInput.ExpressionAttributeValues[":completedAt"]; ok {
+				t.Errorf("unexpected :completedAt for stage %q", stage)
+			}
+		})
+	}
+}
+
+func TestUpdateShortsStatus_CompletedStoresClips(t *testing.T) {
+	mock := &mockDynamoDBClient{}
+	updater := &StatusUpdater{DB: mock, TableName: "projects-table", Bucket: "test-bucket"}
+
+	clips := []models.Clip{
+		{ClipID: "c1", S3Key: "shorts/user-456/job-123/clips/c1.mp4", Rank: 1, Score: 0.93, Duration: 27.5},
+		{ClipID: "c2", S3Key: "shorts/user-456/job-123/clips/c2.mp4", Rank: 2, Score: 0.81, Duration: 18.0},
+	}
+
+	err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
+		JobID:  "job-123",
+		UserID: "user-456",
+		Status: ShortsStatusCompleted,
+		Clips:  clips,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// SHORTS# key.
+	sk := mock.updateItemInput.Key["SK"].(*types.AttributeValueMemberS).Value
+	if sk != "SHORTS#job-123" {
+		t.Errorf("expected SK 'SHORTS#job-123', got %q", sk)
+	}
+
+	statusVal := mock.updateItemInput.ExpressionAttributeValues[":status"].(*types.AttributeValueMemberS).Value
+	if statusVal != "completed" {
+		t.Errorf("expected status 'completed', got %q", statusVal)
+	}
+
+	// clips attribute is written as JSON and round-trips to the input clips.
+	clipsAttr, ok := mock.updateItemInput.ExpressionAttributeValues[":clips"].(*types.AttributeValueMemberS)
+	if !ok {
+		t.Fatal("expected :clips to be a string attribute")
+	}
+	var got []models.Clip
+	if err := json.Unmarshal([]byte(clipsAttr.Value), &got); err != nil {
+		t.Fatalf("clips attribute is not valid JSON: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 clips, got %d", len(got))
+	}
+	if got[0].ClipID != "c1" || got[0].Rank != 1 || got[1].ClipID != "c2" || got[1].Rank != 2 {
+		t.Errorf("clips did not round-trip correctly: %+v", got)
+	}
+
+	if mock.updateItemInput.ExpressionAttributeNames["#clips"] != "clips" {
+		t.Errorf("expected #clips mapped to 'clips', got %q", mock.updateItemInput.ExpressionAttributeNames["#clips"])
+	}
+	if _, ok := mock.updateItemInput.ExpressionAttributeValues[":completedAt"]; !ok {
+		t.Error("expected :completedAt to be set on completed")
+	}
+}
+
+func TestUpdateShortsStatus_Failed(t *testing.T) {
+	mock := &mockDynamoDBClient{}
+	updater := &StatusUpdater{DB: mock, TableName: "projects-table", Bucket: "test-bucket"}
+
+	err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
+		JobID:  "job-123",
+		UserID: "user-456",
+		Status: ShortsStatusFailed,
+		Error:  "no engaging segments identified",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	errorVal := mock.updateItemInput.ExpressionAttributeValues[":error"].(*types.AttributeValueMemberS).Value
+	if errorVal != "no engaging segments identified" {
+		t.Errorf("expected failure reason stored, got %q", errorVal)
+	}
+	if _, ok := mock.updateItemInput.ExpressionAttributeValues[":clips"]; ok {
+		t.Error("unexpected :clips on failed status")
+	}
+}
+
+func TestUpdateShortsStatus_DynamoDBError(t *testing.T) {
+	mock := &mockDynamoDBClient{updateItemErr: fmt.Errorf("connection refused")}
+	updater := &StatusUpdater{DB: mock, TableName: "projects-table", Bucket: "test-bucket"}
+
+	err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
+		JobID:  "job-123",
+		UserID: "user-456",
+		Status: ShortsStatusRendering,
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }

@@ -1,0 +1,84 @@
+import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { ApiService } from '../../core';
+
+/** Status values reported by the Shorts pipeline. */
+export type ShortsStatus =
+  | 'uploaded'
+  | 'transcribing'
+  | 'ranking'
+  | 'rendering'
+  | 'completed'
+  | 'failed';
+
+/** A rendered 9:16 vertical clip (matches backend models.Clip). */
+export interface Clip {
+  clipId: string;
+  s3Key: string;
+  rank: number;
+  score: number;
+  duration: number;
+}
+
+/** A single AI Shorts processing run (matches backend models.ShortsJob). */
+export interface ShortsJob {
+  userId: string;
+  jobId: string;
+  status: ShortsStatus;
+  fileType: string;
+  sourceDuration: number;
+  sourceKey: string;
+  transcriptKey?: string;
+  clips?: Clip[];
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+/** Response from POST /shorts (matches backend CreateShortsResponse). */
+export interface CreateShortsResponse {
+  jobId: string;
+  uploadUrl: string;
+  sourceKey: string;
+}
+
+/**
+ * Client for the Shorts_API routes. Calls flow through ApiService so JWT auth
+ * (cookie credentials) is applied, except presigned S3 uploads which use the
+ * absolute-URL passthrough.
+ */
+@Injectable({ providedIn: 'root' })
+export class ShortsService {
+  constructor(private readonly api: ApiService) {}
+
+  /** POST /shorts — create a job and get a presigned upload URL. */
+  createJob(fileType: string, duration: number): Observable<CreateShortsResponse> {
+    return this.api.post<CreateShortsResponse>('/shorts', { fileType, duration });
+  }
+
+  /** PUT the source media to the presigned S3 URL (no auth cookies). */
+  uploadSource(uploadUrl: string, file: File): Observable<unknown> {
+    return this.api.putAbsolute<unknown>(uploadUrl, file);
+  }
+
+  /** POST /shorts/{id}/start — kick off the processing pipeline. */
+  startJob(jobId: string): Observable<unknown> {
+    return this.api.post<unknown>(`/shorts/${jobId}/start`);
+  }
+
+  /** GET /shorts/{id} — fetch current job status. */
+  getStatus(jobId: string): Observable<ShortsJob> {
+    return this.api.get<ShortsJob>(`/shorts/${jobId}`);
+  }
+
+  /** GET /shorts/{id}/clips — list rendered clips ordered by rank. */
+  listClips(jobId: string): Observable<Clip[]> {
+    return this.api.get<Clip[]>(`/shorts/${jobId}/clips`);
+  }
+
+  /** GET /shorts/{id}/clips/{clipId}/url — presigned GET URL for a clip. */
+  getClipUrl(jobId: string, clipId: string): Observable<{ url: string }> {
+    return this.api.get<{ url: string }>(`/shorts/${jobId}/clips/${clipId}/url`);
+  }
+}

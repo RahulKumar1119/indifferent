@@ -61,9 +61,10 @@ type APIHandler struct {
 	DB              DynamoDBAPI
 	S3              *storage.S3Client
 	SFN             SFNClient
-	TableName       string
-	Bucket          string
-	StateMachineARN string
+	TableName             string
+	Bucket                string
+	StateMachineARN       string
+	ShortsStateMachineARN string
 }
 
 // corsHeaders returns the standard CORS headers for all responses.
@@ -110,6 +111,16 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleGetProject)
 	case req.HTTPMethod == "DELETE" && strings.HasPrefix(req.Path, "/projects/"):
 		return h.handleWithAuth(ctx, req, h.handleDeleteProject)
+	case req.HTTPMethod == "POST" && req.Path == "/shorts":
+		return h.handleWithAuth(ctx, req, h.handleCreateShorts)
+	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/start"):
+		return h.handleWithAuth(ctx, req, h.handleStartShorts)
+	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/url"):
+		return h.handleWithAuth(ctx, req, h.handleGetClipURL)
+	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/clips"):
+		return h.handleWithAuth(ctx, req, h.handleListClips)
+	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/"):
+		return h.handleWithAuth(ctx, req, h.handleGetShorts)
 	default:
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Route not found"), nil
 	}

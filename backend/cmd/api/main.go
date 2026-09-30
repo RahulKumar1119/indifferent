@@ -28,6 +28,7 @@ func main() {
 	dynamoDBTable := os.Getenv("DYNAMODB_TABLE")
 	s3Bucket := os.Getenv("S3_BUCKET")
 	stateMachineARN := os.Getenv("STATE_MACHINE_ARN")
+	shortsStateMachineARN := os.Getenv("SHORTS_STATE_MACHINE_ARN")
 	usersTable := os.Getenv("USERS_TABLE")
 	sessionTable := os.Getenv("SESSION_TABLE")
 
@@ -78,9 +79,10 @@ func main() {
 		DB:              dbClient,
 		S3:              s3Client,
 		SFN:             sfnClient,
-		TableName:       dynamoDBTable,
-		Bucket:          s3Bucket,
-		StateMachineARN: stateMachineARN,
+		TableName:             dynamoDBTable,
+		Bucket:                s3Bucket,
+		StateMachineARN:       stateMachineARN,
+		ShortsStateMachineARN: shortsStateMachineARN,
 	}
 
 	// Start Lambda

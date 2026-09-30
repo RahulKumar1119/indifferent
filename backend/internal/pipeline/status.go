@@ -4,12 +4,14 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/storage"
 )
 
@@ -85,6 +87,80 @@ func (u *StatusUpdater) UpdateStatus(ctx context.Context, input StatusInput) err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update project status: %w", err)
+	}
+
+	return nil
+}
+
+// Shorts pipeline status values (Requirement 6.2).
+const (
+	ShortsStatusUploaded     = "uploaded"
+	ShortsStatusTranscribing = "transcribing"
+	ShortsStatusRanking      = "ranking"
+	ShortsStatusRendering    = "rendering"
+	ShortsStatusCompleted    = "completed"
+	ShortsStatusFailed       = "failed"
+)
+
+// ShortsStatusInput represents a status update for a shorts job. Shorts jobs
+// live under the same table with SK = "SHORTS#{JobID}".
+type ShortsStatusInput struct {
+	JobID  string        `json:"jobId"`
+	UserID string        `json:"userId"`
+	Status string        `json:"status"` // uploaded|transcribing|ranking|rendering|completed|failed
+	Clips  []models.Clip `json:"clips,omitempty"`
+	Error  any           `json:"error,omitempty"`
+}
+
+// UpdateShortsStatus updates a shorts job's status in DynamoDB. It mirrors
+// UpdateStatus but keys the SHORTS# record. On "completed" it stores the clip
+// list (marshaled to JSON) and completedAt; on "failed" it stores the error.
+// (Requirements 6.1, 6.2, 6.4)
+func (u *StatusUpdater) UpdateShortsStatus(ctx context.Context, input ShortsStatusInput) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	key := map[string]types.AttributeValue{
+		"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", input.UserID)},
+		"SK": &types.AttributeValueMemberS{Value: fmt.Sprintf("SHORTS#%s", input.JobID)},
+	}
+
+	updateExpr := "SET #status = :status, #updatedAt = :updatedAt"
+	exprNames := map[string]string{
+		"#status":    "status",
+		"#updatedAt": "updatedAt",
+	}
+	exprValues := map[string]types.AttributeValue{
+		":status":    &types.AttributeValueMemberS{Value: input.Status},
+		":updatedAt": &types.AttributeValueMemberS{Value: now},
+	}
+
+	switch input.Status {
+	case ShortsStatusCompleted:
+		clipsJSON, err := json.Marshal(input.Clips)
+		if err != nil {
+			return fmt.Errorf("failed to marshal clips: %w", err)
+		}
+		updateExpr += ", #clips = :clips, #completedAt = :completedAt"
+		exprNames["#clips"] = "clips"
+		exprNames["#completedAt"] = "completedAt"
+		exprValues[":clips"] = &types.AttributeValueMemberS{Value: string(clipsJSON)}
+		exprValues[":completedAt"] = &types.AttributeValueMemberS{Value: now}
+
+	case ShortsStatusFailed:
+		updateExpr += ", #error = :error"
+		exprNames["#error"] = "error"
+		exprValues[":error"] = &types.AttributeValueMemberS{Value: extractErrorMessage(input.Error)}
+	}
+
+	_, err := u.DB.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:                 aws.String(u.TableName),
+		Key:                       key,
+		UpdateExpression:          aws.String(updateExpr),
+		ExpressionAttributeNames:  exprNames,
+		ExpressionAttributeValues: exprValues,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update shorts status: %w", err)
 	}
 
 	return nil

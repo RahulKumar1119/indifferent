@@ -123,3 +123,53 @@ type Project struct {
 	UpdatedAt     string    `json:"updatedAt"`
 	CompletedAt   string    `json:"completedAt,omitempty"`
 }
+
+// ShortsJob is a single AI Shorts processing run, stored in DynamoDB.
+// PK = "USER#{UserID}", SK = "SHORTS#{JobID}".
+type ShortsJob struct {
+	UserID         string          `json:"userId"`
+	JobID          string          `json:"jobId"`
+	Status         string          `json:"status"` // uploaded|transcribing|ranking|rendering|completed|failed
+	FileType       string          `json:"fileType"`
+	SourceDuration float64         `json:"sourceDuration"`
+	SourceKey      string          `json:"sourceKey"`
+	TranscriptKey  string          `json:"transcriptKey,omitempty"`
+	Segments       []RankedSegment `json:"segments,omitempty"`
+	Clips          []Clip          `json:"clips,omitempty"`
+	Error          string          `json:"error,omitempty"`
+	CreatedAt      string          `json:"createdAt"`
+	UpdatedAt      string          `json:"updatedAt"`
+	CompletedAt    string          `json:"completedAt,omitempty"`
+}
+
+// RankedSegment is a candidate viral moment with its rank and score.
+type RankedSegment struct {
+	Start        float64 `json:"start"`        // seconds, >= 0
+	End          float64 `json:"end"`          // seconds, <= sourceDuration, > Start
+	Score        float64 `json:"score"`        // engagement score 0..1
+	Rank         int     `json:"rank"`         // 1 = highest score
+	HookText     string  `json:"hookText"`     // short label describing the moment
+	CaptionWords []Word  `json:"captionWords"` // word-level timings within [Start, End]
+}
+
+// Word is a single transcript token with its timing (relative to source start).
+type Word struct {
+	Text  string  `json:"text"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+}
+
+// Clip is a rendered 9:16 vertical clip.
+type Clip struct {
+	ClipID   string  `json:"clipId"`
+	S3Key    string  `json:"s3Key"`
+	Rank     int     `json:"rank"`
+	Score    float64 `json:"score"`
+	Duration float64 `json:"duration"`
+}
+
+// Transcript is the normalized word-level transcription used by ranking/rendering.
+type Transcript struct {
+	Text  string `json:"text"`
+	Words []Word `json:"words"`
+}
