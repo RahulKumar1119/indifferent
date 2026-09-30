@@ -4,12 +4,14 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 const (
@@ -20,9 +22,19 @@ const (
 	DownloadURLExpiration = 24 * time.Hour
 )
 
+// headObjectAPI is the subset of the S3 API used by HeadObject. Defining it as
+// an interface lets tests exercise the exists/not-found/error mapping without
+// network access or valid credentials.
+type headObjectAPI interface {
+	HeadObject(ctx context.Context, in *s3.HeadObjectInput, optFns ...func(*s3.Options)) (*s3.HeadObjectOutput, error)
+}
+
 // S3Client wraps the AWS S3 service client for common operations.
 type S3Client struct {
 	client *s3.Client
+	// headAPI performs HeadObject calls. It defaults to client but can be
+	// overridden in tests. When nil, client is used.
+	headAPI headObjectAPI
 }
 
 // NewS3Client creates a new S3Client using the default AWS config.
@@ -31,7 +43,20 @@ func NewS3Client(ctx context.Context) (*S3Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &S3Client{client: s3.NewFromConfig(cfg)}, nil
+	c := s3.NewFromConfig(cfg)
+	return &S3Client{client: c, headAPI: c}, nil
+}
+
+// NewS3ClientWithRegion creates an S3Client bound to the given region without
+// requiring live credentials. Presigning is a local operation, so this is
+// suitable for tests in other packages that need a usable *S3Client.
+func NewS3ClientWithRegion(ctx context.Context, region string) (*S3Client, error) {
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	if err != nil {
+		return nil, err
+	}
+	c := s3.NewFromConfig(cfg)
+	return &S3Client{client: c, headAPI: c}, nil
 }
 
 // GetObject downloads an object from S3 and returns its contents as bytes.
@@ -66,6 +91,28 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucket, key string) error {
 		Key:    aws.String(key),
 	})
 	return err
+}
+
+// HeadObject reports whether an object exists at the specified bucket and key.
+// It returns (true, nil) when the object exists, (false, nil) when it does not,
+// and (false, err) for any other error.
+func (c *S3Client) HeadObject(ctx context.Context, bucket, key string) (bool, error) {
+	api := c.headAPI
+	if api == nil {
+		api = c.client
+	}
+	_, err := api.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		var notFound *types.NotFound
+		if errors.As(err, &notFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // GenerateUploadURL creates a presigned PUT URL for uploading a file to S3.

@@ -1,0 +1,305 @@
+{
+  "Comment": "AI Shorts Pipeline: Transcribe → Rank → Render (Fargate Spot fan-out) → Complete",
+  "StartAt": "UpdateStatus_Transcribing",
+  "States": {
+    "UpdateStatus_Transcribing": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterShortsArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "userId.$": "$.userId",
+        "status": "transcribing"
+      },
+      "ResultPath": null,
+      "Next": "StartTranscription"
+    },
+    "StartTranscription": {
+      "Type": "Task",
+      "Resource": "${ShortsTranscribeLambdaArn}",
+      "Parameters": {
+        "mode": "start",
+        "jobId.$": "$.jobId",
+        "userId.$": "$.userId",
+        "sourceKey.$": "$.sourceKey"
+      },
+      "ResultPath": "$.transcribe",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "States.Timeout"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "WaitForTranscription"
+    },
+    "WaitForTranscription": {
+      "Type": "Wait",
+      "Seconds": 15,
+      "Next": "CheckTranscription"
+    },
+    "CheckTranscription": {
+      "Type": "Task",
+      "Resource": "${ShortsTranscribeLambdaArn}",
+      "Parameters": {
+        "mode": "poll",
+        "jobId.$": "$.jobId",
+        "userId.$": "$.userId",
+        "jobName.$": "$.transcribe.jobName"
+      },
+      "ResultPath": "$.transcribeStatus",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "States.Timeout"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "TranscriptionDone?"
+    },
+    "TranscriptionDone?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.transcribeStatus.state",
+          "StringEquals": "IN_PROGRESS",
+          "Next": "WaitForTranscription"
+        },
+        {
+          "Variable": "$.transcribeStatus.state",
+          "StringEquals": "FAILED",
+          "Next": "MarkFailed"
+        },
+        {
+          "Variable": "$.transcribeStatus.state",
+          "StringEquals": "COMPLETED",
+          "Next": "UpdateStatus_Ranking"
+        }
+      ],
+      "Default": "MarkFailed"
+    },
+    "UpdateStatus_Ranking": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterShortsArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "userId.$": "$.userId",
+        "status": "ranking"
+      },
+      "ResultPath": null,
+      "Next": "Rank"
+    },
+    "Rank": {
+      "Type": "Task",
+      "Resource": "${ShortsRankLambdaArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "userId.$": "$.userId",
+        "sourceKey.$": "$.sourceKey",
+        "transcriptKey.$": "$.transcribeStatus.transcriptKey",
+        "sourceDuration.$": "$.sourceDuration"
+      },
+      "ResultPath": "$.rank",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "States.Timeout"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "AnySegments?"
+    },
+    "AnySegments?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.rank.clips[0]",
+          "IsPresent": true,
+          "Next": "UpdateStatus_Rendering"
+        }
+      ],
+      "Default": "MarkFailed"
+    },
+    "UpdateStatus_Rendering": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterShortsArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "userId.$": "$.userId",
+        "status": "rendering"
+      },
+      "ResultPath": null,
+      "Next": "RenderClips"
+    },
+    "RenderClips": {
+      "Type": "Map",
+      "ItemsPath": "$.rank.clips",
+      "MaxConcurrency": 3,
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "userId.$": "$.userId",
+        "sourceKey.$": "$.sourceKey",
+        "transcriptKey.$": "$.transcribeStatus.transcriptKey",
+        "clip.$": "$$.Map.Item.Value"
+      },
+      "Iterator": {
+        "StartAt": "RenderOnSpot",
+        "States": {
+          "RenderOnSpot": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::ecs:runTask.sync",
+            "Parameters": {
+              "Cluster": "${EcsClusterArn}",
+              "TaskDefinition": "${ShortsRenderTaskDefArn}",
+              "CapacityProviderStrategy": [
+                { "CapacityProvider": "FARGATE_SPOT", "Weight": 1 }
+              ],
+              "NetworkConfiguration": {
+                "AwsvpcConfiguration": {
+                  "Subnets": ["${SubnetIds}"],
+                  "AssignPublicIp": "ENABLED",
+                  "SecurityGroups": ["${SecurityGroupId}"]
+                }
+              },
+              "Overrides": {
+                "ContainerOverrides": [
+                  {
+                    "Name": "shorts-render",
+                    "Environment": [
+                      { "Name": "JOB_ID", "Value.$": "$.jobId" },
+                      { "Name": "USER_ID", "Value.$": "$.userId" },
+                      { "Name": "SOURCE_KEY", "Value.$": "$.sourceKey" },
+                      { "Name": "TRANSCRIPT_KEY", "Value.$": "$.transcriptKey" },
+                      { "Name": "CLIP_ID", "Value.$": "$.clip.clipId" },
+                      { "Name": "CLIP_START", "Value.$": "$.clip.start" },
+                      { "Name": "CLIP_END", "Value.$": "$.clip.end" },
+                      { "Name": "CLIP_RANK", "Value.$": "$.clip.rank" }
+                    ]
+                  }
+                ]
+              }
+            },
+            "Retry": [
+              {
+                "ErrorEquals": ["ECS.AmazonECSException", "States.TaskFailed"],
+                "IntervalSeconds": 20,
+                "MaxAttempts": 2,
+                "BackoffRate": 2.0
+              }
+            ],
+            "Catch": [
+              {
+                "ErrorEquals": ["States.ALL"],
+                "ResultPath": "$.spotError",
+                "Next": "RenderOnDemand"
+              }
+            ],
+            "End": true
+          },
+          "RenderOnDemand": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::ecs:runTask.sync",
+            "Parameters": {
+              "Cluster": "${EcsClusterArn}",
+              "TaskDefinition": "${ShortsRenderTaskDefArn}",
+              "CapacityProviderStrategy": [
+                { "CapacityProvider": "FARGATE", "Weight": 1 }
+              ],
+              "NetworkConfiguration": {
+                "AwsvpcConfiguration": {
+                  "Subnets": ["${SubnetIds}"],
+                  "AssignPublicIp": "ENABLED",
+                  "SecurityGroups": ["${SecurityGroupId}"]
+                }
+              },
+              "Overrides": {
+                "ContainerOverrides": [
+                  {
+                    "Name": "shorts-render",
+                    "Environment": [
+                      { "Name": "JOB_ID", "Value.$": "$.jobId" },
+                      { "Name": "USER_ID", "Value.$": "$.userId" },
+                      { "Name": "SOURCE_KEY", "Value.$": "$.sourceKey" },
+                      { "Name": "TRANSCRIPT_KEY", "Value.$": "$.transcriptKey" },
+                      { "Name": "CLIP_ID", "Value.$": "$.clip.clipId" },
+                      { "Name": "CLIP_START", "Value.$": "$.clip.start" },
+                      { "Name": "CLIP_END", "Value.$": "$.clip.end" },
+                      { "Name": "CLIP_RANK", "Value.$": "$.clip.rank" }
+                    ]
+                  }
+                ]
+              }
+            },
+            "Catch": [
+              {
+                "ErrorEquals": ["States.ALL"],
+                "ResultPath": "$.error",
+                "Next": "RenderFailed"
+              }
+            ],
+            "End": true
+          },
+          "RenderFailed": {
+            "Type": "Fail",
+            "Error": "RenderFailed",
+            "Cause": "Clip rendering failed on both Spot and on-demand capacity"
+          }
+        }
+      },
+      "ResultPath": "$.renderResults",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "MarkCompleted"
+    },
+    "MarkCompleted": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterShortsArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "userId.$": "$.userId",
+        "status": "completed",
+        "clips.$": "$.rank.clips"
+      },
+      "End": true
+    },
+    "MarkFailed": {
+      "Type": "Task",
+      "Resource": "${StatusUpdaterShortsArn}",
+      "Parameters": {
+        "jobId.$": "$.jobId",
+        "userId.$": "$.userId",
+        "status": "failed",
+        "error.$": "$.error"
+      },
+      "End": true
+    }
+  }
+}

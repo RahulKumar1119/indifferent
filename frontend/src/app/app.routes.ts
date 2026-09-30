@@ -46,6 +46,24 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'shorts',
+    loadComponent: () =>
+      import('./pages/shorts/shorts-upload.component').then((m) => m.ShortsUploadComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'shorts/:id/progress',
+    loadComponent: () =>
+      import('./pages/shorts/shorts-progress.component').then((m) => m.ShortsProgressComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'shorts/:id/clips',
+    loadComponent: () =>
+      import('./pages/shorts/shorts-gallery.component').then((m) => m.ShortsGalleryComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'about',
     loadComponent: () =>
       import('./pages/about/about.component').then((m) => m.AboutComponent),

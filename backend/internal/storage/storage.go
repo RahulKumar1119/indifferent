@@ -9,4 +9,5 @@ type StorageClient interface {
 	GetObject(ctx context.Context, bucket, key string) ([]byte, error)
 	PutObject(ctx context.Context, bucket, key string, data []byte, contentType string) error
 	DeleteObject(ctx context.Context, bucket, key string) error
+	HeadObject(ctx context.Context, bucket, key string) (bool, error)
 }
