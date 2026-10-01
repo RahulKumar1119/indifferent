@@ -328,9 +328,9 @@ func TestUpdateShortsStatus_CompletedStoresClips(t *testing.T) {
 	mock := &mockDynamoDBClient{}
 	updater := &StatusUpdater{DB: mock, TableName: "projects-table", Bucket: "test-bucket"}
 
-	clips := []models.Clip{
-		{ClipID: "c1", S3Key: "shorts/user-456/job-123/clips/c1.mp4", Rank: 1, Score: 0.93, Duration: 27.5},
-		{ClipID: "c2", S3Key: "shorts/user-456/job-123/clips/c2.mp4", Rank: 2, Score: 0.81, Duration: 18.0},
+	clips := []models.RankedSegment{
+		{ClipID: "clip-1", Start: 0, End: 27.5, Score: 0.93, Rank: 1, HookText: "a"},
+		{ClipID: "clip-2", Start: 100, End: 118, Score: 0.81, Rank: 2, HookText: "b"},
 	}
 
 	err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
@@ -366,8 +366,16 @@ func TestUpdateShortsStatus_CompletedStoresClips(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("expected 2 clips, got %d", len(got))
 	}
-	if got[0].ClipID != "c1" || got[0].Rank != 1 || got[1].ClipID != "c2" || got[1].Rank != 2 {
+	if got[0].ClipID != "clip-1" || got[0].Rank != 1 || got[1].ClipID != "clip-2" || got[1].Rank != 2 {
 		t.Errorf("clips did not round-trip correctly: %+v", got)
+	}
+	// S3 keys use the renderer's deterministic pattern so the gallery can
+	// presign URLs; durations derive from the segment windows.
+	if got[0].S3Key != "shorts/user-456/job-123/clips/clip-1.mp4" {
+		t.Errorf("unexpected S3 key: %q", got[0].S3Key)
+	}
+	if got[0].Duration != 27.5 || got[1].Duration != 18 {
+		t.Errorf("unexpected durations: %v, %v", got[0].Duration, got[1].Duration)
 	}
 
 	if mock.updateItemInput.ExpressionAttributeNames["#clips"] != "clips" {

@@ -24,13 +24,13 @@ type ModelID string
 
 const (
 	// ModelKimi is the Moonshot Kimi model on Bedrock (OpenAI-compatible format).
-	// NOTE: verify this exact model ID in the AWS Bedrock console; it may carry
-	// a version suffix.
-	ModelKimi ModelID = "moonshotai.kimi-k3"
+	// NOTE: Kimi K3 requires the global inference profile for on-demand
+	// invocation in ap-south-1; the bare model ID is not supported.
+	ModelKimi ModelID = "global.moonshotai.kimi-k3"
 	// ModelNovaPro is a selectable ranking model.
-	ModelNovaPro ModelID = "amazon.nova-pro-v1:0"
+	ModelNovaPro ModelID = "apac.amazon.nova-pro-v1:0"
 	// ModelClaude is selectable via deployment config (Requirement 3.8).
-	ModelClaude ModelID = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+	ModelClaude ModelID = "apac.anthropic.claude-3-5-sonnet-20240620-v1:0"
 )
 
 // Service ranks transcript moments using a Bedrock model. The model output is
@@ -215,7 +215,8 @@ func (s *Service) buildRequestBody(prompt string) ([]byte, error) {
 			Messages: []kimiMessage{
 				{Role: "user", Content: prompt},
 			},
-			MaxTokens:   2000,
+			// Larger budget accounts for Kimi K3's hidden reasoning tokens on top of the JSON output.
+			MaxTokens:   8000,
 			Temperature: 0.2,
 		})
 	}

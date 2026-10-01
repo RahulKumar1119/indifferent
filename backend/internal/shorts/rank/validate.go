@@ -5,6 +5,7 @@ package rank
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/rahul/indifferent/backend/internal/models"
@@ -66,6 +67,11 @@ func validateSegments(raw []rawSegment, sourceDuration float64) []models.RankedS
 
 	for i := range valid {
 		valid[i].Rank = i + 1
+		// Deterministic clip ID derived from rank: stable across retries so
+		// re-running the pipeline (e.g. after a Spot interruption) resolves
+		// to the same S3 keys, and the state machine's $.clip.clipId
+		// JSONPath always resolves.
+		valid[i].ClipID = fmt.Sprintf("clip-%d", valid[i].Rank)
 	}
 
 	return valid

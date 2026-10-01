@@ -194,9 +194,9 @@
                       { "Name": "SOURCE_KEY", "Value.$": "$.sourceKey" },
                       { "Name": "TRANSCRIPT_KEY", "Value.$": "$.transcriptKey" },
                       { "Name": "CLIP_ID", "Value.$": "$.clip.clipId" },
-                      { "Name": "CLIP_START", "Value.$": "$.clip.start" },
-                      { "Name": "CLIP_END", "Value.$": "$.clip.end" },
-                      { "Name": "CLIP_RANK", "Value.$": "$.clip.rank" }
+                      { "Name": "CLIP_START", "Value.$": "States.Format('{}', $.clip.start)" },
+                      { "Name": "CLIP_END", "Value.$": "States.Format('{}', $.clip.end)" },
+                      { "Name": "CLIP_RANK", "Value.$": "States.Format('{}', $.clip.rank)" }
                     ]
                   }
                 ]
@@ -245,9 +245,9 @@
                       { "Name": "SOURCE_KEY", "Value.$": "$.sourceKey" },
                       { "Name": "TRANSCRIPT_KEY", "Value.$": "$.transcriptKey" },
                       { "Name": "CLIP_ID", "Value.$": "$.clip.clipId" },
-                      { "Name": "CLIP_START", "Value.$": "$.clip.start" },
-                      { "Name": "CLIP_END", "Value.$": "$.clip.end" },
-                      { "Name": "CLIP_RANK", "Value.$": "$.clip.rank" }
+                      { "Name": "CLIP_START", "Value.$": "States.Format('{}', $.clip.start)" },
+                      { "Name": "CLIP_END", "Value.$": "States.Format('{}', $.clip.end)" },
+                      { "Name": "CLIP_RANK", "Value.$": "States.Format('{}', $.clip.rank)" }
                     ]
                   }
                 ]

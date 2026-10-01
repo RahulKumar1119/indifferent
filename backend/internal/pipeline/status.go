@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/shorts/render"
 	"github.com/rahul/indifferent/backend/internal/storage"
 )
 
@@ -105,11 +106,14 @@ const (
 // ShortsStatusInput represents a status update for a shorts job. Shorts jobs
 // live under the same table with SK = "SHORTS#{JobID}".
 type ShortsStatusInput struct {
-	JobID  string        `json:"jobId"`
-	UserID string        `json:"userId"`
-	Status string        `json:"status"` // uploaded|transcribing|ranking|rendering|completed|failed
-	Clips  []models.Clip `json:"clips,omitempty"`
-	Error  any           `json:"error,omitempty"`
+	JobID  string `json:"jobId"`
+	UserID string `json:"userId"`
+	Status string `json:"status"` // uploaded|transcribing|ranking|rendering|completed|failed
+	// Clips arrives from the state machine as ranked segments (the Rank
+	// lambda's output, including clipId). On completion they are converted
+	// to Clip records with deterministic S3 keys before storage.
+	Clips []models.RankedSegment `json:"clips,omitempty"`
+	Error any                    `json:"error,omitempty"`
 }
 
 // UpdateShortsStatus updates a shorts job's status in DynamoDB. It mirrors
@@ -136,7 +140,7 @@ func (u *StatusUpdater) UpdateShortsStatus(ctx context.Context, input ShortsStat
 
 	switch input.Status {
 	case ShortsStatusCompleted:
-		clipsJSON, err := json.Marshal(input.Clips)
+		clipsJSON, err := json.Marshal(segmentsToClips(input.UserID, input.JobID, input.Clips))
 		if err != nil {
 			return fmt.Errorf("failed to marshal clips: %w", err)
 		}
@@ -164,6 +168,27 @@ func (u *StatusUpdater) UpdateShortsStatus(ctx context.Context, input ShortsStat
 	}
 
 	return nil
+}
+
+// segmentsToClips converts ranked segments into gallery-ready Clip records.
+// S3Key uses the same deterministic pattern the renderer writes to, so the
+// clips gallery can presign download URLs without the render tasks having to
+// report back. Duration is derived from the segment window.
+func segmentsToClips(userID, jobID string, segments []models.RankedSegment) []models.Clip {
+	clips := make([]models.Clip, 0, len(segments))
+	for _, s := range segments {
+		if s.ClipID == "" {
+			continue
+		}
+		clips = append(clips, models.Clip{
+			ClipID:   s.ClipID,
+			S3Key:    render.ClipKey(userID, jobID, s.ClipID),
+			Rank:     s.Rank,
+			Score:    s.Score,
+			Duration: s.End - s.Start,
+		})
+	}
+	return clips
 }
 
 // GenerateVideoURL generates a presigned download URL for the video with 24-hour expiration.

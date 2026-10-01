@@ -144,6 +144,7 @@ type ShortsJob struct {
 
 // RankedSegment is a candidate viral moment with its rank and score.
 type RankedSegment struct {
+	ClipID       string  `json:"clipId"`       // deterministic ID (clip-<rank>) assigned at validation
 	Start        float64 `json:"start"`        // seconds, >= 0
 	End          float64 `json:"end"`          // seconds, <= sourceDuration, > Start
 	Score        float64 `json:"score"`        // engagement score 0..1

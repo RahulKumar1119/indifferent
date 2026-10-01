@@ -78,10 +78,11 @@ func (r *Renderer) defaultRunCommand(name string, args []string) error {
 	return nil
 }
 
-// clipKey returns the deterministic S3 key for a rendered clip. Because the
+// ClipKey returns the deterministic S3 key for a rendered clip. Because the
 // same input always maps to the same key, re-running is naturally idempotent
-// (Requirement 5.5).
-func clipKey(userID, jobID, clipID string) string {
+// (Requirement 5.5). Exported so the status updater can record the same key
+// the renderer writes without duplicating the pattern.
+func ClipKey(userID, jobID, clipID string) string {
 	return fmt.Sprintf("shorts/%s/%s/clips/%s.mp4", userID, jobID, clipID)
 }
 
@@ -148,7 +149,7 @@ func (r *Renderer) alreadyRendered(ctx context.Context, key string) (bool, error
 // returns the S3 key of the rendered clip. When the clip already exists it is
 // a no-op that returns the existing key. (Requirements 4.1, 4.5, 4.6, 5.5)
 func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
-	key := clipKey(in.UserID, in.JobID, in.Clip.ClipID)
+	key := ClipKey(in.UserID, in.JobID, in.Clip.ClipID)
 
 	// Idempotent resume: skip everything if the clip is already present.
 	exists, err := r.alreadyRendered(ctx, key)
