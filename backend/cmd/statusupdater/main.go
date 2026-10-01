@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 
@@ -51,8 +52,29 @@ func main() {
 		Bucket:    bucket,
 	}
 
-	// Register Lambda handler
-	lambda.Start(func(ctx context.Context, input pipeline.StatusInput) error {
-		return updater.UpdateStatus(ctx, input)
+	// Register Lambda handler. The same function serves both pipelines: quiz
+	// events carry projectId, shorts events carry jobId. Previously shorts
+	// events fell through to UpdateStatus, which wrote to a garbage
+	// "PROJECT#" record and never updated the SHORTS# job.
+	lambda.Start(func(ctx context.Context, raw json.RawMessage) error {
+		var probe struct {
+			ProjectID string `json:"projectId"`
+			JobID     string `json:"jobId"`
+		}
+		if err := json.Unmarshal(raw, &probe); err != nil {
+			return err
+		}
+		if probe.JobID != "" {
+			var in pipeline.ShortsStatusInput
+			if err := json.Unmarshal(raw, &in); err != nil {
+				return err
+			}
+			return updater.UpdateShortsStatus(ctx, in)
+		}
+		var in pipeline.StatusInput
+		if err := json.Unmarshal(raw, &in); err != nil {
+			return err
+		}
+		return updater.UpdateStatus(ctx, in)
 	})
 }

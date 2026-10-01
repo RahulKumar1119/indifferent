@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { ApiService } from '../../core';
 
 /** Status values reported by the Shorts pipeline. */
@@ -74,7 +75,11 @@ export class ShortsService {
 
   /** GET /shorts/{id}/clips — list rendered clips ordered by rank. */
   listClips(jobId: string): Observable<Clip[]> {
-    return this.api.get<Clip[]>(`/shorts/${jobId}/clips`);
+    // The API returns an envelope {"clips": [...]}; unwrap it here so callers
+    // always receive an array (a bare array is also tolerated defensively).
+    return this.api.get<{ clips: Clip[] } | Clip[]>(`/shorts/${jobId}/clips`).pipe(
+      map((res) => (Array.isArray(res) ? res : (res?.clips ?? []))),
+    );
   }
 
   /** GET /shorts/{id}/clips/{clipId}/url — presigned GET URL for a clip. */

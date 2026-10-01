@@ -49,6 +49,31 @@ func TestValidateSegments_DropsDurationOutsideBounds(t *testing.T) {
 	}
 }
 
+func TestValidateSegments_AssignsDeterministicClipIDs(t *testing.T) {
+	raw := []rawSegment{
+		{Start: 0, End: 20, Score: 0.5},
+		{Start: 30, End: 50, Score: 0.9},
+	}
+	got := validateSegments(raw, 600)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 valid segments, got %d", len(got))
+	}
+	// Sorted by descending score: rank 1 first.
+	if got[0].Rank != 1 || got[0].ClipID != "clip-1" {
+		t.Errorf("expected rank 1 / clip-1, got rank %d / %q", got[0].Rank, got[0].ClipID)
+	}
+	if got[1].Rank != 2 || got[1].ClipID != "clip-2" {
+		t.Errorf("expected rank 2 / clip-2, got rank %d / %q", got[1].Rank, got[1].ClipID)
+	}
+	// Stable across re-validation (idempotent S3 keys on retry).
+	again := validateSegments(raw, 600)
+	for i := range got {
+		if again[i].ClipID != got[i].ClipID {
+			t.Errorf("clip IDs not stable across runs: %q vs %q", got[i].ClipID, again[i].ClipID)
+		}
+	}
+}
+
 func TestValidateSegments_TruncatesToMaxClipCount(t *testing.T) {
 	raw := []rawSegment{
 		{Start: 0, End: 20, Score: 0.5},

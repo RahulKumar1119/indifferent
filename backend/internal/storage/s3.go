@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 )
 
 const (
@@ -96,6 +97,13 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucket, key string) error {
 // HeadObject reports whether an object exists at the specified bucket and key.
 // It returns (true, nil) when the object exists, (false, nil) when it does not,
 // and (false, err) for any other error.
+//
+// S3 returns 403 Forbidden (instead of 404 NotFound) for a missing key when the
+// caller lacks s3:ListBucket on the bucket — which is the common case for an
+// object-scoped role (arn:.../bucket/*). For an existence check that must
+// therefore be treated as "not found" so the caller can proceed (a genuine
+// permission problem on an existing object surfaces later as a Get/Put
+// failure with a clearer message).
 func (c *S3Client) HeadObject(ctx context.Context, bucket, key string) (bool, error) {
 	api := c.headAPI
 	if api == nil {
@@ -106,13 +114,41 @@ func (c *S3Client) HeadObject(ctx context.Context, bucket, key string) (bool, er
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		var notFound *types.NotFound
-		if errors.As(err, &notFound) {
+		if isHeadObjectNotFound(err) {
 			return false, nil
 		}
 		return false, err
 	}
 	return true, nil
+}
+
+// isHeadObjectNotFound reports whether err from HeadObject means "no such
+// object" rather than a real failure. It covers:
+//
+//   - the modeled *types.NotFound / *types.NoSuchKey shapes,
+//   - Smithy APIError codes "NotFound" / "NoSuchKey" / "NoSuchBucket" (the
+//     shape the SDK actually returns for a missing key — HeadObject has no
+//     response body, so the typed NotFound is rarely produced), and
+//   - "Forbidden" / "AccessDenied" / "AccessForbidden", which S3 returns for a
+//     missing key when the caller lacks s3:ListBucket (see HeadObject docs).
+func isHeadObjectNotFound(err error) bool {
+	var notFound *types.NotFound
+	if errors.As(err, &notFound) {
+		return true
+	}
+	var noSuchKey *types.NoSuchKey
+	if errors.As(err, &noSuchKey) {
+		return true
+	}
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		switch apiErr.ErrorCode() {
+		case "NotFound", "NoSuchKey", "NoSuchBucket",
+			"Forbidden", "AccessDenied", "AccessForbidden", "403":
+			return true
+		}
+	}
+	return false
 }
 
 // GenerateUploadURL creates a presigned PUT URL for uploading a file to S3.

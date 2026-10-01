@@ -170,6 +170,8 @@ aws iam attach-role-policy \
   --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
 # Task role: S3 read/write + DynamoDB update for the render container.
+# s3:ListBucket on the bucket itself is required so HeadObject on a missing key
+# returns 404 NotFound instead of 403 Forbidden (S3 hides existence without it).
 aws iam create-role \
   --role-name ${PROJECT}-shorts-task-role \
   --assume-role-policy-document "$ECS_TRUST" 2>/dev/null || echo "Task role already exists"
@@ -182,6 +184,11 @@ cat > /tmp/shorts-task-policy.json << EOF
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:PutObject", "s3:HeadObject"],
       "Resource": "arn:aws:s3:::${PROJECT}-assets/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::${PROJECT}-assets"
     },
     {
       "Effect": "Allow",
