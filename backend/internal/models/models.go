@@ -104,24 +104,41 @@ type APIError struct {
 	Details any    `json:"details,omitempty"` // Additional context
 }
 
-// Project represents a video conversion project stored in DynamoDB.
+// Project represents a video conversion project stored in DynamoDB. A project
+// is the unified home for all three tools: quiz video settings live on the
+// record itself, shorts runs link via ShortsJobIDs, and watermark preferences
+// persist in Watermark so every visit shows the saved configuration.
 type Project struct {
-	UserID        string    `json:"userId"`
-	ProjectID     string    `json:"id"`
-	Name          string    `json:"name"`
-	Template      string    `json:"template"`
-	Voice         string    `json:"voice"`
-	Status        string    `json:"status"`
-	TxtKey        string    `json:"txtKey,omitempty"`
-	JSONKey       string    `json:"jsonKey,omitempty"`
-	VideoKey      string    `json:"videoKey,omitempty"`
-	ThumbnailKey  string    `json:"thumbnailKey,omitempty"`
-	QuestionCount int       `json:"questionCount,omitempty"`
-	Warnings      []Warning `json:"warnings,omitempty"`
-	Error         string    `json:"error,omitempty"`
-	CreatedAt     string    `json:"createdAt"`
-	UpdatedAt     string    `json:"updatedAt"`
-	CompletedAt   string    `json:"completedAt,omitempty"`
+	UserID        string             `json:"userId"`
+	ProjectID     string             `json:"id"`
+	Name          string             `json:"name"`
+	Template      string             `json:"template"`
+	Voice         string             `json:"voice"`
+	Status        string             `json:"status"`
+	TxtKey        string             `json:"txtKey,omitempty"`
+	JSONKey       string             `json:"jsonKey,omitempty"`
+	VideoKey      string             `json:"videoKey,omitempty"`
+	ThumbnailKey  string             `json:"thumbnailKey,omitempty"`
+	QuestionCount int                `json:"questionCount,omitempty"`
+	Warnings      []Warning          `json:"warnings,omitempty"`
+	ShortsJobIDs  []string           `json:"shortsJobIds,omitempty"`
+	Watermark     *WatermarkSettings `json:"watermark,omitempty"`
+	Error         string             `json:"error,omitempty"`
+	CreatedAt     string             `json:"createdAt"`
+	UpdatedAt     string             `json:"updatedAt"`
+	CompletedAt   string             `json:"completedAt,omitempty"`
+}
+
+// WatermarkSettings persists a user's watermark preferences on their project
+// (mirrors the controls of the in-browser watermark tool).
+type WatermarkSettings struct {
+	Text     string  `json:"text"`
+	FontSize float64 `json:"fontSize,omitempty"`
+	Opacity  float64 `json:"opacity,omitempty"`
+	Color    string  `json:"color,omitempty"`
+	Rotation float64 `json:"rotation,omitempty"`
+	X        float64 `json:"x,omitempty"`
+	Y        float64 `json:"y,omitempty"`
 }
 
 // ShortsJob is a single AI Shorts processing run, stored in DynamoDB.
@@ -129,6 +146,7 @@ type Project struct {
 type ShortsJob struct {
 	UserID         string          `json:"userId"`
 	JobID          string          `json:"jobId"`
+	ProjectID      string          `json:"projectId,omitempty"`
 	Status         string          `json:"status"` // uploaded|transcribing|ranking|rendering|completed|failed
 	FileType       string          `json:"fileType"`
 	SourceDuration float64         `json:"sourceDuration"`

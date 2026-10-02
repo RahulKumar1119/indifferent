@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { MatStepperModule } from '@angular/material/stepper';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ApiService } from '../../core';
-import { Project, CreateProjectRequest, Template, Voice } from '../../shared';
+import { Project, CreateProjectRequest, CreateProjectResponse, Template, Voice } from '../../shared';
 
 interface TemplateOption {
   value: Template;
@@ -52,7 +52,7 @@ interface TemplateOption {
       <main class="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14">
         <p class="text-[11.5px] uppercase tracking-[0.2em] text-[#6B6560]">Studio · Configure</p>
         <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">New project.</h1>
-        <p class="mt-3 text-[15px] text-[#6B6560]">Name it, pick a theme and a voice — then upload your TXT file.</p>
+        <p class="mt-3 text-[15px] text-[#6B6560]">Name it, pick a theme and a voice — optionally attach a watermark and a shorts source in the same project.</p>
 
         <div class="mt-8 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
           <mat-stepper linear #stepper class="bg-transparent">
@@ -132,6 +132,52 @@ interface TemplateOption {
                   </div>
                 </div>
 
+                <!-- Watermark (optional) -->
+                <div>
+                  <label class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-2">Watermark <span class="normal-case font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    formControlName="watermarkText"
+                    placeholder="© Your name"
+                    maxlength="100"
+                    class="w-full px-4 h-12 rounded-[12px] bg-[#1A1714]/[.03] border border-black/15 focus:outline-none focus:border-[#BC5227] focus:ring-2 focus:ring-[#BC5227]/20 transition-all text-[#1A1714] placeholder-[#6B6560]/70"
+                  />
+                  <div class="mt-3 flex items-center gap-3">
+                    <span class="text-[12.5px] text-[#6B6560]">Opacity</span>
+                    <input type="range" min="0.1" max="1" step="0.05" formControlName="watermarkOpacity" class="flex-1 accent-[#BC5227]" />
+                  </div>
+                </div>
+
+                <!-- Shorts (optional) -->
+                <div>
+                  <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input type="checkbox" formControlName="includeShorts" class="w-4 h-4 accent-[#BC5227]" />
+                    <span class="text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560]">Also create AI Shorts <span class="normal-case font-normal">(optional)</span></span>
+                  </label>
+                  @if (projectForm.get('includeShorts')?.value) {
+                    <div class="mt-3 rounded-[12px] border border-black/10 p-4">
+                      @if (!shortsFile) {
+                        <label class="block cursor-pointer rounded-[12px] border-2 border-dashed border-black/15 px-4 py-6 text-center hover:border-black/30 transition-colors">
+                          <input type="file" accept=".mp4,.mov,.mp3,.wav" class="hidden" (change)="onShortsFileSelected($event)" />
+                          <span class="text-[14px] font-medium">Choose video or audio</span>
+                          <span class="block mt-1 text-[12px] text-[#6B6560]">MP4, MOV, MP3, WAV — max 10 min</span>
+                        </label>
+                      } @else {
+                        <div class="flex items-center justify-between gap-3 text-[14px]">
+                          <span class="truncate font-medium">{{ shortsFile.name }}</span>
+                          <button type="button" (click)="removeShortsFile()" class="text-[13px] text-[#B3372F] underline underline-offset-4 shrink-0">Remove</button>
+                        </div>
+                      }
+                      @if (shortsProbing) {
+                        <p class="mt-2 text-[12.5px] text-[#6B6560]">Reading duration…</p>
+                      }
+                      @if (shortsError) {
+                        <p class="mt-2 text-[13px] text-[#B3372F]">{{ shortsError }}</p>
+                      }
+                    </div>
+                  }
+                </div>
+
                 <!-- Submit Button -->
                 <div class="flex justify-end pt-2">
                   <button
@@ -143,7 +189,7 @@ interface TemplateOption {
                     @if (isSubmitting) {
                       <svg lucideIcon="loader-2" [size]="18" class="animate-spin"></svg>
                     }
-                    Next: upload file
+                    Create project
                     <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">
                       <svg lucideIcon="arrow-right" [size]="16"></svg>
                     </span>
@@ -158,7 +204,7 @@ interface TemplateOption {
 
             <mat-step label="Upload">
               <p class="mt-4 text-[#6B6560]">
-                Complete the configuration step first, then you'll be taken to the upload page.
+                Complete the configuration step first — your unified project page will guide uploads for each tool.
               </p>
             </mat-step>
           </mat-stepper>
@@ -182,6 +228,12 @@ export class CreateProjectComponent {
   isSubmitting = false;
   errorMessage = '';
 
+  shortsFile: File | null = null;
+  shortsFileType = '';
+  shortsDuration = 0;
+  shortsError = '';
+  shortsProbing = false;
+
   templates: TemplateOption[] = [
     { value: 'classic', label: 'Classic', enabled: true },
     { value: 'modern', label: 'Modern', enabled: false },
@@ -202,6 +254,9 @@ export class CreateProjectComponent {
       name: ['', [Validators.required, Validators.maxLength(100)]],
       template: ['classic', Validators.required],
       voice: ['Joanna', Validators.required],
+      watermarkText: ['', Validators.maxLength(100)],
+      watermarkOpacity: [0.8],
+      includeShorts: [false],
     });
   }
 
@@ -213,22 +268,112 @@ export class CreateProjectComponent {
     this.projectForm.patchValue({ voice });
   }
 
+  onShortsFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.handleShortsFile(input.files[0]);
+    }
+  }
+
+  removeShortsFile(): void {
+    this.shortsFile = null;
+    this.shortsError = '';
+  }
+
+  private handleShortsFile(file: File): void {
+    this.shortsFile = null;
+    this.shortsError = '';
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!['mp4', 'mov', 'mp3', 'wav'].includes(ext)) {
+      this.shortsError = 'Unsupported file type. Use MP4, MOV, MP3 or WAV.';
+      return;
+    }
+    if (file.size === 0) {
+      this.shortsError = 'File is empty.';
+      return;
+    }
+    this.shortsFile = file;
+    this.shortsFileType = ext;
+    this.probeShortsDuration(file, ext);
+  }
+
+  /** Probe media duration with a hidden media element's loadedmetadata event. */
+  private probeShortsDuration(file: File, ext: string): void {
+    this.shortsProbing = true;
+    const isAudio = ext === 'mp3' || ext === 'wav';
+    const media = document.createElement(isAudio ? 'audio' : 'video') as HTMLMediaElement;
+    media.preload = 'metadata';
+    const objectUrl = URL.createObjectURL(file);
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      this.shortsProbing = false;
+    };
+    media.onloadedmetadata = () => {
+      const duration = media.duration;
+      cleanup();
+      if (!isFinite(duration) || duration <= 0 || duration > 600) {
+        this.shortsError = 'Could not use this file (bad duration or over 10 minutes).';
+        this.shortsFile = null;
+        return;
+      }
+      this.shortsDuration = duration;
+    };
+    media.onerror = () => {
+      cleanup();
+      this.shortsError = 'Could not read this media file.';
+      this.shortsFile = null;
+    };
+    media.src = objectUrl;
+  }
+
   createProject(): void {
     if (this.projectForm.invalid) return;
+
+    const includeShorts = this.projectForm.value.includeShorts === true;
+    if (includeShorts && (!this.shortsFile || this.shortsError || this.shortsProbing)) return;
 
     this.isSubmitting = true;
     this.errorMessage = '';
 
-    const request: CreateProjectRequest = this.projectForm.value;
+    const request: CreateProjectRequest = {
+      name: this.projectForm.value.name,
+      template: this.projectForm.value.template,
+      voice: this.projectForm.value.voice,
+    };
+    const wmText = (this.projectForm.value.watermarkText || '').trim();
+    if (wmText) {
+      request.watermark = { text: wmText, opacity: this.projectForm.value.watermarkOpacity ?? 0.8 };
+    }
+    if (includeShorts && this.shortsFile) {
+      request.shorts = { fileType: this.shortsFileType, duration: this.shortsDuration };
+    }
 
-    this.api.post<Project>('/projects', request).subscribe({
+    this.api.post<CreateProjectResponse>('/projects', request).subscribe({
       next: (project) => {
-        this.isSubmitting = false;
-        this.router.navigate(['/projects', project.id, 'upload']);
+        if (project.shorts && this.shortsFile) {
+          this.uploadShortsFile(project.shorts.uploadUrl, project.id);
+        } else {
+          this.isSubmitting = false;
+          this.router.navigate(['/projects', project.id]);
+        }
       },
       error: (err) => {
         this.isSubmitting = false;
         this.errorMessage = err?.error?.message || 'Failed to create project. Please try again.';
+      },
+    });
+  }
+
+  private uploadShortsFile(uploadUrl: string, projectId: string): void {
+    this.api.putAbsolute<void>(uploadUrl, this.shortsFile!).subscribe({
+      next: () => {
+        this.isSubmitting = false;
+        this.router.navigate(['/projects', projectId]);
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        this.errorMessage = err?.error?.message || 'Project created, but the shorts file upload failed. You can retry from the project page.';
+        this.router.navigate(['/projects', projectId]);
       },
     });
   }

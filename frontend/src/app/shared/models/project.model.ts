@@ -22,6 +22,21 @@ export interface Project {
   videoUrl?: string;
   thumbnailUrl?: string;
   error?: string;
+  /** Linked Shorts job IDs (unified project). */
+  shortsJobIds?: string[];
+  /** Saved watermark preferences (unified project). */
+  watermark?: WatermarkSettings;
+}
+
+/** Watermark preferences saved on a project (mirrors the watermark tool). */
+export interface WatermarkSettings {
+  text: string;
+  fontSize?: number;
+  opacity?: number;
+  color?: string;
+  rotation?: number;
+  x?: number;
+  y?: number;
 }
 
 export interface PipelineProgress {
@@ -35,4 +50,18 @@ export interface CreateProjectRequest {
   name: string;
   template: Template;
   voice: Voice;
+  watermark?: WatermarkSettings;
+  shorts?: {
+    fileType: string;
+    duration: number;
+  };
+}
+
+/** POST /projects response: the project plus an optional linked upload. */
+export interface CreateProjectResponse extends Project {
+  shorts?: {
+    jobId: string;
+    uploadUrl: string;
+    sourceKey: string;
+  };
 }

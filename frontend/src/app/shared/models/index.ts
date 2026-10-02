@@ -5,6 +5,8 @@ export type {
   Project,
   PipelineProgress,
   CreateProjectRequest,
+  CreateProjectResponse,
+  WatermarkSettings,
 } from './project.model';
 
 export type { AuthTokens } from './auth.model';
