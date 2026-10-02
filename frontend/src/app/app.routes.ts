@@ -64,6 +64,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'features/:slug',
+    loadComponent: () =>
+      import('./pages/features/feature-page.component').then((m) => m.FeaturePageComponent),
+  },
+  {
     path: 'about',
     loadComponent: () =>
       import('./pages/about/about.component').then((m) => m.AboutComponent),

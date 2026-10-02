@@ -12,7 +12,7 @@ import { catchError, filter, switchMap, take } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 import { environment } from '../../../environments/environment';
 
-const AUTH_ENDPOINTS = ['/auth/google/callback', '/auth/refresh', '/auth/logout'];
+const AUTH_ENDPOINTS = ['/auth/google/callback', '/auth/refresh', '/auth/logout', '/auth/login', '/auth/signup'];
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {

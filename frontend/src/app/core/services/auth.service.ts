@@ -53,6 +53,28 @@ export class AuthService {
       .pipe(tap((tokens) => this.setTokens(tokens)));
   }
 
+  /** POST /auth/signup — register with email + password. */
+  signup(email: string, name: string, password: string): Observable<AuthTokens> {
+    return this.http
+      .post<AuthTokens>(
+        `${environment.apiUrl}/auth/signup`,
+        { email, name, password },
+        { withCredentials: true },
+      )
+      .pipe(tap((tokens) => this.setTokens(tokens)));
+  }
+
+  /** POST /auth/login — sign in with email + password. */
+  loginWithPassword(email: string, password: string): Observable<AuthTokens> {
+    return this.http
+      .post<AuthTokens>(
+        `${environment.apiUrl}/auth/login`,
+        { email, password },
+        { withCredentials: true },
+      )
+      .pipe(tap((tokens) => this.setTokens(tokens)));
+  }
+
   /**
    * Best-effort session restore on app boot. Swallows errors so
    * APP_INITIALIZER never blocks bootstrap on 401/network failure.

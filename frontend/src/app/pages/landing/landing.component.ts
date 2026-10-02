@@ -44,15 +44,15 @@ import { RouterLink } from '@angular/router';
               </button>
               <div class="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
                 <div class="w-[340px] rounded-2xl border border-white/10 bg-[#17150F] shadow-[0_20px_60px_rgba(0,0,0,0.5)] p-2">
-                  <a routerLink="/login" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                  <a routerLink="/features/txt-to-video-quiz" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">TXT to narrated video</span>
                     <span class="block text-white/50 text-[12px] mt-0.5">Text-based quiz files (.txt) into narrated video content with answer reveals, ready for YouTube or any platform.</span>
                   </a>
-                  <a routerLink="/tools/add-watermark" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                  <a routerLink="/features/watermark" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">Watermark tool</span>
                     <span class="block text-white/50 text-[12px] mt-0.5">Draggable text watermarks on JPG, PNG, WebP — size, opacity, color, rotation. Free, private, 100% in-browser with full-resolution PNG export.</span>
                   </a>
-                  <a routerLink="/shorts" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                  <a routerLink="/features/ai-shorts" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">AI Shorts generator</span>
                     <span class="block text-white/50 text-[12px] mt-0.5">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions — AI finds the most engaging moments automatically.</span>
                   </a>
@@ -336,8 +336,9 @@ import { RouterLink } from '@angular/router';
                 <ul class="space-y-2 text-white/75">
                   <li><a routerLink="/login" class="hover:text-white">Templates</a></li>
                   <li><a routerLink="/blog" class="hover:text-white">Journal</a></li>
-                  <li><a routerLink="/tools/add-watermark" class="hover:text-white">Watermark tool</a></li>
-                  <li><a routerLink="/shorts" class="hover:text-white">AI Shorts generator</a></li>
+                  <li><a routerLink="/features/watermark" class="hover:text-white">Watermark tool</a></li>
+                  <li><a routerLink="/features/ai-shorts" class="hover:text-white">AI Shorts generator</a></li>
+                  <li><a routerLink="/features/txt-to-video-quiz" class="hover:text-white">TXT to quiz video</a></li>
                 </ul>
               </div>
               <div>
