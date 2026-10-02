@@ -23,8 +23,9 @@ import (
 
 // CreateShortsRequest is the POST /shorts body.
 type CreateShortsRequest struct {
-	FileType string  `json:"fileType"` // "mp4" | "mov" | "mp3" | "wav"
-	Duration float64 `json:"duration"` // client-probed source duration in seconds
+	FileType  string  `json:"fileType"`            // "mp4" | "mov" | "mp3" | "wav"
+	Duration  float64 `json:"duration"`            // client-probed source duration in seconds
+	ProjectID string  `json:"projectId,omitempty"` // optional unified project to link
 }
 
 // CreateShortsResponse returns the created job and a presigned upload URL.
@@ -71,42 +72,88 @@ func (h *APIHandler) handleCreateShorts(ctx context.Context, req events.APIGatew
 		return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
 	}
 
-	ext := strings.ToLower(strings.TrimSpace(body.FileType))
+	// Optional link into a unified project (ownership verified inside).
+	projectID := strings.TrimSpace(body.ProjectID)
+	if projectID != "" {
+		if _, err := h.getProjectByID(ctx, claims.UserID, projectID); err != nil {
+			return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
+		}
+	}
+
+	job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.FileType, body.Duration, projectID)
+	if err != nil {
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", err.Error()), nil
+	}
+
+	return jsonResponse(http.StatusCreated, CreateShortsResponse{
+		JobID:     job.JobID,
+		UploadURL: uploadURL,
+		SourceKey: job.SourceKey,
+	}), nil
+}
+
+// createShortsJob validates, stores and presigns a new shorts job, linking it
+// into the given unified project when projectID is set.
+func (h *APIHandler) createShortsJob(ctx context.Context, userID, fileType string, duration float64, projectID string) (models.ShortsJob, string, error) {
+	ext := strings.ToLower(strings.TrimSpace(fileType))
 	contentType := validShortsFileTypes[ext]
 
 	jobID := uuid.New().String()
 	now := time.Now().UTC().Format(time.RFC3339)
-	sourceKey := fmt.Sprintf("uploads/%s/%s/source.%s", claims.UserID, jobID, ext)
 
 	job := models.ShortsJob{
-		UserID:         claims.UserID,
+		UserID:         userID,
 		JobID:          jobID,
+		ProjectID:      projectID,
 		Status:         "uploaded",
 		FileType:       ext,
-		SourceDuration: body.Duration,
-		SourceKey:      sourceKey,
+		SourceDuration: duration,
+		SourceKey:      fmt.Sprintf("uploads/%s/%s/source.%s", userID, jobID, ext),
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
 
-	item := shortsJobToItem(job)
 	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(h.TableName),
-		Item:      item,
+		Item:      shortsJobToItem(job),
 	}); err != nil {
-		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to create shorts job"), nil
+		return models.ShortsJob{}, "", fmt.Errorf("failed to create shorts job")
 	}
 
-	uploadURL, err := h.S3.GenerateUploadURL(ctx, h.Bucket, sourceKey, contentType, storage.UploadURLExpiration)
+	uploadURL, err := h.S3.GenerateUploadURL(ctx, h.Bucket, job.SourceKey, contentType, storage.UploadURLExpiration)
 	if err != nil {
-		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to generate upload URL"), nil
+		return models.ShortsJob{}, "", fmt.Errorf("failed to generate upload URL")
 	}
 
-	return jsonResponse(http.StatusCreated, CreateShortsResponse{
-		JobID:     jobID,
-		UploadURL: uploadURL,
-		SourceKey: sourceKey,
-	}), nil
+	if projectID != "" {
+		if err := h.linkShortsJob(ctx, userID, projectID, jobID); err != nil {
+			return models.ShortsJob{}, "", err
+		}
+	}
+
+	return job, uploadURL, nil
+}
+
+// linkShortsJob appends a job ID to its unified project (idempotent).
+func (h *APIHandler) linkShortsJob(ctx context.Context, userID, projectID, jobID string) error {
+	project, err := h.getProjectByID(ctx, userID, projectID)
+	if err != nil {
+		return fmt.Errorf("project not found")
+	}
+	for _, id := range project.ShortsJobIDs {
+		if id == jobID {
+			return nil
+		}
+	}
+	project.ShortsJobIDs = append(project.ShortsJobIDs, jobID)
+	project.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(h.TableName),
+		Item:      projectToItem(*project),
+	}); err != nil {
+		return fmt.Errorf("failed to link shorts job")
+	}
+	return nil
 }
 
 // handleStartShorts starts the shorts Step Functions pipeline for a job.
@@ -286,6 +333,9 @@ func shortsJobToItem(j models.ShortsJob) map[string]dbtypes.AttributeValue {
 	if j.TranscriptKey != "" {
 		item["transcriptKey"] = &dbtypes.AttributeValueMemberS{Value: j.TranscriptKey}
 	}
+	if j.ProjectID != "" {
+		item["projectId"] = &dbtypes.AttributeValueMemberS{Value: j.ProjectID}
+	}
 	if len(j.Segments) > 0 {
 		if b, err := json.Marshal(j.Segments); err == nil {
 			item["segments"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
@@ -328,6 +378,9 @@ func itemToShortsJob(item map[string]dbtypes.AttributeValue) models.ShortsJob {
 	}
 	if v, ok := item["transcriptKey"].(*dbtypes.AttributeValueMemberS); ok {
 		j.TranscriptKey = v.Value
+	}
+	if v, ok := item["projectId"].(*dbtypes.AttributeValueMemberS); ok {
+		j.ProjectID = v.Value
 	}
 	if v, ok := item["segments"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
 		_ = json.Unmarshal([]byte(v.Value), &j.Segments)

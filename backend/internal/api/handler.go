@@ -322,10 +322,28 @@ func (h *APIHandler) handleListProjects(ctx context.Context, req events.APIGatew
 }
 
 // CreateProjectRequest represents the request body for creating a project.
+// Watermark and Shorts are optional: a unified project may configure all
+// three tools in one call.
 type CreateProjectRequest struct {
-	Name     string `json:"name"`
-	Template string `json:"template"`
-	Voice    string `json:"voice"`
+	Name      string                   `json:"name"`
+	Template  string                   `json:"template"`
+	Voice     string                   `json:"voice"`
+	Watermark *models.WatermarkSettings `json:"watermark,omitempty"`
+	Shorts    *CreateProjectShortsRequest `json:"shorts,omitempty"`
+}
+
+// CreateProjectShortsRequest asks project creation to also create a linked
+// shorts job (upload URL returned alongside the project).
+type CreateProjectShortsRequest struct {
+	FileType string  `json:"fileType"`
+	Duration float64 `json:"duration"`
+}
+
+// CreateProjectResponse is the POST /projects body: the project plus, when
+// requested, the linked shorts upload.
+type CreateProjectResponse struct {
+	models.Project
+	Shorts *CreateShortsResponse `json:"shorts,omitempty"`
 }
 
 // handleCreateProject creates a new project. The pipeline is started later via POST /projects/:id/start
@@ -341,6 +359,13 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 		return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
 	}
 
+	// Optional shorts leg validated up front so creation is all-or-nothing.
+	if body.Shorts != nil {
+		if err := validateCreateShorts(&CreateShortsRequest{FileType: body.Shorts.FileType, Duration: body.Shorts.Duration}); err != nil {
+			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
+		}
+	}
+
 	projectID := uuid.New().String()
 	now := time.Now().UTC().Format(time.RFC3339)
 
@@ -350,6 +375,7 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 		Name:      body.Name,
 		Template:  body.Template,
 		Voice:     body.Voice,
+		Watermark: body.Watermark,
 		Status:    "created",
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -365,7 +391,20 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to create project"), nil
 	}
 
-	return jsonResponse(http.StatusCreated, project), nil
+	resp := CreateProjectResponse{Project: project}
+
+	// Optional linked shorts job; the upload URL lets the client PUT the
+	// source immediately after project creation.
+	if body.Shorts != nil {
+		job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.Shorts.FileType, body.Shorts.Duration, projectID)
+		if err != nil {
+			return errorResponse(http.StatusInternalServerError, "DB_ERROR", err.Error()), nil
+		}
+		resp.Shorts = &CreateShortsResponse{JobID: job.JobID, UploadURL: uploadURL, SourceKey: job.SourceKey}
+		resp.Project.ShortsJobIDs = []string{job.JobID}
+	}
+
+	return jsonResponse(http.StatusCreated, resp), nil
 }
 
 // handleGetProject returns a specific project, verifying ownership.
@@ -612,6 +651,10 @@ func validateCreateProject(req *CreateProjectRequest) error {
 		return fmt.Errorf("invalid voice: must be one of Joanna, Matthew, Amy, Brian, Aditi")
 	}
 
+	if req.Watermark != nil && len(req.Watermark.Text) > 100 {
+		return fmt.Errorf("watermark text must be 100 characters or less")
+	}
+
 	return nil
 }
 
@@ -720,6 +763,16 @@ func projectToItem(p models.Project) map[string]dbtypes.AttributeValue {
 	if p.ThumbnailKey != "" {
 		item["thumbnailKey"] = &dbtypes.AttributeValueMemberS{Value: p.ThumbnailKey}
 	}
+	if len(p.ShortsJobIDs) > 0 {
+		if b, err := json.Marshal(p.ShortsJobIDs); err == nil {
+			item["shortsJobIds"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+		}
+	}
+	if p.Watermark != nil {
+		if b, err := json.Marshal(p.Watermark); err == nil {
+			item["watermark"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+		}
+	}
 	if p.CompletedAt != "" {
 		item["completedAt"] = &dbtypes.AttributeValueMemberS{Value: p.CompletedAt}
 	}
@@ -761,6 +814,15 @@ func itemToProject(item map[string]dbtypes.AttributeValue) models.Project {
 	}
 	if v, ok := item["thumbnailKey"].(*dbtypes.AttributeValueMemberS); ok {
 		p.ThumbnailKey = v.Value
+	}
+	if v, ok := item["shortsJobIds"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		_ = json.Unmarshal([]byte(v.Value), &p.ShortsJobIDs)
+	}
+	if v, ok := item["watermark"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		var w models.WatermarkSettings
+		if err := json.Unmarshal([]byte(v.Value), &w); err == nil {
+			p.Watermark = &w
+		}
 	}
 	if v, ok := item["error"].(*dbtypes.AttributeValueMemberS); ok {
 		p.Error = v.Value
