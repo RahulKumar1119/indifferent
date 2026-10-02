@@ -8,6 +8,20 @@ import { AuthTokens } from '../../shared';
 /** localStorage key for the refresh token. The access token stays memory-only. */
 const REFRESH_TOKEN_KEY = 'indifferent.refreshToken';
 
+/** sessionStorage key for the post-auth destination (?next= passthrough). */
+const POST_LOGIN_NEXT_KEY = 'indifferent.postLoginNext';
+
+/** Fallback landing after signup/login: the feature picker. */
+export const DEFAULT_POST_AUTH_PATH = '/new';
+
+/** Only same-origin absolute paths survive; everything else falls back. */
+export function sanitizeNextPath(raw: string | null): string {
+  if (raw && raw.startsWith('/') && !raw.startsWith('//')) {
+    return raw;
+  }
+  return DEFAULT_POST_AUTH_PATH;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly accessToken$ = new BehaviorSubject<string | null>(null);
@@ -30,6 +44,18 @@ export class AuthService {
   /** Refresh token persisted across reloads (the API expects it in the request body). */
   getRefreshToken(): string | null {
     return localStorage.getItem(REFRESH_TOKEN_KEY);
+  }
+
+  /** Remember where to land after the OAuth round-trip (survives Google). */
+  setPostLoginNext(path: string): void {
+    sessionStorage.setItem(POST_LOGIN_NEXT_KEY, path);
+  }
+
+  /** Read + clear the remembered post-auth destination (safe default). */
+  consumePostLoginNext(): string {
+    const raw = sessionStorage.getItem(POST_LOGIN_NEXT_KEY);
+    sessionStorage.removeItem(POST_LOGIN_NEXT_KEY);
+    return sanitizeNextPath(raw);
   }
 
   setTokens(tokens: AuthTokens): void {

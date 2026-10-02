@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { environment } from '../../../environments/environment';
-import { AuthService } from '../../core/services/auth.service';
+import { AuthService, sanitizeNextPath } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -189,10 +189,12 @@ export class LoginComponent implements OnInit {
   password = '';
   submitting = false;
   formError = '';
+  private postAuthPath = '/new';
 
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {
       this.isSignupMode = params.get('mode') === 'signup';
+      this.postAuthPath = sanitizeNextPath(params.get('next'));
       this.formError = params.get('error') === 'auth_failed' ? 'Sign-in failed. Please try again.' : '';
     });
   }
@@ -205,6 +207,8 @@ export class LoginComponent implements OnInit {
       scope: 'openid email profile',
     });
 
+    // Remembered across the Google round-trip; the callback consumes it.
+    this.authService.setPostLoginNext(this.postAuthPath);
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
@@ -221,7 +225,7 @@ export class LoginComponent implements OnInit {
     request.subscribe({
       next: () => {
         this.submitting = false;
-        this.router.navigate(['/dashboard']);
+        this.router.navigateByUrl(this.postAuthPath);
       },
       error: (err) => {
         this.submitting = false;

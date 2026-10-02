@@ -86,6 +86,11 @@ aws s3api put-bucket-cors \
   --region $REGION
 
 # Lifecycle rule: delete temp files after 7 days
+# Lifecycle rule: move user uploads to Glacier Flexible Retrieval after 30
+# days. Scoped to uploads/ only: rendered clips stay Standard (the gallery
+# serves them on demand and Glacier restores take minutes-hours), as do
+# transcripts and other small pipeline objects the tasks read hot. Objects
+# under 128KB never transition (S3 minimum billable size) and stay Standard.
 aws s3api put-bucket-lifecycle-configuration \
   --bucket ${PROJECT}-assets \
   --lifecycle-configuration '{
@@ -95,6 +100,12 @@ aws s3api put-bucket-lifecycle-configuration \
         "Filter": {"Prefix": "temp/"},
         "Status": "Enabled",
         "Expiration": {"Days": 7}
+      },
+      {
+        "ID": "ArchiveUploadsToGlacier",
+        "Filter": {"Prefix": "uploads/"},
+        "Status": "Enabled",
+        "Transitions": [{"Days": 30, "StorageClass": "GLACIER"}]
       }
     ]
   }' \

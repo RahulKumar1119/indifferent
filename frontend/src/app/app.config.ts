@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { firstValueFrom, catchError, of } from 'rxjs';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { provideLucideIcons, LucideVideo, LucideWand2, LucidePalette, LucideMic, LucideZap, LucideUpload, LucidePlay, LucideDownload, LucideSettings, LucideUser, LucideHelpCircle, LucideLogOut, LucidePlus, LucideArrowRight, LucideCheck, LucideX, LucideLoader2, LucideMoon, LucideSun, LucideHome, LucideFolderOpen, LucideChevronRight, LucideCircleCheck, LucideCircleX, LucideClock, LucideFileText } from '@lucide/angular';
+import { provideLucideIcons, LucideVideo, LucideWand2, LucidePalette, LucideMic, LucideZap, LucideUpload, LucidePlay, LucideDownload, LucideSettings, LucideUser, LucideHelpCircle, LucideLogOut, LucidePlus, LucideArrowRight, LucideCheck, LucideX, LucideLoader2, LucideMoon, LucideSun, LucideHome, LucideFolderOpen, LucideChevronRight, LucideCircleCheck, LucideCircleX, LucideClock, LucideFileText, LucideScissors, LucideStamp } from '@lucide/angular';
 
 import { routes } from './app.routes';
 import { AUTH_INTERCEPTOR_PROVIDER, ERROR_INTERCEPTOR_PROVIDER } from './core';
@@ -24,6 +24,6 @@ export const appConfig: ApplicationConfig = {
     AUTH_INTERCEPTOR_PROVIDER,
     ERROR_INTERCEPTOR_PROVIDER,
     { provide: APP_INITIALIZER, multi: true, useFactory: initAuthFactory },
-    provideLucideIcons(LucideVideo, LucideWand2, LucidePalette, LucideMic, LucideZap, LucideUpload, LucidePlay, LucideDownload, LucideSettings, LucideUser, LucideHelpCircle, LucideLogOut, LucidePlus, LucideArrowRight, LucideCheck, LucideX, LucideLoader2, LucideMoon, LucideSun, LucideHome, LucideFolderOpen, LucideChevronRight, LucideCircleCheck, LucideCircleX, LucideClock, LucideFileText),
+    provideLucideIcons(LucideVideo, LucideWand2, LucidePalette, LucideMic, LucideZap, LucideUpload, LucidePlay, LucideDownload, LucideSettings, LucideUser, LucideHelpCircle, LucideLogOut, LucidePlus, LucideArrowRight, LucideCheck, LucideX, LucideLoader2, LucideMoon, LucideSun, LucideHome, LucideFolderOpen, LucideChevronRight, LucideCircleCheck, LucideCircleX, LucideClock, LucideFileText, LucideScissors, LucideStamp),
   ],
 };
