@@ -86,6 +86,16 @@ export const routes: Routes = [
       import('./pages/features/feature-page.component').then((m) => m.FeaturePageComponent),
   },
   {
+    path: 'shorts-maker',
+    loadComponent: () =>
+      import('./pages/shorts-maker/shorts-maker.component').then((m) => m.ShortsMakerComponent),
+  },
+  {
+    path: 'use-cases/:slug',
+    loadComponent: () =>
+      import('./pages/use-cases/use-case.component').then((m) => m.UseCaseComponent),
+  },
+  {
     path: 'about',
     loadComponent: () =>
       import('./pages/about/about.component').then((m) => m.AboutComponent),

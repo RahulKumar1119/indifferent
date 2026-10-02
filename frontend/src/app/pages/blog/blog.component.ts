@@ -1,4 +1,5 @@
-import { Component, AfterViewInit } from '@angular/core';
+import { Component, AfterViewInit, PLATFORM_ID, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 interface Post {
@@ -151,6 +152,22 @@ interface Post {
             </div>
             <a routerLink="/blog/quiz-file-format-guide" class="btn-primary inline-flex w-max items-center gap-2 rounded-full bg-[#E8E0D2] text-[#141310] px-7 py-3.5 font-semibold text-[14.5px]">Open format guide →</a>
           </div>
+
+          <!-- Tools cross-link -->
+          <div class="reveal mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <a routerLink="/features/ai-shorts" class="rounded-[16px] border border-black/10 bg-white p-5 block hover:border-black/25 transition-colors">
+              <p class="font-semibold text-[14.5px]">AI Shorts generator</p>
+              <p class="mt-1 text-[13px] text-[#6B6560]">Long video to ranked 9:16 clips.</p>
+            </a>
+            <a routerLink="/features/txt-to-video-quiz" class="rounded-[16px] border border-black/10 bg-white p-5 block hover:border-black/25 transition-colors">
+              <p class="font-semibold text-[14.5px]">TXT to quiz video</p>
+              <p class="mt-1 text-[13px] text-[#6B6560]">Questions to narrated MP4.</p>
+            </a>
+            <a routerLink="/features/watermark" class="rounded-[16px] border border-black/10 bg-white p-5 block hover:border-black/25 transition-colors">
+              <p class="font-semibold text-[14.5px]">Watermark tool</p>
+              <p class="mt-1 text-[13px] text-[#6B6560]">Free in-browser image marking.</p>
+            </a>
+          </div>
         </div>
       </main>
 
@@ -182,6 +199,8 @@ interface Post {
   `,
 })
 export class BlogComponent implements AfterViewInit {
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
   currentYear = new Date().getFullYear();
 
   categories = ['All', 'YouTube', 'Teaching', 'Formatting', 'Templates', 'Narration'];
@@ -271,6 +290,10 @@ export class BlogComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+    // Browser-only scroll reveals; server prerender skips them.
+    if (!this.isBrowser) {
+      return;
+    }
     this.observeReveals();
   }
 

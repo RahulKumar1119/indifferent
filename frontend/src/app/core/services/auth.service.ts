@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, catchError, finalize, map, of, tap, throwError } from 'rxjs';
 import { Router } from '@angular/router';
+import { PLATFORM_ID, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { AuthTokens } from '../../shared';
 
@@ -26,6 +28,7 @@ export function sanitizeNextPath(raw: string | null): string {
 export class AuthService {
   private readonly accessToken$ = new BehaviorSubject<string | null>(null);
   private readonly initialized$ = new BehaviorSubject<boolean>(false);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   constructor(
     private readonly http: HttpClient,
@@ -106,6 +109,12 @@ export class AuthService {
    * APP_INITIALIZER never blocks bootstrap on 401/network failure.
    */
   initialize(): Observable<AuthTokens | null> {
+    if (!this.isBrowser) {
+      // Server prerender has no localStorage: skip session restore. The
+      // client hydrates and restores the session on boot instead.
+      this.initialized$.next(true);
+      return of(null);
+    }
     if (this.getAccessToken() !== null) {
       this.initialized$.next(true);
       return of(null);

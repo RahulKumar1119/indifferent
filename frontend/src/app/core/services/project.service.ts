@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Observable, timer, switchMap, takeWhile, EMPTY, of, retry, tap } from 'rxjs';
 import { ApiService } from './api.service';
 import {
@@ -9,6 +10,8 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
   constructor(private readonly api: ApiService) {}
 
   getProjects(): Observable<Project[]> {
@@ -49,6 +52,11 @@ export class ProjectService {
    * Stops when status reaches 'completed' or 'failed'.
    */
   pollProjectStatus(projectId: string): Observable<PipelineProgress> {
+    // Status polling needs DOM timers and visibility state: browser only.
+    // Server rendering emits nothing (the client takes over after hydration).
+    if (!this.isBrowser) {
+      return EMPTY;
+    }
     let failureCount = 0;
 
     return new Observable<PipelineProgress>((subscriber) => {
