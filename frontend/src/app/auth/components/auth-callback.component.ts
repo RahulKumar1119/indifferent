@@ -35,7 +35,7 @@ export class AuthCallbackComponent implements OnInit {
       .subscribe({
         next: (tokens) => {
           this.authService.setTokens(tokens);
-          this.router.navigate(['/dashboard']);
+          this.router.navigateByUrl(this.authService.consumePostLoginNext());
         },
         error: () => {
           this.router.navigate(['/login'], { queryParams: { error: 'auth_failed' } });

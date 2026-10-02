@@ -28,6 +28,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'new',
+    loadComponent: () => import('./pages/new/new.component').then((m) => m.NewComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'projects/:id/upload',
     loadComponent: () =>
       import('./pages/create-project/upload.component').then((m) => m.UploadComponent),
