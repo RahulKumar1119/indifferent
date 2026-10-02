@@ -1,4 +1,5 @@
-import { Component, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, AfterViewInit, ElementRef, PLATFORM_ID, ViewChild, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 @Component({
@@ -372,6 +373,8 @@ import { RouterLink } from '@angular/router';
   `,
 })
 export class LandingComponent implements AfterViewInit {
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
   @ViewChild('heroTitle') heroTitle!: ElementRef;
   @ViewChild('heroSubtitle') heroSubtitle!: ElementRef;
   @ViewChild('heroCta') heroCta!: ElementRef;
@@ -429,6 +432,11 @@ export class LandingComponent implements AfterViewInit {
   ];
 
   ngAfterViewInit(): void {
+    // Scroll reveals need window/document: browser only. Server prerender
+    // ships the content un-revealed; the client animates after hydration.
+    if (!this.isBrowser) {
+      return;
+    }
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const els = Array.from(document.querySelectorAll('.reveal'));
     if (!('IntersectionObserver' in window) || reduce) {

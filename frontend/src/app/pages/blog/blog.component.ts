@@ -1,4 +1,5 @@
-import { Component, AfterViewInit } from '@angular/core';
+import { Component, AfterViewInit, PLATFORM_ID, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 interface Post {
@@ -182,6 +183,8 @@ interface Post {
   `,
 })
 export class BlogComponent implements AfterViewInit {
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
   currentYear = new Date().getFullYear();
 
   categories = ['All', 'YouTube', 'Teaching', 'Formatting', 'Templates', 'Narration'];
@@ -271,6 +274,10 @@ export class BlogComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+    // Browser-only scroll reveals; server prerender skips them.
+    if (!this.isBrowser) {
+      return;
+    }
     this.observeReveals();
   }
 
