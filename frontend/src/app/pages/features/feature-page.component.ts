@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { setCanonical } from '../../shared/seo';
 
 export interface FeatureStep {
   title: string;
@@ -127,6 +128,14 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
           <p class="mt-3 text-[12.5px] text-white/60">Free during beta · No credit card</p>
         </div>
         <div class="mt-8">
+          <p class="text-[13.5px] font-semibold mb-3">Related guides</p>
+          <div class="flex flex-wrap gap-2">
+            <a routerLink="/blog/quiz-videos-youtube" class="rounded-full border border-black/15 px-4 py-1.5 text-[13px] hover:bg-black/5 transition-colors">Quiz videos for YouTube</a>
+            <a routerLink="/blog/ai-narration-guide" class="rounded-full border border-black/15 px-4 py-1.5 text-[13px] hover:bg-black/5 transition-colors">AI narration guide</a>
+            <a routerLink="/blog/educational-video-best-practices" class="rounded-full border border-black/15 px-4 py-1.5 text-[13px] hover:bg-black/5 transition-colors">Educational video tips</a>
+          </div>
+        </div>
+        <div class="mt-8">
           <p class="text-[13.5px] font-semibold mb-3">Other features</p>
           <div class="flex flex-wrap gap-2">
             @for (f of others; track f.slug) {
@@ -163,6 +172,8 @@ export class FeaturePageComponent implements OnInit {
     this.meta.updateTag({ property: 'og:title', content: `${this.data.title} | Indifferent` });
     this.meta.updateTag({ property: 'og:description', content: this.data.description });
     this.meta.updateTag({ property: 'og:url', content: `https://indifferent.fun/features/${this.data.slug}` });
+    this.meta.updateTag({ property: 'og:image', content: 'https://indifferent.fun/og-cover.jpg' });
+    setCanonical(`https://indifferent.fun/features/${this.data.slug}`);
     const script = this.document.createElement('script');
     script.type = 'application/ld+json';
     script.text = JSON.stringify({

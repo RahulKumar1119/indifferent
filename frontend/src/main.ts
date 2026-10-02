@@ -1,5 +1,10 @@
 import { AwsRum, type AwsRumConfig } from 'aws-rum-web';
 
+// Canonical host: www never serves content, avoiding duplicate indexing.
+if (window.location.hostname === 'www.indifferent.fun') {
+  window.location.replace(`https://indifferent.fun${window.location.pathname}${window.location.search}${window.location.hash}`);
+}
+
 // CloudWatch RUM - Real User Monitoring
 try {
   const config: AwsRumConfig = {
