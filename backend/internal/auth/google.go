@@ -136,7 +136,7 @@ func (s *googleAuthService) Authenticate(ctx context.Context, authCode string) (
 	}
 
 	// Step 5: Generate refresh token and store session
-	refreshToken, err := s.createSession(ctx, userInfo.ID, now)
+	refreshToken, err := s.createSession(ctx, userInfo.ID, userInfo.Email, now)
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
@@ -253,8 +253,11 @@ func (s *googleAuthService) generateAccessToken(userID, email string, now time.T
 	return signed, nil
 }
 
-// createSession generates a refresh token, hashes it, and stores the session in DynamoDB.
-func (s *googleAuthService) createSession(ctx context.Context, userID string, now time.Time) (string, error) {
+// createSession generates a refresh token, hashes it, and stores the session
+// in DynamoDB. The item key (PK=SESSION#hash, SK=SESSION) and attributes must
+// match what JWTService.RefreshToken reads; a mismatch makes every refresh
+// fail with "session not found" and logs users out.
+func (s *googleAuthService) createSession(ctx context.Context, userID, email string, now time.Time) (string, error) {
 	// Generate random refresh token
 	tokenBytes := make([]byte, RefreshTokenBytes)
 	if _, err := rand.Read(tokenBytes); err != nil {
@@ -273,9 +276,10 @@ func (s *googleAuthService) createSession(ctx context.Context, userID string, no
 
 	item := map[string]dbtypes.AttributeValue{
 		"PK":           &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
-		"SK":           &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+		"SK":           &dbtypes.AttributeValueMemberS{Value: "SESSION"},
 		"refreshToken": &dbtypes.AttributeValueMemberS{Value: tokenHash},
 		"userId":       &dbtypes.AttributeValueMemberS{Value: userID},
+		"email":        &dbtypes.AttributeValueMemberS{Value: email},
 		"familyId":     &dbtypes.AttributeValueMemberS{Value: familyId},
 		"expiresAt":    &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", expiresAt)},
 		"createdAt":    &dbtypes.AttributeValueMemberS{Value: now.UTC().Format(time.RFC3339)},

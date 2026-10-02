@@ -27,7 +27,7 @@ func TestProperty6_RenderedClipsAre9x16(t *testing.T) {
 		audioOnly := rapid.Bool().Draw(t, "audioOnly")
 
 		r := &Renderer{Bucket: "b", WorkDir: "/tmp"}
-		args := r.buildCropCaptionArgs("source.mp4", "captions.srt", "out.mp4", start, end, audioOnly)
+		args := r.buildCropCaptionArgs("source.mp4", "captions.srt", "out.mp4", start, end, audioOnly, "", false)
 		joined := strings.Join(args, " ")
 
 		// Every clip is normalized to the canonical 9:16 output dimensions.

@@ -56,7 +56,7 @@ func (m *mockStorage) HeadObject(ctx context.Context, bucket, key string) (bool,
 
 func TestBuildCropCaptionArgs_VideoFilterAndFlags(t *testing.T) {
 	r := &Renderer{Bucket: "b", WorkDir: "/tmp"}
-	args := r.buildCropCaptionArgs("source.mp4", "cap.srt", "out.mp4", 12.4, 39.9, false)
+	args := r.buildCropCaptionArgs("source.mp4", "cap.srt", "out.mp4", 12.4, 39.9, false, "", false)
 	joined := strings.Join(args, " ")
 
 	// Trim before input.
@@ -78,6 +78,9 @@ func TestBuildCropCaptionArgs_VideoFilterAndFlags(t *testing.T) {
 	if !strings.Contains(vf, "scale=1080:1920,setsar=1") {
 		t.Errorf("expected 9:16 scale in -vf, got: %s", vf)
 	}
+	if !strings.Contains(vf, "fps=30") {
+		t.Errorf("expected fps=30 normalization in -vf (Shorts frame-rate spec), got: %s", vf)
+	}
 	if !strings.Contains(vf, "subtitles=cap.srt:force_style='Alignment=2,FontSize=18,PrimaryColour=&H00FFFFFF,BorderStyle=3,Outline=2'") {
 		t.Errorf("expected caption burn in -vf, got: %s", vf)
 	}
@@ -87,8 +90,10 @@ func TestBuildCropCaptionArgs_VideoFilterAndFlags(t *testing.T) {
 		{"-c:v", "libx264"},
 		{"-preset", "veryfast"},
 		{"-pix_fmt", "yuv420p"},
+		{"-r", "30"},
 		{"-c:a", "aac"},
 		{"-b:a", "128k"},
+		{"-ar", "48000"},
 		{"-movflags", "+faststart"},
 	} {
 		if !hasArgValue(args, want[0], want[1]) {
@@ -102,7 +107,7 @@ func TestBuildCropCaptionArgs_VideoFilterAndFlags(t *testing.T) {
 
 func TestBuildCropCaptionArgs_AudioOnlyCanvas(t *testing.T) {
 	r := &Renderer{Bucket: "b", WorkDir: "/tmp"}
-	args := r.buildCropCaptionArgs("audio.mp3", "cap.srt", "out.mp4", 5.0, 25.0, true)
+	args := r.buildCropCaptionArgs("audio.mp3", "cap.srt", "out.mp4", 5.0, 25.0, true, "", false)
 	joined := strings.Join(args, " ")
 
 	// Audio-only synthesizes a black 1080x1920 canvas via lavfi.
@@ -123,6 +128,13 @@ func TestBuildCropCaptionArgs_AudioOnlyCanvas(t *testing.T) {
 	vf := argValue(args, "-vf")
 	if !strings.Contains(vf, "subtitles=cap.srt") {
 		t.Errorf("expected subtitles burn in audio-only -vf, got: %s", vf)
+	}
+	// Audio-only canvas still pins output frame rate and sample rate.
+	if !hasArgValue(args, "-r", "30") {
+		t.Errorf("expected -r 30 for audio-only, got: %s", joined)
+	}
+	if !hasArgValue(args, "-ar", "48000") {
+		t.Errorf("expected -ar 48000 for audio-only, got: %s", joined)
 	}
 }
 

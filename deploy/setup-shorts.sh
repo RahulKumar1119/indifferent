@@ -192,6 +192,11 @@ cat > /tmp/shorts-task-policy.json << EOF
     },
     {
       "Effect": "Allow",
+      "Action": ["rekognition:DetectFaces"],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
       "Action": ["dynamodb:UpdateItem", "dynamodb:GetItem"],
       "Resource": "arn:aws:dynamodb:${REGION}:*:table/${PROJECT}-*"
     }

@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/rekognition"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/shorts/render"
 	"github.com/rahul/indifferent/backend/internal/storage"
@@ -71,6 +73,16 @@ func run(ctx context.Context) error {
 	defer os.RemoveAll(workDir)
 
 	renderer := render.NewRenderer(s3Client, bucket, workDir)
+
+	// Subject-aware reframing: Rekognition face detection pans the 9:16
+	// crop window onto the speaker instead of blindly center-cropping.
+	// Any detection failure falls back to center inside the renderer,
+	// so this is best-effort by design.
+	if cfg, err := config.LoadDefaultConfig(ctx); err != nil {
+		log.Printf("reframe disabled: failed to load AWS config: %v", err)
+	} else {
+		renderer.Detector = render.NewRekognitionFaceDetector(rekognition.NewFromConfig(cfg))
+	}
 
 	in := render.RenderInput{
 		JobID:         jobID,

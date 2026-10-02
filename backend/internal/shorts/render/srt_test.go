@@ -49,7 +49,8 @@ func TestBuildSRT_ClampsNegativeToZero(t *testing.T) {
 }
 
 func TestBuildSRT_GroupsByWordCount(t *testing.T) {
-	// 8 words with tiny durations should split at the 7-word boundary.
+	// 8 words with tiny durations should split at the 4-word boundary
+	// (short lines fit the 9:16 window without edge clipping).
 	words := make([]models.Word, 8)
 	for i := 0; i < 8; i++ {
 		start := float64(i) * 0.1
@@ -58,20 +59,20 @@ func TestBuildSRT_GroupsByWordCount(t *testing.T) {
 	got := BuildSRT(words, 0)
 	blocks := splitBlocks(got)
 	if len(blocks) != 2 {
-		t.Fatalf("expected 2 cues (7-word boundary), got %d:\n%s", len(blocks), got)
+		t.Fatalf("expected 2 cues (4-word boundary), got %d:\n%s", len(blocks), got)
 	}
-	// First cue has 7 words, second has 1.
-	if n := len(strings.Fields(blocks[0].text)); n != 7 {
-		t.Errorf("first cue has %d words, want 7", n)
+	// First cue has 4 words, second has 4.
+	if n := len(strings.Fields(blocks[0].text)); n != 4 {
+		t.Errorf("first cue has %d words, want 4", n)
 	}
-	if n := len(strings.Fields(blocks[1].text)); n != 1 {
-		t.Errorf("second cue has %d words, want 1", n)
+	if n := len(strings.Fields(blocks[1].text)); n != 4 {
+		t.Errorf("second cue has %d words, want 4", n)
 	}
 }
 
 func TestBuildSRT_GroupsByDuration(t *testing.T) {
 	// 4 words spanning >2.5s should split on the duration boundary before
-	// reaching the 7-word cap.
+	// reaching the 4-word cap.
 	words := []models.Word{
 		{Text: "a", Start: 0.0, End: 1.0},
 		{Text: "b", Start: 1.0, End: 2.0},
