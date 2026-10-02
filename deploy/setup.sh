@@ -137,7 +137,7 @@ cat > /tmp/lambda-policy.json << 'EOF'
     },
     {
       "Effect": "Allow",
-      "Action": ["s3:GetObject","s3:PutObject","s3:DeleteObject"],
+      "Action": ["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:HeadObject","s3:RestoreObject"],
       "Resource": "arn:aws:s3:::indifferent-fun-assets/*"
     },
     {

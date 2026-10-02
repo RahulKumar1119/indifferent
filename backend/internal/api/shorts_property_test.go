@@ -17,9 +17,9 @@ import (
 
 // newShortsPropertyHandler builds a handler whose DynamoDB mock only returns a
 // job when the GetItem PK matches the owner's USER# partition, mirroring how
-// DynamoDB scopes reads by partition key. The S3 client is shared across
-// iterations since presigning is stateless.
-func newShortsPropertyHandler(s3Client *storage.S3Client, ownerID, jobID, clipID, clipKey string) *APIHandler {
+// DynamoDB scopes reads by partition key. The stub downloader reports every
+// object as standard storage so presigning stays offline and deterministic.
+func newShortsPropertyHandler(s3store storage.Downloader, ownerID, jobID, clipID, clipKey string) *APIHandler {
 	ownerPK := "USER#" + ownerID
 	jobSK := "SHORTS#" + jobID
 
@@ -60,7 +60,7 @@ func newShortsPropertyHandler(s3Client *storage.S3Client, ownerID, jobID, clipID
 		AuthService:           &mockAuthService{},
 		JWTService:            &auth.JWTService{Secret: testSecret, DB: db, SessionTable: "sessions-table"},
 		DB:                    db,
-		S3:                    s3Client,
+		S3:                    s3store,
 		SFN:                   &mockSFN{},
 		TableName:             "table",
 		Bucket:                "test-bucket",
@@ -79,10 +79,7 @@ func genIdentifier(t *rapid.T, label string) string {
 // presigned URL references a key under the requesting user's prefix.
 // Validates: Requirements 8.1, 8.2, 8.3, 8.4
 func TestProperty8_OwnerScopedAccess(t *testing.T) {
-	s3Client, err := storage.NewS3ClientWithRegion(context.Background(), "us-east-1")
-	if err != nil {
-		t.Fatalf("failed to create S3 client: %v", err)
-	}
+	s3store := &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}}
 	rapid.Check(t, func(t *rapid.T) {
 		owner := genIdentifier(t, "owner")
 		other := genIdentifier(t, "other")
@@ -93,7 +90,7 @@ func TestProperty8_OwnerScopedAccess(t *testing.T) {
 		clipID := genIdentifier(t, "clip")
 		clipKey := "shorts/" + owner + "/" + jobID + "/clips/" + clipID + ".mp4"
 
-		h := newShortsPropertyHandler(s3Client, owner, jobID, clipID, clipKey)
+		h := newShortsPropertyHandler(s3store, owner, jobID, clipID, clipKey)
 		ctx := context.Background()
 
 		ownerToken := generateTestToken(owner)

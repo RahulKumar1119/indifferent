@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -151,8 +152,106 @@ func isHeadObjectNotFound(err error) bool {
 	return false
 }
 
-// GenerateUploadURL creates a presigned PUT URL for uploading a file to S3.
-// The URL expires after the specified duration.
+// ObjectStatus describes where an S3 object physically lives, used to decide
+// whether a presigned download URL will work or the object must first be
+// restored from archival storage.
+type ObjectStatus struct {
+	// StorageClass is the S3 storage class (e.g. "STANDARD", "GLACIER",
+	// "DEEP_ARCHIVE"). Empty means unreported — treat as standard.
+	StorageClass string
+	// Restore is the raw x-amz-restore header value ("" when absent), e.g.
+	// `ongoing-request="true"` while a restore is in progress or
+	// `ongoing-request="false", expiry-date="..."` once a restored copy
+	// is available for download.
+	Restore string
+}
+
+// Archived reports whether the object sits in archival storage and therefore
+// cannot be downloaded directly. Glacier Instant Retrieval is intentionally
+// excluded: it serves GETs without restoration.
+func (s ObjectStatus) Archived() bool {
+	switch s.StorageClass {
+	case string(types.ObjectStorageClassGlacier), string(types.ObjectStorageClassDeepArchive):
+		return true
+	}
+	return false
+}
+
+// RestoreInProgress reports whether a previously requested restore is still
+// running (the object becomes downloadable once it completes).
+func (s ObjectStatus) RestoreInProgress() bool {
+	return strings.Contains(s.Restore, `ongoing-request="true"`)
+}
+
+// Downloadable reports whether a presigned GET URL will work right now: any
+// non-archived object, or an archived one with a completed restore.
+func (s ObjectStatus) Downloadable() bool {
+	if s.RestoreInProgress() {
+		return false
+	}
+	if s.Archived() {
+		// Archived with no restore header at all: no usable copy.
+		// A completed restore carries ongoing-request="false".
+		return strings.Contains(s.Restore, `ongoing-request="false"`)
+	}
+	return true
+}
+
+// ObjectStatus returns the storage status of the object at bucket/key.
+// A missing object yields a not-found error (use errors.Is NotFound checks
+// at the call site as needed).
+func (c *S3Client) ObjectStatus(ctx context.Context, bucket, key string) (ObjectStatus, error) {
+	out, err := c.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return ObjectStatus{}, err
+	}
+	st := ObjectStatus{StorageClass: string(out.StorageClass)}
+	if out.Restore != nil {
+		st.Restore = *out.Restore
+	}
+	return st, nil
+}
+
+// IsNotFound reports whether err from an S3 read means the object does not
+// exist (as opposed to a real failure).
+func IsNotFound(err error) bool {
+	return isHeadObjectNotFound(err)
+}
+
+// restoreCopyDays is how long a restored (downloadable) copy of an archived
+// object is kept before S3 drops it back to archival storage.
+const restoreCopyDays = 7
+
+// RestoreObject requests restoration of an archived object with Standard
+// retrieval (typically minutes to hours). It is a no-op for objects that
+// already have a usable copy; S3 returns RestoreAlreadyInProgress in that
+// case, which is swallowed here.
+func (c *S3Client) RestoreObject(ctx context.Context, bucket, key string) error {
+	days := int32(restoreCopyDays)
+	_, err := c.client.RestoreObject(ctx, &s3.RestoreObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+		RestoreRequest: &types.RestoreRequest{
+			Days: &days,
+			GlacierJobParameters: &types.GlacierJobParameters{
+				Tier: types.TierStandard,
+			},
+		},
+	})
+	if err != nil {
+		// S3 reports a concurrent restore as the unmodeled
+		// RestoreAlreadyInProgress API error: just as good as success.
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "RestoreAlreadyInProgress" {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
 func (c *S3Client) GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error) {
 	presignClient := s3.NewPresignClient(c.client)
 	request, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{

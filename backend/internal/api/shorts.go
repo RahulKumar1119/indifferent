@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -202,9 +203,15 @@ func (h *APIHandler) handleGetClipURL(ctx context.Context, req events.APIGateway
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
 	}
 
-	url, err := h.S3.GenerateDownloadURL(ctx, h.Bucket, clip.S3Key, storage.DownloadURLExpiration)
+	url, restoring, err := h.downloadURLOrRestore(ctx, clip.S3Key)
 	if err != nil {
+		if errors.Is(err, errObjectNotFound) {
+			return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
+		}
 		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to generate clip URL"), nil
+	}
+	if restoring {
+		return restoringResponse(), nil
 	}
 
 	return jsonResponse(http.StatusOK, map[string]string{

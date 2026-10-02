@@ -151,8 +151,13 @@ export class ShortsGalleryComponent implements OnInit {
     this.loadingPreview[clip.clipId] = true;
     this.shorts.getClipUrl(this.jobId, clip.clipId).subscribe({
       next: (res) => {
-        this.previewUrls[clip.clipId] = res.url;
         this.loadingPreview[clip.clipId] = false;
+        if (!res.url) {
+          // 202 RESTORING lands here (2xx): archived clip is being restored.
+          this.error = res.message || 'This clip is in cold storage and is being restored. Please check back in a few hours.';
+          return;
+        }
+        this.previewUrls[clip.clipId] = res.url;
       },
       error: () => {
         this.loadingPreview[clip.clipId] = false;
@@ -167,6 +172,10 @@ export class ShortsGalleryComponent implements OnInit {
     this.shorts.getClipUrl(this.jobId, clip.clipId).subscribe({
       next: (res) => {
         this.downloading[clip.clipId] = false;
+        if (!res.url) {
+          this.error = res.message || 'This clip is in cold storage and is being restored. Please check back in a few hours.';
+          return;
+        }
         this.triggerDownload(res.url, `short-${clip.rank}.mp4`);
       },
       error: () => {
