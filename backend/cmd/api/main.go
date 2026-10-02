@@ -76,6 +76,7 @@ func main() {
 	handler := &api.APIHandler{
 		AuthService:     authService,
 		JWTService:      jwtService,
+		PasswordAuth:    auth.NewPasswordAuthService(dbClient, jwtService, usersTable, sessionTable),
 		DB:              dbClient,
 		S3:              s3Client,
 		SFN:             sfnClient,

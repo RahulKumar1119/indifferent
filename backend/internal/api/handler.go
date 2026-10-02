@@ -58,6 +58,7 @@ type SFNClient interface {
 type APIHandler struct {
 	AuthService     auth.GoogleAuthService
 	JWTService      *auth.JWTService
+	PasswordAuth    *auth.PasswordAuthService
 	DB              DynamoDBAPI
 	S3              *storage.S3Client
 	SFN             SFNClient
@@ -91,6 +92,10 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 	switch {
 	case req.HTTPMethod == "POST" && req.Path == "/auth/google/callback":
 		return h.handleGoogleCallback(ctx, req)
+	case req.HTTPMethod == "POST" && req.Path == "/auth/signup":
+		return h.handleSignup(ctx, req)
+	case req.HTTPMethod == "POST" && req.Path == "/auth/login":
+		return h.handleLogin(ctx, req)
 	case req.HTTPMethod == "POST" && req.Path == "/auth/refresh":
 		return h.handleRefresh(ctx, req)
 	case req.HTTPMethod == "POST" && req.Path == "/auth/logout":
@@ -177,6 +182,74 @@ func (h *APIHandler) handleGoogleCallback(ctx context.Context, req events.APIGat
 	return jsonResponse(http.StatusOK, tokens), nil
 }
 
+// handleSignup registers an email/password user and returns tokens.
+func (h *APIHandler) handleSignup(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	if h.PasswordAuth == nil {
+		return errorResponse(http.StatusInternalServerError, "NOT_CONFIGURED", "Password signup is not enabled"), nil
+	}
+	var body struct {
+		Email    string `json:"email"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
+	}
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	}
+	if strings.TrimSpace(body.Email) == "" || body.Password == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Email and password are required"), nil
+	}
+
+	tokens, err := h.PasswordAuth.SignUp(ctx, body.Email, strings.TrimSpace(body.Name), body.Password)
+	if err != nil {
+		if errors.Is(err, auth.ErrEmailTaken) {
+			return errorResponse(http.StatusConflict, "EMAIL_TAKEN", "An account with this email already exists"), nil
+		}
+		if isValidationError(err) {
+			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
+		}
+		return errorResponse(http.StatusInternalServerError, "SIGNUP_FAILED", "Signup failed"), nil
+	}
+
+	return jsonResponse(http.StatusCreated, tokens), nil
+}
+
+// handleLogin verifies an email/password pair and returns tokens. Failures
+// always report the same generic message to avoid account enumeration.
+func (h *APIHandler) handleLogin(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	if h.PasswordAuth == nil {
+		return errorResponse(http.StatusInternalServerError, "NOT_CONFIGURED", "Password login is not enabled"), nil
+	}
+	var body struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	}
+	if strings.TrimSpace(body.Email) == "" || body.Password == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Email and password are required"), nil
+	}
+
+	tokens, err := h.PasswordAuth.Login(ctx, body.Email, body.Password)
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			return errorResponse(http.StatusUnauthorized, "AUTH_FAILED", "Invalid email or password"), nil
+		}
+		if isValidationError(err) {
+			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
+		}
+		return errorResponse(http.StatusUnauthorized, "AUTH_FAILED", "Invalid email or password"), nil
+	}
+
+	return jsonResponse(http.StatusOK, tokens), nil
+}
+
+// isValidationError reports whether err is a client input problem rather than
+// an auth or server failure.
+func isValidationError(err error) bool {
+	msg := err.Error()
+	return strings.HasPrefix(msg, "invalid email") || strings.HasPrefix(msg, "password must be")
+}
 // handleRefresh refreshes an access token using a refresh token.
 func (h *APIHandler) handleRefresh(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var body struct {

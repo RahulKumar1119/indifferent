@@ -1,12 +1,15 @@
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, OnInit, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { environment } from '../../../environments/environment';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [RouterLink, LucideDynamicIcon],
+  imports: [CommonModule, FormsModule, RouterLink, LucideDynamicIcon],
   styles: [`
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
@@ -111,6 +114,45 @@ import { environment } from '../../../environments/environment';
                 </div>
               </div>
 
+              <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-black/10"></div></div>
+                <div class="relative flex justify-center text-[11.5px] uppercase tracking-[0.14em]">
+                  <span class="bg-white px-4 text-[#6B6560]">or continue with email</span>
+                </div>
+              </div>
+
+              @if (formError) {
+                <p class="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-2.5 text-[13px] text-red-600">{{ formError }}</p>
+              }
+
+              <form (ngSubmit)="submitPasswordForm()" class="space-y-3">
+                @if (isSignupMode) {
+                  <input [(ngModel)]="name" name="name" type="text" placeholder="Your name" autocomplete="name"
+                    class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus:outline-none focus:border-black/40" />
+                }
+                <input [(ngModel)]="email" name="email" type="email" required placeholder="Email address" autocomplete="email"
+                  class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus:outline-none focus:border-black/40" />
+                <input [(ngModel)]="password" name="password" type="password" required minlength="8" placeholder="Password (8+ characters)" autocomplete="{{ isSignupMode ? 'new-password' : 'current-password' }}"
+                  class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus:outline-none focus:border-black/40" />
+                <button type="submit" [disabled]="submitting"
+                  class="btn-primary w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#1A1714] text-white font-semibold text-[14.5px] hover:bg-[#2A2620] disabled:opacity-60">
+                  @if (submitting) {
+                    <svg lucideIcon="loader-2" [size]="16" class="animate-spin"></svg>
+                  }
+                  {{ isSignupMode ? 'Create account' : 'Sign in' }}
+                </button>
+              </form>
+
+              <p class="mt-4 text-center text-[13.5px] text-[#6B6560]">
+                @if (isSignupMode) {
+                  Already have an account?
+                  <a [routerLink]="[]" [queryParams]="{ mode: null }" queryParamsHandling="merge" class="font-semibold text-[#1A1714] underline underline-offset-4">Sign in</a>
+                } @else {
+                  New here?
+                  <a [routerLink]="[]" [queryParams]="{ mode: 'signup' }" class="font-semibold text-[#1A1714] underline underline-offset-4">Create an account</a>
+                }
+              </p>
+
               <ul class="grid grid-cols-2 gap-x-4 gap-y-3 text-[13.5px] text-[#6B6560]">
                 <li class="flex items-center gap-2"><svg lucideIcon="check" [size]="15" class="text-[#1E3A2A]"></svg>Free to use</li>
                 <li class="flex items-center gap-2"><svg lucideIcon="check" [size]="15" class="text-[#1E3A2A]"></svg>No credit card</li>
@@ -134,8 +176,26 @@ import { environment } from '../../../environments/environment';
     </div>
   `,
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   currentYear = new Date().getFullYear();
+
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  isSignupMode = false;
+  email = '';
+  name = '';
+  password = '';
+  submitting = false;
+  formError = '';
+
+  ngOnInit(): void {
+    this.route.queryParamMap.subscribe((params) => {
+      this.isSignupMode = params.get('mode') === 'signup';
+      this.formError = params.get('error') === 'auth_failed' ? 'Sign-in failed. Please try again.' : '';
+    });
+  }
 
   signInWithGoogle(): void {
     const params = new URLSearchParams({
@@ -146,5 +206,27 @@ export class LoginComponent {
     });
 
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  }
+
+  submitPasswordForm(): void {
+    this.formError = '';
+    if (!this.email.trim() || this.password.length < 8) {
+      this.formError = 'Enter a valid email and a password of 8+ characters.';
+      return;
+    }
+    this.submitting = true;
+    const request = this.isSignupMode
+      ? this.authService.signup(this.email.trim(), this.name.trim(), this.password)
+      : this.authService.loginWithPassword(this.email.trim(), this.password);
+    request.subscribe({
+      next: () => {
+        this.submitting = false;
+        this.router.navigate(['/dashboard']);
+      },
+      error: (err) => {
+        this.submitting = false;
+        this.formError = err?.error?.message || (this.isSignupMode ? 'Could not create your account.' : 'Invalid email or password.');
+      },
+    });
   }
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/golang-jwt/jwt/v5"
@@ -191,7 +192,13 @@ func strAttr(item map[string]dbtypes.AttributeValue, key string) string {
 }
 
 func (m *memoryDB) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
-	m.items[itemKey(strAttr(params.Item, "PK"), strAttr(params.Item, "SK"))] = params.Item
+	key := itemKey(strAttr(params.Item, "PK"), strAttr(params.Item, "SK"))
+	if params.ConditionExpression != nil && *params.ConditionExpression == "attribute_not_exists(PK)" {
+		if _, exists := m.items[key]; exists {
+			return nil, &dbtypes.ConditionalCheckFailedException{Message: aws.String("condition failed")}
+		}
+	}
+	m.items[key] = params.Item
 	return &dynamodb.PutItemOutput{}, nil
 }
 
