@@ -204,6 +204,57 @@ func (h *APIHandler) handleGetShorts(ctx context.Context, req events.APIGatewayP
 	return jsonResponse(http.StatusOK, job), nil
 }
 
+// ShortsJobSummary is the list view of a shorts job: identity, progress and
+// output counts without the heavy transcript/caption payloads.
+type ShortsJobSummary struct {
+	JobID          string  `json:"jobId"`
+	ProjectID      string  `json:"projectId,omitempty"`
+	Status         string  `json:"status"`
+	FileType       string  `json:"fileType"`
+	SourceDuration float64 `json:"sourceDuration"`
+	ClipCount      int     `json:"clipCount"`
+	CreatedAt      string  `json:"createdAt"`
+	UpdatedAt      string  `json:"updatedAt"`
+}
+
+// handleListShortsJobs returns the caller's shorts jobs, newest first.
+func (h *APIHandler) handleListShortsJobs(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	result, err := h.DB.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(h.TableName),
+		KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :sk)"),
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":pk": &dbtypes.AttributeValueMemberS{Value: "USER#" + claims.UserID},
+			":sk": &dbtypes.AttributeValueMemberS{Value: "SHORTS#"},
+		},
+		ScanIndexForward: aws.Bool(false),
+	})
+	if err != nil {
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to list shorts jobs"), nil
+	}
+
+	jobs := make([]ShortsJobSummary, 0, len(result.Items))
+	for _, item := range result.Items {
+		job := itemToShortsJob(item)
+		jobs = append(jobs, ShortsJobSummary{
+			JobID:          job.JobID,
+			ProjectID:      job.ProjectID,
+			Status:         job.Status,
+			FileType:       job.FileType,
+			SourceDuration: job.SourceDuration,
+			ClipCount:      len(job.Clips),
+			CreatedAt:      job.CreatedAt,
+			UpdatedAt:      job.UpdatedAt,
+		})
+	}
+	sort.SliceStable(jobs, func(i, j int) bool {
+		return jobs[i].CreatedAt > jobs[j].CreatedAt
+	})
+
+	return jsonResponse(http.StatusOK, map[string]interface{}{
+		"jobs": jobs,
+	}), nil
+}
+
 // handleListClips returns the job's clips ordered by rank ascending.
 func (h *APIHandler) handleListClips(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
 	jobID := extractShortsIDFromSubpath(req.Path, "/clips")

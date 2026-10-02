@@ -118,6 +118,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleDeleteProject)
 	case req.HTTPMethod == "POST" && req.Path == "/shorts":
 		return h.handleWithAuth(ctx, req, h.handleCreateShorts)
+	case req.HTTPMethod == "GET" && req.Path == "/shorts":
+		return h.handleWithAuth(ctx, req, h.handleListShortsJobs)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/start"):
 		return h.handleWithAuth(ctx, req, h.handleStartShorts)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/url"):

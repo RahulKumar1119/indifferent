@@ -63,6 +63,12 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'shorts/history',
+    loadComponent: () =>
+      import('./pages/shorts/shorts-history.component').then((m) => m.ShortsHistoryComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'shorts/:id/progress',
     loadComponent: () =>
       import('./pages/shorts/shorts-progress.component').then((m) => m.ShortsProgressComponent),

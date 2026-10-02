@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -212,6 +213,62 @@ func TestStartShorts_OwnershipAndStart(t *testing.T) {
 			t.Errorf("got status %d, want 404", resp.StatusCode)
 		}
 	})
+}
+
+func TestListShortsJobs_NewestFirstTrimmed(t *testing.T) {
+	oldJob := map[string]dbtypes.AttributeValue{
+		"PK": &dbtypes.AttributeValueMemberS{Value: "USER#user1"}, "SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#old"},
+		"jobId": &dbtypes.AttributeValueMemberS{Value: "old"}, "status": &dbtypes.AttributeValueMemberS{Value: "completed"},
+		"fileType": &dbtypes.AttributeValueMemberS{Value: "mp4"}, "sourceDuration": &dbtypes.AttributeValueMemberN{Value: "120"},
+		"sourceKey": &dbtypes.AttributeValueMemberS{Value: "uploads/user1/old/source.mp4"},
+		"clips": &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-1","s3Key":"k","rank":1,"score":0.9,"duration":20}]`},
+		"createdAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"}, "updatedAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+	}
+	newJob := map[string]dbtypes.AttributeValue{
+		"PK": &dbtypes.AttributeValueMemberS{Value: "USER#user1"}, "SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#new"},
+		"jobId": &dbtypes.AttributeValueMemberS{Value: "new"}, "status": &dbtypes.AttributeValueMemberS{Value: "rendering"},
+		"fileType": &dbtypes.AttributeValueMemberS{Value: "mp3"}, "sourceDuration": &dbtypes.AttributeValueMemberN{Value: "300"},
+		"sourceKey": &dbtypes.AttributeValueMemberS{Value: "uploads/user1/new/source.mp3"},
+		"createdAt": &dbtypes.AttributeValueMemberS{Value: "2024-02-01T00:00:00Z"}, "updatedAt": &dbtypes.AttributeValueMemberS{Value: "2024-02-01T00:00:00Z"},
+	}
+	db := &mockDynamoDB{
+		queryFunc: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+			return &dynamodb.QueryOutput{Items: []map[string]dbtypes.AttributeValue{oldJob, newJob}}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "GET",
+		Path:       "/shorts",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	var body struct {
+		Jobs []struct {
+			JobID     string `json:"jobId"`
+			Status    string `json:"status"`
+			ClipCount int    `json:"clipCount"`
+		} `json:"jobs"`
+	}
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	slim := body.Jobs
+	if len(slim) != 2 {
+		t.Fatalf("got %d jobs, want 2", len(slim))
+	}
+	if slim[0].JobID != "new" || slim[1].JobID != "old" {
+		t.Errorf("expected newest-first order, got %+v", slim)
+	}
+	if slim[0].ClipCount != 0 || slim[1].ClipCount != 1 {
+		t.Errorf("expected clip counts [0 1], got %+v", slim)
+	}
+	if strings.Contains(resp.Body, "captionWords") {
+		t.Errorf("list must not include heavy caption payloads: %s", resp.Body)
+	}
 }
 
 func TestListClips_OrderedByRank(t *testing.T) {

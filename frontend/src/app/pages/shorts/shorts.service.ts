@@ -45,6 +45,18 @@ export interface ShortsJob {
   completedAt?: string;
 }
 
+/** Trimmed shorts job for history lists (matches backend ShortsJobSummary). */
+export interface ShortsJobSummary {
+  jobId: string;
+  projectId?: string;
+  status: ShortsStatus;
+  fileType: string;
+  sourceDuration: number;
+  clipCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Response from POST /shorts (matches backend CreateShortsResponse). */
 export interface CreateShortsResponse {
   jobId: string;
@@ -79,6 +91,13 @@ export class ShortsService {
   /** GET /shorts/{id} — fetch current job status. */
   getStatus(jobId: string): Observable<ShortsJob> {
     return this.api.get<ShortsJob>(`/shorts/${jobId}`);
+  }
+
+  /** GET /shorts — list my shorts jobs, newest first. */
+  listJobs(): Observable<ShortsJobSummary[]> {
+    return this.api
+      .get<{ jobs: ShortsJobSummary[] }>('/shorts')
+      .pipe(map((res) => (Array.isArray(res?.jobs) ? res.jobs : [])));
   }
 
   /** GET /shorts/{id}/clips — list rendered clips ordered by rank. */

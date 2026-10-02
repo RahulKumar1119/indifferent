@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ProjectService } from '../../core/services/project.service';
 import { Project, ProjectStatus } from '../../shared/models/project.model';
+import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -138,6 +139,46 @@ import { Project, ProjectStatus } from '../../shared/models/project.model';
           }
         </section>
 
+        <!-- Recent shorts -->
+        <section class="mt-6 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="serif text-[26px]">Recent shorts</h2>
+            <a routerLink="/shorts/history" class="text-[13.5px] font-semibold underline underline-offset-8 decoration-black/25 hover:decoration-black transition">All shorts →</a>
+          </div>
+          @if (recentShorts.length === 0) {
+            <p class="py-6 text-center text-[14px] text-[#6B6560]">
+              No shorts yet.
+              <a routerLink="/shorts" class="font-semibold text-[#1A1714] underline underline-offset-4">Create your first short →</a>
+            </p>
+          } @else {
+            <ul class="divide-y divide-black/[0.07]">
+              @for (job of recentShorts; track job.jobId) {
+                <li>
+                  <a
+                    [routerLink]="job.status === 'completed' && job.clipCount > 0 ? ['/shorts', job.jobId, 'clips'] : ['/shorts', job.jobId, 'progress']"
+                    class="row-hover flex items-center gap-4 px-2 md:px-3 py-4 rounded-xl"
+                  >
+                    <span class="w-9 h-9 rounded-full bg-[#1A1714]/[.05] flex items-center justify-center shrink-0">
+                      <svg [lucideIcon]="getStatusIcon(job.status)" [size]="17" [class]="getStatusColor(job.status)"></svg>
+                    </span>
+                    <span class="flex-1 min-w-0">
+                      <span class="block font-medium truncate text-[15px]">Short {{ job.jobId.slice(0, 8) }}</span>
+                      <span class="block text-[12.5px] text-[#6B6560]">
+                        {{ job.fileType.toUpperCase() }} &middot; {{ formatDate(job.createdAt) }}
+                        @if (job.status === 'completed') {
+                          &middot; {{ job.clipCount }} {{ job.clipCount === 1 ? 'clip' : 'clips' }}
+                        }
+                      </span>
+                    </span>
+                    <span class="hidden sm:inline-flex rounded-full border border-black/10 px-3 py-1 text-[11.5px] font-medium" [class]="getStatusColor(job.status)">{{ job.status | titlecase }}</span>
+                    <svg lucideIcon="chevron-right" [size]="16" class="text-[#6B6560] shrink-0"></svg>
+                  </a>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+
         <footer class="mt-10 pt-6 border-t border-black/[0.07] flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-[#6B6560]">
           <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
           <span class="flex gap-5">
@@ -152,10 +193,12 @@ import { Project, ProjectStatus } from '../../shared/models/project.model';
 })
 export class DashboardComponent implements OnInit {
   private readonly projectService = inject(ProjectService);
+  private readonly shortsService = inject(ShortsService);
 
   currentYear = new Date().getFullYear();
   projects: Project[] = [];
   recentProjects: Project[] = [];
+  recentShorts: ShortsJobSummary[] = [];
   totalProjects = 0;
   completedCount = 0;
   inProgressCount = 0;
@@ -174,9 +217,17 @@ export class DashboardComponent implements OnInit {
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 5);
     });
+    this.shortsService.listJobs().subscribe({
+      next: (jobs) => {
+        this.recentShorts = [...jobs]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5);
+      },
+      error: () => {},
+    });
   }
 
-  getStatusIcon(status: ProjectStatus): string {
+  getStatusIcon(status: ProjectStatus | string): string {
     switch (status) {
       case 'completed':
         return 'circle-check';
@@ -189,7 +240,7 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  getStatusColor(status: ProjectStatus): string {
+  getStatusColor(status: ProjectStatus | string): string {
     switch (status) {
       case 'completed':
         return 'text-[#1E3A2A]';
