@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,9 +27,18 @@ const (
 
 // cropCaptionFilter is the 9:16 center-crop + scale video filter applied to a
 // video source. It takes the widest full-height 9:16 column, centers it
-// horizontally (center-crop, Requirement 4.3), and scales to the canonical
-// 1080x1920 output (Requirement 4.2).
-const cropCaptionFilter = "crop=w=ih*9/16:h=ih:x=(iw-ih*9/16)/2:y=0,scale=1080:1920,setsar=1"
+// horizontally (center-crop, Requirement 4.3), scales to the canonical
+// 1080x1920 output (Requirement 4.2), and normalizes the frame rate to 30fps
+// so the clip always uses a YouTube Shorts-supported frame rate regardless of
+// the source (phone VFR, 120fps slow-mo, etc.).
+const cropCaptionFilter = "crop=w=ih*9/16:h=ih:x=(iw-ih*9/16)/2:y=0,scale=1080:1920,setsar=1,fps=30"
+
+// fitFillFilter scales the whole source frame to fit inside 1080x1920 over a
+// blurred copy of itself as background. Nothing is ever cut: full-width
+// burned-in text, cartoons, and screen recordings stay fully visible. Used
+// for segments where no subject face is found (where a center-crop would
+// blindly slice content). gblur needs no external library.
+const fitFillFilter = "split=2[blur][main];[blur]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=40[bg];[main]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=30"
 
 // RenderInput is the full input for rendering one ranked clip.
 type RenderInput struct {
@@ -54,6 +64,15 @@ type Renderer struct {
 	Bucket     string
 	WorkDir    string
 	RunCommand func(name string, args []string) error // injectable, defaults to exec
+	// ProbeDimensions reports the source video dimensions. Injectable;
+	// defaults to ffprobe. Only used for landscape reframing.
+	ProbeDimensions func(path string) (w, h int, err error)
+	// ExtractFrames samples JPEG frames across [start, end] for subject
+	// detection. Injectable; defaults to ffmpeg. Only used for reframing.
+	ExtractFrames func(src string, start, end float64) ([][]byte, error)
+	// Detector finds faces for subject-aware reframing. When nil (the
+	// default), the legacy centered crop is used.
+	Detector FaceDetector
 }
 
 // NewRenderer constructs a Renderer with the default exec-backed RunCommand.
@@ -90,16 +109,23 @@ func ClipKey(userID, jobID, clipID string) string {
 // applying the 9:16 center-crop + scale, and burning in the SRT captions.
 // For audio-only sources a solid 1080x1920 canvas is generated instead of a
 // crop. (Requirements 4.1, 4.2, 4.3, 4.4)
-func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float64, audioOnly bool) []string {
+//
+// cropX selects the horizontal position of the 9:16 window: "" keeps the
+// legacy centered expression, otherwise it must be a non-negative even pixel
+// offset (as produced by ComputeCropX for subject tracking). When fit is
+// true the whole frame is scaled to fit over a blurred background instead of
+// cropping (cropX is ignored).
+func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float64, audioOnly bool, cropX string, fit bool) []string {
 	subtitlesFilter := fmt.Sprintf("subtitles=%s:force_style='%s'", subs, captionForceStyle)
 
 	if audioOnly {
 		// No video stream: synthesize a black 1080x1920 canvas for the clip
 		// duration, mix in the trimmed audio, and burn captions onto it.
+		// fps=30 keeps the canvas at a Shorts-supported frame rate.
 		duration := end - start
 		return []string{
 			"-f", "lavfi",
-			"-i", fmt.Sprintf("color=c=black:s=%dx%d", outputWidth, outputHeight),
+			"-i", fmt.Sprintf("color=c=black:s=%dx%d:r=30", outputWidth, outputHeight),
 			"-ss", formatSeconds(start),
 			"-to", formatSeconds(end),
 			"-i", src,
@@ -108,8 +134,10 @@ func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float6
 			"-c:v", "libx264",
 			"-preset", "veryfast",
 			"-pix_fmt", "yuv420p",
+			"-r", "30",
 			"-c:a", "aac",
 			"-b:a", "128k",
+			"-ar", "48000",
 			"-shortest",
 			"-movflags", "+faststart",
 			"-y", out,
@@ -118,16 +146,25 @@ func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float6
 
 	// Video source: -ss/-to before -i seek quickly; the caption file is
 	// generated relative to the clip start so it aligns after the trim.
+	videoFilter := cropCaptionFilter
+	switch {
+	case fit:
+		videoFilter = fitFillFilter
+	case cropX != "":
+		videoFilter = fmt.Sprintf("crop=w=ih*9/16:h=ih:x=%s:y=0,scale=1080:1920,setsar=1,fps=30", cropX)
+	}
 	return []string{
 		"-ss", formatSeconds(start),
 		"-to", formatSeconds(end),
 		"-i", src,
-		"-vf", fmt.Sprintf("%s,%s", cropCaptionFilter, subtitlesFilter),
+		"-vf", fmt.Sprintf("%s,%s", videoFilter, subtitlesFilter),
 		"-c:v", "libx264",
 		"-preset", "veryfast",
 		"-pix_fmt", "yuv420p",
+		"-r", "30",
 		"-c:a", "aac",
 		"-b:a", "128k",
+		"-ar", "48000",
 		"-movflags", "+faststart",
 		"-y", out,
 	}
@@ -142,6 +179,122 @@ func formatSeconds(s float64) string {
 // idempotent resume after a Spot interruption (Requirement 5.5).
 func (r *Renderer) alreadyRendered(ctx context.Context, key string) (bool, error) {
 	return r.Storage.HeadObject(ctx, r.Bucket, key)
+}
+
+// smartReframe decides how the 9:16 window is placed for a landscape source.
+// It returns either a tracked crop offset, fit=true to scale the whole frame
+// over a blurred background (no subject found: cartoons, text cards, screen
+// recordings where any crop would slice content), or the legacy centered crop
+// ("", false) when reframing is unavailable or fails. Framing must never fail
+// a render, so every error path falls back to center.
+func (r *Renderer) smartReframe(ctx context.Context, srcPath string, start, end float64) (cropX string, fit bool) {
+	if r.Detector == nil {
+		return "", false
+	}
+	var w, h int
+	var err error
+	if r.ProbeDimensions != nil {
+		w, h, err = r.ProbeDimensions(srcPath)
+	} else {
+		w, h, err = defaultProbeDimensions(srcPath)
+	}
+	if err != nil {
+		log.Printf("reframe: probe failed (%v), using centered crop", err)
+		return "", false
+	}
+	if cropWindowWidth(h) >= w {
+		// Window covers the full width (vertical/square-narrow source):
+		// pin to the left edge rather than evaluating a negative center.
+		return "0", false
+	}
+	extract := r.ExtractFrames
+	if extract == nil {
+		extract = r.defaultExtractFrames
+	}
+	frames, err := extract(srcPath, start, end)
+	if err != nil || len(frames) == 0 {
+		log.Printf("reframe: frame sampling failed (%v), using centered crop", err)
+		return "", false
+	}
+	dets := make([][]FaceBox, 0, len(frames))
+	for _, img := range frames {
+		boxes, err := r.Detector.DetectFaces(ctx, img)
+		if err != nil {
+			log.Printf("reframe: face detection failed (%v), using centered crop", err)
+			return "", false
+		}
+		dets = append(dets, boxes)
+	}
+	x, ok := ComputeCropX(dets, w, h)
+	if !ok {
+		log.Printf("reframe: no subject found, using blur-fill fit")
+		return "", true
+	}
+	return strconv.Itoa(x), false
+}
+
+// defaultProbeDimensions reports the first video stream's width and height
+// via ffprobe.
+func defaultProbeDimensions(path string) (int, int, error) {
+	out, err := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-show_entries", "stream=width,height",
+		"-of", "json", path).Output()
+	if err != nil {
+		return 0, 0, fmt.Errorf("ffprobe failed: %w", err)
+	}
+	var parsed struct {
+		Streams []struct {
+			Width  int `json:"width"`
+			Height int `json:"height"`
+		} `json:"streams"`
+	}
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		return 0, 0, fmt.Errorf("ffprobe output unparsable: %w", err)
+	}
+	if len(parsed.Streams) == 0 || parsed.Streams[0].Width <= 0 || parsed.Streams[0].Height <= 0 {
+		return 0, 0, fmt.Errorf("ffprobe found no video dimensions")
+	}
+	return parsed.Streams[0].Width, parsed.Streams[0].Height, nil
+}
+
+// defaultExtractFrames samples up to maxSampleFrames JPEG frames (scaled to
+// 640 wide to bound Rekognition payload size) evenly across [start, end].
+func (r *Renderer) defaultExtractFrames(src string, start, end float64) ([][]byte, error) {
+	times := sampleTimes(start, end)
+	fps := 1.0
+	if span := end - start; span > 0 {
+		fps = float64(len(times)) / span
+	}
+	dir, err := os.MkdirTemp("", "reframe-frames-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	cmd := exec.Command("ffmpeg",
+		"-v", "error",
+		"-ss", formatSeconds(start),
+		"-to", formatSeconds(end),
+		"-i", src,
+		"-vf", fmt.Sprintf("fps=%.4f,scale=640:-1", fps),
+		filepath.Join(dir, "frame_%03d.jpg"))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("frame extraction failed: %w\noutput: %s", err, string(out))
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "frame_*.jpg"))
+	if err != nil || len(matches) == 0 {
+		return nil, fmt.Errorf("no frames extracted")
+	}
+	frames := make([][]byte, 0, len(matches))
+	for _, m := range matches {
+		b, err := os.ReadFile(m)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, b)
+	}
+	return frames, nil
 }
 
 // Render performs the full render task: idempotency check → download source +
@@ -174,6 +327,15 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 		return "", fmt.Errorf("failed to write source: %w", err)
 	}
 
+	// Subject-aware reframing for landscape sources: track the dominant
+	// face and pan the 9:16 window onto it; scale faceless content to fit
+	// over a blurred background instead of blindly center cropping.
+	// Falls back to center when reframing is unavailable.
+	cropX, fit := "", false
+	if !in.AudioOnly {
+		cropX, fit = r.smartReframe(ctx, srcPath, in.ClipStart, in.ClipEnd)
+	}
+
 	// Download and parse the transcript.
 	transcriptData, err := r.Storage.GetObject(ctx, r.Bucket, in.TranscriptKey)
 	if err != nil {
@@ -194,7 +356,7 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 
 	// Render with FFmpeg.
 	outPath := filepath.Join(r.WorkDir, in.Clip.ClipID+".mp4")
-	args := r.buildCropCaptionArgs(srcPath, srtPath, outPath, in.ClipStart, in.ClipEnd, in.AudioOnly)
+	args := r.buildCropCaptionArgs(srcPath, srtPath, outPath, in.ClipStart, in.ClipEnd, in.AudioOnly, cropX, fit)
 	if err := r.RunCommand("ffmpeg", args); err != nil {
 		return "", fmt.Errorf("ffmpeg render failed: %w", err)
 	}

@@ -171,6 +171,153 @@ func TestAuthenticate_Success(t *testing.T) {
 	}
 }
 
+// memoryDB is a minimal in-memory DynamoDBClient shared by the login and
+// refresh services in the round-trip test below.
+type memoryDB struct {
+	items map[string]map[string]dbtypes.AttributeValue
+}
+
+func newMemoryDB() *memoryDB {
+	return &memoryDB{items: map[string]map[string]dbtypes.AttributeValue{}}
+}
+
+func itemKey(pk, sk string) string { return pk + "|" + sk }
+
+func strAttr(item map[string]dbtypes.AttributeValue, key string) string {
+	if v, ok := item[key].(*dbtypes.AttributeValueMemberS); ok {
+		return v.Value
+	}
+	return ""
+}
+
+func (m *memoryDB) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+	m.items[itemKey(strAttr(params.Item, "PK"), strAttr(params.Item, "SK"))] = params.Item
+	return &dynamodb.PutItemOutput{}, nil
+}
+
+func (m *memoryDB) GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+	item, ok := m.items[itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))]
+	if !ok {
+		return &dynamodb.GetItemOutput{}, nil
+	}
+	return &dynamodb.GetItemOutput{Item: item}, nil
+}
+
+func (m *memoryDB) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+	delete(m.items, itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK")))
+	return &dynamodb.DeleteItemOutput{}, nil
+}
+
+func (m *memoryDB) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+	item, ok := m.items[itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))]
+	if !ok {
+		return &dynamodb.UpdateItemOutput{}, nil
+	}
+	for k, v := range params.ExpressionAttributeValues {
+		switch k {
+		case ":r":
+			if b, ok := v.(*dbtypes.AttributeValueMemberBOOL); ok {
+				item["rotated"] = &dbtypes.AttributeValueMemberBOOL{Value: b.Value}
+			}
+		case ":e":
+			if n, ok := v.(*dbtypes.AttributeValueMemberN); ok {
+				item["expiresAt"] = &dbtypes.AttributeValueMemberN{Value: n.Value}
+			}
+		}
+	}
+	return &dynamodb.UpdateItemOutput{}, nil
+}
+
+func (m *memoryDB) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+	fid := ""
+	if v, ok := params.ExpressionAttributeValues[":fid"].(*dbtypes.AttributeValueMemberS); ok {
+		fid = v.Value
+	}
+	var out []map[string]dbtypes.AttributeValue
+	for _, item := range m.items {
+		if fid == "" || strAttr(item, "familyId") == fid {
+			out = append(out, item)
+		}
+	}
+	return &dynamodb.ScanOutput{Items: out}, nil
+}
+
+// TestLoginSessionRefreshRoundTrip is the regression test for the production
+// incident where every /auth/refresh failed: the login writer stored sessions
+// under SK=USER#<id> while JWTService.RefreshToken reads PK=SESSION#hash +
+// SK=SESSION. Authenticating and then refreshing against the same store must
+// succeed, and the stored session must carry SK=SESSION.
+func TestLoginSessionRefreshRoundTrip(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(GoogleTokenResponse{
+			AccessToken: "google-access-token",
+			TokenType:   "Bearer",
+			ExpiresIn:   3600,
+			IDToken:     "google-id-token",
+		})
+	}))
+	defer tokenServer.Close()
+
+	userInfoServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(GoogleUserInfo{
+			ID:        "google-user-123",
+			Email:     "test@example.com",
+			Name:      "Test User",
+			AvatarURL: "https://lh3.google.com/photo.jpg",
+		})
+	}))
+	defer userInfoServer.Close()
+
+	store := newMemoryDB()
+	httpClient := &testHTTPClient{client: http.DefaultClient}
+	loginSvc := newGoogleAuthServiceWithURLs(testConfig(), store, httpClient, tokenServer.URL, userInfoServer.URL)
+
+	tokens, err := loginSvc.Authenticate(context.Background(), "valid-auth-code")
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+
+	// Exactly one session item, keyed the way the refresh reader looks it up
+	// (the other stored item is the USER#PROFILE user record).
+	var sessions []map[string]dbtypes.AttributeValue
+	for key, item := range store.items {
+		if strings.HasPrefix(key, "SESSION#") {
+			sessions = append(sessions, item)
+		}
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 stored session, got %d", len(sessions))
+	}
+	for _, item := range sessions {
+		key := itemKey(strAttr(item, "PK"), strAttr(item, "SK"))
+		if strAttr(item, "SK") != "SESSION" {
+			t.Fatalf("session %q stored with SK=%q, want SK=SESSION (refresh would 401)", key, strAttr(item, "SK"))
+		}
+		if strAttr(item, "email") == "" {
+			t.Errorf("session %q missing email (refreshed access tokens would lose it)", key)
+		}
+	}
+
+	jwtSvc := &JWTService{Secret: testConfig().JWTSecret, DB: store, SessionTable: "Sessions", UsersTable: "Users"}
+	refreshed, err := jwtSvc.RefreshToken(context.Background(), tokens.RefreshToken)
+	if err != nil {
+		t.Fatalf("refresh of a just-created login session failed: %v", err)
+	}
+	if refreshed.AccessToken == "" || refreshed.RefreshToken == "" {
+		t.Error("expected fresh token pair from refresh")
+	}
+	if refreshed.RefreshToken == tokens.RefreshToken {
+		t.Error("expected rotation to issue a new refresh token")
+	}
+
+	// The rotated token must be rejected on reuse (theft detection intact).
+	if _, err := jwtSvc.RefreshToken(context.Background(), tokens.RefreshToken); err == nil {
+		t.Error("expected rotated refresh token to be rejected")
+	}
+}
+
 func TestAuthenticate_GoogleTokenExchangeFailure(t *testing.T) {
 	// Token endpoint returns an error
 	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

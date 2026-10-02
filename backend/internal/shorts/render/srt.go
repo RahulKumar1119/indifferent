@@ -11,7 +11,9 @@ import (
 
 const (
 	// maxWordsPerCue caps how many words appear in a single caption cue.
-	maxWordsPerCue = 7
+	// Four words fit on one 1080px-wide vertical line at caption size;
+	// longer cues overflow the 9:16 window and get chopped at the edges.
+	maxWordsPerCue = 4
 	// maxCueDuration caps a cue's on-screen span in seconds; a new cue starts
 	// once the accumulated span would exceed this.
 	maxCueDuration = 2.5

@@ -32,6 +32,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.31 h1:uao4A3QZ5UmB3
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.31/go.mod h1:I/1+z0VwL1GhQyLgkoHDlygpUZ+iTAwOQ/NsftiUL2I=
 github.com/aws/aws-sdk-go-v2/service/polly v1.58.5 h1:x/3e8gds1urVoOKwfxMJHe3JwmM/ND+TlpreF3ps/nU=
 github.com/aws/aws-sdk-go-v2/service/polly v1.58.5/go.mod h1:y13AbdUXUP0YGRyQ1HFpFL4/8ZcgDu9n+LwtANHUc2E=
+github.com/aws/aws-sdk-go-v2/service/rekognition v1.60.0 h1:qE2bxd1tm6O3lUBpd0s81RkrlBSytfcQairckjiW678=
+github.com/aws/aws-sdk-go-v2/service/rekognition v1.60.0/go.mod h1:kNpDINSkB5mPu8HdLVE+45jtWrYfGX0J9xzwMRAqEPg=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.104.2 h1:bAY6O/TDv1HQnvylh9E247IyIKsUWUt2G965S7qX110=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.104.2/go.mod h1:zdmCoFO/dSI7GlrwsPqFJI+WlFnSU4Tc8TJnlXrM1Do=
 github.com/aws/aws-sdk-go-v2/service/sfn v1.43.2 h1:DN64QFK4wW3/Fnzn5Wj1ztuzG2Smv4Oc8TJxVcmQ5E0=
