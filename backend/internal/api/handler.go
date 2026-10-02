@@ -60,7 +60,7 @@ type APIHandler struct {
 	JWTService      *auth.JWTService
 	PasswordAuth    *auth.PasswordAuthService
 	DB              DynamoDBAPI
-	S3              *storage.S3Client
+	S3              storage.Downloader
 	SFN             SFNClient
 	TableName             string
 	Bucket                string
@@ -481,6 +481,45 @@ func (h *APIHandler) handleStartPipeline(ctx context.Context, req events.APIGate
 	}), nil
 }
 
+// errObjectNotFound marks a download whose S3 object no longer exists.
+var errObjectNotFound = fmt.Errorf("video file not found")
+
+// downloadURLOrRestore resolves a presigned GET URL for key, Glacier-aware:
+// archived objects without a usable copy trigger a restore and report
+// restoring=true (caller answers 202); missing objects yield
+// errObjectNotFound. A failed status check falls back to presigning so a
+// transient HeadObject problem never blocks a healthy download.
+func (h *APIHandler) downloadURLOrRestore(ctx context.Context, key string) (url string, restoring bool, err error) {
+	if st, serr := h.S3.ObjectStatus(ctx, h.Bucket, key); serr == nil {
+		switch {
+		case st.RestoreInProgress():
+			return "", true, nil
+		case !st.Downloadable():
+			if rerr := h.S3.RestoreObject(ctx, h.Bucket, key); rerr != nil {
+				return "", false, rerr
+			}
+			return "", true, nil
+		}
+	} else if storage.IsNotFound(serr) {
+		return "", false, errObjectNotFound
+	}
+
+	url, err = h.S3.GenerateDownloadURL(ctx, h.Bucket, key, storage.DownloadURLExpiration)
+	if err != nil {
+		return "", false, err
+	}
+	return url, false, nil
+}
+
+// restoringResponse is the 202 body returned while an archived video is being
+// restored to a downloadable copy (Standard retrieval: minutes to hours).
+func restoringResponse() events.APIGatewayProxyResponse {
+	return jsonResponse(http.StatusAccepted, map[string]string{
+		"code":    "RESTORING",
+		"message": "This video is in cold storage and is being restored. Please check back in a few hours.",
+	})
+}
+
 // handleGetProjectStatus returns the current pipeline status and progress.
 func (h *APIHandler) handleGetProjectStatus(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
 	projectID := extractProjectIDFromSubpath(req.Path, "/status")
@@ -517,9 +556,15 @@ func (h *APIHandler) handleGetDownloadURL(ctx context.Context, req events.APIGat
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Video file not found"), nil
 	}
 
-	downloadURL, err := h.S3.GenerateDownloadURL(ctx, h.Bucket, project.VideoKey, storage.DownloadURLExpiration)
+	downloadURL, restoring, err := h.downloadURLOrRestore(ctx, project.VideoKey)
 	if err != nil {
+		if errors.Is(err, errObjectNotFound) {
+			return errorResponse(http.StatusNotFound, "NOT_FOUND", "Video file not found"), nil
+		}
 		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to generate download URL"), nil
+	}
+	if restoring {
+		return restoringResponse(), nil
 	}
 
 	return jsonResponse(http.StatusOK, map[string]string{

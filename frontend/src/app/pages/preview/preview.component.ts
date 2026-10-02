@@ -97,6 +97,9 @@ import { Project } from '../../shared/models/project.model';
               Back to Projects
             </a>
           </div>
+          @if (notice) {
+            <p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]">{{ notice }}</p>
+          }
         }
       }
     </div>
@@ -110,6 +113,7 @@ export class PreviewComponent implements OnInit {
   project: Project | null = null;
   loading = true;
   downloading = false;
+  notice = '';
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -130,10 +134,18 @@ export class PreviewComponent implements OnInit {
     if (!this.project || this.downloading) return;
 
     this.downloading = true;
+    this.notice = '';
     this.apiService
-      .get<{ downloadUrl: string }>(`/projects/${this.project.id}/download`)
+      .get<{ downloadUrl?: string; code?: string; message?: string }>(`/projects/${this.project.id}/download`)
       .subscribe({
         next: (res) => {
+          if (!res.downloadUrl) {
+            // 202 RESTORING lands here (2xx): the archived video is being
+            // restored to a downloadable copy.
+            this.downloading = false;
+            this.notice = res.message || 'This video is in cold storage and is being restored. Please check back in a few hours.';
+            return;
+          }
           // Use fetch to download the file as a blob, then trigger download
           fetch(res.downloadUrl)
             .then(response => response.blob())
@@ -150,10 +162,12 @@ export class PreviewComponent implements OnInit {
             })
             .catch(() => {
               this.downloading = false;
+              this.notice = 'Download failed. Please try again.';
             });
         },
         error: () => {
           this.downloading = false;
+          this.notice = 'Download failed. Please try again.';
         },
       });
   }

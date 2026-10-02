@@ -21,6 +21,14 @@ export interface Clip {
   duration: number;
 }
 
+/** Response from GET /shorts/{id}/clips/{clipId}/url. Archived clips answer
+ * 202 with code/message and no url while Glacier restore runs. */
+export interface ClipUrlResponse {
+  url?: string;
+  code?: string;
+  message?: string;
+}
+
 /** A single AI Shorts processing run (matches backend models.ShortsJob). */
 export interface ShortsJob {
   userId: string;
@@ -83,7 +91,7 @@ export class ShortsService {
   }
 
   /** GET /shorts/{id}/clips/{clipId}/url — presigned GET URL for a clip. */
-  getClipUrl(jobId: string, clipId: string): Observable<{ url: string }> {
-    return this.api.get<{ url: string }>(`/shorts/${jobId}/clips/${clipId}/url`);
+  getClipUrl(jobId: string, clipId: string): Observable<ClipUrlResponse> {
+    return this.api.get<ClipUrlResponse>(`/shorts/${jobId}/clips/${clipId}/url`);
   }
 }

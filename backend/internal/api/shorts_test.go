@@ -290,6 +290,9 @@ func TestGetClipURL_ClipNotInJob(t *testing.T) {
 		},
 	}
 	h := newShortsTestHandler(t, db)
+	// Stay offline: report objects as standard storage so the handler
+	// presigns instead of calling HeadObject on a fake bucket.
+	h.S3 = &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}}
 	ctx := context.Background()
 	token := generateTestToken("user1")
 
