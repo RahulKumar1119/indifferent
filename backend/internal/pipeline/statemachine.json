@@ -123,12 +123,13 @@
     "Render": {
       "Type": "Task",
       "Resource": "${RendererLambdaArn}",
-      "Parameters": {
-        "projectId.$": "$.projectId",
-        "slideKeys.$": "$.slideGenOutput.slideKeys",
-        "audioKeys.$": "$.narratorOutput.audioKeys",
-        "jsonKey.$": "$.parserOutput.s3Key"
-      },
+ "Parameters": {
+  "projectId.$": "$.projectId",
+  "slideKeys.$": "$.slideGenOutput.slideKeys",
+  "audioKeys.$": "$.narratorOutput.audioKeys",
+  "jsonKey.$": "$.parserOutput.s3Key",
+  "logoKey.$": "$.logoKey"
+ },
       "ResultPath": "$.rendererOutput",
       "Retry": [
         {

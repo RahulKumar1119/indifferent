@@ -73,6 +73,31 @@ type Renderer struct {
 	// Detector finds faces for subject-aware reframing. When nil (the
 	// default), the legacy centered crop is used.
 	Detector FaceDetector
+	// FetchLogo returns the project's brand logo bytes for the clip being
+	// rendered, or (nil, nil) when unbranded. Injectable; defaults to nil
+	// (no overlay). Failures must fall back to unbranded, never fail render.
+	FetchLogo func(ctx context.Context) ([]byte, error)
+}
+
+// logoOverlayWidth is the on-screen width of the brand logo on a 1080x1920
+// clip (top-right, 24px margin). Height scales to preserve aspect ratio.
+const logoOverlayWidth = 200
+
+// buildLogoOverlayArgs burns a brand logo onto a finished clip (top-right
+// corner) without re-encoding audio.
+func buildLogoOverlayArgs(videoPath, logoPath, outputPath string) []string {
+	filter := fmt.Sprintf("[1]scale=%d:-1[logo];[0][logo]overlay=W-w-24:24:format=auto,format=yuv420p", logoOverlayWidth)
+	return []string{
+		"-i", videoPath,
+		"-i", logoPath,
+		"-filter_complex", filter,
+		"-c:v", "libx264",
+		"-preset", "veryfast",
+		"-c:a", "copy",
+		"-movflags", "+faststart",
+		"-r", "30",
+		"-y", outputPath,
+	}
 }
 
 // NewRenderer constructs a Renderer with the default exec-backed RunCommand.
@@ -359,6 +384,26 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	args := r.buildCropCaptionArgs(srcPath, srtPath, outPath, in.ClipStart, in.ClipEnd, in.AudioOnly, cropX, fit)
 	if err := r.RunCommand("ffmpeg", args); err != nil {
 		return "", fmt.Errorf("ffmpeg render failed: %w", err)
+	}
+
+	// Optional brand logo overlay (top-right). Fail-soft: branding must
+	// never block an otherwise finished clip.
+	if r.FetchLogo != nil {
+		if logoData, err := r.FetchLogo(ctx); err != nil {
+			log.Printf("branding skipped: %v", err)
+		} else if len(logoData) > 0 {
+			logoPath := filepath.Join(r.WorkDir, "logo.png")
+			if err := os.WriteFile(logoPath, logoData, 0o644); err != nil {
+				log.Printf("branding skipped: %v", err)
+			} else {
+				brandedPath := filepath.Join(r.WorkDir, in.Clip.ClipID+"-branded.mp4")
+				if err := r.RunCommand("ffmpeg", buildLogoOverlayArgs(outPath, logoPath, brandedPath)); err != nil {
+					log.Printf("branding skipped: %v", err)
+				} else {
+					outPath = brandedPath
+				}
+			}
+		}
 	}
 
 	// Upload the result.

@@ -233,6 +233,36 @@ func (c *Compositor) buildConcatWithTransitionsArgs(segments []string, outputPat
 	}
 }
 
+// logoOverlayWidth is the on-screen width of the brand logo (top-right,
+// margin 24px). Height scales to preserve aspect ratio.
+const logoOverlayWidth = 160
+
+// buildLogoOverlayArgs burns a brand logo onto a finished video (top-right
+// corner) without re-encoding audio.
+func (c *Compositor) buildLogoOverlayArgs(videoPath, logoPath, outputPath string) []string {
+	filter := fmt.Sprintf("[1]scale=%d:-1[logo];[0][logo]overlay=W-w-24:24:format=auto,format=yuv420p", logoOverlayWidth)
+	return []string{
+		"-i", videoPath,
+		"-i", logoPath,
+		"-filter_complex", filter,
+		"-c:v", "libx264",
+		"-preset", "veryfast",
+		"-c:a", "copy",
+		"-movflags", "+faststart",
+		"-y", outputPath,
+	}
+}
+
+// applyLogoOverlay burns logoPath onto videoPath, returning the branded file.
+// A missing or unreadable logo is the caller's responsibility to guard.
+func (c *Compositor) applyLogoOverlay(workDir, videoPath, logoPath string) (string, error) {
+	outPath := filepath.Join(workDir, "branded.mp4")
+	if err := c.RunCommand("ffmpeg", c.buildLogoOverlayArgs(videoPath, logoPath, outPath)); err != nil {
+		return "", fmt.Errorf("failed to apply logo overlay: %w", err)
+	}
+	return outPath, nil
+}
+
 // concatenateSegments concatenates multiple MP4 files into one using concat demuxer.
 func (c *Compositor) concatenateSegments(segments []string, outputPath string) error {
 	if len(segments) == 0 {

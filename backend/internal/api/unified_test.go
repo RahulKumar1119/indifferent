@@ -174,3 +174,76 @@ func keysOf(items map[string]map[string]dbtypes.AttributeValue) []string {
 	}
 	return out
 }
+
+func TestProjectBranding_RoundTrip(t *testing.T) {
+	db := newCaptureDB()
+	h := newUnifiedTestHandler(db)
+	ctx := context.Background()
+	token := generateTestToken("user1")
+
+	// Create with a channel handle.
+	resp, _ := h.HandleRequest(ctx, events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/projects",
+		Headers:    map[string]string{"Authorization": "Bearer " + token},
+		Body:       `{"name":"B","template":"classic","voice":"Joanna","branding":{"channelName":"@studio"}}`,
+	})
+	if resp.StatusCode != 201 {
+		t.Fatalf("got status %d, want 201 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	var created struct {
+		ID       string `json:"id"`
+		Branding *models.Branding `json:"branding"`
+	}
+	if err := json.Unmarshal([]byte(resp.Body), &created); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if created.Branding == nil || created.Branding.ChannelName != "@studio" {
+		t.Fatalf("expected branding round-trip, got %+v", created.Branding)
+	}
+
+	// Logo upload URL records the key on the project.
+	resp, _ = h.HandleRequest(ctx, events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/projects/" + created.ID + "/logo",
+		Headers:    map[string]string{"Authorization": "Bearer " + token},
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("logo endpoint status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	var logo struct {
+		UploadURL string `json:"uploadUrl"`
+		LogoKey   string `json:"logoKey"`
+	}
+	if err := json.Unmarshal([]byte(resp.Body), &logo); err != nil || logo.UploadURL == "" || logo.LogoKey == "" {
+		t.Fatalf("expected upload URL + key, got %s", resp.Body)
+	}
+
+	// Update the handle; overlong names rejected.
+	resp, _ = h.HandleRequest(ctx, events.APIGatewayProxyRequest{
+		HTTPMethod: "PUT",
+		Path:       "/projects/" + created.ID,
+		Headers:    map[string]string{"Authorization": "Bearer " + token},
+		Body:       `{"channelName":"@newhandle"}`,
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("update status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	var updated models.Project
+	if err := json.Unmarshal([]byte(resp.Body), &updated); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if updated.Branding == nil || updated.Branding.ChannelName != "@newhandle" || updated.Branding.LogoKey != logo.LogoKey {
+		t.Errorf("expected handle update with logo preserved, got %+v", updated.Branding)
+	}
+
+	resp, _ = h.HandleRequest(ctx, events.APIGatewayProxyRequest{
+		HTTPMethod: "PUT",
+		Path:       "/projects/" + created.ID,
+		Headers:    map[string]string{"Authorization": "Bearer " + token},
+		Body:       `{"channelName":"` + strings.Repeat("x", 61) + `"}`,
+	})
+	if resp.StatusCode != 400 {
+		t.Errorf("overlong handle: got %d, want 400 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}

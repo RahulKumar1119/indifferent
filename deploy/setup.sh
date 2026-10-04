@@ -350,7 +350,7 @@ STATE_MACHINE=$(cat << EOF
     "Render": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-renderer",
-      "Parameters": {"projectId.$":"$.projectId","slideKeys.$":"$.slideGenOutput.slideKeys","audioKeys.$":"$.narratorOutput.audioKeys","jsonKey.$":"$.parserOutput.s3Key"},
+      "Parameters": {"projectId.$":"$.projectId","slideKeys.$":"$.slideGenOutput.slideKeys","audioKeys.$":"$.narratorOutput.audioKeys","jsonKey.$":"$.parserOutput.s3Key","logoKey.$":"$.logoKey"},
       "ResultPath": "$.rendererOutput",
       "Retry": [{"ErrorEquals":["States.TaskFailed"],"IntervalSeconds":10,"MaxAttempts":2,"BackoffRate":2}],
       "Catch": [{"ErrorEquals":["States.ALL"],"ResultPath":"$.error","Next":"MarkFailed"}],

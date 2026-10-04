@@ -148,6 +148,19 @@ interface TemplateOption {
                   </div>
                 </div>
 
+                <!-- Branding (optional) -->
+                <div>
+                  <label class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-2">Channel branding <span class="normal-case font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    formControlName="channelName"
+                    placeholder="@yourchannel"
+                    maxlength="60"
+                    class="w-full px-4 h-12 rounded-[12px] bg-[#1A1714]/[.03] border border-black/15 focus:outline-none focus:border-[#BC5227] focus:ring-2 focus:ring-[#BC5227]/20 transition-all text-[#1A1714] placeholder-[#6B6560]/70"
+                  />
+                  <p class="mt-1.5 text-[12px] text-[#6B6560]">Burned into renders with your uploaded logo. Add the logo from the project page.</p>
+                </div>
+
                 <!-- Shorts (optional) -->
                 <div>
                   <label class="flex items-center gap-2.5 cursor-pointer select-none">
@@ -256,6 +269,7 @@ export class CreateProjectComponent {
       voice: ['Joanna', Validators.required],
       watermarkText: ['', Validators.maxLength(100)],
       watermarkOpacity: [0.8],
+      channelName: ['', Validators.maxLength(60)],
       includeShorts: [false],
     });
   }
@@ -343,6 +357,10 @@ export class CreateProjectComponent {
     const wmText = (this.projectForm.value.watermarkText || '').trim();
     if (wmText) {
       request.watermark = { text: wmText, opacity: this.projectForm.value.watermarkOpacity ?? 0.8 };
+    }
+    const channel = (this.projectForm.value.channelName || '').trim();
+    if (channel) {
+      request.branding = { channelName: channel };
     }
     if (includeShorts && this.shortsFile) {
       request.shorts = { fileType: this.shortsFileType, duration: this.shortsDuration };

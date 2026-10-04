@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProjectService } from '../../core/services/project.service';
 import { Project } from '../../shared/models/project.model';
@@ -8,7 +9,7 @@ import { ShortsJob, ShortsService } from '../shorts/shorts.service';
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
       <main class="max-w-4xl mx-auto px-4 pt-16 pb-16">
@@ -70,6 +71,41 @@ import { ShortsJob, ShortsService } from '../shorts/shorts.service';
             }
           </section>
 
+          <!-- Branding -->
+          <section class="mt-5 rounded-[20px] border border-black/10 bg-white p-6">
+            <h2 class="font-semibold text-[16.5px]">Branding</h2>
+            <p class="mt-1 text-[13px] text-[#6B6560]">Logo overlays top-right on quiz videos and shorts.</p>
+            <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div class="w-20 h-20 rounded-[12px] border border-black/10 bg-[#1A1714]/[.03] flex items-center justify-center overflow-hidden shrink-0">
+                @if (logoPreviewUrl) {
+                  <img [src]="logoPreviewUrl" alt="Brand logo" class="max-w-full max-h-full object-contain" />
+                } @else {
+                  <span class="text-[11px] text-[#6B6560] px-2 text-center">No logo</span>
+                }
+              </div>
+              <div class="flex-1 space-y-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  <input [(ngModel)]="channelName" placeholder="@yourchannel" maxlength="60"
+                    class="h-10 px-3 rounded-[10px] bg-[#1A1714]/[.03] border border-black/15 text-[13.5px] focus:outline-none focus:border-[#BC5227] w-52" />
+                  <button (click)="saveChannel()" [disabled]="savingChannel"
+                    class="px-4 h-10 rounded-full bg-[#1A1714] text-white hover:bg-[#2A2620] transition-colors text-[13px] font-medium disabled:opacity-60">
+                    {{ savingChannel ? 'Saving…' : 'Save handle' }}
+                  </button>
+                </div>
+                <label class="inline-flex items-center gap-2 text-[13px] font-medium text-[#BC5227] underline underline-offset-4 cursor-pointer">
+                  <input type="file" accept=".png,.jpg,.jpeg,.webp" class="hidden" (change)="onLogoSelected($event)" />
+                  {{ uploadingLogo ? 'Uploading…' : (project.branding?.logoKey ? 'Replace logo' : 'Upload logo (PNG)') }}
+                </label>
+                @if (brandingError) {
+                  <p class="text-[13px] text-[#B3372F]">{{ brandingError }}</p>
+                }
+                @if (brandingNotice) {
+                  <p class="text-[13px] text-[#1E3A2A]">{{ brandingNotice }}</p>
+                }
+              </div>
+            </div>
+          </section>
+
           <!-- Watermark -->
           <section class="mt-5 rounded-[20px] border border-black/10 bg-white p-6">
             <h2 class="font-semibold text-[16.5px]">Watermark</h2>
@@ -106,6 +142,12 @@ export class ProjectDetailComponent implements OnInit {
   shortsJobs: ShortsJob[] = [];
   isLoading = true;
   error = '';
+  logoPreviewUrl: string | null = null;
+  channelName = '';
+  savingChannel = false;
+  uploadingLogo = false;
+  brandingError = '';
+  brandingNotice = '';
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') || '';
@@ -116,7 +158,14 @@ export class ProjectDetailComponent implements OnInit {
     this.projects.getProject(id).subscribe({
       next: (project) => {
         this.project = project;
+        this.channelName = project.branding?.channelName ?? '';
         this.isLoading = false;
+        if (project.branding?.logoKey) {
+          this.projects.logoUrl(project.id).subscribe({
+            next: (res) => { this.logoPreviewUrl = res.url; },
+            error: () => {},
+          });
+        }
         for (const jobId of project.shortsJobIds ?? []) {
           this.shorts.getStatus(jobId).subscribe({
             next: (job) => {
@@ -129,6 +178,65 @@ export class ProjectDetailComponent implements OnInit {
       error: () => {
         this.isLoading = false;
         this.error = 'Project not found.';
+      },
+    });
+  }
+
+  saveChannel(): void {
+    if (!this.project || this.savingChannel) return;
+    this.brandingError = '';
+    this.brandingNotice = '';
+    this.savingChannel = true;
+    this.projects.updateProject(this.project.id, { channelName: this.channelName.trim() }).subscribe({
+      next: (updated) => {
+        this.project = updated;
+        this.savingChannel = false;
+        this.brandingNotice = 'Channel handle saved — applies to future renders.';
+      },
+      error: (err) => {
+        this.savingChannel = false;
+        this.brandingError = err?.error?.message || 'Could not save. Please try again.';
+      },
+    });
+  }
+
+  onLogoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length || !this.project || this.uploadingLogo) return;
+    const file = input.files[0];
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size === 0 || file.size > 5 * 1024 * 1024) {
+      this.brandingError = 'Choose a PNG, JPG or WebP image up to 5MB.';
+      return;
+    }
+    this.brandingError = '';
+    this.brandingNotice = '';
+    this.uploadingLogo = true;
+    const projectId = this.project.id;
+    this.projects.logoUploadUrl(projectId).subscribe({
+      next: (res) => {
+        this.projects.uploadLogo(res.uploadUrl, file).subscribe({
+          next: () => {
+            this.uploadingLogo = false;
+            this.brandingNotice = 'Logo uploaded — applies to future renders.';
+            this.projects.getProject(projectId).subscribe({
+              next: (p) => {
+                this.project = p;
+                this.projects.logoUrl(projectId).subscribe({
+                  next: (r) => { this.logoPreviewUrl = r.url; },
+                  error: () => {},
+                });
+              },
+            });
+          },
+          error: () => {
+            this.uploadingLogo = false;
+            this.brandingError = 'Logo upload failed. Please try again.';
+          },
+        });
+      },
+      error: () => {
+        this.uploadingLogo = false;
+        this.brandingError = 'Could not start logo upload. Please try again.';
       },
     });
   }

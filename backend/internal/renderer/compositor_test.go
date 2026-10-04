@@ -436,3 +436,18 @@ func TestConcatenateSegments_SingleSegment(t *testing.T) {
 	assertContainsStr(t, capturedArgs, "-c")
 	assertContainsStr(t, capturedArgs, "copy")
 }
+
+func TestBuildLogoOverlayArgs(t *testing.T) {
+	c := NewCompositor(DefaultConfig(), t.TempDir())
+	args := c.buildLogoOverlayArgs("final.mp4", "logo.png", "branded.mp4")
+	joined := strings.Join(args, " ")
+	for _, want := range []string{
+		"-i final.mp4", "-i logo.png",
+		"scale=160:-1", "overlay=W-w-24:24",
+		"-c:a copy", "branded.mp4",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("expected %q in args, got: %s", want, joined)
+		}
+	}
+}

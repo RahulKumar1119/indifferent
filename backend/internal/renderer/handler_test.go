@@ -58,6 +58,8 @@ func (m *mockHandlerStorage) DeleteObject(ctx context.Context, bucket, key strin
 // mockHandlerCompositor implements CompositorInterface for handler testing.
 type mockHandlerCompositor struct {
 	composeFunc func(ctx context.Context, workDir string, slideFiles, audioFiles []string) (string, error)
+	logoFunc    func(workDir, videoPath, logoPath string) (string, error)
+	logoCalls   int
 	callCount   int
 }
 
@@ -72,6 +74,18 @@ func (m *mockHandlerCompositor) ComposeVideo(ctx context.Context, workDir string
 		return "", err
 	}
 	return outputPath, nil
+}
+
+func (m *mockHandlerCompositor) ApplyLogoOverlay(workDir, videoPath, logoPath string) (string, error) {
+	m.logoCalls++
+	if m.logoFunc != nil {
+		return m.logoFunc(workDir, videoPath, logoPath)
+	}
+	out := filepath.Join(workDir, "branded.mp4")
+	if err := os.WriteFile(out, []byte("fake-branded-data"), 0o644); err != nil {
+		return "", err
+	}
+	return out, nil
 }
 
 // mockHandlerThumbnail implements ThumbnailInterface for handler testing.
@@ -347,5 +361,65 @@ func TestHandleRequest_CleanupNotCalledOnFailure(t *testing.T) {
 	// Verify cleanup was NOT called on failure (error returned before cleanup)
 	if len(store.deletedKeys) != 0 {
 		t.Errorf("expected no cleanup on failure, got %d deleted keys: %v", len(store.deletedKeys), store.deletedKeys)
+	}
+}
+
+func TestHandleRequest_BrandedRender(t *testing.T) {
+	store := newMockHandlerStorage()
+	store.objects["temp/proj7/slides/s1.png"] = []byte("s1")
+	store.objects["temp/proj7/audio/a1.mp3"] = []byte("a1")
+	store.objects["temp/proj7/audio/a2.mp3"] = []byte("a2")
+	store.objects["uploads/u1/proj7/logo.png"] = []byte("logo-png-data")
+
+	compositor := &mockHandlerCompositor{}
+	thumbnail := &mockHandlerThumbnail{}
+	handler := NewHandler(compositor, thumbnail, store, "test-bucket")
+
+	input := models.RendererInput{
+		ProjectID: "proj7",
+		SlideKeys: []string{"temp/proj7/slides/s1.png"},
+		AudioKeys: []string{"temp/proj7/audio/a1.mp3", "temp/proj7/audio/a2.mp3"},
+		JSONKey:   "parsed/proj7/questions.json",
+		LogoKey:   "uploads/u1/proj7/logo.png",
+	}
+
+	output, err := handler.HandleRequest(context.Background(), input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if compositor.logoCalls != 1 {
+		t.Errorf("expected 1 overlay call, got %d", compositor.logoCalls)
+	}
+	if got := string(store.objects["output/proj7/video.mp4"]); got != "fake-branded-data" {
+		t.Errorf("expected branded bytes uploaded, got %q", got)
+	}
+	_ = output
+}
+
+func TestHandleRequest_MissingLogoFallsBack(t *testing.T) {
+	store := newMockHandlerStorage()
+	store.objects["temp/proj8/slides/s1.png"] = []byte("s1")
+	store.objects["temp/proj8/audio/a1.mp3"] = []byte("a1")
+
+	compositor := &mockHandlerCompositor{}
+	thumbnail := &mockHandlerThumbnail{}
+	handler := NewHandler(compositor, thumbnail, store, "test-bucket")
+
+	input := models.RendererInput{
+		ProjectID: "proj8",
+		SlideKeys: []string{"temp/proj8/slides/s1.png"},
+		AudioKeys: []string{"temp/proj8/audio/a1.mp3"},
+		JSONKey:   "parsed/proj8/questions.json",
+		LogoKey:   "uploads/u1/proj8/logo.png",
+	}
+
+	if _, err := handler.HandleRequest(context.Background(), input); err != nil {
+		t.Fatalf("missing logo must not fail the render: %v", err)
+	}
+	if compositor.logoCalls != 0 {
+		t.Errorf("expected overlay skipped, got %d calls", compositor.logoCalls)
+	}
+	if got := string(store.objects["output/proj8/video.mp4"]); got != "fake-video-data" {
+		t.Errorf("expected unbranded bytes uploaded, got %q", got)
 	}
 }

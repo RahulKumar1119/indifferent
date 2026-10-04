@@ -7,6 +7,7 @@ export type {
   CreateProjectRequest,
   CreateProjectResponse,
   WatermarkSettings,
+  Branding,
 } from './project.model';
 
 export type { AuthTokens } from './auth.model';

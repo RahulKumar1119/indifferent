@@ -108,10 +108,16 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleGetProjectStatus)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/projects/") && strings.HasSuffix(req.Path, "/download"):
 		return h.handleWithAuth(ctx, req, h.handleGetDownloadURL)
+	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/projects/") && strings.HasSuffix(req.Path, "/logo"):
+		return h.handleWithAuth(ctx, req, h.handleGetLogoURL)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/projects/") && strings.HasSuffix(req.Path, "/start"):
 		return h.handleWithAuth(ctx, req, h.handleStartPipeline)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/projects/") && strings.HasSuffix(req.Path, "/upload"):
 		return h.handleWithAuth(ctx, req, h.handleUpload)
+	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/projects/") && strings.HasSuffix(req.Path, "/logo"):
+		return h.handleWithAuth(ctx, req, h.handleLogoUpload)
+	case req.HTTPMethod == "PUT" && strings.HasPrefix(req.Path, "/projects/"):
+		return h.handleWithAuth(ctx, req, h.handleUpdateProject)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/projects/"):
 		return h.handleWithAuth(ctx, req, h.handleGetProject)
 	case req.HTTPMethod == "DELETE" && strings.HasPrefix(req.Path, "/projects/"):
@@ -331,6 +337,7 @@ type CreateProjectRequest struct {
 	Template  string                   `json:"template"`
 	Voice     string                   `json:"voice"`
 	Watermark *models.WatermarkSettings `json:"watermark,omitempty"`
+	Branding  *models.Branding          `json:"branding,omitempty"`
 	Shorts    *CreateProjectShortsRequest `json:"shorts,omitempty"`
 }
 
@@ -378,6 +385,7 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 		Template:  body.Template,
 		Voice:     body.Voice,
 		Watermark: body.Watermark,
+		Branding:  body.Branding,
 		Status:    "created",
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -478,6 +486,126 @@ func (h *APIHandler) handleUpload(ctx context.Context, req events.APIGatewayProx
 	}), nil
 }
 
+// handleLogoUpload generates a signed upload URL for a project's logo image
+// (PNG) and records its key on the project for branded renders.
+func (h *APIHandler) handleLogoUpload(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	projectID := extractProjectIDFromSubpath(req.Path, "/logo")
+	if projectID == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Project ID is required"), nil
+	}
+
+	project, err := h.getProjectByID(ctx, claims.UserID, projectID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
+	}
+
+	logoKey := fmt.Sprintf("uploads/%s/%s/logo.png", claims.UserID, projectID)
+	uploadURL, err := h.S3.GenerateUploadURL(ctx, h.Bucket, logoKey, "image/png", storage.UploadURLExpiration)
+	if err != nil {
+		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to generate upload URL"), nil
+	}
+
+	if project.Branding == nil {
+		project.Branding = &models.Branding{}
+	}
+	project.Branding.LogoKey = logoKey
+	project.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(h.TableName),
+		Item:      projectToItem(*project),
+	}); err != nil {
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to save logo"), nil
+	}
+
+	return jsonResponse(http.StatusOK, map[string]string{
+		"uploadUrl": uploadURL,
+		"logoKey":   logoKey,
+	}), nil
+}
+
+// UpdateProjectRequest carries the mutable branding fields of a project.
+type UpdateProjectRequest struct {
+	ChannelName *string                  `json:"channelName,omitempty"`
+	Watermark   *models.WatermarkSettings `json:"watermark,omitempty"`
+}
+
+// handleUpdateProject updates a project's branding (channel handle and
+// watermark preferences), verifying ownership.
+func (h *APIHandler) handleUpdateProject(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	projectID := extractProjectID(req.Path)
+	if projectID == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Project ID is required"), nil
+	}
+
+	project, err := h.getProjectByID(ctx, claims.UserID, projectID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
+	}
+
+	var body UpdateProjectRequest
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	}
+
+	if body.ChannelName != nil {
+		name := strings.TrimSpace(*body.ChannelName)
+		if len(name) > 60 {
+			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", "Channel name must be 60 characters or less"), nil
+		}
+		if project.Branding == nil {
+			project.Branding = &models.Branding{}
+		}
+		project.Branding.ChannelName = name
+	}
+	if body.Watermark != nil {
+		if len(body.Watermark.Text) > 100 {
+			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", "Watermark text must be 100 characters or less"), nil
+		}
+		project.Watermark = body.Watermark
+	}
+
+	project.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(h.TableName),
+		Item:      projectToItem(*project),
+	}); err != nil {
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to update project"), nil
+	}
+
+	return jsonResponse(http.StatusOK, project), nil
+}
+
+// handleGetLogoURL returns a presigned GET URL for a project's brand logo.
+func (h *APIHandler) handleGetLogoURL(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	projectID := extractProjectIDFromSubpath(req.Path, "/logo")
+	if projectID == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Project ID is required"), nil
+	}
+
+	project, err := h.getProjectByID(ctx, claims.UserID, projectID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
+	}
+	if project.Branding == nil || project.Branding.LogoKey == "" {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "No logo uploaded"), nil
+	}
+
+	url, restoring, err := h.downloadURLOrRestore(ctx, project.Branding.LogoKey)
+	if err != nil {
+		if errors.Is(err, errObjectNotFound) {
+			return errorResponse(http.StatusNotFound, "NOT_FOUND", "No logo uploaded"), nil
+		}
+		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to generate logo URL"), nil
+	}
+	if restoring {
+		return restoringResponse(), nil
+	}
+
+	return jsonResponse(http.StatusOK, map[string]string{
+		"url": url,
+	}), nil
+}
+
 // handleStartPipeline starts the Step Functions pipeline for a project after the TXT file has been uploaded.
 func (h *APIHandler) handleStartPipeline(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
 	projectID := extractProjectIDFromSubpath(req.Path, "/start")
@@ -506,6 +634,7 @@ func (h *APIHandler) handleStartPipeline(ctx context.Context, req events.APIGate
 		"template":  project.Template,
 		"voice":     project.Voice,
 		"s3Key":     txtKey,
+		"logoKey":   projectLogoKey(project),
 	})
 
 	_, err = h.SFN.StartExecution(ctx, &sfn.StartExecutionInput{
@@ -559,6 +688,15 @@ func restoringResponse() events.APIGatewayProxyResponse {
 		"code":    "RESTORING",
 		"message": "This video is in cold storage and is being restored. Please check back in a few hours.",
 	})
+}
+
+// projectLogoKey returns the project's logo key for pipeline input (""
+// when unbranded; Step Functions drops empty-string parameters).
+func projectLogoKey(project *models.Project) string {
+	if project.Branding == nil {
+		return ""
+	}
+	return project.Branding.LogoKey
 }
 
 // handleGetProjectStatus returns the current pipeline status and progress.
@@ -655,6 +793,10 @@ func validateCreateProject(req *CreateProjectRequest) error {
 
 	if req.Watermark != nil && len(req.Watermark.Text) > 100 {
 		return fmt.Errorf("watermark text must be 100 characters or less")
+	}
+
+	if req.Branding != nil && len(strings.TrimSpace(req.Branding.ChannelName)) > 60 {
+		return fmt.Errorf("channel name must be 60 characters or less")
 	}
 
 	return nil
@@ -775,6 +917,11 @@ func projectToItem(p models.Project) map[string]dbtypes.AttributeValue {
 			item["watermark"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
 		}
 	}
+	if p.Branding != nil {
+		if b, err := json.Marshal(p.Branding); err == nil {
+			item["branding"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+		}
+	}
 	if p.CompletedAt != "" {
 		item["completedAt"] = &dbtypes.AttributeValueMemberS{Value: p.CompletedAt}
 	}
@@ -824,6 +971,12 @@ func itemToProject(item map[string]dbtypes.AttributeValue) models.Project {
 		var w models.WatermarkSettings
 		if err := json.Unmarshal([]byte(v.Value), &w); err == nil {
 			p.Watermark = &w
+		}
+	}
+	if v, ok := item["branding"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		var b models.Branding
+		if err := json.Unmarshal([]byte(v.Value), &b); err == nil {
+			p.Branding = &b
 		}
 	}
 	if v, ok := item["error"].(*dbtypes.AttributeValueMemberS); ok {

@@ -73,6 +73,7 @@ type RendererInput struct {
 	SlideKeys []string `json:"slideKeys"`
 	AudioKeys []string `json:"audioKeys"`
 	JSONKey   string   `json:"jsonKey"` // for answer data
+	LogoKey   string   `json:"logoKey,omitempty"`
 }
 
 // RendererOutput is the result of video rendering.
@@ -123,10 +124,18 @@ type Project struct {
 	Warnings      []Warning          `json:"warnings,omitempty"`
 	ShortsJobIDs  []string           `json:"shortsJobIds,omitempty"`
 	Watermark     *WatermarkSettings `json:"watermark,omitempty"`
+	Branding      *Branding          `json:"branding,omitempty"`
 	Error         string             `json:"error,omitempty"`
 	CreatedAt     string             `json:"createdAt"`
 	UpdatedAt     string             `json:"updatedAt"`
 	CompletedAt   string             `json:"completedAt,omitempty"`
+}
+
+// Branding is a project's custom identity burned into its videos: an
+// uploaded logo overlay plus a channel handle shown on clips.
+type Branding struct {
+	LogoKey     string `json:"logoKey,omitempty"`
+	ChannelName string `json:"channelName,omitempty"`
 }
 
 // WatermarkSettings persists a user's watermark preferences on their project
