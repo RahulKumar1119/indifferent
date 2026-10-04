@@ -76,11 +76,11 @@ import { RouterLink } from '@angular/router';
                     <span class="block text-white text-[13.5px] font-medium">Teachers &amp; educators</span>
                     <span class="block text-white/50 text-[12px] mt-0.5">Lesson recaps &amp; revision</span>
                   </a>
-                  <a href="#use-events" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                  <a routerLink="/" fragment="use-events" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">Trivia hosts</span>
                     <span class="block text-white/50 text-[12px] mt-0.5">Nights &amp; live events</span>
                   </a>
-                  <a href="#use-teams" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                  <a routerLink="/" fragment="use-teams" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">Corporate trainers</span>
                     <span class="block text-white/50 text-[12px] mt-0.5">Training &amp; onboarding</span>
                   </a>

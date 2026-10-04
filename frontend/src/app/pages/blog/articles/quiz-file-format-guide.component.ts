@@ -1,160 +1,38 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
+import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
+import { setCanonical } from '../../../shared/seo';
 
 @Component({
   selector: 'app-quiz-file-format-guide',
   standalone: true,
-  imports: [RouterLink],
+  imports: [CommonModule, RouterLink],
   styles: [`
-    :host {
-      display: block;
-      background: #f8fafc;
-      min-height: 100vh;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-    .blog-nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 2rem;
-      background: rgba(255,255,255,0.95);
-      border-bottom: 1px solid #e2e8f0;
-      backdrop-filter: blur(12px);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .blog-logo img { height: 2rem; }
-    .blog-signin {
-      background: #0d9488;
-      color: #fff;
-      padding: 0.5rem 1.25rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      font-size: 0.875rem;
-      text-decoration: none;
-    }
-    .blog-signin:hover { background: #0f766e; }
-    .blog-article {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 3rem 2rem;
-    }
-    .blog-article-header { margin-bottom: 2rem; }
-    .blog-back {
-      color: #0d9488;
-      font-size: 0.875rem;
-      text-decoration: none;
-      display: inline-block;
-      margin-bottom: 1.5rem;
-    }
-    .blog-back:hover { text-decoration: underline; }
-    .blog-article-header h1 {
-      font-size: 2.25rem;
-      font-weight: 800;
-      color: #0f172a;
-      line-height: 1.3;
-      margin: 0 0 0.75rem;
-    }
-    .blog-meta {
-      color: #64748b;
-      font-size: 0.875rem;
-    }
-    .blog-content {
-      color: #334155;
-      font-size: 1.0625rem;
-      line-height: 1.8;
-    }
-    .blog-content h2 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 2.5rem 0 1rem;
-    }
-    .blog-content h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #0f172a;
-      margin: 2rem 0 0.75rem;
-    }
-    .blog-content p { margin: 0 0 1.25rem; }
-    .blog-content ul, .blog-content ol {
-      margin: 0 0 1.25rem;
-      padding-left: 1.5rem;
-    }
-    .blog-content li { margin-bottom: 0.5rem; }
-    .blog-content code {
-      background: #f1f5f9;
-      padding: 0.2rem 0.4rem;
-      border-radius: 0.25rem;
-      font-size: 0.875rem;
-    }
-    .blog-content pre {
-      background: #1e293b;
-      color: #e2e8f0;
-      padding: 1.25rem;
-      border-radius: 0.5rem;
-      overflow-x: auto;
-      margin: 0 0 1.25rem;
-      font-size: 0.875rem;
-      line-height: 1.6;
-    }
-    .blog-content strong { color: #0f172a; font-weight: 600; }
-    .blog-cta {
-      margin-top: 3rem;
-      padding: 2rem;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
-      text-align: center;
-    }
-    .blog-cta h3 {
-      color: #0f172a;
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin: 0 0 0.5rem;
-    }
-    .blog-cta p { color: #64748b; margin: 0 0 1.25rem; }
-    .blog-cta-btn {
-      display: inline-block;
-      background: #0d9488;
-      color: #fff;
-      padding: 0.75rem 1.5rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .blog-cta-btn:hover { background: #0f766e; }
-    .blog-footer {
-      text-align: center;
-      padding: 2rem;
-      border-top: 1px solid #e2e8f0;
-    }
-    .blog-footer a {
-      color: #64748b;
-      font-size: 0.8rem;
-      text-decoration: none;
-      margin: 0 0.5rem;
-    }
-    .blog-footer a:hover { color: #0d9488; }
-    .blog-footer p {
-      color: #94a3b8;
-      font-size: 0.7rem;
-      margin-top: 0.5rem;
-    }
+    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
+    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
+    .article-body { color: #3E3A33; font-size: 1.0625rem; line-height: 1.8; }
+    .article-body h2 { font-size: 1.5rem; font-weight: 700; color: #1A1714; margin: 2.5rem 0 1rem; }
+    .article-body h3 { font-size: 1.25rem; font-weight: 600; color: #1A1714; margin: 2rem 0 0.75rem; }
+    .article-body p { margin: 0 0 1.25rem; }
+    .article-body ul, .article-body ol { margin: 0 0 1.25rem; padding-left: 1.5rem; }
+    .article-body li { margin-bottom: 0.5rem; }
+    .article-body code { background: rgba(26,23,20,0.06); padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.875rem; }
+    .article-body pre { background: #0F0E0B; color: #EDE8DB; padding: 1.25rem; border-radius: 12px; overflow-x: auto; margin: 0 0 1.25rem; font-size: 0.875rem; line-height: 1.6; }
+    .article-body strong { color: #1A1714; font-weight: 600; }
+    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
+    .btn-primary:hover { transform: translateY(-1px); }
   `],
   template: `
-    <nav class="blog-nav">
-      <a routerLink="/" class="blog-logo"><img src="logo.svg" alt="Indifferent" /></a>
-      <a routerLink="/login" class="blog-signin">Sign In</a>
-    </nav>
-    <article class="blog-article">
-      <header class="blog-article-header">
-        <a routerLink="/blog" class="blog-back">&larr; Back to Blog</a>
-        <h1>Quiz File Format Guide: TXT Formatting Tips</h1>
-        <div class="blog-meta">Published January 5, 2025 · 6 min read</div>
-      </header>
-      <div class="blog-content">
+    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
+      <div class="max-w-3xl mx-auto px-4 pt-20 pb-6">
+        <a routerLink="/blog" class="text-[13px] text-[#6B6560] hover:text-[#1A1714]">&larr; Back to Blog</a>
+        <p class="mt-6 text-[11.5px] uppercase tracking-[0.22em] text-[#6B6560]">Guide · Quiz format</p>
+        <h1 class="serif mt-3 font-medium tracking-[-0.02em] leading-[1.05] text-[clamp(2rem,5vw,3rem)]">Quiz File Format Guide: TXT Formatting Tips</h1>
+        <p class="mt-3 text-[13px] text-[#6B6560]">Published January 5, 2025 · 6 min read</p>
+      </div>
+      <main class="max-w-3xl mx-auto px-4 pb-10">
+        <div class="article-body">
         <p>Getting your quiz file formatted correctly is the first step toward creating professional quiz videos with Indifferent. The platform supports multiple text formats and automatically detects the structure of your questions, but understanding the supported patterns will help you create files that parse perfectly every time. This guide covers everything you need to know about formatting quiz text files for optimal results.</p>
 
         <h2>Supported Formats</h2>
@@ -234,20 +112,35 @@ Answer: Gold</pre>
         <p>When the parser detects a question with fewer than two answer options, it flags it as potentially incomplete and will notify you during the upload process. Questions with no marked correct answer are similarly flagged, giving you the opportunity to fix issues before video generation begins.</p>
         <p>The parser also handles UTF-8 byte order marks that some text editors add automatically, ensuring compatibility across different operating systems and text editing tools. Whether you create your file in Notepad, TextEdit, VS Code, or any other editor, the output will parse correctly as long as you follow the formatting guidelines described above.</p>
       </div>
-      <div class="blog-cta">
-        <h3>Ready to create your first quiz video?</h3>
-        <p>Sign up free and convert your text quizzes into professional videos in minutes.</p>
-        <a routerLink="/login" class="blog-cta-btn">Get Started Free</a>
-      </div>
-    </article>
-    <footer class="blog-footer">
-      <a routerLink="/">Home</a>
-      <a routerLink="/about">About</a>
-      <a routerLink="/contact">Contact</a>
-      <a routerLink="/privacy">Privacy</a>
-      <a routerLink="/terms">Terms</a>
-      <p>&copy; 2025 Indifferent. All rights reserved.</p>
-    </footer>
+        <div class="mt-10 rounded-[20px] bg-[#1A1714] text-white px-6 py-8 text-center">
+          <p class="font-medium text-[19px]">Ready to create your first quiz video?</p>
+          <p class="mt-2 text-[14px] text-white/60">Sign up free and convert your text quizzes into professional videos in minutes.</p>
+          <a routerLink="/login" class="btn-primary mt-4 inline-block px-7 py-3 rounded-full bg-[#D96C3D] hover:bg-[#BC5227] transition-colors text-white font-semibold text-[14.5px]">Get Started Free</a>
+          <p class="mt-3 text-[13px]"><a routerLink="/features/txt-to-video-quiz" class="underline underline-offset-4 text-white/70 hover:text-white">How the quiz generator works →</a></p>
+        </div>
+      </main>
+      <footer class="border-t border-black/10 px-4 py-8">
+        <p class="text-center text-[12.5px] text-[#6B6560]">© {{ currentYear }} Indifferent · <a routerLink="/blog" class="underline underline-offset-4">Blog</a></p>
+      </footer>
+    </div>
   `,
 })
-export class QuizFileFormatGuideComponent {}
+export class QuizFileFormatGuideComponent implements OnInit {
+  private readonly title = inject(Title);
+  private readonly meta = inject(Meta);
+  private readonly document = inject(DOCUMENT);
+
+  currentYear = new Date().getFullYear();
+
+  ngOnInit(): void {
+    const url = 'https://indifferent.fun/blog/quiz-file-format-guide';
+    const description = 'Format quiz TXT files correctly: numbered, bulleted and tab-indented patterns, answer markers, and common mistakes to avoid.';
+    this.title.setTitle('Quiz File Format Guide: TXT Formatting Tips | Indifferent');
+    this.meta.updateTag({ name: 'description', content: description });
+    this.meta.updateTag({ property: 'og:title', content: 'Quiz File Format Guide: TXT Formatting Tips | Indifferent' });
+    this.meta.updateTag({ property: 'og:description', content: description });
+    this.meta.updateTag({ property: 'og:url', content: url });
+    this.meta.updateTag({ property: 'og:image', content: 'https://indifferent.fun/og-cover.jpg' });
+    setCanonical(this.document, url);
+  }
+}

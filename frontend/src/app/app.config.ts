@@ -1,5 +1,5 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection, APP_INITIALIZER, inject } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptorsFromDi } from '@angular/common/http';
 import { firstValueFrom, catchError, of } from 'rxjs';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -18,7 +18,10 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
+    provideRouter(
+      routes,
+      withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
+    ),
     provideHttpClient(withInterceptorsFromDi(), withFetch()),
     provideAnimationsAsync(),
     AUTH_INTERCEPTOR_PROVIDER,
