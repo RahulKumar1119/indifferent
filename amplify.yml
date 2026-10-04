@@ -9,6 +9,7 @@ applications:
         build:
           commands:
             - npx ng build --configuration production
+            - node scripts/prerender.mjs
       artifacts:
         baseDirectory: frontend/dist/frontend/browser
         files:

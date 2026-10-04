@@ -173,7 +173,7 @@ export class FeaturePageComponent implements OnInit {
     this.meta.updateTag({ property: 'og:description', content: this.data.description });
     this.meta.updateTag({ property: 'og:url', content: `https://indifferent.fun/features/${this.data.slug}` });
     this.meta.updateTag({ property: 'og:image', content: 'https://indifferent.fun/og-cover.jpg' });
-    setCanonical(`https://indifferent.fun/features/${this.data.slug}`);
+    setCanonical(this.document, `https://indifferent.fun/features/${this.data.slug}`);
     const script = this.document.createElement('script');
     script.type = 'application/ld+json';
     script.text = JSON.stringify({
