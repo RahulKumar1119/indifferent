@@ -194,6 +194,11 @@ type Clip struct {
 	Rank     int     `json:"rank"`
 	Score    float64 `json:"score"`
 	Duration float64 `json:"duration"`
+	// HookText carries the model's short label for copy/share captions.
+	HookText string `json:"hookText,omitempty"`
+	// Start/End locate the clip in the source for future caption rebuilds.
+	Start float64 `json:"start,omitempty"`
+	End   float64 `json:"end,omitempty"`
 }
 
 // Transcript is the normalized word-level transcription used by ranking/rendering.
