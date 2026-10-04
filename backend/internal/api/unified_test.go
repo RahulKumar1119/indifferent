@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/rahul/indifferent/backend/internal/auth"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/storage"
@@ -173,6 +175,107 @@ func keysOf(items map[string]map[string]dbtypes.AttributeValue) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+func seedShortsJob(db *captureDB, userID, jobID, status string) {
+	db.items["USER#"+userID+"|SHORTS#"+jobID] = map[string]dbtypes.AttributeValue{
+		"PK":             &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+		"SK":             &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
+		"jobId":          &dbtypes.AttributeValueMemberS{Value: jobID},
+		"status":         &dbtypes.AttributeValueMemberS{Value: status},
+		"fileType":       &dbtypes.AttributeValueMemberS{Value: "mp4"},
+		"sourceDuration": &dbtypes.AttributeValueMemberN{Value: "120"},
+		"sourceKey":      &dbtypes.AttributeValueMemberS{Value: "uploads/" + userID + "/" + jobID + "/source.mp4"},
+		"createdAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+		"updatedAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+	}
+}
+
+func TestCancelShorts_ActiveJob(t *testing.T) {
+	db := newCaptureDB()
+	seedShortsJob(db, "user1", "job1", "rendering")
+	var stopped string
+	h := newUnifiedTestHandler(db)
+	h.ShortsStateMachineARN = "arn:aws:states:us-east-1:123456789:stateMachine:shorts-pipe"
+	h.SFN = &mockSFN{
+		stopExecutionFunc: func(ctx context.Context, params *sfn.StopExecutionInput, optFns ...func(*sfn.Options)) (*sfn.StopExecutionOutput, error) {
+			stopped = aws.ToString(params.ExecutionArn)
+			return &sfn.StopExecutionOutput{}, nil
+		},
+	}
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/shorts/job1/cancel",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	wantARN := "arn:aws:states:us-east-1:123456789:execution:shorts-pipe:shorts-job1"
+	if stopped != wantARN {
+		t.Errorf("expected stop of %q, got %q", wantARN, stopped)
+	}
+	item := db.items["USER#user1|SHORTS#job1"]
+	if strVal(item, "status") != "failed" {
+		t.Errorf("expected job marked failed, got %+v", strVal(item, "status"))
+	}
+	if strVal(item, "error") != "Cancelled by user." {
+		t.Errorf("expected cancellation reason, got %q", strVal(item, "error"))
+	}
+}
+
+func TestCancelShorts_TerminalJobRejected(t *testing.T) {
+	for _, status := range []string{"completed", "failed"} {
+		db := newCaptureDB()
+		seedShortsJob(db, "user1", "job1", status)
+		stops := 0
+		h := newUnifiedTestHandler(db)
+		h.SFN = &mockSFN{
+			stopExecutionFunc: func(ctx context.Context, params *sfn.StopExecutionInput, optFns ...func(*sfn.Options)) (*sfn.StopExecutionOutput, error) {
+				stops++
+				return &sfn.StopExecutionOutput{}, nil
+			},
+		}
+		resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+			HTTPMethod: "POST",
+			Path:       "/shorts/job1/cancel",
+			Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+		})
+		if resp.StatusCode != 400 {
+			t.Errorf("status %s: got %d, want 400", status, resp.StatusCode)
+		}
+		if stops != 0 {
+			t.Errorf("status %s: must not stop a finished execution", status)
+		}
+	}
+}
+
+func TestCancelShorts_UnknownJob(t *testing.T) {
+	db := newCaptureDB()
+	h := newUnifiedTestHandler(db)
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/shorts/nope/cancel",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 404 {
+		t.Errorf("got status %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestShortsExecutionARN(t *testing.T) {
+	got, err := shortsExecutionARN("arn:aws:states:ap-south-1:438097524343:stateMachine:indifferent-fun-shorts-pipeline", "abc")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "arn:aws:states:ap-south-1:438097524343:execution:indifferent-fun-shorts-pipeline:shorts-abc"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if _, err := shortsExecutionARN("bogus", "abc"); err == nil {
+		t.Error("expected error for malformed ARN")
+	}
 }
 
 func TestProjectBranding_RoundTrip(t *testing.T) {

@@ -14,8 +14,9 @@ import (
 )
 
 type memDynamo struct {
-	items map[string]map[string]dbtypes.AttributeValue
-	err   error
+	items      map[string]map[string]dbtypes.AttributeValue
+	err        error
+	lastUpdate *dynamodb.UpdateItemInput
 }
 
 func (m *memDynamo) GetItem(ctx context.Context, in *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
@@ -28,6 +29,34 @@ func (m *memDynamo) GetItem(ctx context.Context, in *dynamodb.GetItemInput, optF
 		return &dynamodb.GetItemOutput{Item: item}, nil
 	}
 	return &dynamodb.GetItemOutput{}, nil
+}
+
+func (m *memDynamo) UpdateItem(ctx context.Context, in *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	pk, _ := in.Key["PK"].(*dbtypes.AttributeValueMemberS)
+	sk, _ := in.Key["SK"].(*dbtypes.AttributeValueMemberS)
+	key := pk.Value + "|" + sk.Value
+	item, ok := m.items[key]
+	if !ok {
+		item = map[string]dbtypes.AttributeValue{"PK": pk, "SK": sk}
+		m.items[key] = item
+	}
+	for k, v := range in.ExpressionAttributeValues {
+		switch k {
+		case ":p":
+			if n, ok := v.(*dbtypes.AttributeValueMemberN); ok {
+				item["progress"] = &dbtypes.AttributeValueMemberN{Value: n.Value}
+			}
+		case ":u":
+			if s, ok := v.(*dbtypes.AttributeValueMemberS); ok {
+				item["updatedAt"] = &dbtypes.AttributeValueMemberS{Value: s.Value}
+			}
+		}
+	}
+	m.lastUpdate = in
+	return &dynamodb.UpdateItemOutput{}, nil
 }
 
 func sAttr(v string) *dbtypes.AttributeValueMemberS {
@@ -137,6 +166,10 @@ func TestRender_BrandedClipOverlaysLogo(t *testing.T) {
 			calls = append(calls, args)
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED"), 0o644)
 		},
+		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
+			calls = append(calls, args)
+			return os.WriteFile(args[len(args)-1], []byte("RENDERED"), 0o644)
+		},
 	}
 	in := RenderInput{
 		JobID:         "j1",
@@ -183,6 +216,10 @@ func TestRender_LogoFailureStillRenders(t *testing.T) {
 		WorkDir:   workDir,
 		FetchLogo: func(ctx context.Context) ([]byte, error) { return nil, errors.New("dynamo down") },
 		RunCommand: func(name string, args []string) error {
+			calls++
+			return os.WriteFile(args[len(args)-1], []byte("RENDERED"), 0o644)
+		},
+		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
 			calls++
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED"), 0o644)
 		},

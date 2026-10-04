@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -306,6 +307,10 @@ func TestUpdateShortsStatus_Stages(t *testing.T) {
 			statusVal := mock.updateItemInput.ExpressionAttributeValues[":status"].(*types.AttributeValueMemberS).Value
 			if statusVal != stage {
 				t.Errorf("expected status %q, got %q", stage, statusVal)
+			}
+			progressVal := mock.updateItemInput.ExpressionAttributeValues[":progress"].(*types.AttributeValueMemberN).Value
+			if progressVal != strconv.Itoa(stageBaseProgress(stage)) {
+				t.Errorf("expected :progress %d for stage %q, got %q", stageBaseProgress(stage), stage, progressVal)
 			}
 			if _, ok := mock.updateItemInput.ExpressionAttributeValues[":updatedAt"]; !ok {
 				t.Error("expected :updatedAt to be set")

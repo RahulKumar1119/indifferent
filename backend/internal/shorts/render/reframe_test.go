@@ -289,6 +289,10 @@ func TestRender_UsesTrackedCrop(t *testing.T) {
 			vf = argValue(args, "-vf")
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
 		},
+		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
+			vf = argValue(args, "-vf")
+			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
+		},
 	}
 	in := RenderInput{
 		JobID:         "j1",
@@ -328,6 +332,10 @@ func TestRender_FacelessUsesFitFill(t *testing.T) {
 		ExtractFrames:   func(string, float64, float64) ([][]byte, error) { return [][]byte{[]byte("f")}, nil },
 		Detector:        &stubDetector{boxes: [][]FaceBox{{}}}, // cartoon/text: no faces
 		RunCommand: func(name string, args []string) error {
+			vf = argValue(args, "-vf")
+			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
+		},
+		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
 			vf = argValue(args, "-vf")
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
 		},
