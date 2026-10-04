@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
@@ -6,6 +6,9 @@ import { Subscription, interval } from 'rxjs';
 import { startWith, switchMap } from 'rxjs/operators';
 import gsap from 'gsap';
 import { ShortsJob, ShortsService, ShortsStatus } from './shorts.service';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { ToastsComponent } from '../../shared/components/toast/toasts.component';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -25,7 +28,7 @@ const STAGES: Stage[] = [
 @Component({
   selector: 'app-shorts-progress',
   standalone: true,
-  imports: [CommonModule, LucideDynamicIcon],
+  imports: [CommonModule, LucideDynamicIcon, NavbarComponent, ToastsComponent],
   styles: [`
     @keyframes eq-bounce {
       0%, 100% { transform: scaleY(0.3); }
@@ -41,6 +44,8 @@ const STAGES: Stage[] = [
     }
   `],
   template: `
+    <app-navbar></app-navbar>
+    <app-toasts></app-toasts>
     <div class="max-w-3xl mx-auto px-4 py-12">
       <h1 class="text-2xl font-bold text-center mb-2">Generating Your Shorts</h1>
       <p class="text-center text-[hsl(var(--muted-foreground))] mb-8">
@@ -132,7 +137,7 @@ const STAGES: Stage[] = [
         } @else if (status && status !== 'completed' && status !== 'failed') {
           <div class="mt-6 text-center">
             <button
-              class="px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm"
+              class="btn-interactive px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm"
               [disabled]="cancelling"
               (click)="cancel()"
             >
@@ -188,10 +193,11 @@ export class ShortsProgressComponent implements OnInit, OnDestroy {
     { h: 85, d: '0.45s' },
     { h: 60, d: '0.6s' },
   ];
-
-  constructor(    private readonly route: ActivatedRoute,
+  constructor(
+    private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly shorts: ShortsService,
+    private readonly toasts: ToastService,
     private readonly host: ElementRef,
   ) {}
 
@@ -254,6 +260,7 @@ export class ShortsProgressComponent implements OnInit, OnDestroy {
         this.cancelling = false;
         this.cancelDone = true;
         this.pollSub?.unsubscribe();
+        this.toasts.show('Processing cancelled.', 'info');
         setTimeout(() => this.router.navigate(['/shorts/history']), 1200);
       },
       error: () => {

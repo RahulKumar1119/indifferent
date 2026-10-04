@@ -1,9 +1,12 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import JSZip from 'jszip';
 import { Clip, ShortsService } from './shorts.service';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { ToastsComponent } from '../../shared/components/toast/toasts.component';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 /** Hover previews play at most this long before pausing again. */
 const HOVER_PREVIEW_MS = 2000;
@@ -11,7 +14,7 @@ const HOVER_PREVIEW_MS = 2000;
 @Component({
   selector: 'app-shorts-gallery',
   standalone: true,
-  imports: [CommonModule, LucideDynamicIcon],
+  imports: [CommonModule, LucideDynamicIcon, NavbarComponent, ToastsComponent],
   styles: [`
     @keyframes card-in {
       from { opacity: 0; transform: translateY(14px); }
@@ -23,6 +26,8 @@ const HOVER_PREVIEW_MS = 2000;
     }
   `],
   template: `
+    <app-navbar></app-navbar>
+    <app-toasts></app-toasts>
     <div class="max-w-7xl mx-auto px-4 py-8">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
@@ -34,7 +39,7 @@ const HOVER_PREVIEW_MS = 2000;
         <div class="flex items-center gap-2">
           @if (clips.length > 1) {
             <button
-              class="px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium disabled:opacity-50"
+              class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium disabled:opacity-50"
               [disabled]="zipping"
               (click)="downloadAll()"
             >
@@ -45,14 +50,14 @@ const HOVER_PREVIEW_MS = 2000;
               }
             </button>
             <button
-              class="px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
+              class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
               (click)="copyAllCaptions()"
             >
               {{ allCopied ? 'Copied!' : 'Copy all captions' }}
             </button>
           }
           <button
-            class="px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
+            class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
             (click)="goToUpload()"
           >
             New Shorts
@@ -61,9 +66,10 @@ const HOVER_PREVIEW_MS = 2000;
       </div>
 
       @if (isLoading) {
-        <div class="glass-card p-10 text-center">
-          <svg lucideIcon="loader-2" [size]="32" class="mx-auto text-[hsl(var(--primary))] animate-spin"></svg>
-          <p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]">Loading clips…</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" aria-label="Loading clips">
+          @for (i of [1,2,3,4]; track i) {
+            <div class="skeleton aspect-[9/16] rounded-xl"></div>
+          }
         </div>
       }
 
@@ -217,6 +223,7 @@ export class ShortsGalleryComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly shorts: ShortsService,
+    private readonly toasts: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -244,9 +251,9 @@ export class ShortsGalleryComponent implements OnInit {
 
   scoreColor(clip: Clip): string {
     const pct = this.scorePercent(clip);
-    if (pct > 80) return '#22c55e';
-    if (pct >= 50) return '#eab308';
-    return '#f97316';
+    if (pct > 80) return 'var(--color-success)';
+    if (pct >= 50) return 'var(--color-warning)';
+    return 'var(--color-error)';
   }
 
   ringDash(clip: Clip): string {
@@ -329,6 +336,7 @@ export class ShortsGalleryComponent implements OnInit {
     this.copyText(this.captionText(clip)).then((ok) => {
       if (ok) {
         this.copied[clip.clipId] = true;
+        this.toasts.show('Caption copied to clipboard.', 'success');
         setTimeout(() => { this.copied[clip.clipId] = false; }, 2000);
       } else {
         this.error = 'Copy failed. Please try again.';
@@ -341,6 +349,7 @@ export class ShortsGalleryComponent implements OnInit {
     this.copyText(text).then((ok) => {
       if (ok) {
         this.allCopied = true;
+        this.toasts.show(`${this.clips.length} captions copied to clipboard.`, 'success');
         setTimeout(() => { this.allCopied = false; }, 2000);
       } else {
         this.error = 'Copy failed. Please try again.';
@@ -368,6 +377,7 @@ export class ShortsGalleryComponent implements OnInit {
       const objectUrl = URL.createObjectURL(content);
       this.triggerDownload(objectUrl, 'shorts.zip');
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      this.toasts.show(`Downloaded ${this.clips.length} clips as ZIP.`, 'success');
     } catch {
       this.error = 'ZIP download failed. Please try clips individually.';
     } finally {

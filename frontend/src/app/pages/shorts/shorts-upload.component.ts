@@ -1,8 +1,11 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ShortsService } from './shorts.service';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { ToastsComponent } from '../../shared/components/toast/toasts.component';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 const MAX_DURATION_SECONDS = 600; // 10 minutes (Requirement 9.1)
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB
@@ -11,7 +14,7 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
 @Component({
   selector: 'app-shorts-upload',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideDynamicIcon],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent],
   styles: [`
     .dropzone {
       border-width: 2px;
@@ -36,6 +39,8 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
     }
   `],
   template: `
+    <app-navbar></app-navbar>
+    <app-toasts></app-toasts>
     <div
       class="min-h-[100dvh] flex flex-col px-4 py-8 max-w-5xl mx-auto w-full"
       (dragover)="onDragOver($event)"
@@ -200,7 +205,7 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
       <!-- Submit -->
       <div class="flex justify-end mt-6">
         <button
-          class="glow-btn"
+          class="glow-btn btn-interactive"
           [disabled]="!selectedFile || !!error || isUploading || isProbing"
           [class.opacity-50]="!selectedFile || !!error || isUploading || isProbing"
           [class.pointer-events-none]="!selectedFile || !!error || isUploading || isProbing"
