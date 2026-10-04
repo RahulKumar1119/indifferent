@@ -76,13 +76,13 @@ import { RouterLink } from '@angular/router';
                     <span class="block text-white text-[13.5px] font-medium">Teachers &amp; educators</span>
                     <span class="block text-white/50 text-[12px] mt-0.5">Lesson recaps &amp; revision</span>
                   </a>
-                  <a routerLink="/" fragment="use-events" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">Trivia hosts</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Nights &amp; live events</span>
+                  <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                    <span class="block text-white text-[13.5px] font-medium">AI narration</span>
+                    <span class="block text-white/50 text-[12px] mt-0.5">5 voices, timed delivery</span>
                   </a>
-                  <a routerLink="/" fragment="use-teams" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">Corporate trainers</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Training &amp; onboarding</span>
+                  <a routerLink="/blog/video-template-comparison" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                    <span class="block text-white text-[13.5px] font-medium">Video templates</span>
+                    <span class="block text-white/50 text-[12px] mt-0.5">Classic to Neon styles</span>
                   </a>
                 </div>
               </div>
@@ -318,18 +318,7 @@ import { RouterLink } from '@angular/router';
         <img src="https://picsum.photos/seed/indifferent-manifesto/1800/900" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover opacity-25">
         <div class="absolute inset-0" style="background: linear-gradient(to bottom, #0F0E0B, rgba(15,14,11,0.75) 45%, #0F0E0B);"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-24 md:pt-32 pb-10">
-          <h2 class="reveal serif font-medium text-center leading-[1.0] tracking-[-0.02em] text-[clamp(2.2rem,5.5vw,4.2rem)] max-w-[20ch] mx-auto text-balance">Never a generic slideshow again.</h2>
-          <p class="reveal mt-5 text-center text-white/65 max-w-[58ch] mx-auto leading-relaxed">Timed questions, spoken narration, answer reveals scored to the frame. Indifferent directs each file like a small broadcast.</p>
-
-          <form (submit)="$event.preventDefault()" class="reveal mt-10 mx-auto max-w-[520px] rounded-[20px] p-2 bg-white/[0.06] border border-white/12 backdrop-blur flex flex-col sm:flex-row gap-2">
-            <label for="newsletter-email" class="sr-only">Email address</label>
-            <input id="newsletter-email" type="email" required placeholder="you@studio.com"
-              class="flex-1 rounded-[12px] bg-transparent px-5 h-12 text-[15px] placeholder:text-white/35 outline-none border border-transparent focus:border-white/30">
-            <button type="submit" class="btn-primary rounded-full bg-[#E8E0D2] text-[#141310] px-7 h-12 font-semibold text-[14.5px]">Subscribe</button>
-          </form>
-          <p class="reveal mt-3 text-center text-[12.5px] text-white/45">Bi-weekly notes on pacing, voices, and retention. Nothing else.</p>
-
-          <footer class="mt-20 border-t border-white/10 pt-10">
+          <footer class="border-t border-white/10 pt-10">
             <p class="serif text-center leading-none tracking-[-0.03em] text-[clamp(3.5rem,14vw,11rem)] text-[#F4EFE6]/95 select-none">INDIFFERENT</p>
             <div class="mt-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-[14px]">
               <div>
