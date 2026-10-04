@@ -19,6 +19,9 @@ export interface Clip {
   rank: number;
   score: number;
   duration: number;
+  hookText?: string;
+  start?: number;
+  end?: number;
 }
 
 /** Response from GET /shorts/{id}/clips/{clipId}/url. Archived clips answer

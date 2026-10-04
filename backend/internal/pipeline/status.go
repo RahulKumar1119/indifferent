@@ -186,6 +186,9 @@ func segmentsToClips(userID, jobID string, segments []models.RankedSegment) []mo
 			Rank:     s.Rank,
 			Score:    s.Score,
 			Duration: s.End - s.Start,
+			HookText: s.HookText,
+			Start:    s.Start,
+			End:      s.End,
 		})
 	}
 	return clips
