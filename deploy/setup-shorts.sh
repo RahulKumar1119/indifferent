@@ -317,7 +317,7 @@ aws ecs register-task-definition \
   --cpu 1024 --memory 4096 \
   --execution-role-arn arn:aws:iam::${ACCOUNT_ID}:role/${PROJECT}-shorts-task-exec-role \
   --task-role-arn arn:aws:iam::${ACCOUNT_ID}:role/${PROJECT}-shorts-task-role \
-  --container-definitions "[{\"name\":\"shorts-render\",\"image\":\"${SHORTS_RENDER_IMAGE}\",\"essential\":true,\"environment\":[{\"name\":\"S3_BUCKET\",\"value\":\"${PROJECT}-assets\"}],\"logConfiguration\":{\"logDriver\":\"awslogs\",\"options\":{\"awslogs-group\":\"/ecs/${PROJECT}-shorts-render\",\"awslogs-region\":\"${REGION}\",\"awslogs-stream-prefix\":\"render\"}}}]" \
+  --container-definitions "[{\"name\":\"shorts-render\",\"image\":\"${SHORTS_RENDER_IMAGE}\",\"essential\":true,\"environment\":[{\"name\":\"S3_BUCKET\",\"value\":\"${PROJECT}-assets\"},{\"name\":\"DYNAMODB_TABLE\",\"value\":\"${PROJECT}-projects\"}],\"logConfiguration\":{\"logDriver\":\"awslogs\",\"options\":{\"awslogs-group\":\"/ecs/${PROJECT}-shorts-render\",\"awslogs-region\":\"${REGION}\",\"awslogs-stream-prefix\":\"render\"}}}]" \
   --region $REGION
 
 # ===========================================================================

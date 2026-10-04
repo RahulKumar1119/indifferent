@@ -16,6 +16,7 @@ import (
 // CompositorInterface defines the video composition contract.
 type CompositorInterface interface {
 	ComposeVideo(ctx context.Context, workDir string, slideFiles, audioFiles []string) (string, error)
+	ApplyLogoOverlay(workDir, videoPath, logoPath string) (string, error)
 }
 
 // ThumbnailInterface defines thumbnail generation operations.
@@ -50,6 +51,13 @@ func (s *SimpleCompositor) ComposeVideo(ctx context.Context, workDir string, sli
 	}
 
 	return compositor.ComposeVideo(ctx, segments, outroSlide)
+}
+
+// ApplyLogoOverlay implements CompositorInterface by delegating to a
+// Compositor bound to the caller's work directory.
+func (s *SimpleCompositor) ApplyLogoOverlay(workDir, videoPath, logoPath string) (string, error) {
+	compositor := NewCompositor(DefaultConfig(), workDir)
+	return compositor.applyLogoOverlay(workDir, videoPath, logoPath)
 }
 
 // StorageClient defines S3 operations needed by the renderer.
@@ -105,6 +113,16 @@ func (h *Handler) HandleRequest(ctx context.Context, input models.RendererInput)
 		return models.RendererOutput{}, fmt.Errorf("failed to compose video: %w", err)
 	}
 
+	// Optional brand logo overlay (top-right). Fail-soft: a missing logo
+	// must never block the finished video.
+	if input.LogoKey != "" {
+		if branded, berr := h.applyBranding(ctx, workDir, videoPath, input.LogoKey); berr != nil {
+			fmt.Printf("branding skipped: %v\n", berr)
+		} else {
+			videoPath = branded
+		}
+	}
+
 	// Generate thumbnail from first slide
 	thumbnailPath := filepath.Join(workDir, "thumbnail.png")
 	if len(slideFiles) > 0 {
@@ -141,6 +159,20 @@ func (h *Handler) HandleRequest(ctx context.Context, input models.RendererInput)
 		VideoKey:     videoKey,
 		ThumbnailKey: thumbnailKey,
 	}, nil
+}
+
+// applyBranding downloads the project logo and burns it onto the finished
+// video, returning the branded file path.
+func (h *Handler) applyBranding(ctx context.Context, workDir, videoPath, logoKey string) (string, error) {
+	logoData, err := h.Storage.GetObject(ctx, h.Bucket, logoKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to download logo: %w", err)
+	}
+	logoPath := filepath.Join(workDir, "logo.png")
+	if err := os.WriteFile(logoPath, logoData, 0o644); err != nil {
+		return "", fmt.Errorf("failed to write logo: %w", err)
+	}
+	return h.Compositor.ApplyLogoOverlay(workDir, videoPath, logoPath)
 }
 
 // safeFileExt extracts a safe file extension from a key, stripping any path

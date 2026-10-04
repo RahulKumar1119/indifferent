@@ -26,6 +26,14 @@ export interface Project {
   shortsJobIds?: string[];
   /** Saved watermark preferences (unified project). */
   watermark?: WatermarkSettings;
+  /** Custom branding burned into renders (unified project). */
+  branding?: Branding;
+}
+
+/** Project branding: uploaded logo overlay + channel handle. */
+export interface Branding {
+  logoKey?: string;
+  channelName?: string;
 }
 
 /** Watermark preferences saved on a project (mirrors the watermark tool). */
@@ -51,6 +59,7 @@ export interface CreateProjectRequest {
   template: Template;
   voice: Voice;
   watermark?: WatermarkSettings;
+  branding?: Branding;
   shorts?: {
     fileType: string;
     duration: number;

@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/rekognition"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/shorts/render"
@@ -74,14 +75,25 @@ func run(ctx context.Context) error {
 
 	renderer := render.NewRenderer(s3Client, bucket, workDir)
 
-	// Subject-aware reframing: Rekognition face detection pans the 9:16
-	// crop window onto the speaker instead of blindly center-cropping.
-	// Any detection failure falls back to center inside the renderer,
-	// so this is best-effort by design.
-	if cfg, err := config.LoadDefaultConfig(ctx); err != nil {
-		log.Printf("reframe disabled: failed to load AWS config: %v", err)
+	cfg, cfgErr := config.LoadDefaultConfig(ctx)
+	if cfgErr != nil {
+		log.Printf("reframe disabled: failed to load AWS config: %v", cfgErr)
 	} else {
+		// Subject-aware reframing: Rekognition face detection pans the 9:16
+		// crop window onto the speaker instead of blindly center-cropping.
+		// Any detection failure falls back to center inside the renderer,
+		// so this is best-effort by design.
 		renderer.Detector = render.NewRekognitionFaceDetector(rekognition.NewFromConfig(cfg))
+	}
+
+	// Project branding: overlay the linked project's logo when present.
+	// Missing table env, unlinked jobs, or download failures all fall back
+	// to unbranded inside the renderer.
+	if cfgErr == nil {
+		if table := os.Getenv("DYNAMODB_TABLE"); table != "" {
+			dbClient := dynamodb.NewFromConfig(cfg)
+			renderer.FetchLogo = render.NewLogoFetcher(dbClient, table, userID, jobID, s3Client, bucket)
+		}
 	}
 
 	in := render.RenderInput{
