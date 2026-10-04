@@ -5,12 +5,36 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import { ShortsService } from './shorts.service';
 
 const MAX_DURATION_SECONDS = 600; // 10 minutes (Requirement 9.1)
+const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB
 const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
 
 @Component({
   selector: 'app-shorts-upload',
   standalone: true,
-  imports: [CommonModule, LucideDynamicIcon],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon],
+  styles: [`
+    .dropzone {
+      border-width: 2px;
+      border-style: dashed;
+      border-color: rgb(75 85 99); /* gray-600 */
+    }
+    /* Magnetism: the active drop area extends 20px beyond the visible border. */
+    .dropzone::before {
+      content: '';
+      position: absolute;
+      inset: -20px;
+      border-radius: 1rem;
+      pointer-events: none;
+    }
+    .dropzone-active {
+      border-style: solid;
+      border-color: rgb(99 102 241); /* indigo-500 */
+      box-shadow: 0 0 30px rgba(99, 102, 241, 0.25);
+    }
+    .dropzone-active::before {
+      border: 2px dashed rgba(99, 102, 241, 0.5);
+    }
+  `],
   template: `
     <div
       class="min-h-[100dvh] flex flex-col px-4 py-8 max-w-5xl mx-auto w-full"
@@ -59,15 +83,14 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
 
       <!-- Full-viewport drop zone -->
       <div
-        class="relative flex-1 mt-4 glass-card p-10 text-center transition-all cursor-pointer flex flex-col items-center justify-center min-h-[46dvh]"
-        [class.!border-[hsl(var(--primary))]]="isDragOver"
-        [class.!shadow-[0_0_30px_rgba(120,60,255,0.2)]]="isDragOver"
+        class="dropzone relative flex-1 mt-4 glass-card p-10 text-center transition-all cursor-pointer flex flex-col items-center justify-center min-h-[400px]"
+        [class.dropzone-active]="isDragOver"
         [class.!border-green-500]="selectedFile && !error"
         (click)="fileInput.click()"
         (keydown.enter)="fileInput.click()"
         tabindex="0"
         role="button"
-        aria-label="Drop zone for media file upload. Accepts MP4, MOV, MP3, WAV up to 10 minutes."
+        aria-label="Drop zone for media file upload. Accepts MP4, MOV, MP3, WAV up to 10 minutes and 500 MB."
       >
         <input
           #fileInput
@@ -84,13 +107,30 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
               <svg lucideIcon="upload" [size]="36" class="text-[hsl(var(--primary))]" [class.animate-pulse]="isDragOver"></svg>
             </div>
             <p class="text-xl font-medium">{{ isDragOver ? 'Drop it — we take it from here' : 'Drag & drop anywhere on this page' }}</p>
+            <p class="text-sm font-medium text-[hsl(var(--foreground))]">MP4, MOV, MP3, WAV · Max 10 min · Max 500 MB</p>
             <p class="text-sm text-[hsl(var(--muted-foreground))]">or</p>
             <button
-              class="px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
+              class="px-6 py-3 rounded-lg bg-[hsl(var(--primary))] text-white hover:opacity-90 transition-opacity text-sm font-semibold min-h-[48px] min-w-[200px]"
               (click)="$event.stopPropagation()"
             >
-              Browse Files
+              or click to browse
             </button>
+          </div>
+        }
+
+        @if (isDragOver && !selectedFile) {
+          <div class="pointer-events-none absolute inset-4 rounded-xl border-2 border-dashed border-indigo-400/60 bg-indigo-500/10 backdrop-blur-[1px] flex items-center justify-center gap-4 p-6">
+            @if (dragPreviewUrl) {
+              <video [src]="dragPreviewUrl" muted playsinline class="h-24 rounded-lg opacity-70"></video>
+            } @else {
+              <svg lucideIcon="file-text" [size]="40" class="text-indigo-300 opacity-70"></svg>
+            }
+            <div class="text-left">
+              <p class="text-lg font-medium text-indigo-200">Release to upload</p>
+              @if (dragFileName) {
+                <p class="text-sm text-indigo-200/70 truncate max-w-[240px]">{{ dragFileName }}</p>
+              }
+            </div>
           </div>
         }
 
@@ -104,20 +144,29 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
         }
 
         @if (selectedFile && !error && !isProbing) {
-          <div class="space-y-3">
-            <div class="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto">
-              <svg lucideIcon="file-text" [size]="32" class="text-green-400"></svg>
+          <div class="mx-auto w-full max-w-md rounded-xl border border-green-500/40 bg-green-500/5 p-4 flex items-center gap-4 text-left">
+            @if (previewUrl && !isAudioFile) {
+              <video [src]="previewUrl" muted playsinline preload="metadata" class="h-20 w-14 shrink-0 rounded-lg object-cover bg-black"></video>
+            } @else {
+              <div class="h-20 w-14 shrink-0 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <svg lucideIcon="file-text" [size]="28" class="text-green-400"></svg>
+              </div>
+            }
+            <div class="flex-1 min-w-0">
+              <p class="font-medium truncate">{{ selectedFile.name }}</p>
+              <p class="text-sm text-[hsl(var(--muted-foreground))]">
+                {{ formatFileSize(selectedFile.size) }} · {{ formatDuration(durationSeconds) }}
+              </p>
+              <button
+                class="mt-1 text-sm font-medium text-[hsl(var(--primary))] underline underline-offset-4"
+                (click)="replaceFile($event); fileInput.click()"
+              >
+                Replace
+              </button>
             </div>
-            <p class="text-lg font-medium">{{ selectedFile.name }}</p>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">
-              {{ formatFileSize(selectedFile.size) }} · {{ formatDuration(durationSeconds) }}
-            </p>
-            <button
-              class="px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm"
-              (click)="removeFile($event)"
-            >
-              Remove
-            </button>
+            <span class="shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center" aria-label="File ready">
+              <svg lucideIcon="check" [size]="18" class="text-white"></svg>
+            </span>
           </div>
         }
       </div>
@@ -189,6 +238,9 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   uploadError = '';
   isUploading = false;
   uploadProgress = -1;
+  previewUrl: string | null = null;
+  dragFileName = '';
+  dragPreviewUrl: string | null = null;
 
   private readonly preventWindowDrop = (event: DragEvent): void => {
     // Drops outside the zone must never navigate the browser away.
@@ -210,25 +262,53 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     window.removeEventListener('drop', this.preventWindowDrop);
   }
 
+  get isAudioFile(): boolean {
+    return this.fileType === 'mp3' || this.fileType === 'wav';
+  }
+
   onDragOver(event: DragEvent): void {
     event.preventDefault();
     event.stopPropagation();
     this.isDragOver = true;
+    // Ghost preview: file metadata is readable mid-drag; thumbnail is
+    // best-effort (some browsers withhold file handles until drop).
+    try {
+      const file = event.dataTransfer?.files?.[0];
+      if (file && !this.dragFileName) {
+        this.dragFileName = file.name;
+        if (file.type.startsWith('video/')) {
+          this.clearDragPreview();
+          this.dragPreviewUrl = URL.createObjectURL(file);
+        }
+      }
+    } catch {
+      // Ignore: ghost stays generic.
+    }
   }
 
   onDragLeave(event: DragEvent): void {
     event.preventDefault();
     event.stopPropagation();
     this.isDragOver = false;
+    this.clearDragPreview();
   }
 
   onDrop(event: DragEvent): void {
     event.preventDefault();
     event.stopPropagation();
     this.isDragOver = false;
+    this.clearDragPreview();
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
       this.handleFile(files[0]);
+    }
+  }
+
+  private clearDragPreview(): void {
+    this.dragFileName = '';
+    if (this.dragPreviewUrl) {
+      URL.revokeObjectURL(this.dragPreviewUrl);
+      this.dragPreviewUrl = null;
     }
   }
 
@@ -240,6 +320,11 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   }
 
   removeFile(event: Event): void {
+    event.stopPropagation();
+    this.reset();
+  }
+
+  replaceFile(event: Event): void {
     event.stopPropagation();
     this.reset();
   }
@@ -286,8 +371,17 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      this.error = 'File is too large. Maximum size is 500 MB.';
+      this.selectedFile = file;
+      return;
+    }
+
     this.selectedFile = file;
     this.fileType = ext;
+    if (ext === 'mp4' || ext === 'mov') {
+      this.previewUrl = URL.createObjectURL(file);
+    }
     this.probeDuration(file, ext);
   }
 
@@ -375,6 +469,11 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   }
 
   private reset(): void {
+    if (this.previewUrl) {
+      URL.revokeObjectURL(this.previewUrl);
+      this.previewUrl = null;
+    }
+    this.clearDragPreview();
     this.selectedFile = null;
     this.fileType = '';
     this.durationSeconds = 0;
