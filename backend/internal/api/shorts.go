@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -187,6 +188,59 @@ func (h *APIHandler) handleStartShorts(ctx context.Context, req events.APIGatewa
 	return jsonResponse(http.StatusOK, map[string]string{
 		"status": "started",
 	}), nil
+}
+
+// handleCancelShorts stops a running shorts pipeline execution and marks the
+// job failed. Terminal jobs are rejected; stopping an already-finished
+// execution is treated as success (the job record is the source of truth).
+func (h *APIHandler) handleCancelShorts(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	jobID := extractShortsIDFromSubpath(req.Path, "/cancel")
+	if jobID == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Job ID is required"), nil
+	}
+
+	job, err := h.getShortsJobByID(ctx, claims.UserID, jobID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
+	}
+	if job.Status == "completed" || job.Status == "failed" {
+		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Job is already finished"), nil
+	}
+
+	executionARN, err := shortsExecutionARN(h.ShortsStateMachineARN, jobID)
+	if err != nil {
+		return errorResponse(http.StatusInternalServerError, "PIPELINE_ERROR", "Failed to stop processing pipeline"), nil
+	}
+	// Best effort: the execution may already be gone; the record update below
+	// is what the UI observes.
+	_, _ = h.SFN.StopExecution(ctx, &sfn.StopExecutionInput{
+		ExecutionArn: aws.String(executionARN),
+	})
+
+	job.Status = "failed"
+	job.Error = "Cancelled by user."
+	job.Progress = 0
+	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(h.TableName),
+		Item:      shortsJobToItem(*job),
+	}); err != nil {
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to cancel job"), nil
+	}
+
+	return jsonResponse(http.StatusOK, map[string]string{
+		"status": "cancelled",
+	}), nil
+}
+
+// shortsExecutionARN derives the execution ARN from the state machine ARN and
+// the deterministic execution name used at start ("shorts-<jobID>").
+func shortsExecutionARN(stateMachineARN, jobID string) (string, error) {
+	const marker = ":stateMachine:"
+	i := strings.Index(stateMachineARN, marker)
+	if i < 0 || jobID == "" {
+		return "", fmt.Errorf("invalid state machine ARN")
+	}
+	return stateMachineARN[:i] + ":execution:" + stateMachineARN[i+len(marker):] + ":shorts-" + jobID, nil
 }
 
 // handleGetShorts returns the current shorts job (status and metadata).
@@ -387,6 +441,12 @@ func shortsJobToItem(j models.ShortsJob) map[string]dbtypes.AttributeValue {
 	if j.ProjectID != "" {
 		item["projectId"] = &dbtypes.AttributeValueMemberS{Value: j.ProjectID}
 	}
+	if j.Progress > 0 {
+		item["progress"] = &dbtypes.AttributeValueMemberN{Value: strconv.Itoa(j.Progress)}
+	}
+	if j.ProgressDetail != "" {
+		item["progressDetail"] = &dbtypes.AttributeValueMemberS{Value: j.ProgressDetail}
+	}
 	if len(j.Segments) > 0 {
 		if b, err := json.Marshal(j.Segments); err == nil {
 			item["segments"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
@@ -432,6 +492,14 @@ func itemToShortsJob(item map[string]dbtypes.AttributeValue) models.ShortsJob {
 	}
 	if v, ok := item["projectId"].(*dbtypes.AttributeValueMemberS); ok {
 		j.ProjectID = v.Value
+	}
+	if v, ok := item["progress"].(*dbtypes.AttributeValueMemberN); ok {
+		if n, err := strconv.Atoi(v.Value); err == nil {
+			j.Progress = n
+		}
+	}
+	if v, ok := item["progressDetail"].(*dbtypes.AttributeValueMemberS); ok {
+		j.ProgressDetail = v.Value
 	}
 	if v, ok := item["segments"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
 		_ = json.Unmarshal([]byte(v.Value), &j.Segments)

@@ -147,7 +147,7 @@ cat > /tmp/lambda-policy.json << 'EOF'
     },
     {
       "Effect": "Allow",
-      "Action": ["states:StartExecution"],
+      "Action": ["states:StartExecution","states:StopExecution"],
       "Resource": "arn:aws:states:ap-south-1:*:stateMachine:indifferent-fun-*"
     }
   ]

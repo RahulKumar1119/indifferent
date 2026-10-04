@@ -86,13 +86,13 @@ func run(ctx context.Context) error {
 		renderer.Detector = render.NewRekognitionFaceDetector(rekognition.NewFromConfig(cfg))
 	}
 
-	// Project branding: overlay the linked project's logo when present.
-	// Missing table env, unlinked jobs, or download failures all fall back
-	// to unbranded inside the renderer.
+	// Render progress + project branding share one DynamoDB client.
 	if cfgErr == nil {
+		dbClient := dynamodb.NewFromConfig(cfg)
 		if table := os.Getenv("DYNAMODB_TABLE"); table != "" {
-			dbClient := dynamodb.NewFromConfig(cfg)
 			renderer.FetchLogo = render.NewLogoFetcher(dbClient, table, userID, jobID, s3Client, bucket)
+			renderer.Table = table
+			renderer.Dynamo = dbClient
 		}
 	}
 

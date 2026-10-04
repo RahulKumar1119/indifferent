@@ -52,6 +52,7 @@ type DynamoDBAPI interface {
 // SFNClient defines the Step Functions operations needed by the API handler.
 type SFNClient interface {
 	StartExecution(ctx context.Context, params *sfn.StartExecutionInput, optFns ...func(*sfn.Options)) (*sfn.StartExecutionOutput, error)
+	StopExecution(ctx context.Context, params *sfn.StopExecutionInput, optFns ...func(*sfn.Options)) (*sfn.StopExecutionOutput, error)
 }
 
 // APIHandler handles all API Gateway proxy requests.
@@ -128,6 +129,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleListShortsJobs)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/start"):
 		return h.handleWithAuth(ctx, req, h.handleStartShorts)
+	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/cancel"):
+		return h.handleWithAuth(ctx, req, h.handleCancelShorts)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/url"):
 		return h.handleWithAuth(ctx, req, h.handleGetClipURL)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/clips"):

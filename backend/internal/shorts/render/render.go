@@ -1,6 +1,7 @@
 package render
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,7 +10,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/storage"
 )
@@ -77,6 +83,22 @@ type Renderer struct {
 	// rendered, or (nil, nil) when unbranded. Injectable; defaults to nil
 	// (no overlay). Failures must fall back to unbranded, never fail render.
 	FetchLogo func(ctx context.Context) ([]byte, error)
+	// Table is the DynamoDB table holding SHORTS# job records for progress
+	// writes. Empty disables progress reporting.
+	Table string
+	// Dynamo performs progress writes. Injectable for tests.
+	Dynamo DynamoUpdater
+	// ProgressReporter receives throttled 0-99 progress reports during the
+	// render. Defaults to a DynamoDB update when Table+Dynamo are set.
+	ProgressReporter func(ctx context.Context, in RenderInput, percent int) error
+	// RunCommandProgress runs ffmpeg while streaming -progress output.
+	// Injectable; defaults to a real exec parsing out_time_ms.
+	RunCommandProgress func(name string, args []string, duration float64, onProgress func(int)) error
+}
+
+// DynamoUpdater is the subset of the DynamoDB API used for progress writes.
+type DynamoUpdater interface {
+	UpdateItem(ctx context.Context, in *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
 }
 
 // logoOverlayWidth is the on-screen width of the brand logo on a 1080x1920
@@ -284,7 +306,97 @@ func defaultProbeDimensions(path string) (int, int, error) {
 	return parsed.Streams[0].Width, parsed.Streams[0].Height, nil
 }
 
-// defaultExtractFrames samples up to maxSampleFrames JPEG frames (scaled to
+// utcNow renders the current UTC time for DynamoDB timestamp attributes.
+func utcNow() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}
+
+// progressReportStep is the minimum percent delta between DynamoDB progress
+// writes: a 30s clip reports ~6 times instead of hundreds.
+const progressReportStep = 5
+
+// progressPercent converts an ffmpeg out_time_ms value to 0-99 percent of the
+// clip duration. It returns -1 for lines carrying no timestamp.
+func progressPercent(line string, duration float64) int {
+	const prefix = "out_time_ms="
+	if !strings.HasPrefix(line, prefix) || duration <= 0 {
+		return -1
+	}
+	ms, err := strconv.ParseInt(strings.TrimSpace(strings.TrimPrefix(line, prefix)), 10, 64)
+	if err != nil || ms < 0 {
+		return -1
+	}
+	pct := int(float64(ms) / 1e6 / duration * 100)
+	if pct < 0 {
+		return 0
+	}
+	if pct > 99 {
+		return 99
+	}
+	return pct
+}
+
+// defaultRunCommandProgress runs ffmpeg with -progress pipe:1 and streams
+// out_time_ms timestamps to onProgress (throttled to 5-point steps).
+// FFmpeg diagnostics go to the task log; only progress lines are parsed.
+func defaultRunCommandProgress(name string, args []string, duration float64, onProgress func(int)) error {
+	full := append([]string{"-progress", "pipe:1", "-nostats"}, args...)
+	cmd := exec.Command(name, full...)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("ffmpeg stdout pipe failed: %w", err)
+	}
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("ffmpeg start failed: %w", err)
+	}
+	last := -1
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		if pct := progressPercent(scanner.Text(), duration); pct >= 0 && pct-last >= progressReportStep {
+			last = pct
+			onProgress(pct)
+		}
+	}
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("%s failed: %w", name, err)
+	}
+	return nil
+}
+
+// reportProgress persists a render percent for the job. Without a reporter
+// and table configured it is a no-op; failures only log (progress must never
+// fail a render).
+func (r *Renderer) reportProgress(ctx context.Context, in RenderInput, percent int) {
+	if r.ProgressReporter != nil {
+		if err := r.ProgressReporter(ctx, in, percent); err != nil {
+			log.Printf("progress report failed: %v", err)
+		}
+		return
+	}
+	if r.Table == "" || r.Dynamo == nil {
+		return
+	}
+	_, err := r.Dynamo.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(r.Table),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + in.UserID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + in.JobID},
+		},
+		UpdateExpression: aws.String("SET #progress = :p, #updatedAt = :u"),
+		ExpressionAttributeNames: map[string]string{
+			"#progress": "progress",
+			"#updatedAt": "updatedAt",
+		},
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":p": &dbtypes.AttributeValueMemberN{Value: strconv.Itoa(percent)},
+			":u": &dbtypes.AttributeValueMemberS{Value: utcNow()},
+		},
+	})
+	if err != nil {
+		log.Printf("progress report failed: %v", err)
+	}
+}
 // 640 wide to bound Rekognition payload size) evenly across [start, end].
 func (r *Renderer) defaultExtractFrames(src string, start, end float64) ([][]byte, error) {
 	times := sampleTimes(start, end)
@@ -379,11 +491,25 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 		return "", fmt.Errorf("failed to write captions: %w", err)
 	}
 
-	// Render with FFmpeg.
+	// Render with FFmpeg, streaming -progress so the job record reflects the
+	// live encode percent (clamped at 99; completion is marked downstream).
 	outPath := filepath.Join(r.WorkDir, in.Clip.ClipID+".mp4")
 	args := r.buildCropCaptionArgs(srcPath, srtPath, outPath, in.ClipStart, in.ClipEnd, in.AudioOnly, cropX, fit)
-	if err := r.RunCommand("ffmpeg", args); err != nil {
-		return "", fmt.Errorf("ffmpeg render failed: %w", err)
+	runProgress := r.RunCommandProgress
+	if runProgress == nil {
+		runProgress = defaultRunCommandProgress
+	}
+	duration := in.ClipEnd - in.ClipStart
+	var runErr error
+	if duration > 0 {
+		runErr = runProgress("ffmpeg", args, duration, func(pct int) {
+			r.reportProgress(ctx, in, pct)
+		})
+	} else {
+		runErr = r.RunCommand("ffmpeg", args)
+	}
+	if runErr != nil {
+		return "", fmt.Errorf("ffmpeg render failed: %w", runErr)
 	}
 
 	// Optional brand logo overlay (top-right). Fail-soft: branding must

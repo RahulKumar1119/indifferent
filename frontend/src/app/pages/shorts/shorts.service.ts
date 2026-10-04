@@ -42,6 +42,8 @@ export interface ShortsJob {
   sourceKey: string;
   transcriptKey?: string;
   clips?: Clip[];
+  /** 0-100 progress within the current stage (backend-computed). */
+  progress?: number;
   error?: string;
   createdAt: string;
   updatedAt: string;
@@ -89,6 +91,11 @@ export class ShortsService {
   /** POST /shorts/{id}/start — kick off the processing pipeline. */
   startJob(jobId: string): Observable<unknown> {
     return this.api.post<unknown>(`/shorts/${jobId}/start`);
+  }
+
+  /** POST /shorts/{id}/cancel — stop a running pipeline. */
+  cancelJob(jobId: string): Observable<{ status: string }> {
+    return this.api.post<{ status: string }>(`/shorts/${jobId}/cancel`);
   }
 
   /** GET /shorts/{id} — fetch current job status. */

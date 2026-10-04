@@ -174,6 +174,10 @@ func TestRender_HappyPath(t *testing.T) {
 			out := args[len(args)-1]
 			return os.WriteFile(out, []byte("RENDERED-CLIP"), 0o644)
 		},
+		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
+			ranArgs = args
+			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
+		},
 	}
 
 	in := RenderInput{

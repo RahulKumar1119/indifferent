@@ -163,6 +163,10 @@ type ShortsJob struct {
 	TranscriptKey  string          `json:"transcriptKey,omitempty"`
 	Segments       []RankedSegment `json:"segments,omitempty"`
 	Clips          []Clip          `json:"clips,omitempty"`
+	// Progress is 0-100 within the current stage (render tasks refine it via
+	// ffmpeg output; status transitions reset it to the stage baseline).
+	Progress       int             `json:"progress,omitempty"`
+	ProgressDetail string          `json:"progressDetail,omitempty"`
 	Error          string          `json:"error,omitempty"`
 	CreatedAt      string          `json:"createdAt"`
 	UpdatedAt      string          `json:"updatedAt"`

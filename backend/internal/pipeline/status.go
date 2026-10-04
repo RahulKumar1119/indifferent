@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -128,14 +129,16 @@ func (u *StatusUpdater) UpdateShortsStatus(ctx context.Context, input ShortsStat
 		"SK": &types.AttributeValueMemberS{Value: fmt.Sprintf("SHORTS#%s", input.JobID)},
 	}
 
-	updateExpr := "SET #status = :status, #updatedAt = :updatedAt"
+	updateExpr := "SET #status = :status, #updatedAt = :updatedAt, #progress = :progress"
 	exprNames := map[string]string{
 		"#status":    "status",
 		"#updatedAt": "updatedAt",
+		"#progress":  "progress",
 	}
 	exprValues := map[string]types.AttributeValue{
 		":status":    &types.AttributeValueMemberS{Value: input.Status},
 		":updatedAt": &types.AttributeValueMemberS{Value: now},
+		":progress":  &types.AttributeValueMemberN{Value: strconv.Itoa(stageBaseProgress(input.Status))},
 	}
 
 	switch input.Status {
@@ -168,6 +171,26 @@ func (u *StatusUpdater) UpdateShortsStatus(ctx context.Context, input ShortsStat
 	}
 
 	return nil
+}
+
+// stageBaseProgress is the determinate progress baseline each pipeline stage
+// starts at. The render stage refines 78→99 live from ffmpeg output; the rest
+// advance on transitions so no stage ever shows an indeterminate state.
+func stageBaseProgress(status string) int {
+	switch status {
+	case ShortsStatusCompleted:
+		return 100
+	case ShortsStatusFailed:
+		return 0
+	case ShortsStatusRendering:
+		return 78
+	case ShortsStatusRanking:
+		return 55
+	case ShortsStatusTranscribing:
+		return 25
+	default: // uploaded and anything unrecognized
+		return 5
+	}
 }
 
 // segmentsToClips converts ranked segments into gallery-ready Clip records.

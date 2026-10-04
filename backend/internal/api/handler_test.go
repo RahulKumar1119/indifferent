@@ -73,6 +73,7 @@ func (m *mockDynamoDB) Scan(ctx context.Context, params *dynamodb.ScanInput, opt
 // mockSFN is a mock Step Functions client.
 type mockSFN struct {
 	startExecutionFunc func(ctx context.Context, params *sfn.StartExecutionInput, optFns ...func(*sfn.Options)) (*sfn.StartExecutionOutput, error)
+	stopExecutionFunc  func(ctx context.Context, params *sfn.StopExecutionInput, optFns ...func(*sfn.Options)) (*sfn.StopExecutionOutput, error)
 }
 
 func (m *mockSFN) StartExecution(ctx context.Context, params *sfn.StartExecutionInput, optFns ...func(*sfn.Options)) (*sfn.StartExecutionOutput, error) {
@@ -80,6 +81,13 @@ func (m *mockSFN) StartExecution(ctx context.Context, params *sfn.StartExecution
 		return m.startExecutionFunc(ctx, params, optFns...)
 	}
 	return &sfn.StartExecutionOutput{}, nil
+}
+
+func (m *mockSFN) StopExecution(ctx context.Context, params *sfn.StopExecutionInput, optFns ...func(*sfn.Options)) (*sfn.StopExecutionOutput, error) {
+	if m.stopExecutionFunc != nil {
+		return m.stopExecutionFunc(ctx, params, optFns...)
+	}
+	return &sfn.StopExecutionOutput{}, nil
 }
 
 // mockAuthService is a mock GoogleAuthService.
