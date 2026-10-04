@@ -1,6 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ShortsService } from './shorts.service';
 
@@ -12,27 +12,62 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
   standalone: true,
   imports: [CommonModule, LucideDynamicIcon],
   template: `
-    <div class="max-w-3xl mx-auto px-4 py-8">
-      <h1 class="text-2xl font-bold mb-2">Create AI Shorts</h1>
-      <p class="text-[hsl(var(--muted-foreground))] mb-6">
-        Upload a video or audio file (MP4, MOV, MP3, WAV) up to 10 minutes long. We'll find the
-        most engaging moments and turn them into vertical 9:16 clips.
-      </p>
+    <div
+      class="min-h-[100dvh] flex flex-col px-4 py-8 max-w-5xl mx-auto w-full"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+    >
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold">Create AI Shorts</h1>
+          <p class="text-[hsl(var(--muted-foreground))]">
+            Drop your footage anywhere — we find the best moments and cut vertical 9:16 clips.
+          </p>
+        </div>
+        <a
+          routerLink="/shorts/history"
+          class="shrink-0 px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
+        >
+          My shorts
+        </a>
+      </div>
 
-      <!-- Drop Zone -->
+      <!-- Constraints, stated upfront -->
+      <div class="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3" aria-label="Upload requirements">
+        <div class="glass-card p-3 text-center">
+          <svg lucideIcon="video" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
+          <p class="mt-1.5 text-xs font-semibold">MP4 · MOV</p>
+          <p class="text-[11px] text-[hsl(var(--muted-foreground))]">video sources</p>
+        </div>
+        <div class="glass-card p-3 text-center">
+          <svg lucideIcon="mic" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
+          <p class="mt-1.5 text-xs font-semibold">MP3 · WAV</p>
+          <p class="text-[11px] text-[hsl(var(--muted-foreground))]">audio sources</p>
+        </div>
+        <div class="glass-card p-3 text-center">
+          <svg lucideIcon="clock" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
+          <p class="mt-1.5 text-xs font-semibold">Max 10 min</p>
+          <p class="text-[11px] text-[hsl(var(--muted-foreground))]">per upload</p>
+        </div>
+        <div class="glass-card p-3 text-center">
+          <svg lucideIcon="scissors" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
+          <p class="mt-1.5 text-xs font-semibold">3 × 9:16 clips</p>
+          <p class="text-[11px] text-[hsl(var(--muted-foreground))]">1080×1920, captioned</p>
+        </div>
+      </div>
+
+      <!-- Full-viewport drop zone -->
       <div
-        class="relative glass-card p-10 text-center transition-all cursor-pointer"
+        class="relative flex-1 mt-4 glass-card p-10 text-center transition-all cursor-pointer flex flex-col items-center justify-center min-h-[46dvh]"
         [class.!border-[hsl(var(--primary))]]="isDragOver"
         [class.!shadow-[0_0_30px_rgba(120,60,255,0.2)]]="isDragOver"
         [class.!border-green-500]="selectedFile && !error"
-        (dragover)="onDragOver($event)"
-        (dragleave)="onDragLeave($event)"
-        (drop)="onDrop($event)"
         (click)="fileInput.click()"
         (keydown.enter)="fileInput.click()"
         tabindex="0"
         role="button"
-        aria-label="Drop zone for media file upload"
+        aria-label="Drop zone for media file upload. Accepts MP4, MOV, MP3, WAV up to 10 minutes."
       >
         <input
           #fileInput
@@ -45,10 +80,10 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
 
         @if (!selectedFile) {
           <div class="space-y-3">
-            <div class="w-16 h-16 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto">
-              <svg lucideIcon="upload" [size]="32" class="text-[hsl(var(--primary))]" [class.animate-pulse]="isDragOver"></svg>
+            <div class="w-20 h-20 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto">
+              <svg lucideIcon="upload" [size]="36" class="text-[hsl(var(--primary))]" [class.animate-pulse]="isDragOver"></svg>
             </div>
-            <p class="text-lg font-medium">Drag & drop your media file here</p>
+            <p class="text-xl font-medium">{{ isDragOver ? 'Drop it — we take it from here' : 'Drag & drop anywhere on this page' }}</p>
             <p class="text-sm text-[hsl(var(--muted-foreground))]">or</p>
             <button
               class="px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
@@ -56,7 +91,6 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
             >
               Browse Files
             </button>
-            <p class="text-xs text-[hsl(var(--muted-foreground))] mt-2">MP4, MOV, MP3, WAV — max 10 min</p>
           </div>
         }
 
@@ -145,7 +179,7 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
     </div>
   `,
 })
-export class ShortsUploadComponent {
+export class ShortsUploadComponent implements OnInit, OnDestroy {
   selectedFile: File | null = null;
   fileType = '';
   durationSeconds = 0;
@@ -156,10 +190,25 @@ export class ShortsUploadComponent {
   isUploading = false;
   uploadProgress = -1;
 
+  private readonly preventWindowDrop = (event: DragEvent): void => {
+    // Drops outside the zone must never navigate the browser away.
+    event.preventDefault();
+  };
+
   constructor(
     private readonly router: Router,
     private readonly shorts: ShortsService,
   ) {}
+
+  ngOnInit(): void {
+    window.addEventListener('dragover', this.preventWindowDrop);
+    window.addEventListener('drop', this.preventWindowDrop);
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('dragover', this.preventWindowDrop);
+    window.removeEventListener('drop', this.preventWindowDrop);
+  }
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
