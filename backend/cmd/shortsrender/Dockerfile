@@ -1,5 +1,5 @@
 # Stage 1: Build the Go binary
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # go.mod may require a newer patch release than the base image ships; allow the
 # Go toolchain to auto-download the required version.
