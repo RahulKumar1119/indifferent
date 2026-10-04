@@ -25,16 +25,12 @@ export class ThemeService {
   }
 
   private loadTheme(): Theme {
-    // Server prerender has no localStorage: fall back to the default theme.
-    if (!this.isBrowser) {
-      return 'light';
-    }
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    const stored = this.isBrowser ? localStorage.getItem(THEME_STORAGE_KEY) : null;
     if (stored === 'dark' || stored === 'light') {
       return stored;
     }
-    // Default to light if no preference stored
-    return 'light';
+    // Video tools feel premium in dark: default dark on first visit.
+    return 'dark';
   }
 
   private applyTheme(theme: Theme): void {
