@@ -17,6 +17,7 @@ import { ThemeService } from '../../../core/services/theme.service';
           <a routerLink="/shorts" class="px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">New</a>
           <a routerLink="/shorts/history" class="px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">History</a>
           <a routerLink="/dashboard" class="hidden sm:inline px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">Dashboard</a>
+          <a routerLink="/profile" class="hidden sm:inline px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">Profile</a>
           <button
             class="btn-interactive ml-1 w-9 h-9 rounded-lg border border-[hsl(var(--border))] inline-flex items-center justify-center"
             (click)="theme.toggleTheme()"

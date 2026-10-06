@@ -34,6 +34,7 @@ import { Project, ProjectStatus } from '../../shared/models/project.model';
           <div class="flex items-center gap-2 sm:gap-3">
             <a routerLink="/" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Home</a>
             <a routerLink="/dashboard" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Dashboard</a>
+            <a routerLink="/profile" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Profile</a>
             <a routerLink="/projects/new" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white pl-4 pr-1.5 py-1.5 text-[13.5px] font-semibold">
               New project
               <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
