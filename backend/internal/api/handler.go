@@ -64,6 +64,7 @@ type APIHandler struct {
 	S3              storage.Downloader
 	SFN             SFNClient
 	TableName             string
+	UsersTable            string
 	Bucket                string
 	StateMachineARN       string
 	ShortsStateMachineARN string
@@ -101,6 +102,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleRefresh(ctx, req)
 	case req.HTTPMethod == "POST" && req.Path == "/auth/logout":
 		return h.handleLogout(ctx, req)
+	case req.HTTPMethod == "GET" && req.Path == "/auth/me":
+		return h.handleWithAuth(ctx, req, h.handleGetMe)
 	case req.HTTPMethod == "GET" && req.Path == "/projects":
 		return h.handleWithAuth(ctx, req, h.handleListProjects)
 	case req.HTTPMethod == "POST" && req.Path == "/projects":
@@ -306,6 +309,52 @@ func (h *APIHandler) handleLogout(ctx context.Context, req events.APIGatewayProx
 		StatusCode: http.StatusNoContent,
 		Headers:    corsHeaders(),
 	}, nil
+}
+
+// UserProfile is the safe public view of a user record returned by
+// GET /auth/me. It never includes passwordHash or other secrets.
+type UserProfile struct {
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatarUrl"`
+	CreatedAt string `json:"createdAt"`
+}
+
+// handleGetMe returns the authenticated user's profile from the users
+// table (PK=USER#<id>, SK=PROFILE). Unknown users get 404 so clients can
+// fall back to local defaults.
+func (h *APIHandler) handleGetMe(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	if h.UsersTable == "" {
+		return errorResponse(http.StatusInternalServerError, "NOT_CONFIGURED", "User profiles are not enabled"), nil
+	}
+	result, err := h.DB.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(h.UsersTable),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + claims.UserID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "PROFILE"},
+		},
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil {
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to load profile"), nil
+	}
+	if result.Item == nil {
+		return errorResponse(http.StatusNotFound, "USER_NOT_FOUND", "User profile not found"), nil
+	}
+	return jsonResponse(http.StatusOK, UserProfile{
+		Email:     stringAttr(result.Item, "email"),
+		Name:      stringAttr(result.Item, "name"),
+		AvatarURL: stringAttr(result.Item, "avatarUrl"),
+		CreatedAt: stringAttr(result.Item, "createdAt"),
+	}), nil
+}
+
+// stringAttr reads a string attribute from a DynamoDB item ("") when absent.
+func stringAttr(item map[string]dbtypes.AttributeValue, key string) string {
+	if v, ok := item[key].(*dbtypes.AttributeValueMemberS); ok {
+		return v.Value
+	}
+	return ""
 }
 
 // handleListProjects returns all projects belonging to the authenticated user.

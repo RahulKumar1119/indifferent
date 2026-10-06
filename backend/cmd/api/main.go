@@ -81,6 +81,7 @@ func main() {
 		S3:              s3Client,
 		SFN:             sfnClient,
 		TableName:             dynamoDBTable,
+		UsersTable:            usersTable,
 		Bucket:                s3Bucket,
 		StateMachineARN:       stateMachineARN,
 		ShortsStateMachineARN: shortsStateMachineARN,

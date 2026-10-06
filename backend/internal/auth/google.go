@@ -211,8 +211,28 @@ func (s *googleAuthService) fetchUserInfo(ctx context.Context, accessToken strin
 }
 
 // upsertUser creates or updates the user in the DynamoDB Users table.
+// createdAt and theme are preserved on re-login so the original signup
+// date (and user preference) survives.
 func (s *googleAuthService) upsertUser(ctx context.Context, user *GoogleUserInfo) error {
 	now := time.Now().UTC().Format(time.RFC3339)
+	createdAt := now
+	theme := "light"
+
+	if existing, err := s.db.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(s.config.UsersTable),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + user.ID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "PROFILE"},
+		},
+		ConsistentRead: aws.Bool(true),
+	}); err == nil && existing.Item != nil {
+		if v := extractStringAttr(existing.Item, "createdAt"); v != "" {
+			createdAt = v
+		}
+		if v := extractStringAttr(existing.Item, "theme"); v != "" {
+			theme = v
+		}
+	}
 
 	item := map[string]dbtypes.AttributeValue{
 		"PK":        &dbtypes.AttributeValueMemberS{Value: "USER#" + user.ID},
@@ -220,8 +240,8 @@ func (s *googleAuthService) upsertUser(ctx context.Context, user *GoogleUserInfo
 		"email":     &dbtypes.AttributeValueMemberS{Value: user.Email},
 		"name":      &dbtypes.AttributeValueMemberS{Value: user.Name},
 		"avatarUrl": &dbtypes.AttributeValueMemberS{Value: user.AvatarURL},
-		"createdAt": &dbtypes.AttributeValueMemberS{Value: now},
-		"theme":     &dbtypes.AttributeValueMemberS{Value: "light"},
+		"createdAt": &dbtypes.AttributeValueMemberS{Value: createdAt},
+		"theme":     &dbtypes.AttributeValueMemberS{Value: theme},
 	}
 
 	_, err := s.db.PutItem(ctx, &dynamodb.PutItemInput{

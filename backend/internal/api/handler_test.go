@@ -146,6 +146,7 @@ func newTestHandler() *APIHandler {
 		S3:              nil, // S3 operations will be tested separately
 		SFN:             &mockSFN{},
 		TableName:       "projects-table",
+		UsersTable:      "users-table",
 		Bucket:          "test-bucket",
 		StateMachineARN: "arn:aws:states:us-east-1:123456789:stateMachine:test",
 	}
@@ -165,6 +166,7 @@ func TestRouteMatching(t *testing.T) {
 		{"POST auth refresh", "POST", "/auth/refresh", 400},
 		{"POST auth logout", "POST", "/auth/logout", 400},
 		{"GET projects - no auth", "GET", "/projects", 401},
+		{"GET auth me - no auth", "GET", "/auth/me", 401},
 		{"POST projects - no auth", "POST", "/projects", 401},
 		{"GET project by ID - no auth", "GET", "/projects/abc123", 401},
 		{"DELETE project - no auth", "DELETE", "/projects/abc123", 401},
@@ -679,4 +681,105 @@ func TestCORSHeaders(t *testing.T) {
 	if resp.Headers["Access-Control-Allow-Methods"] == "" {
 		t.Error("missing CORS Allow-Methods header")
 	}
+}
+
+func TestGetMe(t *testing.T) {
+	ctx := context.Background()
+
+	profileItem := map[string]dbtypes.AttributeValue{
+		"email":        &dbtypes.AttributeValueMemberS{Value: "creator@example.com"},
+		"name":         &dbtypes.AttributeValueMemberS{Value: "Rahul Kumar"},
+		"avatarUrl":    &dbtypes.AttributeValueMemberS{Value: "https://example.com/a.png"},
+		"createdAt":    &dbtypes.AttributeValueMemberS{Value: "2026-01-01T00:00:00Z"},
+		"passwordHash": &dbtypes.AttributeValueMemberS{Value: "must-never-leak"},
+	}
+
+	newHandler := func(item map[string]dbtypes.AttributeValue, usersTable string) (*APIHandler, *string, *string) {
+		var gotTable, gotPK string
+		h := newTestHandler()
+		h.UsersTable = usersTable
+		h.DB = &mockDynamoDB{
+			getItemFunc: func(_ context.Context, params *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				gotTable = awsString(params.TableName)
+				if v, ok := params.Key["PK"].(*dbtypes.AttributeValueMemberS); ok {
+					gotPK = v.Value
+				}
+				return &dynamodb.GetItemOutput{Item: item}, nil
+			},
+		}
+		return h, &gotTable, &gotPK
+	}
+
+	authedReq := func() events.APIGatewayProxyRequest {
+		return events.APIGatewayProxyRequest{
+			HTTPMethod: "GET",
+			Path:       "/auth/me",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + generateTestToken("user1"),
+			},
+		}
+	}
+
+	t.Run("returns profile without secrets", func(t *testing.T) {
+		h, gotTable, gotPK := newHandler(profileItem, "users-table")
+		resp, err := h.HandleRequest(ctx, authedReq())
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.StatusCode != 200 {
+			t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+		}
+		if *gotTable != "users-table" {
+			t.Errorf("queried table %q, want %q", *gotTable, "users-table")
+		}
+		if *gotPK != "USER#user1" {
+			t.Errorf("queried PK %q, want %q", *gotPK, "USER#user1")
+		}
+		var body map[string]interface{}
+		if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		for key, want := range map[string]string{
+			"email":     "creator@example.com",
+			"name":      "Rahul Kumar",
+			"avatarUrl": "https://example.com/a.png",
+			"createdAt": "2026-01-01T00:00:00Z",
+		} {
+			if body[key] != want {
+				t.Errorf("body[%q] = %v, want %q", key, body[key], want)
+			}
+		}
+		if _, leaked := body["passwordHash"]; leaked {
+			t.Error("response leaks passwordHash")
+		}
+	})
+
+	t.Run("unknown user is 404", func(t *testing.T) {
+		h, _, _ := newHandler(nil, "users-table")
+		resp, err := h.HandleRequest(ctx, authedReq())
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.StatusCode != 404 {
+			t.Errorf("got status %d, want 404 (body: %s)", resp.StatusCode, resp.Body)
+		}
+	})
+
+	t.Run("unconfigured users table is 500", func(t *testing.T) {
+		h, _, _ := newHandler(profileItem, "")
+		resp, err := h.HandleRequest(ctx, authedReq())
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.StatusCode != 500 {
+			t.Errorf("got status %d, want 500 (body: %s)", resp.StatusCode, resp.Body)
+		}
+	})
+}
+
+func awsString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
