@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { setPageSeo } from '../../shared/seo';
 
 interface DocSection {
   id: string;
@@ -88,7 +90,18 @@ interface DocSection {
     </div>
   `,
 })
-export class PrivacyComponent {
+export class PrivacyComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'Privacy Policy | Indifferent',
+      description:
+        'How Indifferent handles your data: what we collect, how uploads and accounts are stored, cookies, and your choices.',
+      canonical: 'https://indifferent.fun/privacy',
+    });
+  }
+
   currentYear = new Date().getFullYear();
   sections: DocSection[] = [
     { id: 'collect', n: '01', title: 'Information We Collect', items: ['Account information (email, name via Google OAuth)', 'Uploaded quiz files (.txt)', 'Generated video content', 'Usage data (pages visited, features used)'] },

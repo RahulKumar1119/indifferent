@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { setPageSeo } from '../../shared/seo';
 
 interface DocSection {
   id: string;
@@ -88,7 +90,18 @@ interface DocSection {
     </div>
   `,
 })
-export class TermsComponent {
+export class TermsComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'Terms of Service | Indifferent',
+      description:
+        'The terms of service for Indifferent: acceptable use, content ownership, accounts, availability, and limitation of liability.',
+      canonical: 'https://indifferent.fun/terms',
+    });
+  }
+
   currentYear = new Date().getFullYear();
   sections: DocSection[] = [
     { id: 'acceptance', n: '01', title: 'Acceptance of Terms', body: 'By using Indifferent you agree to these terms. If you do not agree, please do not use the service.' },

@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { setPageSeo } from '../../../shared/seo';
 
 @Component({
   selector: 'app-video-template-comparison',
@@ -225,4 +227,15 @@ import { RouterLink } from '@angular/router';
     </footer>
   `,
 })
-export class VideoTemplateComparisonComponent {}
+export class VideoTemplateComparisonComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'Video Template Comparison: Which Style Fits? | Indifferent',
+      description:
+        'Compare Indifferent video templates — Classic, Modern, Education, Dark, Minimal, Neon — and pick the style that fits your channel and audience.',
+      canonical: 'https://indifferent.fun/blog/video-template-comparison',
+    });
+  }
+}

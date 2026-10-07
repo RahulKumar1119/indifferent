@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { setPageSeo } from '../../shared/seo';
 
 @Component({
   selector: 'app-contact',
@@ -85,6 +87,17 @@ import { RouterLink } from '@angular/router';
     </div>
   `,
 })
-export class ContactComponent {
+export class ContactComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'Contact | Indifferent',
+      description:
+        'Get in touch with the Indifferent studio: support, feedback, and feature requests for the AI video platform.',
+      canonical: 'https://indifferent.fun/contact',
+    });
+  }
+
   currentYear = new Date().getFullYear();
 }

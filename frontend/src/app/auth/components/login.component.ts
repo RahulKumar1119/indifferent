@@ -1,10 +1,11 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { environment } from '../../../environments/environment';
 import { AuthService, sanitizeNextPath } from '../../core/services/auth.service';
+import { setPageSeo } from '../../shared/seo';
 
 @Component({
   selector: 'app-login',
@@ -182,6 +183,7 @@ export class LoginComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly document = inject(DOCUMENT);
 
   isSignupMode = false;
   email = '';
@@ -192,6 +194,12 @@ export class LoginComponent implements OnInit {
   private postAuthPath = '/new';
 
   ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'Start Creating — Sign In | Indifferent',
+      description:
+        'Sign in to Indifferent to turn TXT quiz files into narrated videos and long footage into viral AI Shorts.',
+      canonical: 'https://indifferent.fun/login',
+    });
     this.route.queryParamMap.subscribe((params) => {
       this.isSignupMode = params.get('mode') === 'signup';
       this.postAuthPath = sanitizeNextPath(params.get('next'));

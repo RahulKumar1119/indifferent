@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { setPageSeo } from '../../../shared/seo';
 
 @Component({
   selector: 'app-ai-narration-guide',
@@ -235,4 +237,15 @@ import { RouterLink } from '@angular/router';
     </footer>
   `,
 })
-export class AiNarrationGuideComponent {}
+export class AiNarrationGuideComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'AI Narration for Videos: A Complete Guide | Indifferent',
+      description:
+        'A complete guide to AI narration for videos: voices, pacing, pronunciation, and how to get natural-sounding voiceovers with Amazon Polly.',
+      canonical: 'https://indifferent.fun/blog/ai-narration-guide',
+    });
+  }
+}

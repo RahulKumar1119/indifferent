@@ -4,6 +4,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { register } from 'swiper/element/bundle';
+import { setCanonical } from '../../shared/seo';
 
 interface Feature {
   icon: string;
@@ -427,6 +428,7 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
     this.meta.updateTag({ property: 'og:title', content: 'AI Shorts Maker — Turn Long Videos into Viral Shorts | Indifferent' });
     this.meta.updateTag({ property: 'og:description', content: description });
     this.meta.updateTag({ property: 'og:url', content: pageUrl });
+    setCanonical(this.document, pageUrl);
     this.meta.updateTag({ name: 'twitter:card', content: 'summary' });
     this.meta.updateTag({ name: 'twitter:title', content: 'AI Shorts Maker — Turn Long Videos into Viral Shorts | Indifferent' });
     this.meta.updateTag({ name: 'twitter:description', content: description });

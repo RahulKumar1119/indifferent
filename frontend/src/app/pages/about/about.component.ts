@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { setPageSeo } from '../../shared/seo';
 
 @Component({
   selector: 'app-about',
@@ -179,7 +181,18 @@ import { RouterLink } from '@angular/router';
     </div>
   `,
 })
-export class AboutComponent {
+export class AboutComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'About the Studio | Indifferent',
+      description:
+        'Indifferent is an AI video studio: TXT quiz files become narrated videos, and long footage becomes ranked vertical Shorts. Built with Angular, Go and AWS.',
+      canonical: 'https://indifferent.fun/about',
+    });
+  }
+
   currentYear = new Date().getFullYear();
   templates = [
     { name: 'Classic', desc: 'Clean blue theme, professional look' },

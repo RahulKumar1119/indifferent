@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { setPageSeo } from '../../../shared/seo';
 
 @Component({
   selector: 'app-quiz-videos-youtube',
@@ -213,4 +215,15 @@ import { RouterLink } from '@angular/router';
     </footer>
   `,
 })
-export class QuizVideosYoutubeComponent {}
+export class QuizVideosYoutubeComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'How to Create Quiz Videos for YouTube | Indifferent',
+      description:
+        'Learn how to create engaging quiz videos for YouTube: formats, scripting, narration, and publishing interactive trivia content viewers love.',
+      canonical: 'https://indifferent.fun/blog/quiz-videos-youtube',
+    });
+  }
+}

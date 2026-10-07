@@ -1,7 +1,8 @@
-import { Component, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ElementRef, ViewChild, AfterViewInit, OnInit, inject } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { setPageSeo } from '../../../shared/seo';
 
 @Component({
   selector: 'app-watermark',
@@ -172,7 +173,18 @@ import { FormsModule } from '@angular/forms';
     </div>
   `,
 })
-export class WatermarkComponent implements AfterViewInit {
+export class WatermarkComponent implements OnInit, AfterViewInit {
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'Free Watermark Tool — Add Text Watermarks to Images | Indifferent',
+      description:
+        'Free in-browser watermark tool: draggable text watermarks on JPG, PNG and WebP with size, opacity, color and rotation. Private, full-resolution PNG export.',
+      canonical: 'https://indifferent.fun/tools/add-watermark',
+    });
+  }
+
   @ViewChild('previewCanvas') previewCanvas!: ElementRef<HTMLCanvasElement>;
 
   currentYear = new Date().getFullYear();

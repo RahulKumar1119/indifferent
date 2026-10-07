@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-
+import { setCanonical } from '../../shared/seo';
 export interface UseCaseData {
   slug: string;
   title: string;
@@ -158,6 +158,7 @@ export class UseCaseComponent implements OnInit {
     this.meta.updateTag({ property: 'og:title', content: `${this.data.title} | Indifferent` });
     this.meta.updateTag({ property: 'og:description', content: this.data.description });
     this.meta.updateTag({ property: 'og:url', content: pageUrl });
+    setCanonical(this.document, pageUrl);
     const script = this.document.createElement('script');
     script.type = 'application/ld+json';
     script.text = JSON.stringify({

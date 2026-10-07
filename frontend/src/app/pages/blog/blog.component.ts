@@ -1,6 +1,7 @@
-import { Component, AfterViewInit, PLATFORM_ID, inject } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { Component, AfterViewInit, OnInit, PLATFORM_ID, inject } from '@angular/core';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { setPageSeo } from '../../shared/seo';
 
 interface Post {
   route: string;
@@ -198,8 +199,18 @@ interface Post {
     </div>
   `,
 })
-export class BlogComponent implements AfterViewInit {
+export class BlogComponent implements OnInit, AfterViewInit {
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'Journal — Essays & Notes | Indifferent',
+      description:
+        'The Indifferent journal: guides on quiz videos, AI narration, video templates, and getting the most out of AI video creation.',
+      canonical: 'https://indifferent.fun/blog',
+    });
+  }
 
   currentYear = new Date().getFullYear();
 
