@@ -161,7 +161,7 @@ import { setPageSeo } from '../../../shared/seo';
 
         <h2>What AI Narration Is and How It Works</h2>
         <p>AI narration uses text-to-speech technology to convert written text into natural-sounding human speech. Modern systems like Amazon Polly, which powers Indifferent's narration engine, use neural network models trained on thousands of hours of recorded human speech. These models learn the patterns of natural language including intonation, rhythm, emphasis, and breathing patterns that make speech sound human rather than robotic.</p>
-        <p>The process works by analyzing your text at multiple levels. First, the system processes the linguistic content — understanding word boundaries, sentence structure, and parts of speech. Then it applies prosody rules that determine pitch, speed, and emphasis based on context. Finally, it synthesizes the audio waveform using learned voice characteristics, producing output that closely mimics human speech patterns.</p>
+        <p>The process works by analyzing your text at multiple levels. First, the system processes the linguistic content, understanding word boundaries, sentence structure, and parts of speech. Then it applies prosody rules that determine pitch, speed, and emphasis based on context. Finally, it synthesizes the audio waveform using learned voice characteristics, producing output that closely mimics human speech patterns.</p>
         <p>For quiz videos specifically, the narration system processes each question and its answer options as separate speech segments. This allows precise timing control so that narration aligns perfectly with visual elements like countdown timers and answer reveals. The result is a seamlessly synchronized audiovisual experience.</p>
 
         <h2>Benefits Over Manual Recording</h2>
@@ -198,7 +198,7 @@ import { setPageSeo } from '../../../shared/seo';
         <p>The quality of your narration depends heavily on how you write your questions and answer options. AI voices perform best with clear, straightforward sentences that follow natural speech patterns. Here are key principles for narration-optimized writing:</p>
         <ul>
           <li>Write complete sentences rather than fragments or bullet-point shorthand</li>
-          <li>Avoid excessive abbreviations — spell out terms that should be spoken in full</li>
+          <li>Avoid excessive abbreviations: spell out terms that should be spoken in full</li>
           <li>Use punctuation to control pacing: commas create brief pauses, periods create longer ones</li>
           <li>Keep question sentences under twenty-five words for comfortable listening</li>
           <li>Spell out numbers under ten and use numerals for larger numbers that have obvious pronunciation</li>
@@ -213,7 +213,7 @@ import { setPageSeo } from '../../../shared/seo';
 
         <h2>When Human Narration Might Be Better</h2>
         <p>Despite the advantages of AI narration, certain situations still benefit from human voices. Highly emotional content that requires conveying genuine enthusiasm, humor, or empathy may feel more authentic with a human narrator who can bring personal expression to the delivery.</p>
-        <p>Content that relies heavily on vocal performance — dramatic readings, character voices, or comedic timing — generally requires human talent. AI voices excel at clear, informative delivery but cannot match the creative range of a skilled human performer.</p>
+        <p>Content that relies heavily on vocal performance (dramatic readings, character voices, or comedic timing) generally requires human talent. AI voices excel at clear, informative delivery but cannot match the creative range of a skilled human performer.</p>
         <p>Brand-building content where a recognizable personal voice is part of the channel identity may also warrant human narration. Some creators' voices become inseparable from their brand, and switching to AI narration could feel disconnected to existing audiences.</p>
 
         <h2>The Future of AI Voices in Education</h2>

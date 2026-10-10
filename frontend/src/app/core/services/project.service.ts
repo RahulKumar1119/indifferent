@@ -30,17 +30,17 @@ export class ProjectService {
     return this.api.post<Project>('/projects', req);
   }
 
-  /** PUT /projects/{id} — update branding fields. */
+  /** PUT /projects/{id}: update branding fields. */
   updateProject(id: string, body: { channelName?: string }): Observable<Project> {
     return this.api.put<Project>(`/projects/${id}`, body);
   }
 
-  /** POST /projects/{id}/logo — presigned PUT URL for the brand logo. */
+  /** POST /projects/{id}/logo: presigned PUT URL for the brand logo. */
   logoUploadUrl(id: string): Observable<{ uploadUrl: string; logoKey: string }> {
     return this.api.post<{ uploadUrl: string; logoKey: string }>(`/projects/${id}/logo`);
   }
 
-  /** GET /projects/{id}/logo — presigned GET URL for the brand logo. */
+  /** GET /projects/{id}/logo: presigned GET URL for the brand logo. */
   logoUrl(id: string): Observable<{ url: string }> {
     return this.api.get<{ url: string }>(`/projects/${id}/logo`);
   }

@@ -26,17 +26,17 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
   'ai-shorts': {
     slug: 'ai-shorts',
     title: 'AI Shorts Generator',
-    hook: 'Turn long videos into ranked 9:16 vertical clips — automatically.',
+    hook: 'Turn long videos into ranked 9:16 vertical clips automatically.',
     description:
       'Upload a video or audio file up to 10 minutes long. AI transcribes it with word-level timestamps, scores every moment for engagement, and renders the top 3 segments as full-HD vertical clips with burned-in captions.',
     bullets: [
       'Word-timed captions in short lines readable without sound',
-      'Engagement-ranked segments — the best moments, not random cuts',
+      'Engagement-ranked segments: the best moments, not random cuts',
       'Face tracking pans the 9:16 window onto the speaker',
       'Blur-fill fit keeps cartoons, text and diagrams fully visible',
     ],
     steps: [
-      { title: 'Upload', text: 'MP4, MOV, MP3 or WAV — podcasts, interviews, lectures, phone footage.' },
+      { title: 'Upload', text: 'MP4, MOV, MP3 or WAV: podcasts, interviews, lectures, phone footage.' },
       { title: 'AI edits', text: 'Transcription, ranking, reframing and caption burn-in run automatically.' },
       { title: 'Download', text: 'Preview ranked clips and download 1080×1920 MP4s ready to post.' },
     ],
@@ -47,13 +47,13 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
   watermark: {
     slug: 'watermark',
     title: 'Free Watermark Tool',
-    hook: 'Add draggable text watermarks to images — free, private, in-browser.',
+    hook: 'Add draggable text watermarks to images: free, private, in-browser.',
     description:
       'Open any JPG, PNG or WebP image and stamp it with a text watermark you can drag, resize, recolor and rotate. Everything runs locally in your browser: your images are never uploaded anywhere.',
     bullets: [
       'Draggable positioning with size, opacity, color and rotation controls',
       'JPG, PNG and WebP input with full-resolution PNG export',
-      '100% private — files never leave your device',
+      '100% private: files never leave your device',
       'No account needed to use the tool',
     ],
     steps: [
@@ -70,9 +70,9 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
     title: 'TXT to Quiz Video Generator',
     hook: 'Turn a text file of questions into a narrated quiz video.',
     description:
-      'Upload a TXT file with multiple-choice questions, pick a template and an AI voice, and get a narrated MP4 video with timed question cards and answer reveals — ready for YouTube or the classroom.',
+      'Upload a TXT file with multiple-choice questions, pick a template and an AI voice, and get a narrated MP4 video with timed question cards and answer reveals, ready for YouTube or the classroom.',
     bullets: [
-      'Plain-text question format — no special authoring tools',
+      'Plain-text question format: no special authoring tools',
       '5 AI narration voices with timed pacing',
       'Multiple visual templates (classic, modern, education, dark, minimal, neon)',
       'Answer reveals and smooth transitions built in',

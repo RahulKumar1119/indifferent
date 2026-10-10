@@ -36,7 +36,7 @@ interface Tool {
           Tools that do <span class="font-light italic">the boring work.</span>
         </h1>
         <p class="mt-4 text-center text-[15.5px] text-[#6B6560] max-w-[56ch] mx-auto leading-relaxed">
-          Free utilities for video creators. The watermark tool runs entirely in your browser — nothing uploads anywhere.
+          Free utilities for video creators. The watermark tool runs entirely in your browser. Nothing uploads anywhere.
         </p>
 
         <div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">

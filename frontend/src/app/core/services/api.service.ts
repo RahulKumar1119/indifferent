@@ -27,7 +27,7 @@ export class ApiService {
     return this.http.put<T>(`${this.baseUrl}${path}`, body, { withCredentials });
   }
 
-  /** PUT to an absolute URL (e.g. S3 presigned URL) — no cookies/auth headers. */
+  /** PUT to an absolute URL (e.g. S3 presigned URL): no cookies/auth headers. */
   putAbsolute<T>(url: string, body: unknown): Observable<T> {
     return this.http.put<T>(url, body, { withCredentials: false });
   }

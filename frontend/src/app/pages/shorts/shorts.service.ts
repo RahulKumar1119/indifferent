@@ -78,7 +78,7 @@ export interface CreateShortsResponse {
 export class ShortsService {
   constructor(private readonly api: ApiService) {}
 
-  /** POST /shorts — create a job and get a presigned upload URL. */
+  /** POST /shorts: create a job and get a presigned upload URL. */
   createJob(fileType: string, duration: number): Observable<CreateShortsResponse> {
     return this.api.post<CreateShortsResponse>('/shorts', { fileType, duration });
   }
@@ -88,29 +88,29 @@ export class ShortsService {
     return this.api.putAbsolute<unknown>(uploadUrl, file);
   }
 
-  /** POST /shorts/{id}/start — kick off the processing pipeline. */
+  /** POST /shorts/{id}/start: kick off the processing pipeline. */
   startJob(jobId: string): Observable<unknown> {
     return this.api.post<unknown>(`/shorts/${jobId}/start`);
   }
 
-  /** POST /shorts/{id}/cancel — stop a running pipeline. */
+  /** POST /shorts/{id}/cancel: stop a running pipeline. */
   cancelJob(jobId: string): Observable<{ status: string }> {
     return this.api.post<{ status: string }>(`/shorts/${jobId}/cancel`);
   }
 
-  /** GET /shorts/{id} — fetch current job status. */
+  /** GET /shorts/{id}: fetch current job status. */
   getStatus(jobId: string): Observable<ShortsJob> {
     return this.api.get<ShortsJob>(`/shorts/${jobId}`);
   }
 
-  /** GET /shorts — list my shorts jobs, newest first. */
+  /** GET /shorts: list my shorts jobs, newest first. */
   listJobs(): Observable<ShortsJobSummary[]> {
     return this.api
       .get<{ jobs: ShortsJobSummary[] }>('/shorts')
       .pipe(map((res) => (Array.isArray(res?.jobs) ? res.jobs : [])));
   }
 
-  /** GET /shorts/{id}/clips — list rendered clips ordered by rank. */
+  /** GET /shorts/{id}/clips: list rendered clips ordered by rank. */
   listClips(jobId: string): Observable<Clip[]> {
     // The API returns an envelope {"clips": [...]}; unwrap it here so callers
     // always receive an array (a bare array is also tolerated defensively).
@@ -119,7 +119,7 @@ export class ShortsService {
     );
   }
 
-  /** GET /shorts/{id}/clips/{clipId}/url — presigned GET URL for a clip. */
+  /** GET /shorts/{id}/clips/{clipId}/url: presigned GET URL for a clip. */
   getClipUrl(jobId: string, clipId: string): Observable<ClipUrlResponse> {
     return this.api.get<ClipUrlResponse>(`/shorts/${jobId}/clips/${clipId}/url`);
   }

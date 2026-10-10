@@ -19,7 +19,7 @@ const HERO_STILL = '/screenshots/shorts-hero-still.png';
           Turn your content <span class="font-light italic">into anything.</span>
         </h1>
         <p class="mt-4 text-center text-[15.5px] text-[#6B6560] max-w-[60ch] mx-auto leading-relaxed">
-          One studio, three tools. Upload once and let AI do the tedious parts — or finish in your browser, free.
+          One studio, three tools. Upload once and let AI do the tedious parts, or finish in your browser, free.
         </p>
 
         <div class="mt-10 grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -101,7 +101,7 @@ const HERO_STILL = '/screenshots/shorts-hero-still.png';
   styles: [`
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
     .card-lift { transition: transform .35s cubic-bezier(0.23,1,0.32,1), box-shadow .35s; }
-    /* Hover physics only where hover truly exists — no tap-hover on mobile. */
+    /* Hover physics only where hover truly exists: no tap-hover on mobile. */
     @media (hover: hover) {
       .card-lift:hover {
         transform: scale(1.02);

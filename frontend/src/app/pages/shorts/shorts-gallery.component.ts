@@ -133,11 +133,11 @@ const HOVER_PREVIEW_MS = 2000;
                   #{{ clip.rank }}
                 </span>
 
-                <!-- Virality score ring -->
+                <!-- Engagement score ring -->
                 <span
                   class="absolute top-2 right-2 w-9 h-9 rounded-full bg-black/60 flex items-center justify-center"
-                  [attr.aria-label]="'Virality score ' + scorePercent(clip) + '%'"
-                  [title]="'Virality score ' + scorePercent(clip) + '%'"
+                  [attr.aria-label]="'Engagement score ' + scorePercent(clip) + '%'"
+                  [title]="'Engagement score ' + scorePercent(clip) + '%'"
                 >
                   <svg width="36" height="36" viewBox="0 0 36 36" class="-rotate-90">
                     <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="3.5" />

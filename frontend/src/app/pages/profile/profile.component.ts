@@ -31,7 +31,7 @@ const COST_PER_PROJECT = 18; // script 2 + voiceover 4 + generation 12
 const COST_PER_CLIP = 6;
 
 /**
- * Creator Profile — the creator command center. Identity header, live stats,
+ * Creator Profile: the creator command center. Identity header, live stats,
  * tabbed content library (projects + shorts), Creator DNA, AI credits,
  * connected accounts and recent activity. Persists personal settings locally
  * and merges live backend data for content and stats.
@@ -138,7 +138,7 @@ const COST_PER_CLIP = 6;
               [stats]="stats"
               [usage]="creditUsage"
               [resetsIn]="creditsResetDays"
-              (buy)="notify('Credit purchase is coming soon — your current quota still applies.', 'info')"
+              (buy)="notify('Credit purchase is coming soon. Your current quota still applies.', 'info')"
               (upgrade)="notify('Subscription upgrades are coming soon.', 'info')"
             />
             <app-connected-accounts [connections]="social" (toggle)="onToggleSocial($event)" />
@@ -236,7 +236,7 @@ export class ProfileComponent implements OnInit {
       if (projectsFailed && shortsFailed) {
         this.loadError = 'We could not reach the studio API. Check your connection and try again.';
       } else if (projectsFailed || shortsFailed) {
-        this.notify('Some sections may be incomplete — part of your library failed to load.', 'error');
+        this.notify('Some sections may be incomplete: part of your library failed to load.', 'error');
       }
     });
   }
@@ -257,7 +257,7 @@ export class ProfileComponent implements OnInit {
     this.dna = this.store.saveDNA(dna);
     this.isDefaultDna = this.store.isDefaultDNA(this.dna);
     this.activity = this.store.loadActivity();
-    this.notify('Creator DNA saved — it will be reused for future generations.', 'success');
+    this.notify('Creator DNA saved. It will be reused for future generations.', 'success');
   }
 
   onUseDna(): void {
@@ -328,7 +328,7 @@ export class ProfileComponent implements OnInit {
     if (v.kind === 'video') {
       this.router.navigate(['/projects', v.sourceId]);
     } else {
-      this.notify('Shorts are auto-cut by AI — duplicate the source project to remix.', 'info');
+      this.notify('Shorts are auto-cut by AI: duplicate the source project to remix.', 'info');
     }
   }
 
@@ -430,7 +430,7 @@ export class ProfileComponent implements OnInit {
       });
       return;
     }
-    this.notify('Completed shorts are retained automatically — no delete needed.', 'info');
+    this.notify('Completed shorts are retained automatically. No delete needed.', 'info');
   }
 
   // ----------------------------------------------------------------- derived
@@ -594,7 +594,7 @@ export class ProfileComponent implements OnInit {
   }
 
   private formatDuration(seconds: number): string {
-    if (!seconds || seconds <= 0) return '—';
+    if (!seconds || seconds <= 0) return 'Unknown';
     const m = Math.floor(seconds / 60);
     const s = Math.round(seconds % 60);
     return m > 0 ? `${m}m ${s}s` : `${s}s`;

@@ -51,11 +51,11 @@ import { RouterLink } from '@angular/router';
                   </a>
                   <a routerLink="/features/watermark" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">Watermark tool</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Draggable text watermarks on JPG, PNG, WebP — size, opacity, color, rotation. Free, private, 100% in-browser with full-resolution PNG export.</span>
+                    <span class="block text-white/50 text-[12px] mt-0.5">Draggable text watermarks on JPG, PNG, WebP with size, opacity, color and rotation. Free, private, 100% in-browser with full-resolution PNG export.</span>
                   </a>
                   <a routerLink="/features/ai-shorts" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">AI Shorts generator</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions — AI finds the most engaging moments automatically.</span>
+                    <span class="block text-white/50 text-[12px] mt-0.5">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions. AI finds the most engaging moments automatically.</span>
                   </a>
                 </div>
               </div>
@@ -182,7 +182,7 @@ import { RouterLink } from '@angular/router';
             </div>
             <div class="absolute -bottom-5 -left-4 md:-left-8 rounded-2xl bg-[#F4EFE6] text-[#1A1714] px-4 py-3 shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-black/10 rotate-[-2deg]">
               <p class="text-[11px] uppercase tracking-[0.18em] text-[#6B6560]">Narration</p>
-              <p class="text-[14px] font-medium">“Answer: B — Rome…”</p>
+              <p class="text-[14px] font-medium">“Answer B: Rome…”</p>
             </div>
             <div class="absolute -top-4 -right-2 md:-right-4 rounded-full bg-[#1E3A2A] text-[#EDE8DB] px-4 py-2 text-[12.5px] border border-white/15 rotate-[3deg]">Auto timers · Reveals · Captions</div>
           </div>
@@ -196,7 +196,7 @@ import { RouterLink } from '@angular/router';
             <h2 class="serif font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2rem,4.5vw,3.4rem)] max-w-[14ch]">Curated templates, ready to render.</h2>
             <a routerLink="/login" class="rounded-full border border-[#1A1714]/20 px-6 py-3 text-[14px] font-semibold hover:bg-[#1A1714] hover:text-white transition-colors">View complete archive</a>
           </div>
-          <p class="reveal mt-4 text-[#6B6560] max-w-[62ch] leading-relaxed">Living themes designed for watch time. Not slideshows — timed, narrated films with countdowns and reveals.</p>
+          <p class="reveal mt-4 text-[#6B6560] max-w-[62ch] leading-relaxed">Living themes designed for watch time. Not slideshows. Timed, narrated films with countdowns and reveals.</p>
 
           <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
             @for (t of templates; track t.name) {
@@ -253,7 +253,7 @@ import { RouterLink } from '@angular/router';
         <!-- ARCHIVE · use-case bento -->
         <section id="archive" class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-24 md:py-32">
           <h2 class="reveal serif font-medium tracking-[-0.02em] text-[clamp(2rem,4.5vw,3.4rem)]">The archive.</h2>
-          <p class="reveal mt-3 text-[#6B6560] max-w-[58ch]">Five lanes our creators publish in weekly. Pick a lane — the timing, voices, and reveals adapt.</p>
+          <p class="reveal mt-3 text-[#6B6560] max-w-[58ch]">Pick a lane and the timing, voices, and reveals adapt.</p>
           <div class="mt-10 grid grid-cols-1 md:grid-cols-6 gap-5">
             <a routerLink="/login" id="use-youtube" class="reveal card-lift group relative overflow-hidden rounded-[20px] md:col-span-4 min-h-[300px] flex items-end scroll-mt-24">
               <img src="https://picsum.photos/seed/indifferent-youtube/1200/700" alt="YouTube quiz channel setup" loading="lazy" class="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700">
@@ -400,7 +400,7 @@ export class LandingComponent implements AfterViewInit {
     {
       n: '01',
       title: 'Upload & vision',
-      body: 'Drop a TXT file. We detect numbering, options, and answer keys automatically — no formatting cleanup.',
+      body: 'Drop a TXT file. We detect numbering, options, and answer keys automatically. No formatting cleanup.',
     },
     {
       n: '02',

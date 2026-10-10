@@ -191,7 +191,7 @@ export class ProjectDetailComponent implements OnInit {
       next: (updated) => {
         this.project = updated;
         this.savingChannel = false;
-        this.brandingNotice = 'Channel handle saved — applies to future renders.';
+        this.brandingNotice = 'Channel handle saved. Applies to future renders.';
       },
       error: (err) => {
         this.savingChannel = false;
@@ -217,7 +217,7 @@ export class ProjectDetailComponent implements OnInit {
         this.projects.uploadLogo(res.uploadUrl, file).subscribe({
           next: () => {
             this.uploadingLogo = false;
-            this.brandingNotice = 'Logo uploaded — applies to future renders.';
+            this.brandingNotice = 'Logo uploaded. Applies to future renders.';
             this.projects.getProject(projectId).subscribe({
               next: (p) => {
                 this.project = p;
