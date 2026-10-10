@@ -1,11 +1,13 @@
 import { Component, AfterViewInit, ElementRef, PLATFORM_ID, ViewChild, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
+import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, NavMenuComponent, NavMobileMenuComponent],
   styles: [`
     /* Shape rule: pills for buttons, 20px cards, 12px inputs. Serif display only here. */
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
@@ -33,88 +35,78 @@ import { RouterLink } from '@angular/router';
       <!-- Floating island nav -->
       <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
         <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/" class="flex items-center gap-2 text-[#FAF7F2]">
+          <a routerLink="/" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
             <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
           </a>
           <div class="hidden md:flex items-center gap-6 text-[13.5px] text-white/70">
-            <!-- Features -->
-            <div class="relative group">
-              <button type="button" class="flex items-center gap-1.5 bg-transparent border-none text-[13.5px] text-white/70 group-hover:text-white transition-colors cursor-pointer p-0">
-                Features
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200 group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              <div class="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
-                <div class="w-[340px] rounded-2xl border border-white/10 bg-[#17150F] shadow-[0_20px_60px_rgba(0,0,0,0.5)] p-2">
-                  <a routerLink="/features/txt-to-video-quiz" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">TXT to narrated video</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Text-based quiz files (.txt) into narrated video content with answer reveals, ready for YouTube or any platform.</span>
-                  </a>
-                  <a routerLink="/features/watermark" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">Watermark tool</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Draggable text watermarks on JPG, PNG, WebP with size, opacity, color and rotation. Free, private, 100% in-browser with full-resolution PNG export.</span>
-                  </a>
-                  <a routerLink="/features/ai-shorts" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">AI Shorts generator</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions. AI finds the most engaging moments automatically.</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-            <!-- Use cases -->
-            <div class="relative group">
-              <button type="button" class="flex items-center gap-1.5 bg-transparent border-none text-[13.5px] text-white/70 group-hover:text-white transition-colors cursor-pointer p-0">
-                Use cases
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200 group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              <div class="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
-                <div class="w-[270px] rounded-2xl border border-white/10 bg-[#17150F] shadow-[0_20px_60px_rgba(0,0,0,0.5)] p-2">
-                  <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">YouTube creators</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Faceless quiz channels</span>
-                  </a>
-                  <a routerLink="/blog/educational-video-best-practices" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">Teachers &amp; educators</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Lesson recaps &amp; revision</span>
-                  </a>
-                  <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">AI narration</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">5 voices, timed delivery</span>
-                  </a>
-                  <a routerLink="/blog/video-template-comparison" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">Video templates</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Classic to Neon styles</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-            <!-- Resources -->
-            <div class="relative group">
-              <button type="button" class="flex items-center gap-1.5 bg-transparent border-none text-[13.5px] text-white/70 group-hover:text-white transition-colors cursor-pointer p-0">
-                Resources
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200 group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              <div class="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
-                <div class="w-[270px] rounded-2xl border border-white/10 bg-[#17150F] shadow-[0_20px_60px_rgba(0,0,0,0.5)] p-2">
-                  <a routerLink="/blog" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">Journal</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Essays &amp; notes</span>
-                  </a>
-                  <a routerLink="/blog/quiz-file-format-guide" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">Format guide</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Write parseable TXT</span>
-                  </a>
-                  <a routerLink="/about" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">About the studio</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">What we build</span>
-                  </a>
-                </div>
-              </div>
-            </div>
+            <app-nav-menu label="Features" [width]="340">
+              <a routerLink="/features/txt-to-video-quiz" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">TXT to narrated video</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Text-based quiz files (.txt) into narrated video content with answer reveals, ready for YouTube or any platform.</span>
+              </a>
+              <a routerLink="/features/watermark" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">Watermark tool</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Draggable text watermarks on JPG, PNG, WebP with size, opacity, color and rotation. Free, private, 100% in-browser with full-resolution PNG export.</span>
+              </a>
+              <a routerLink="/features/ai-shorts" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">AI Shorts generator</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions. AI finds the most engaging moments automatically.</span>
+              </a>
+            </app-nav-menu>
+            <app-nav-menu label="Use cases" [width]="270">
+              <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">YouTube creators</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Faceless quiz channels</span>
+              </a>
+              <a routerLink="/blog/educational-video-best-practices" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">Teachers &amp; educators</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Lesson recaps &amp; revision</span>
+              </a>
+              <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">AI narration</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">5 voices, timed delivery</span>
+              </a>
+              <a routerLink="/blog/video-template-comparison" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">Video templates</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Classic to Neon styles</span>
+              </a>
+            </app-nav-menu>
+            <app-nav-menu label="Resources" [width]="270">
+              <a routerLink="/blog" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">Journal</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Essays &amp; notes</span>
+              </a>
+              <a routerLink="/blog/quiz-file-format-guide" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">Format guide</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Write parseable TXT</span>
+              </a>
+              <a routerLink="/about" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">About the studio</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">What we build</span>
+              </a>
+            </app-nav-menu>
           </div>
-          <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-10 pl-5 pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
-            Start creating
-            <span class="w-7 h-7 rounded-full bg-[#1A1714] text-white flex items-center justify-center text-sm leading-none">↗</span>
-          </a>
+          <div class="flex items-center gap-1">
+            <app-nav-mobile-menu>
+              <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Features</p>
+              <a routerLink="/features/txt-to-video-quiz" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">TXT to narrated video</a>
+              <a routerLink="/features/watermark" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Watermark tool</a>
+              <a routerLink="/features/ai-shorts" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">AI Shorts generator</a>
+              <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Use cases</p>
+              <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">YouTube creators</a>
+              <a routerLink="/blog/educational-video-best-practices" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Teachers &amp; educators</a>
+              <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">AI narration</a>
+              <a routerLink="/blog/video-template-comparison" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Video templates</a>
+              <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Resources</p>
+              <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
+              <a routerLink="/blog/quiz-file-format-guide" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Format guide</a>
+              <a routerLink="/about" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">About the studio</a>
+            </app-nav-mobile-menu>
+            <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-11 pl-5 pr-5 sm:pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
+              Start creating
+              <span class="hidden sm:flex w-7 h-7 rounded-full bg-[#1A1714] text-white items-center justify-center text-sm leading-none" aria-hidden="true">↗</span>
+            </a>
+          </div>
         </nav>
       </header>
 
@@ -140,7 +132,7 @@ import { RouterLink } from '@angular/router';
                 Start creating
                 <span class="w-9 h-9 rounded-full bg-[#141310] text-white flex items-center justify-center">→</span>
               </a>
-              <a href="#templates" class="text-[15px] text-white/80 underline underline-offset-8 decoration-white/30 hover:decoration-white transition">View templates →</a>
+              <a href="#templates" class="inline-flex items-center min-h-[44px] text-[15px] text-white/80 underline underline-offset-8 decoration-white/30 hover:decoration-white transition">View templates →</a>
             </div>
             <dl class="mt-10 flex gap-8 text-[13px] text-white/55">
               <div><dt class="sr-only">Render time</dt><dd class="serif text-2xl text-white">~4 min</dd><dd>file to MP4</dd></div>
@@ -157,7 +149,7 @@ import { RouterLink } from '@angular/router';
                   <span class="w-2.5 h-2.5 rounded-full bg-white/15"></span>
                   <span class="w-2.5 h-2.5 rounded-full bg-white/15"></span>
                   <span class="w-2.5 h-2.5 rounded-full bg-[#D96C3D]/70"></span>
-                  <span class="ml-3 text-[11px] tracking-widest uppercase text-white/40">world-history-quiz.mp4 · 1080p</span>
+                  <span class="ml-3 text-[11px] tracking-widest uppercase text-white/60">world-history-quiz.mp4 · 1080p</span>
                 </div>
                 <div class="relative aspect-video">
                   <img src="https://picsum.photos/seed/indifferent-quiz-frame/960/540" alt="Generated quiz video frame showing a timed question card" class="absolute inset-0 w-full h-full object-cover">
@@ -166,7 +158,7 @@ import { RouterLink } from '@angular/router';
                     <p class="serif text-2xl md:text-3xl mt-2">Which empire built the Colosseum?</p>
                     <div class="grid grid-cols-2 gap-2 mt-5 w-full max-w-[340px] text-[13px]">
                       <span class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">A · Greece</span>
-                      <span class="rounded-lg bg-[#D96C3D] px-3 py-2 font-semibold">B · Rome</span>
+                      <span class="rounded-lg bg-[#BC5227] text-white px-3 py-2 font-semibold">B · Rome</span>
                       <span class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">C · Persia</span>
                       <span class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">D · Egypt</span>
                     </div>
@@ -283,34 +275,6 @@ import { RouterLink } from '@angular/router';
           </div>
         </section>
 
-        <!-- PROOF · clarity wall -->
-        <section class="border-t border-black/[0.07] bg-white">
-          <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-24 md:py-28 grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-12">
-            <div class="reveal">
-              <h2 class="serif font-medium text-[clamp(2rem,4vw,3rem)] leading-[1.02]">Clarity.</h2>
-              <p class="mt-4 text-[#6B6560] leading-relaxed max-w-[40ch]">Creators stopped editing. They upload TXT files on Monday and publish all week.</p>
-              <div class="mt-8 flex items-center gap-3">
-                <div class="flex -space-x-2">
-                  <span class="w-9 h-9 rounded-full border-2 border-white bg-[#BC5227] text-white flex items-center justify-center text-[12px] font-bold">PR</span>
-                  <span class="w-9 h-9 rounded-full border-2 border-white bg-[#1E3A2A] text-white flex items-center justify-center text-[12px] font-bold">SK</span>
-                  <span class="w-9 h-9 rounded-full border-2 border-white bg-[#8A7B5C] text-white flex items-center justify-center text-[12px] font-bold">DM</span>
-                </div>
-                <p class="text-[13.5px] text-[#6B6560]">2,400+ videos rendered<br>this quarter</p>
-              </div>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              @for (q of quotes; track q.name) {
-                <figure class="reveal rounded-[20px] border border-black/[0.07] bg-[#FAF7F2] p-6 flex flex-col">
-                  <blockquote class="serif text-[19px] leading-snug">“{{ q.text }}”</blockquote>
-                  <figcaption class="mt-5 pt-4 border-t border-black/10 flex items-center gap-3">
-                    <span class="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold text-white" [style.background]="q.color">{{ q.initials }}</span>
-                    <span><span class="block text-[14px] font-semibold">{{ q.name }}</span><span class="block text-[12.5px] text-[#6B6560]">{{ q.role }}</span></span>
-                  </figcaption>
-                </figure>
-              }
-            </div>
-          </div>
-        </section>
       </main>
 
       <!-- CLOSING dark block: manifesto + newsletter + footer -->
@@ -322,7 +286,7 @@ import { RouterLink } from '@angular/router';
             <p class="serif text-center leading-none tracking-[-0.03em] text-[clamp(3.5rem,14vw,11rem)] text-[#F4EFE6]/95 select-none">INDIFFERENT</p>
             <div class="mt-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-[14px]">
               <div>
-                <p class="text-white/40 text-[12px] uppercase tracking-[0.18em] mb-3">Archive</p>
+                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Archive</p>
                 <ul class="space-y-2 text-white/75">
                   <li><a routerLink="/login" class="hover:text-white">Templates</a></li>
                   <li><a routerLink="/blog" class="hover:text-white">Journal</a></li>
@@ -332,7 +296,7 @@ import { RouterLink } from '@angular/router';
                 </ul>
               </div>
               <div>
-                <p class="text-white/40 text-[12px] uppercase tracking-[0.18em] mb-3">Studio</p>
+                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Studio</p>
                 <ul class="space-y-2 text-white/75">
                   <li><a routerLink="/about" class="hover:text-white">About</a></li>
                   <li><a routerLink="/contact" class="hover:text-white">Contact</a></li>
@@ -340,19 +304,19 @@ import { RouterLink } from '@angular/router';
                 </ul>
               </div>
               <div>
-                <p class="text-white/40 text-[12px] uppercase tracking-[0.18em] mb-3">Legal</p>
+                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Legal</p>
                 <ul class="space-y-2 text-white/75">
                   <li><a routerLink="/privacy" class="hover:text-white">Privacy</a></li>
                   <li><a routerLink="/terms" class="hover:text-white">Terms</a></li>
                 </ul>
               </div>
               <div>
-                <p class="text-white/40 text-[12px] uppercase tracking-[0.18em] mb-3">Start</p>
-                <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#D96C3D] text-white px-6 py-3 font-semibold text-[14px]">Start creating →</a>
+                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Start</p>
+                <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#BC5227] text-white px-6 py-3 font-semibold text-[14px]">Start creating →</a>
                 <p class="mt-4 text-white/50 text-[13px]">TXT in. MP4 out.<br>Built with Angular, Go &amp; AWS.</p>
               </div>
             </div>
-            <div class="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-white/40">
+            <div class="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-white/60">
               <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
               <span>Architecture of video</span>
             </div>
@@ -375,7 +339,7 @@ export class LandingComponent implements AfterViewInit {
   templates = [
     {
       name: 'Midnight Lecture',
-      tag: 'Most used',
+      tag: 'High contrast',
       meta: '16:9 · 1080p',
       desc: 'High-contrast cards with calm narration bed. Built for retention.',
       image: 'https://picsum.photos/seed/indifferent-t-midnight/800/600',
@@ -412,13 +376,6 @@ export class LandingComponent implements AfterViewInit {
       title: 'Render & publish',
       body: 'Serverless pipeline cuts the MP4 in minutes. Download, watermark, and post to YouTube.',
     },
-  ];
-
-  quotes = [
-    { text: 'It stopped looking like slides. It plays like a real quiz show.', name: 'Priya Rao', role: 'Education creator', initials: 'PR', color: '#BC5227' },
-    { text: 'I upload on Monday, publish all week. No timeline scrubbing.', name: 'Sam Keller', role: 'Trivia host', initials: 'SK', color: '#1E3A2A' },
-    { text: 'The countdown pacing alone doubled our average view time.', name: 'Dana Mensah', role: 'Course producer', initials: 'DM', color: '#8A7B5C' },
-    { text: 'Students ask for the videos by name now. That never happened.', name: 'Leo Fontaine', role: 'Language coach', initials: 'LF', color: '#3E4A3D' },
   ];
 
   ngAfterViewInit(): void {

@@ -1,6 +1,7 @@
 import { Component, AfterViewInit, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { setPageSeo } from '../../shared/seo';
 
 interface Post {
@@ -16,7 +17,7 @@ interface Post {
 @Component({
   selector: 'app-blog',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, NavMobileMenuComponent],
   styles: [`
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
@@ -43,7 +44,7 @@ interface Post {
       <!-- Floating island nav (matches landing) -->
       <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
         <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/" class="flex items-center gap-2 text-[#FAF7F2]">
+          <a routerLink="/" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
             <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
           </a>
           <div class="hidden md:flex items-center gap-7 text-[13.5px] text-white/70">
@@ -52,10 +53,18 @@ interface Post {
             <a routerLink="/" fragment="archive" class="hover:text-white transition-colors">Archive</a>
             <a routerLink="/blog" class="text-white font-medium">Journal</a>
           </div>
-          <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-10 pl-5 pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
+          <div class="flex items-center gap-1">
+            <app-nav-mobile-menu>
+              <a routerLink="/login" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Templates</a>
+              <a routerLink="/" fragment="process" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Process</a>
+              <a routerLink="/" fragment="archive" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Archive</a>
+              <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
+            </app-nav-mobile-menu>
+            <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-11 pl-5 pr-5 sm:pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
             Start creating
-            <span class="w-7 h-7 rounded-full bg-[#1A1714] text-white flex items-center justify-center text-sm leading-none">↗</span>
+            <span class="hidden sm:flex w-7 h-7 rounded-full bg-[#1A1714] text-white items-center justify-center text-sm leading-none" aria-hidden="true">↗</span>
           </a>
+          </div>
         </nav>
       </header>
 
@@ -82,14 +91,14 @@ interface Post {
               <span aria-hidden="true" class="pl-3 text-white/50">⌕</span>
               <input id="journal-search" type="search" placeholder="Search essays…"
                 (input)="onSearch($event)"
-                class="flex-1 bg-transparent h-11 text-[15px] placeholder:text-white/35 outline-none">
+                class="flex-1 bg-transparent h-11 text-[15px] placeholder:text-white/60 outline-none">
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
               @for (c of categories; track c) {
                 <button type="button" (click)="setCategory(c)"
                   [class]="activeCategory === c
-                    ? 'rounded-full bg-[#E8E0D2] text-[#141310] px-4 py-1.5 text-[13px] font-semibold'
-                    : 'rounded-full border border-white/15 text-white/70 px-4 py-1.5 text-[13px] hover:border-white/40 hover:text-white transition-colors'">
+                    ? 'rounded-full bg-[#E8E0D2] text-[#141310] px-4 min-h-[44px] text-[13px] font-semibold'
+                    : 'rounded-full border border-white/15 text-white/70 px-4 min-h-[44px] text-[13px] hover:border-white/40 hover:text-white transition-colors'">
                   {{ c }}
                 </button>
               }
@@ -179,12 +188,12 @@ interface Post {
           <form (submit)="$event.preventDefault()" class="reveal mt-8 mx-auto max-w-[520px] rounded-[20px] p-2 bg-white/[0.06] border border-white/10 backdrop-blur flex flex-col sm:flex-row gap-2">
             <label for="blog-newsletter-email" class="sr-only">Email address</label>
             <input id="blog-newsletter-email" type="email" required placeholder="you@studio.com"
-              class="flex-1 rounded-[12px] bg-transparent px-5 h-12 text-[15px] placeholder:text-white/35 outline-none border border-transparent focus:border-white/30">
+              class="flex-1 rounded-[12px] bg-transparent px-5 h-12 text-[15px] placeholder:text-white/60 outline-none border border-transparent focus:border-white/30">
             <button type="submit" class="btn-primary rounded-full bg-[#E8E0D2] text-[#141310] px-7 h-12 font-semibold text-[14.5px]">Subscribe</button>
           </form>
           <footer class="mt-16 border-t border-white/10 pt-10">
             <p class="serif text-center leading-none tracking-[-0.03em] text-[clamp(3rem,13vw,10rem)] text-[#F4EFE6]/95 select-none">INDIFFERENT</p>
-            <div class="mt-10 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/40">
+            <div class="mt-10 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/60">
               <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
               <span class="flex gap-5">
                 <a routerLink="/" class="hover:text-white">Home</a>

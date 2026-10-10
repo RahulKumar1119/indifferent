@@ -42,7 +42,7 @@ interface Tool {
         <div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
           @for (tool of tools; track tool.title) {
             <div class="card-lift rounded-[20px] border border-black/10 bg-white p-6 flex flex-col">
-              <span class="inline-flex w-11 h-11 items-center justify-center rounded-xl bg-[#D96C3D]/12 text-[#BC5227]">
+              <span class="inline-flex w-11 h-11 items-center justify-center rounded-xl bg-[#D96C3D]/12 text-[#A8481F]">
                 <svg lucideIcon="{{ tool.icon }}" [size]="22"></svg>
               </span>
               <span class="mt-4 text-[11px] uppercase tracking-[0.18em] text-[#6B6560]">{{ tool.badge }}</span>
@@ -51,14 +51,14 @@ interface Tool {
               <ul class="mt-3 space-y-1.5 text-[13px] text-[#6B6560]">
                 @for (point of tool.points; track point) {
                   <li class="flex items-start gap-2">
-                    <span class="mt-0.5 inline-flex w-4 h-4 shrink-0 items-center justify-center rounded-full bg-[#D96C3D]/15 text-[#BC5227] text-[10px] font-bold">✓</span>
+                    <span class="mt-0.5 inline-flex w-4 h-4 shrink-0 items-center justify-center rounded-full bg-[#D96C3D]/15 text-[#A8481F] text-[10px] font-bold">✓</span>
                     {{ point }}
                   </li>
                 }
               </ul>
               <div class="mt-5 pt-1 flex items-center gap-3 mt-auto">
-                <a [routerLink]="tool.ctaLink" class="px-5 py-2.5 rounded-full bg-[#1A1714] text-white hover:bg-[#2A2620] transition-colors text-[13.5px] font-medium">{{ tool.ctaLabel }}</a>
-                <a [routerLink]="tool.infoLink" class="text-[13.5px] font-semibold text-[#BC5227] underline underline-offset-4">Learn more</a>
+                <a [routerLink]="tool.ctaLink" class="inline-flex items-center min-h-[44px] px-5 rounded-full bg-[#1A1714] text-white hover:bg-[#2A2620] transition-colors text-[13.5px] font-medium">{{ tool.ctaLabel }}</a>
+                <a [routerLink]="tool.infoLink" class="inline-flex items-center min-h-[44px] text-[13.5px] font-semibold text-[#A8481F] underline underline-offset-4">Learn more</a>
               </div>
             </div>
           }
@@ -67,7 +67,7 @@ interface Tool {
         <div class="mt-10 rounded-[20px] bg-[#1A1714] text-white px-6 py-8 text-center">
           <p class="font-medium text-[19px]">Need full videos, not just tools?</p>
           <p class="mt-2 text-[14px] text-white/60">Turn text or long footage into finished MP4s with AI narration, ranking and captions.</p>
-          <a routerLink="/login" class="mt-4 inline-block px-7 py-3 rounded-full bg-[#D96C3D] hover:bg-[#BC5227] transition-colors text-white font-semibold text-[14.5px]">Try for free</a>
+          <a routerLink="/login" class="mt-4 inline-block px-7 py-3 rounded-full bg-[#BC5227] hover:bg-[#A8481F] transition-colors text-white font-semibold text-[14.5px]">Try for free</a>
         </div>
       </main>
       <footer class="border-t border-black/10 px-4 py-8">

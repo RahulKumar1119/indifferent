@@ -1,12 +1,13 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { setPageSeo } from '../../shared/seo';
 
 @Component({
   selector: 'app-contact',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, NavMobileMenuComponent],
   styles: [`
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
@@ -22,7 +23,7 @@ import { setPageSeo } from '../../shared/seo';
     <div class="grain sans bg-[#FAF7F2] text-[#1A1714] antialiased">
       <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
         <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/" class="flex items-center gap-2 text-[#FAF7F2]">
+          <a routerLink="/" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
             <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
           </a>
           <div class="hidden md:flex items-center gap-7 text-[13.5px] text-white/70">
@@ -31,10 +32,18 @@ import { setPageSeo } from '../../shared/seo';
             <a routerLink="/about" class="hover:text-white transition-colors">Studio</a>
             <a routerLink="/contact" class="text-white font-medium">Contact</a>
           </div>
-          <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-10 pl-5 pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
+          <div class="flex items-center gap-1">
+            <app-nav-mobile-menu>
+              <a routerLink="/login" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Templates</a>
+              <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
+              <a routerLink="/about" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Studio</a>
+              <a routerLink="/contact" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Contact</a>
+            </app-nav-mobile-menu>
+            <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-11 pl-5 pr-5 sm:pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
             Start creating
-            <span class="w-7 h-7 rounded-full bg-[#1A1714] text-white flex items-center justify-center text-sm leading-none">↗</span>
+            <span class="hidden sm:flex w-7 h-7 rounded-full bg-[#1A1714] text-white items-center justify-center text-sm leading-none" aria-hidden="true">↗</span>
           </a>
+          </div>
         </nav>
       </header>
 
@@ -62,7 +71,7 @@ import { setPageSeo } from '../../shared/seo';
             <div class="rounded-[20px] bg-white border border-black/[0.07] p-8 flex-1">
               <p class="text-[11.5px] uppercase tracking-[0.2em] text-[#6B6560]">Email</p>
               <h2 class="serif mt-2 text-[28px]">General inquiries</h2>
-              <a href="mailto:support@indifferent.fun" class="mt-3 inline-block text-[16px] font-semibold underline underline-offset-8 decoration-[#1A1714]/25 hover:decoration-[#1A1714] transition">support&#64;indifferent.fun</a>
+              <a href="mailto:support@indifferent.fun" class="mt-3 inline-flex items-center min-h-[44px] text-[16px] font-semibold underline underline-offset-8 decoration-[#1A1714]/25 hover:decoration-[#1A1714] transition">support&#64;indifferent.fun</a>
             </div>
             <div class="rounded-[20px] bg-[#1E3A2A] text-[#EDE8DB] p-8 flex-1">
               <p class="text-[11.5px] uppercase tracking-[0.2em] text-white/60">Response time</p>
@@ -74,13 +83,13 @@ import { setPageSeo } from '../../shared/seo';
       </main>
 
       <section class="bg-[#0F0E0B] text-[#F4EFE6]">
-        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/40">
+        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/60">
           <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex gap-5">
-            <a routerLink="/" class="hover:text-white">Home</a>
-            <a routerLink="/about" class="hover:text-white">Studio</a>
-            <a routerLink="/privacy" class="hover:text-white">Privacy</a>
-            <a routerLink="/terms" class="hover:text-white">Terms</a>
+          <span class="flex flex-wrap">
+            <a routerLink="/" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Home</a>
+            <a routerLink="/about" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Studio</a>
+            <a routerLink="/privacy" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Privacy</a>
+            <a routerLink="/terms" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Terms</a>
           </span>
         </div>
       </section>

@@ -101,7 +101,7 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
   template: `
     <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
       <header class="max-w-3xl mx-auto px-4 pt-24 pb-6 text-center">
-        <a routerLink="/shorts-maker" class="text-[13px] text-[#6B6560] hover:text-[#1A1714]">← AI Shorts Maker</a>
+        <a routerLink="/shorts-maker" class="inline-flex items-center min-h-[44px] text-[13px] text-[#6B6560] hover:text-[#1A1714]">← AI Shorts Maker</a>
         <h1 class="mt-4 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2rem,5vw,3.4rem)]">{{ data.title }}</h1>
         <p class="mt-4 text-[16.5px] text-[#6B6560] leading-relaxed">{{ data.hook }}</p>
       </header>
@@ -110,27 +110,27 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
         <ul class="mt-6 space-y-3">
           @for (b of data.benefits; track b) {
             <li class="flex items-start gap-3 rounded-[14px] border border-black/10 bg-white px-4 py-3 text-[14.5px]">
-              <span class="mt-0.5 inline-flex w-5 h-5 shrink-0 items-center justify-center rounded-full bg-[#D96C3D]/15 text-[#BC5227] text-[12px] font-bold">✓</span>
+              <span class="mt-0.5 inline-flex w-5 h-5 shrink-0 items-center justify-center rounded-full bg-[#D96C3D]/15 text-[#A8481F] text-[12px] font-bold">✓</span>
               {{ b }}
             </li>
           }
         </ul>
         <div class="mt-8 rounded-[20px] bg-[#1A1714] text-white px-6 py-8 text-center">
           <p class="font-medium text-[19px]">{{ data.cta }}</p>
-          <a routerLink="/shorts" class="mt-4 inline-block px-7 py-3.5 rounded-full bg-[#D96C3D] hover:bg-[#BC5227] transition-colors text-white font-semibold text-[15px]">Try for free</a>
+          <a routerLink="/shorts" class="mt-4 inline-block px-7 py-3.5 rounded-full bg-[#BC5227] hover:bg-[#A8481F] transition-colors text-white font-semibold text-[15px]">Try for free</a>
           <p class="mt-3 text-[12.5px] text-white/60">Free during beta · No credit card</p>
         </div>
         <div class="mt-8">
           <p class="text-[13.5px] font-semibold mb-3">Other use cases</p>
           <div class="flex flex-wrap gap-2">
             @for (u of others; track u.slug) {
-              <a [routerLink]="['/use-cases', u.slug]" class="rounded-full border border-black/15 px-4 py-1.5 text-[13px] hover:bg-black/5 transition-colors">{{ u.title }}</a>
+              <a [routerLink]="['/use-cases', u.slug]" class="inline-flex items-center min-h-[44px] rounded-full border border-black/15 px-4 text-[13px] hover:bg-black/5 transition-colors">{{ u.title }}</a>
             }
           </div>
         </div>
       </main>
       <footer class="border-t border-black/10 px-4 py-8">
-        <p class="text-center text-[12.5px] text-[#6B6560]">© {{ currentYear }} Indifferent · <a routerLink="/shorts-maker" class="underline underline-offset-4">AI Shorts Maker</a></p>
+        <p class="text-center text-[12.5px] text-[#6B6560]">© {{ currentYear }} Indifferent · <a routerLink="/shorts-maker" class="inline-flex items-center min-h-[44px] px-1 underline underline-offset-4">AI Shorts Maker</a></p>
       </footer>
     </div>
   `,

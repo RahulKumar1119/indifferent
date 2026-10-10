@@ -61,7 +61,7 @@ import { setPageSeo } from '../../shared/seo';
                   <p class="serif text-xl mt-1">Which planet is the Red Planet?</p>
                   <div class="grid grid-cols-2 gap-1.5 mt-4 w-full max-w-[280px] text-[11.5px]">
                     <span class="rounded-md bg-white/10 border border-white/20 px-2 py-1.5">Venus</span>
-                    <span class="rounded-md bg-[#D96C3D] px-2 py-1.5 font-semibold">Mars</span>
+                    <span class="rounded-md bg-[#BC5227] text-white px-2 py-1.5 font-semibold">Mars</span>
                     <span class="rounded-md bg-white/10 border border-white/20 px-2 py-1.5">Jupiter</span>
                     <span class="rounded-md bg-white/10 border border-white/20 px-2 py-1.5">Saturn</span>
                   </div>
@@ -70,17 +70,10 @@ import { setPageSeo } from '../../shared/seo';
             </div>
           </div>
 
-          <figure class="mt-6 max-w-md rounded-[20px] border border-white/10 bg-white/[0.05] backdrop-blur p-5">
-            <blockquote class="serif text-[19px] leading-snug">“It stopped looking like slides. It plays like a real quiz show.”</blockquote>
-            <figcaption class="mt-3 flex items-center gap-3">
-              <span class="w-9 h-9 rounded-full bg-[#BC5227] text-white flex items-center justify-center text-[12px] font-bold">PR</span>
-              <span><span class="block text-[13.5px] font-semibold">Priya Rao</span><span class="block text-[12px] text-white/55">Education creator</span></span>
-            </figcaption>
-          </figure>
         </div>
 
         <div class="relative z-10">
-          <p class="text-white/40 text-[12.5px]">© {{ currentYear }} Indifferent · Architecture of video</p>
+          <p class="text-white/60 text-[12.5px]">© {{ currentYear }} Indifferent · Architecture of video</p>
         </div>
       </div>
 
@@ -170,7 +163,7 @@ import { setPageSeo } from '../../shared/seo';
             <a routerLink="/privacy" class="underline underline-offset-4 decoration-black/25 hover:decoration-black">Privacy Policy</a>
           </p>
           <div class="mt-4 text-center">
-            <a routerLink="/" class="text-[13.5px] text-[#6B6560] hover:text-[#1A1714] transition-colors">← Back to home</a>
+            <a routerLink="/" class="inline-flex items-center min-h-[44px] text-[13.5px] text-[#6B6560] hover:text-[#1A1714] transition-colors">← Back to home</a>
           </div>
         </div>
       </div>

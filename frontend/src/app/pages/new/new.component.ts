@@ -37,11 +37,11 @@ const HERO_STILL = '/screenshots/shorts-hero-still.png';
             <div class="p-6 md:p-7 flex flex-col flex-1">
               <span class="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/50">
                 <svg lucideIcon="scissors" [size]="14" class="picker-icon"></svg>
-                Most used · Vertical clips
+                Vertical clips
               </span>
               <h2 class="mt-1 font-semibold text-[22px]">AI Shorts Generator</h2>
               <p class="mt-2 text-[14.5px] leading-relaxed text-white/65 flex-1">Upload once → get ranked 9:16 clips.</p>
-              <span class="cta-pulse mt-4 inline-flex items-center justify-center gap-1.5 h-14 md:h-auto w-full sm:w-auto px-6 md:py-2.5 rounded-full bg-[#D96C3D] text-white text-[14.5px] font-semibold">
+              <span class="cta-pulse mt-4 inline-flex items-center justify-center gap-1.5 h-14 md:h-auto w-full sm:w-auto px-6 md:py-2.5 rounded-full bg-[#BC5227] text-white text-[14.5px] font-semibold">
                 Make shorts <span aria-hidden="true">→</span>
               </span>
             </div>

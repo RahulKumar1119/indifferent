@@ -26,17 +26,21 @@ import { setPageSeo } from '../../../shared/seo';
       top: 0;
       z-index: 100;
     }
+    .blog-logo { display: inline-flex; align-items: center; min-height: 44px; }
     .blog-logo img { height: 2rem; }
     .blog-signin {
-      background: #0d9488;
+      background: #0f766e;
       color: #fff;
-      padding: 0.5rem 1.25rem;
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 1.25rem;
       border-radius: 0.5rem;
       font-weight: 600;
       font-size: 0.875rem;
       text-decoration: none;
     }
-    .blog-signin:hover { background: #0f766e; }
+    .blog-signin:hover { background: #115e59; }
     .blog-article {
       max-width: 720px;
       margin: 0 auto;
@@ -44,11 +48,13 @@ import { setPageSeo } from '../../../shared/seo';
     }
     .blog-article-header { margin-bottom: 2rem; }
     .blog-back {
-      color: #0d9488;
+      color: #0f766e;
       font-size: 0.875rem;
       text-decoration: none;
-      display: inline-block;
-      margin-bottom: 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      margin-bottom: 1rem;
     }
     .blog-back:hover { text-decoration: underline; }
     .blog-article-header h1 {
@@ -119,14 +125,14 @@ import { setPageSeo } from '../../../shared/seo';
     .blog-cta p { color: #64748b; margin: 0 0 1.25rem; }
     .blog-cta-btn {
       display: inline-block;
-      background: #0d9488;
+      background: #0f766e;
       color: #fff;
       padding: 0.75rem 1.5rem;
       border-radius: 0.5rem;
       font-weight: 600;
       text-decoration: none;
     }
-    .blog-cta-btn:hover { background: #0f766e; }
+    .blog-cta-btn:hover { background: #115e59; }
     .blog-footer {
       text-align: center;
       padding: 2rem;
@@ -138,9 +144,9 @@ import { setPageSeo } from '../../../shared/seo';
       text-decoration: none;
       margin: 0 0.5rem;
     }
-    .blog-footer a:hover { color: #0d9488; }
+    .blog-footer a:hover { color: #0f766e; }
     .blog-footer p {
-      color: #94a3b8;
+      color: #5b6b80;
       font-size: 0.7rem;
       margin-top: 0.5rem;
     }
