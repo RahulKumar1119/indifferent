@@ -29,10 +29,10 @@ interface DocSection {
     <div class="grain sans bg-[#FAF7F2] text-[#1A1714] antialiased">
       <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
         <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/" class="flex items-center gap-2 text-[#FAF7F2]">
+          <a routerLink="/" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
             <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
           </a>
-          <a routerLink="/login" class="btn-primary inline-flex items-center h-10 px-5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">Sign in</a>
+          <a routerLink="/login" class="btn-primary inline-flex items-center h-11 px-5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">Sign in</a>
         </nav>
       </header>
 
@@ -77,13 +77,13 @@ interface DocSection {
       </main>
 
       <section class="bg-[#0F0E0B] text-[#F4EFE6]">
-        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/40">
+        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/60">
           <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex gap-5">
-            <a routerLink="/" class="hover:text-white">Home</a>
-            <a routerLink="/about" class="hover:text-white">Studio</a>
-            <a routerLink="/contact" class="hover:text-white">Contact</a>
-            <a routerLink="/privacy" class="hover:text-white">Privacy</a>
+          <span class="flex flex-wrap">
+            <a routerLink="/" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Home</a>
+            <a routerLink="/about" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Studio</a>
+            <a routerLink="/contact" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Contact</a>
+            <a routerLink="/privacy" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Privacy</a>
           </span>
         </div>
       </section>

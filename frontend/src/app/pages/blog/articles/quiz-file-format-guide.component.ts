@@ -115,7 +115,7 @@ Answer: Gold</pre>
         <div class="mt-10 rounded-[20px] bg-[#1A1714] text-white px-6 py-8 text-center">
           <p class="font-medium text-[19px]">Ready to create your first quiz video?</p>
           <p class="mt-2 text-[14px] text-white/60">Sign up free and convert your text quizzes into professional videos in minutes.</p>
-          <a routerLink="/login" class="btn-primary mt-4 inline-block px-7 py-3 rounded-full bg-[#D96C3D] hover:bg-[#BC5227] transition-colors text-white font-semibold text-[14.5px]">Get Started Free</a>
+          <a routerLink="/login" class="btn-primary mt-4 inline-block px-7 py-3 rounded-full bg-[#BC5227] hover:bg-[#A8481F] transition-colors text-white font-semibold text-[14.5px]">Get Started Free</a>
           <p class="mt-3 text-[13px]"><a routerLink="/features/txt-to-video-quiz" class="underline underline-offset-4 text-white/70 hover:text-white">How the quiz generator works →</a></p>
         </div>
       </main>

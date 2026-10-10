@@ -2,6 +2,8 @@ import { AfterViewInit, Component, ElementRef, OnInit, PLATFORM_ID, inject } fro
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
+import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
+import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { setCanonical } from '../../shared/seo';
 
@@ -31,7 +33,7 @@ interface UseCaseLink {
 @Component({
   selector: 'app-shorts-maker',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideDynamicIcon],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavMenuComponent, NavMobileMenuComponent],
   styles: [`
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
     .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(0.23,1,0.32,1), transform .8s cubic-bezier(0.23,1,0.32,1); }
@@ -55,70 +57,59 @@ interface UseCaseLink {
       <!-- Sticky nav -->
       <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
         <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/shorts-maker" class="flex items-center gap-2 text-[#FAF7F2]">
+          <a routerLink="/shorts-maker" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
             <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-            <span class="hidden sm:inline text-[11px] uppercase tracking-[0.18em] text-white/50 border border-white/15 rounded-full px-2 py-0.5">Shorts</span>
+            <span class="hidden sm:inline text-[11px] uppercase tracking-[0.18em] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Shorts</span>
           </a>
           <div class="hidden md:flex items-center gap-6 text-[13.5px] text-white/70">
-            <!-- Product mega-menu -->
-            <div class="relative group">
-              <button type="button" class="flex items-center gap-1.5 bg-transparent border-none text-[13.5px] text-white/70 group-hover:text-white transition-colors cursor-pointer p-0">
-                Product
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200 group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              <div class="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
-                <div class="w-[340px] rounded-2xl border border-white/10 bg-[#17150F] shadow-[0_20px_60px_rgba(0,0,0,0.5)] p-2">
+            <app-nav-menu label="Product" [width]="340">
                   <a routerLink="/shorts-maker" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">AI Shorts generator</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Long video or audio into ranked 9:16 clips with burned-in captions.</span>
+                    <span class="block text-white/60 text-[12px] mt-0.5">Long video or audio into ranked 9:16 clips with burned-in captions.</span>
                   </a>
                   <a routerLink="/projects" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">TXT to narrated video</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Quiz files into narrated video content with answer reveals.</span>
+                    <span class="block text-white/60 text-[12px] mt-0.5">Quiz files into narrated video content with answer reveals.</span>
                   </a>
                   <a routerLink="/tools" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">Free tools</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Watermarks and more: private, in-browser utilities.</span>
+                    <span class="block text-white/60 text-[12px] mt-0.5">Watermarks and more: private, in-browser utilities.</span>
                   </a>
-                </div>
-              </div>
-            </div>
-            <!-- Use cases mega-menu -->
-            <div class="relative group">
-              <button type="button" class="flex items-center gap-1.5 bg-transparent border-none text-[13.5px] text-white/70 group-hover:text-white transition-colors cursor-pointer p-0">
-                Use Cases
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200 group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              <div class="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
-                <div class="w-[300px] rounded-2xl border border-white/10 bg-[#17150F] shadow-[0_20px_60px_rgba(0,0,0,0.5)] p-2">
+            </app-nav-menu>
+            <app-nav-menu label="Use cases" [width]="300">
                   @for (u of useCaseLinks; track u.slug) {
                     <a [routerLink]="['/use-cases', u.slug]" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors">
                       <span class="block text-white text-[13.5px] font-medium">{{ u.title }}</span>
                     </a>
                   }
-                </div>
-              </div>
-            </div>
-            <!-- Resources mega-menu -->
-            <div class="relative group">
-              <button type="button" class="flex items-center gap-1.5 bg-transparent border-none text-[13.5px] text-white/70 group-hover:text-white transition-colors cursor-pointer p-0">
-                Resources
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-200 group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              <div class="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible translate-y-1 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-200">
-                <div class="w-[300px] rounded-2xl border border-white/10 bg-[#17150F] shadow-[0_20px_60px_rgba(0,0,0,0.5)] p-2">
+            </app-nav-menu>
+            <app-nav-menu label="Resources" [width]="300">
                   <a routerLink="/blog" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">Blog</span></a>
                   <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">Quiz videos for YouTube</span></a>
                   <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">AI narration guide</span></a>
                   <a routerLink="/about" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">About</span></a>
                   <a href="#faq" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">FAQ</span></a>
-                </div>
-              </div>
-            </div>
+            </app-nav-menu>
           </div>
-          <div class="flex items-center gap-2">
-            <a routerLink="/login" class="hidden sm:inline px-4 py-2 rounded-full text-[13.5px] text-white/80 hover:text-white transition-colors">Login</a>
-            <a routerLink="/shorts" class="btn-primary px-4 py-2 rounded-full bg-[#D96C3D] hover:bg-[#BC5227] text-white text-[13.5px] font-semibold">Try For Free</a>
+          <div class="flex items-center gap-1">
+            <app-nav-mobile-menu>
+              <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Product</p>
+              <a routerLink="/shorts-maker" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">AI Shorts generator</a>
+              <a routerLink="/projects" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">TXT to narrated video</a>
+              <a routerLink="/tools" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Free tools</a>
+              <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Use cases</p>
+              @for (u of useCaseLinks; track u.slug) {
+                <a [routerLink]="['/use-cases', u.slug]" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">{{ u.title }}</a>
+              }
+              <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Resources</p>
+              <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Blog</a>
+              <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Quiz videos for YouTube</a>
+              <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">AI narration guide</a>
+              <a routerLink="/about" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">About</a>
+              <a href="#faq" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">FAQ</a>
+            </app-nav-mobile-menu>
+            <a routerLink="/login" class="hidden sm:inline-flex items-center h-11 px-4 rounded-full text-[13.5px] text-white/80 hover:text-white transition-colors">Login</a>
+            <a routerLink="/shorts" class="btn-primary inline-flex items-center h-11 px-4 rounded-full bg-[#BC5227] hover:bg-[#A8481F] text-white text-[13.5px] font-semibold">Try for free</a>
           </div>
         </nav>
       </header>
@@ -139,7 +130,6 @@ interface UseCaseLink {
             <a routerLink="/login" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full border border-black/15 hover:bg-black/5 transition-colors font-semibold text-[15px]">Try for free</a>
           </div>
           <div class="reveal mt-6 flex flex-col items-center gap-2">
-            <p class="text-[15px] tracking-[0.08em] text-[#D96C3D]" aria-label="Rated 5 out of 5">★★★★★</p>
             <p class="text-[13px] text-[#6B6560]">Free during beta · No credit card · 1080×1920 full-HD · H.264 + AAC · 30fps</p>
           </div>
 
@@ -148,7 +138,7 @@ interface UseCaseLink {
             <div class="rounded-[12px] bg-[#0F0E0B] px-4 py-3 md:px-8 md:py-6 flex flex-col md:flex-row items-center gap-6">
               <div class="relative w-[150px] md:w-[170px] shrink-0 rounded-[18px] border border-white/15 overflow-hidden bg-black" style="aspect-ratio: 9 / 16;">
                 <div class="absolute inset-0" style="background: linear-gradient(160deg, #2A2620 0%, #0F0E0B 60%, #1A1714 100%);"></div>
-                <span class="absolute top-2 left-2 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-[#D96C3D]/90 text-white">Rank #1</span>
+                <span class="absolute top-2 left-2 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-[#BC5227] text-white">Rank #1</span>
                 <div class="absolute bottom-8 left-2 right-2 text-center">
                   <span class="inline-block text-white text-[11px] font-semibold px-1" style="text-shadow: 0 1px 3px #000, 0 0 6px #000;">never miss the moment</span>
                 </div>
@@ -179,7 +169,7 @@ interface UseCaseLink {
           <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             @for (f of features; track f.title) {
               <div class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6">
-                <span class="inline-flex w-10 h-10 items-center justify-center rounded-xl bg-[#D96C3D]/12 text-[#BC5227]">
+                <span class="inline-flex w-10 h-10 items-center justify-center rounded-xl bg-[#D96C3D]/12 text-[#A8481F]">
                   <svg lucideIcon="{{ f.icon }}" [size]="20"></svg>
                 </span>
                 <h3 class="mt-4 font-semibold text-[16.5px]">{{ f.title }}</h3>
@@ -213,7 +203,7 @@ interface UseCaseLink {
             </div>
           </div>
           <div class="reveal mt-8 text-center">
-            <a routerLink="/shorts" class="btn-primary inline-block px-7 py-3.5 rounded-full bg-[#D96C3D] hover:bg-[#BC5227] text-white font-semibold text-[15px]">Get started free</a>
+            <a routerLink="/shorts" class="btn-primary inline-block px-7 py-3.5 rounded-full bg-[#BC5227] hover:bg-[#A8481F] text-white font-semibold text-[15px]">Get started free</a>
           </div>
         </div>
       </section>
