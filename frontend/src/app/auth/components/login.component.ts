@@ -195,9 +195,9 @@ export class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     setPageSeo(this.document, {
-      title: 'Start Creating — Sign In | Indifferent',
+      title: 'Start Creating: Sign In | Indifferent',
       description:
-        'Sign in to Indifferent to turn TXT quiz files into narrated videos and long footage into viral AI Shorts.',
+        'Sign in to Indifferent to turn TXT quiz files into narrated videos and long footage into ranked vertical shorts.',
       canonical: 'https://indifferent.fun/login',
     });
     this.route.queryParamMap.subscribe((params) => {

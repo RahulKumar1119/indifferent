@@ -46,7 +46,7 @@ import { setPageSeo } from '../../shared/seo';
             <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> The Studio
           </p>
           <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(2.8rem,7vw,5.2rem)] max-w-[16ch] text-balance">The studio behind the video.</h1>
-          <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[52ch]">Indifferent turns multiple-choice quiz files into engaging, YouTube-ready films — no editing skills required.</p>
+          <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[52ch]">Indifferent turns multiple-choice quiz files into engaging, YouTube-ready films. No editing skills required.</p>
         </div>
       </section>
 
@@ -55,7 +55,7 @@ import { setPageSeo } from '../../shared/seo';
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div>
             <h2 class="serif font-medium tracking-[-0.02em] text-[clamp(2rem,4vw,3rem)] leading-[1.02]">Our mission</h2>
-            <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it effortless to convert your multiple-choice quiz files into engaging, YouTube-ready video content. Whether you're an educator, content creator, or training professional, our platform automates the entire production — from parsing your questions to generating narrated, animated videos with countdown timers and answer reveals.</p>
+            <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it effortless to convert your multiple-choice quiz files into engaging, YouTube-ready video content. Whether you're an educator, content creator, or training professional, our platform automates the entire production: from parsing your questions to generating narrated, animated videos with countdown timers and answer reveals.</p>
             <a routerLink="/login" class="btn-primary mt-6 inline-flex items-center gap-3 rounded-full bg-[#1A1714] text-white pl-6 pr-2 py-2 font-semibold text-[14.5px]">Start creating <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">→</span></a>
           </div>
           <div class="rounded-[20px] overflow-hidden border border-black/10">
@@ -81,7 +81,7 @@ import { setPageSeo } from '../../shared/seo';
             </li>
             <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-y border-black/10">
               <span class="serif italic text-[26px] text-[#BC5227] leading-none">04</span>
-              <div><h3 class="font-semibold">Download &amp; share</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">Preview in-browser and download the MP4 — ready for YouTube, social, or any platform.</p></div>
+              <div><h3 class="font-semibold">Download &amp; share</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">Preview in-browser and download the MP4, ready for YouTube, social, or any platform.</p></div>
             </li>
           </ol>
         </section>
@@ -159,7 +159,7 @@ import { setPageSeo } from '../../shared/seo';
               <span class="rounded-full border border-white/20 bg-white/[0.07] px-4 py-1.5 text-[13px]">{{ s }}</span>
             }
           </div>
-          <p class="mt-6 text-white/65 text-[14px] max-w-[60ch]">Indifferent is built and maintained by a developer focused on making content creation accessible — no expensive software, no editing skills.</p>
+          <p class="mt-6 text-white/65 text-[14px] max-w-[60ch]">Indifferent is built and maintained by a developer focused on making content creation accessible. No expensive software, no editing skills.</p>
           <div class="mt-6 flex flex-wrap gap-3">
             <a href="https://github.com/RahulKumar1119/indifferent/issues" target="_blank" rel="noopener" class="btn-primary inline-flex items-center rounded-full bg-[#E8E0D2] text-[#141310] px-6 py-3 font-semibold text-[14px]">Open an issue →</a>
             <a routerLink="/contact" class="inline-flex items-center rounded-full border border-white/25 px-6 py-3 text-[14px] hover:border-white/60 transition-colors">Get in touch</a>

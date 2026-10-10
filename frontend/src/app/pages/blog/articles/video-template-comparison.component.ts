@@ -157,7 +157,7 @@ import { setPageSeo } from '../../../shared/seo';
         <div class="blog-meta">Published December 28, 2024 · 7 min read</div>
       </header>
       <div class="blog-content">
-        <p>Choosing the right visual template for your quiz video is more than an aesthetic decision — it directly affects how viewers perceive your content, how long they stay engaged, and whether your video feels appropriate for its intended audience. Indifferent offers six distinct templates, each designed for different content types, audiences, and platforms. This guide will help you understand the strengths of each option and make an informed choice for your next project.</p>
+        <p>Choosing the right visual template for your quiz video is more than an aesthetic decision: it directly affects how viewers perceive your content, how long they stay engaged, and whether your video feels appropriate for its intended audience. Indifferent offers six distinct templates, each designed for different content types, audiences, and platforms. This guide will help you understand the strengths of each option and make an informed choice for your next project.</p>
 
         <h2>Overview of All Six Templates</h2>
         <p>Each template in the Indifferent library has been carefully designed to balance readability, visual appeal, and professional quality. While all templates support the same quiz functionality including countdown timers, answer reveals, and narration synchronization, they differ significantly in visual tone, color palette, and typographic style. Understanding these differences helps you select the template that best communicates your brand and resonates with your target audience.</p>
@@ -193,12 +193,12 @@ import { setPageSeo } from '../../../shared/seo';
         <p><strong>Best for:</strong> Entertainment and trivia night content, gaming communities, pop culture quizzes, music and movie trivia, content targeting Gen-Z audiences, and any quiz designed purely for fun rather than formal education. The Neon template maximizes excitement and creates a party atmosphere that encourages sharing.</p>
 
         <h2>Color Psychology in Educational Content</h2>
-        <p>The colors in your quiz video influence viewer emotions and behavior in measurable ways. Blue tones promote trust, calm, and focus — ideal for educational content where concentration matters. Green creates feelings of balance and growth, making it appropriate for learning contexts. Purple suggests creativity and wisdom, working well for thought-provoking content.</p>
-        <p>Warm colors like orange and amber create energy and enthusiasm but should be used sparingly to avoid overwhelming viewers. Red signals urgency and importance — effective for countdown timers and incorrect answer indicators but counterproductive if overused throughout the design.</p>
+        <p>The colors in your quiz video influence viewer emotions and behavior in measurable ways. Blue tones promote trust, calm, and focus, ideal for educational content where concentration matters. Green creates feelings of balance and growth, making it appropriate for learning contexts. Purple suggests creativity and wisdom, working well for thought-provoking content.</p>
+        <p>Warm colors like orange and amber create energy and enthusiasm but should be used sparingly to avoid overwhelming viewers. Red signals urgency and importance, effective for countdown timers and incorrect answer indicators but counterproductive if overused throughout the design.</p>
         <p>High contrast between text and background is essential for comprehension. Dark text on light backgrounds produces the best readability scores in research, though light text on dark backgrounds can work well when font sizes are larger and line spacing is generous.</p>
 
         <h2>Typography Choices and Readability</h2>
-        <p>Each template uses carefully selected font pairings optimized for on-screen reading at video resolution. The primary concern is legibility at various screen sizes — from large desktop monitors to small mobile phone screens where many YouTube viewers watch content.</p>
+        <p>Each template uses carefully selected font pairings optimized for on-screen reading at video resolution. The primary concern is legibility at various screen sizes, from large desktop monitors to small mobile phone screens where many YouTube viewers watch content.</p>
         <p>Sans-serif fonts dominate our template designs because they render more clearly at screen resolution than serif alternatives. Heading fonts are selected for personality and impact, while body text fonts prioritize even letter spacing and clear distinction between similar characters like lowercase L and the number one.</p>
         <p>Font size in video content should be larger than you might expect. Viewers often watch on small screens, sometimes while multitasking, so text needs to be immediately readable without squinting or pausing. Our templates use minimum sizes that ensure comfortable reading across all common viewing devices.</p>
 
@@ -234,7 +234,7 @@ export class VideoTemplateComparisonComponent implements OnInit {
     setPageSeo(this.document, {
       title: 'Video Template Comparison: Which Style Fits? | Indifferent',
       description:
-        'Compare Indifferent video templates — Classic, Modern, Education, Dark, Minimal, Neon — and pick the style that fits your channel and audience.',
+        'Compare Indifferent video templates (Classic, Modern, Education, Dark, Minimal, Neon) and pick the style that fits your channel and audience.',
       canonical: 'https://indifferent.fun/blog/video-template-comparison',
     });
   }

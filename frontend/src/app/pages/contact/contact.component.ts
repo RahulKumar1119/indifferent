@@ -46,7 +46,7 @@ import { setPageSeo } from '../../shared/seo';
             <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Correspondence
           </p>
           <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(2.8rem,7vw,5.2rem)] text-balance">Write to the studio.</h1>
-          <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[48ch]">Questions, feedback, or feature requests — reach out through any channel below.</p>
+          <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[48ch]">Questions, feedback, or feature requests. Reach out through any channel below.</p>
         </div>
       </section>
 

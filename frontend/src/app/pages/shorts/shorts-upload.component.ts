@@ -51,7 +51,7 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
         <div>
           <h1 class="text-2xl font-bold">Create AI Shorts</h1>
           <p class="text-[hsl(var(--muted-foreground))]">
-            Drop your footage anywhere — we find the best moments and cut vertical 9:16 clips.
+            Drop your footage anywhere. We find the best moments and cut vertical 9:16 clips.
           </p>
         </div>
         <a
@@ -111,7 +111,7 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
             <div class="w-20 h-20 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto">
               <svg lucideIcon="upload" [size]="36" class="text-[hsl(var(--primary))]" [class.animate-pulse]="isDragOver"></svg>
             </div>
-            <p class="text-xl font-medium">{{ isDragOver ? 'Drop it — we take it from here' : 'Drag & drop anywhere on this page' }}</p>
+            <p class="text-xl font-medium">{{ isDragOver ? 'Drop it. We take it from here' : 'Drag & drop anywhere on this page' }}</p>
             <p class="text-sm font-medium text-[hsl(var(--foreground))]">MP4, MOV, MP3, WAV · Max 10 min · Max 500 MB</p>
             <p class="text-sm text-[hsl(var(--muted-foreground))]">or</p>
             <button

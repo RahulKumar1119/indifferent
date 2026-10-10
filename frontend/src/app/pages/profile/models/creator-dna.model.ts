@@ -1,5 +1,5 @@
 /**
- * Creator DNA — reusable AI preferences that will eventually feed video
+ * Creator DNA: reusable AI preferences that will eventually feed video
  * generation ("Generate using my Creator DNA").
  */
 export interface CreatorDNA {
@@ -26,7 +26,7 @@ export const DEFAULT_CREATOR_DNA: CreatorDNA = {
   music: 'Upbeat',
 };
 
-/** Full option lists — intentionally broad so the UI never needs curation. */
+/** Full option lists: intentionally broad so the UI never needs curation. */
 export const CREATOR_DNA_OPTIONS: Record<keyof CreatorDNA, string[]> = {
   niche: [
     'Technology',

@@ -205,7 +205,7 @@ export class BlogComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     setPageSeo(this.document, {
-      title: 'Journal — Essays & Notes | Indifferent',
+      title: 'Journal: Essays & Notes | Indifferent',
       description:
         'The Indifferent journal: guides on quiz videos, AI narration, video templates, and getting the most out of AI video creation.',
       canonical: 'https://indifferent.fun/blog',
@@ -222,7 +222,7 @@ export class BlogComponent implements OnInit, AfterViewInit {
     {
       route: '/blog/quiz-videos-youtube',
       title: 'How to Create Quiz Videos for YouTube',
-      excerpt: 'The complete process behind quiz films that earn views, comments, and subscribers — pacing, reveals, and retention.',
+      excerpt: 'The complete process behind quiz films that earn views, comments, and subscribers: pacing, reveals, and retention.',
       date: 'Jan 15, 2025',
       read: '6 min read',
       category: 'YouTube',
@@ -249,7 +249,7 @@ export class BlogComponent implements OnInit, AfterViewInit {
     {
       route: '/blog/video-template-comparison',
       title: 'Video Template Comparison: Which Style Fits?',
-      excerpt: 'All six themes compared — which grade, type scale, and timer suits your audience and subject.',
+      excerpt: 'All six themes compared: which grade, type scale, and timer suits your audience and subject.',
       date: 'Dec 28, 2024',
       read: '7 min read',
       category: 'Templates',
@@ -258,7 +258,7 @@ export class BlogComponent implements OnInit, AfterViewInit {
     {
       route: '/blog/ai-narration-guide',
       title: 'AI Narration for Videos: A Complete Guide',
-      excerpt: 'Everything about AI voiceovers — choosing voices, scoring countdowns, and mixing narration beds.',
+      excerpt: 'Everything about AI voiceovers: choosing voices, scoring countdowns, and mixing narration beds.',
       date: 'Dec 20, 2024',
       read: '6 min read',
       category: 'Narration',
@@ -325,7 +325,7 @@ export class BlogComponent implements OnInit, AfterViewInit {
   }
 
   private revealAll(): void {
-    // New cards enter after filter change — observe them on next frame
+    // New cards enter after filter change: observe them on next frame
     requestAnimationFrame(() => this.observeReveals());
   }
 }

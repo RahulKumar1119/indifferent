@@ -11,7 +11,7 @@ export const authGuard: CanActivateFn = () => {
     return true;
   }
 
-  // In-memory token is empty after a page reload — try the httpOnly
+  // In-memory token is empty after a page reload: try the httpOnly
   // refresh cookie once before bouncing to /login.
   return authService.refreshToken().pipe(
     map(() => true),

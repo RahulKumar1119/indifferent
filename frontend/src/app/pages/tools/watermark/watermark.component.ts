@@ -50,7 +50,7 @@ import { setPageSeo } from '../../../shared/seo';
             <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Finishing · Tool
           </p>
           <h1 class="serif mt-4 font-medium leading-[0.95] text-[clamp(2.4rem,5vw,3.8rem)]">Brand it.</h1>
-          <p class="mt-3 text-[#6B6560] max-w-[56ch] leading-relaxed">Add text watermarks to your images — free, private, processed in your browser. Nothing uploads anywhere.</p>
+          <p class="mt-3 text-[#6B6560] max-w-[56ch] leading-relaxed">Add text watermarks to your images. Free, private, processed in your browser. Nothing uploads anywhere.</p>
         </div>
       </section>
 
@@ -178,7 +178,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     setPageSeo(this.document, {
-      title: 'Free Watermark Tool — Add Text Watermarks to Images | Indifferent',
+      title: 'Free Watermark Tool: Add Text Watermarks to Images | Indifferent',
       description:
         'Free in-browser watermark tool: draggable text watermarks on JPG, PNG and WebP with size, opacity, color and rotation. Private, full-resolution PNG export.',
       canonical: 'https://indifferent.fun/tools/add-watermark',

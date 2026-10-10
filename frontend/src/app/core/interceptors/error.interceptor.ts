@@ -19,7 +19,7 @@ export class ErrorInterceptor implements HttpInterceptor {
     return next.handle(req).pipe(
       catchError((error) => {
         if (error instanceof HttpErrorResponse) {
-          // Skip 401 errors — handled by AuthInterceptor
+          // Skip 401 errors: handled by AuthInterceptor
           if (error.status !== 401) {
             this.errorService.handleError(error);
           }

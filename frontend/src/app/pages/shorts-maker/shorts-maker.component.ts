@@ -1,9 +1,8 @@
-import { AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, OnInit, PLATFORM_ID, inject } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnInit, PLATFORM_ID, inject } from '@angular/core';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
-import { register } from 'swiper/element/bundle';
 import { setCanonical } from '../../shared/seo';
 
 interface Feature {
@@ -18,12 +17,6 @@ interface UseCase {
   text: string;
 }
 
-interface Testimonial {
-  quote: string;
-  name: string;
-  role: string;
-  initials: string;
-}
 
 interface Faq {
   q: string;
@@ -39,7 +32,6 @@ interface UseCaseLink {
   selector: 'app-shorts-maker',
   standalone: true,
   imports: [CommonModule, RouterLink, LucideDynamicIcon],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styles: [`
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
     .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(0.23,1,0.32,1), transform .8s cubic-bezier(0.23,1,0.32,1); }
@@ -52,9 +44,6 @@ interface UseCaseLink {
     details.faq summary::-webkit-details-marker { display: none; }
     details.faq[open] .faq-chevron { transform: rotate(180deg); }
     .faq-chevron { transition: transform .25s; }
-    swiper-container::part(pagination) { position: static; margin-top: 1.5rem; }
-    swiper-container::part(bullet) { background: #1A1714; opacity: .2; }
-    swiper-container::part(bullet-active) { background: #D96C3D; opacity: 1; }
     @media (prefers-reduced-motion: reduce) {
       .reveal { opacity: 1; transform: none; transition: none; }
       .card-lift, .btn-primary { transition: none; }
@@ -89,7 +78,7 @@ interface UseCaseLink {
                   </a>
                   <a routerLink="/tools" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                     <span class="block text-white text-[13.5px] font-medium">Free tools</span>
-                    <span class="block text-white/50 text-[12px] mt-0.5">Watermarks and more — private, in-browser utilities.</span>
+                    <span class="block text-white/50 text-[12px] mt-0.5">Watermarks and more: private, in-browser utilities.</span>
                   </a>
                 </div>
               </div>
@@ -137,16 +126,11 @@ interface UseCaseLink {
       <!-- Hero -->
       <section class="pt-32 md:pt-40 pb-14 px-4">
         <div class="max-w-5xl mx-auto text-center">
-          <a routerLink="/shorts" class="reveal inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-1.5 text-[12.5px] text-[#6B6560] hover:border-black/25 transition-colors">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span>
-            Subject-tracking + blur-fill reframing is live — try it out
-            <span aria-hidden="true">→</span>
-          </a>
-          <h1 class="reveal mt-6 font-medium tracking-[-0.03em] leading-[0.98] text-[clamp(2.6rem,6vw,4.8rem)]">
-            Edit shorts <em class="italic font-light">10x faster</em> with AI
+          <h1 class="reveal font-medium tracking-[-0.03em] leading-[0.98] text-[clamp(2.6rem,6vw,4.8rem)]">
+            Turn long videos into <em class="italic font-light">ranked vertical shorts</em>
           </h1>
           <p class="reveal mt-5 text-[16.5px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
-            From raw footage to viral shorts in 1 click. Upload a video or audio file —
+            Upload a video or audio file.
             AI transcribes it, finds the best moments, and renders ranked 9:16 clips
             with burned-in captions.
           </p>
@@ -215,7 +199,7 @@ interface UseCaseLink {
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.18em] text-[#D96C3D]">STEP 1</p>
               <h3 class="mt-2 font-semibold text-[17px]">Upload a video or audio file</h3>
-              <p class="mt-2 text-[14px] leading-relaxed text-white/60">MP4, MOV, MP3 or WAV up to 10 minutes. Podcasts, interviews, or phone footage — all formats work.</p>
+              <p class="mt-2 text-[14px] leading-relaxed text-white/60">MP4, MOV, MP3 or WAV up to 10 minutes. Podcasts, interviews, or phone footage. All formats work.</p>
             </div>
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.18em] text-[#D96C3D]">STEP 2</p>
@@ -229,7 +213,7 @@ interface UseCaseLink {
             </div>
           </div>
           <div class="reveal mt-8 text-center">
-            <a routerLink="/shorts" class="btn-primary inline-block px-7 py-3.5 rounded-full bg-[#D96C3D] hover:bg-[#BC5227] text-white font-semibold text-[15px]">Get Started Now — Try for free</a>
+            <a routerLink="/shorts" class="btn-primary inline-block px-7 py-3.5 rounded-full bg-[#D96C3D] hover:bg-[#BC5227] text-white font-semibold text-[15px]">Get started free</a>
           </div>
         </div>
       </section>
@@ -253,33 +237,9 @@ interface UseCaseLink {
 
       <!-- Stats band -->
       <section class="px-4 pb-4">
-        <div class="reveal max-w-6xl mx-auto rounded-[20px] bg-[#1A1714] text-white px-6 py-12 md:py-14 grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
-          <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">10×</p><p class="mt-1 text-[13.5px] text-white/60">faster editing speed</p></div>
+        <div class="reveal max-w-6xl mx-auto rounded-[20px] bg-[#1A1714] text-white px-6 py-12 md:py-14 grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
           <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">3</p><p class="mt-1 text-[13.5px] text-white/60">ranked clips per upload</p></div>
           <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">1080×1920</p><p class="mt-1 text-[13.5px] text-white/60">full-HD vertical export</p></div>
-        </div>
-      </section>
-
-      <!-- Testimonials -->
-      <section class="py-16 px-4">
-        <div class="max-w-4xl mx-auto">
-          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.22em] text-[#6B6560]">Testimonials</p>
-          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Loved by creators <span class="font-light italic">who publish consistently.</span></h2>
-          <div class="reveal mt-10">
-            <swiper-container slides-per-view="1" space-between="20" pagination="true" autoplay-delay="5000" autoplay-disable-on-interaction="false" loop="true">
-              @for (t of testimonials; track t.name) {
-                <swiper-slide>
-                  <figure class="rounded-[20px] border border-black/10 bg-white p-7 md:p-9">
-                    <blockquote class="text-[16.5px] leading-relaxed">“{{ t.quote }}”</blockquote>
-                    <figcaption class="mt-5 flex items-center gap-3">
-                      <span class="w-10 h-10 rounded-full bg-[#BC5227] text-white flex items-center justify-center text-[13px] font-bold">{{ t.initials }}</span>
-                      <span><span class="block text-[14px] font-semibold">{{ t.name }}</span><span class="block text-[12.5px] text-[#6B6560]">{{ t.role }}</span></span>
-                    </figcaption>
-                  </figure>
-                </swiper-slide>
-              }
-            </swiper-container>
-          </div>
         </div>
       </section>
 
@@ -304,9 +264,9 @@ interface UseCaseLink {
 
       <!-- Final CTA -->
       <section class="py-20 px-4 text-center">
-        <h2 class="reveal font-medium tracking-[-0.02em] text-[clamp(2rem,4.5vw,3.4rem)] leading-tight">Start creating shorts<br><span class="font-light italic">that get more views, faster.</span></h2>
+        <h2 class="reveal font-medium tracking-[-0.02em] text-[clamp(2rem,4.5vw,3.4rem)] leading-tight">Start creating shorts<br><span class="font-light italic">from your long videos.</span></h2>
         <div class="reveal mt-8">
-          <a routerLink="/shorts" class="btn-primary inline-block px-8 py-4 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Get Started Now — Try for free</a>
+          <a routerLink="/shorts" class="btn-primary inline-block px-8 py-4 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Get started free</a>
         </div>
       </section>
 
@@ -315,7 +275,7 @@ interface UseCaseLink {
         <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-8 text-[13.5px]">
           <div class="col-span-2 md:col-span-1">
             <span class="font-semibold tracking-tight text-[16px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-            <p class="mt-3 text-[#6B6560] leading-relaxed">Long video and audio to ranked 9:16 clips — automatically.</p>
+            <p class="mt-3 text-[#6B6560] leading-relaxed">Long video and audio to ranked 9:16 clips automatically.</p>
           </div>
           <div>
             <p class="font-semibold mb-3">Product</p>
@@ -368,24 +328,18 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
 
   currentYear = new Date().getFullYear();
 
-  constructor() {
-    // Custom-element registration touches the DOM: browser only, before render.
-    if (this.isBrowser) {
-      register();
-    }
-  }
 
   features: Feature[] = [
     { icon: 'captions', title: 'Smart captions that keep people watching', text: 'Word-timed captions burned into every clip in short 4-word lines, styled for readability without sound.' },
-    { icon: 'scissors', title: 'Magic ranking finds the best moments', text: 'AI scores every segment for engagement and keeps the top 3 — you publish, not scrub timelines.' },
+    { icon: 'scissors', title: 'Magic ranking finds the best moments', text: 'AI scores every segment for engagement and keeps the top 3. You publish, not scrub timelines.' },
     { icon: 'focus', title: 'Subject tracking follows the speaker', text: 'Face detection pans the 9:16 window onto the speaker instead of blindly cropping the middle.' },
     { icon: 'frame', title: 'Blur-fill fit never cuts content', text: 'Cartoons, text cards and screen recordings scale to fit over a blurred background. Nothing gets chopped.' },
-    { icon: 'gauge', title: 'Shorts-spec output, every time', text: '1080×1920, H.264 + AAC, 30fps, 48kHz — compliant with YouTube Shorts, Reels and TikTok.' },
+    { icon: 'gauge', title: 'Shorts-spec output, every time', text: '1080×1920, H.264 + AAC, 30fps, 48kHz, a standard format for YouTube Shorts, Reels and TikTok.' },
     { icon: 'zap', title: 'One-click pipeline', text: 'Transcribe → rank → render on auto-scaling infra. Upload, wait minutes, download ranked clips.' },
   ];
 
   useCases: UseCase[] = [
-    { slug: 'content-creators', title: 'Content Creators', text: 'Repurpose podcasts, interviews and videos into viral shorts.' },
+    { slug: 'content-creators', title: 'Content Creators', text: 'Repurpose podcasts, interviews and videos into ranked vertical shorts.' },
     { slug: 'marketing-teams', title: 'Marketing Teams', text: 'Create high-performing shorts that drive business growth.' },
     { slug: 'agencies', title: 'Agencies', text: 'Produce on-brand client content with consistent quality, fast.' },
     { slug: 'coaches', title: 'Coaches', text: 'Turn long lessons and calls into authority-building clips.' },
@@ -402,19 +356,11 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
     { slug: 'educators', title: 'Educators' },
   ];
 
-  testimonials: Testimonial[] = [
-    { quote: 'It finds moments I would never have clipped manually — and the captions just work.', name: 'Aarav M.', role: 'Podcast creator', initials: 'AM' },
-    { quote: 'The speaker tracking is the difference. No more chopped heads in my shorts.', name: 'Sarah K.', role: 'Marketing lead', initials: 'SK' },
-    { quote: 'Three ranked clips per upload. My posting consistency tripled in a month.', name: 'Rohan D.', role: 'YouTuber', initials: 'RD' },
-    { quote: 'Blur-fill saved my tutorial content — on-screen text finally stays readable.', name: 'Priya S.', role: 'Course creator', initials: 'PS' },
-    { quote: 'Upload, wait a few minutes, download. The fastest editing workflow I have.', name: 'Daniel O.', role: 'Agency owner', initials: 'DO' },
-  ];
-
   faqs: Faq[] = [
-    { q: 'How do I create a short?', a: 'Upload a video or audio file and the AI transcribes it, detects highlights, adds captions and formats ranked clips for short-form platforms — ready in minutes.' },
+    { q: 'How do I create a short?', a: 'Upload a video or audio file and the AI transcribes it, detects highlights, adds captions and formats ranked clips for short-form platforms, ready in minutes.' },
     { q: 'Can I turn a long video into multiple shorts?', a: 'Yes. Every upload produces up to 3 ranked clips from the most engaging moments, each downloadable as its own 9:16 MP4.' },
     { q: 'Are captions added automatically?', a: 'Yes. Word-level timestamps become short burned-in caption lines styled for readability without sound.' },
-    { q: 'What formats and quality do I get?', a: 'MP4 with H.264 video and AAC audio at 1080×1920 and 30fps — compliant with YouTube Shorts, Instagram Reels and TikTok.' },
+    { q: 'What formats and quality do I get?', a: 'MP4 with H.264 video and AAC audio at 1080×1920 and 30fps, a standard format for YouTube Shorts, Instagram Reels and TikTok.' },
     { q: 'What if my video has no people in it?', a: 'Segments without a visible subject render in blur-fill fit: the whole frame stays visible over a blurred background, so text and diagrams are never cut.' },
     { q: 'Which files can I upload?', a: 'MP4, MOV, MP3 and WAV up to 10 minutes long.' },
   ];
@@ -422,15 +368,15 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     const pageUrl = 'https://indifferent.fun/shorts-maker';
     const description = 'Upload a video or audio file and let AI transcribe, rank and render top 9:16 shorts with burned-in captions. Free to try.';
-    this.title.setTitle('AI Shorts Maker — Turn Long Videos into Viral Shorts | Indifferent');
+    this.title.setTitle('AI Shorts Maker: Long Video to Ranked Clips | Indifferent');
     this.meta.updateTag({ name: 'description', content: description });
     this.meta.updateTag({ property: 'og:type', content: 'website' });
-    this.meta.updateTag({ property: 'og:title', content: 'AI Shorts Maker — Turn Long Videos into Viral Shorts | Indifferent' });
+    this.meta.updateTag({ property: 'og:title', content: 'AI Shorts Maker: Long Video to Ranked Clips | Indifferent' });
     this.meta.updateTag({ property: 'og:description', content: description });
     this.meta.updateTag({ property: 'og:url', content: pageUrl });
     setCanonical(this.document, pageUrl);
     this.meta.updateTag({ name: 'twitter:card', content: 'summary' });
-    this.meta.updateTag({ name: 'twitter:title', content: 'AI Shorts Maker — Turn Long Videos into Viral Shorts | Indifferent' });
+    this.meta.updateTag({ name: 'twitter:title', content: 'AI Shorts Maker: Long Video to Ranked Clips | Indifferent' });
     this.meta.updateTag({ name: 'twitter:description', content: description });
     this.addJsonLd({
       '@context': 'https://schema.org',
@@ -445,7 +391,7 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
     this.addJsonLd({
       '@context': 'https://schema.org',
       '@type': 'VideoObject',
-      name: 'AI Shorts Maker — Turn Long Videos into Viral Shorts',
+      name: 'AI Shorts Maker: Long Video to Ranked Clips',
       description,
       url: pageUrl,
       embedUrl: pageUrl,

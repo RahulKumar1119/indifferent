@@ -3,7 +3,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import { SOCIAL_PLATFORMS, SocialConnection, SocialPlatform } from '../services/profile.service';
 
 /**
- * Connected social accounts. This is UI + local connection state only —
+ * Connected social accounts. This is UI + local connection state only:
  * real OAuth/API wiring is a separate integration (per spec).
  */
 @Component({
@@ -17,7 +17,7 @@ import { SOCIAL_PLATFORMS, SocialConnection, SocialPlatform } from '../services/
         Connected Accounts
       </h2>
       <p class="mt-1 text-[13px] text-[hsl(var(--muted-foreground))]">
-        Publish straight to your channels. OAuth integration coming soon — connections are remembered on this device.
+        Publish straight to your channels. OAuth integration coming soon. Connections are remembered on this device.
       </p>
       <ul class="mt-4 space-y-3">
         @for (platform of platforms; track platform.platform) {

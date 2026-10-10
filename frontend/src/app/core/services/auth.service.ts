@@ -69,7 +69,7 @@ export class AuthService {
   refreshToken(): Observable<AuthTokens> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) {
-      // No session to restore — fail fast instead of sending {}
+      // No session to restore: fail fast instead of sending {}
       // (the API rejects it with 400 INVALID_INPUT).
       return throwError(() => new Error('No refresh token available'));
     }
@@ -82,7 +82,7 @@ export class AuthService {
       .pipe(tap((tokens) => this.setTokens(tokens)));
   }
 
-  /** POST /auth/signup — register with email + password. */
+  /** POST /auth/signup: register with email + password. */
   signup(email: string, name: string, password: string): Observable<AuthTokens> {
     return this.http
       .post<AuthTokens>(
@@ -93,7 +93,7 @@ export class AuthService {
       .pipe(tap((tokens) => this.setTokens(tokens)));
   }
 
-  /** POST /auth/login — sign in with email + password. */
+  /** POST /auth/login: sign in with email + password. */
   loginWithPassword(email: string, password: string): Observable<AuthTokens> {
     return this.http
       .post<AuthTokens>(

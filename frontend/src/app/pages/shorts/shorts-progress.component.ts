@@ -50,7 +50,7 @@ const STAGES: Stage[] = [
       <h1 class="text-2xl font-bold text-center mb-2">Generating Your Shorts</h1>
       <p class="text-center text-[hsl(var(--muted-foreground))] mb-8">
         @if (eta && (status === 'transcribing' || status === 'ranking' || status === 'rendering')) {
-          {{ eta }} — feel free to leave, we'll keep working.
+          {{ eta }}. Feel free to leave, we'll keep working.
         } @else {
           We're analyzing your media and rendering the best moments.
         }
@@ -61,7 +61,7 @@ const STAGES: Stage[] = [
         <div class="glass-card p-3 mb-6 !border-[hsl(var(--primary))]/40">
           <p class="text-sm flex items-center gap-2">
             <svg lucideIcon="clock" [size]="16" class="text-[hsl(var(--primary))]"></svg>
-            Your shorts are still processing — you can navigate away and come back anytime.
+            Your shorts are still processing. You can navigate away and come back anytime.
           </p>
         </div>
       }

@@ -52,7 +52,7 @@ interface TemplateOption {
       <main class="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14">
         <p class="text-[11.5px] uppercase tracking-[0.2em] text-[#6B6560]">Studio · Configure</p>
         <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">New project.</h1>
-        <p class="mt-3 text-[15px] text-[#6B6560]">Name it, pick a theme and a voice — optionally attach a watermark and a shorts source in the same project.</p>
+        <p class="mt-3 text-[15px] text-[#6B6560]">Name it, pick a theme and a voice. Optionally attach a watermark and a shorts source in the same project.</p>
 
         <div class="mt-8 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
           <mat-stepper linear #stepper class="bg-transparent">
@@ -173,7 +173,7 @@ interface TemplateOption {
                         <label class="block cursor-pointer rounded-[12px] border-2 border-dashed border-black/15 px-4 py-6 text-center hover:border-black/30 transition-colors">
                           <input type="file" accept=".mp4,.mov,.mp3,.wav" class="hidden" (change)="onShortsFileSelected($event)" />
                           <span class="text-[14px] font-medium">Choose video or audio</span>
-                          <span class="block mt-1 text-[12px] text-[#6B6560]">MP4, MOV, MP3, WAV — max 10 min</span>
+                          <span class="block mt-1 text-[12px] text-[#6B6560]">MP4, MOV, MP3, WAV: max 10 min</span>
                         </label>
                       } @else {
                         <div class="flex items-center justify-between gap-3 text-[14px]">
@@ -217,7 +217,7 @@ interface TemplateOption {
 
             <mat-step label="Upload">
               <p class="mt-4 text-[#6B6560]">
-                Complete the configuration step first — your unified project page will guide uploads for each tool.
+                Complete the configuration step first. Your unified project page will guide uploads for each tool.
               </p>
             </mat-step>
           </mat-stepper>

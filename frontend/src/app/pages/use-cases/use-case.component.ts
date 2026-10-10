@@ -17,10 +17,10 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
   'content-creators': {
     slug: 'content-creators',
     title: 'AI Shorts Maker for Content Creators',
-    hook: 'Repurpose podcasts, interviews and videos into viral shorts.',
-    description: 'Upload a long video or audio file and get up to 3 ranked 9:16 clips with burned-in captions — ready for Shorts, Reels and TikTok.',
+    hook: 'Repurpose podcasts, interviews and videos into ranked vertical shorts.',
+    description: 'Upload a long video or audio file and get up to 3 ranked 9:16 clips with burned-in captions, ready for Shorts, Reels and TikTok.',
     benefits: [
-      'AI finds your most engaging moments — no timeline scrubbing',
+      'AI finds your most engaging moments: no timeline scrubbing',
       'Speaker tracking keeps you framed, blur-fill protects on-screen text',
       'Short caption lines styled for silent viewing',
       'Full-HD 1080×1920 MP4 exports, free during beta',
@@ -61,7 +61,7 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
     benefits: [
       'Key moments ranked by predicted engagement',
       'Speaker-tracked framing keeps you centered on camera',
-      'Captions readable with sound off — where feeds are watched',
+      'Captions readable with sound off, where feeds are watched',
       'No editing skills or software needed',
     ],
     cta: 'Clip your next lesson',

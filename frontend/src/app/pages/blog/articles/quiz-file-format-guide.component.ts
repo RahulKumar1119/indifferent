@@ -79,7 +79,7 @@ Answer: Gold</pre>
         <h2>Writing Effective Multiple-Choice Questions</h2>
         <p>Beyond formatting, the quality of your questions determines how engaging your video will be. Well-crafted questions keep viewers interested and encourage them to think critically about each answer option.</p>
         <p>Write clear, unambiguous question stems that test a single concept. Avoid double negatives or overly complex sentence structures that confuse rather than challenge. The question should be understandable on first reading without requiring viewers to re-read multiple times.</p>
-        <p>Create plausible distractors — wrong answers that are reasonable enough to require genuine thought. Obvious filler options reduce the challenge and make your quiz feel less professional. Each wrong answer should represent a common misconception or a related-but-incorrect fact about the topic.</p>
+        <p>Create plausible distractors: wrong answers that are reasonable enough to require genuine thought. Obvious filler options reduce the challenge and make your quiz feel less professional. Each wrong answer should represent a common misconception or a related-but-incorrect fact about the topic.</p>
         <p>Keep all answer options roughly the same length. When the correct answer is consistently longer or shorter than other options, viewers learn to identify patterns rather than actually knowing the content. This undermines the educational value of your quiz.</p>
 
         <h2>Handling Special Characters</h2>
@@ -100,7 +100,7 @@ Answer: Gold</pre>
           <li>Recommended: 15 to 25 questions (produces videos of eight to fifteen minutes, ideal for YouTube)</li>
           <li>Maximum: 100 questions per file (longer quizzes should be split into multiple videos)</li>
         </ul>
-        <p>Each question should have between three and five answer options. Four options is the sweet spot — enough to provide genuine challenge without overwhelming viewers with too many choices to read within the countdown timer.</p>
+        <p>Each question should have between three and five answer options. Four options is the sweet spot: enough to provide genuine challenge without overwhelming viewers with too many choices to read within the countdown timer.</p>
 
         <h2>Best Practices for Answer Options</h2>
         <p>The standard and most effective configuration is four answer options with exactly one correct answer. This format provides enough variety to be challenging while remaining manageable for viewers to read and evaluate within the time allowed by the countdown timer.</p>
