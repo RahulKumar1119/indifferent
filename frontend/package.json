@@ -32,6 +32,7 @@
     "@angular/platform-browser": "~20.3.27",
     "@angular/router": "~20.3.27",
     "@angular/service-worker": "~20.3.27",
+    "@ffmpeg/ffmpeg": "0.11.6",
     "@lucide/angular": "^1.23.0",
     "@tailwindcss/postcss": "^4.3.2",
     "aws-rum-web": "^3.1.0",
