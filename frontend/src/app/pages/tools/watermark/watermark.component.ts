@@ -1,9 +1,36 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, OnInit, inject } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NavMobileMenuComponent } from '../../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { FormsModule } from '@angular/forms';
+import gsap from 'gsap';
 import { setPageSeo } from '../../../shared/seo';
+
+type WatermarkKind = 'text' | 'logo';
+type AspectOption = 'original' | '16:9' | '9:16' | '1:1';
+
+interface WmFont {
+  label: string;
+  stack: string;
+}
+
+const FONTS: WmFont[] = [
+  { label: 'Arial', stack: 'Arial, Helvetica, sans-serif' },
+  { label: 'Georgia', stack: 'Georgia, serif' },
+  { label: 'Times New Roman', stack: '"Times New Roman", Times, serif' },
+  { label: 'Courier New', stack: '"Courier New", Courier, monospace' },
+  { label: 'Verdana', stack: 'Verdana, Geneva, sans-serif' },
+  { label: 'Trebuchet MS', stack: '"Trebuchet MS", Verdana, sans-serif' },
+  { label: 'Impact', stack: 'Impact, Haettenschweiler, sans-serif' },
+  { label: 'Comic Sans MS', stack: '"Comic Sans MS", cursive' },
+  { label: 'Palatino', stack: '"Palatino Linotype", Palatino, serif' },
+  { label: 'Lucida Console', stack: '"Lucida Console", Monaco, monospace' },
+];
+
+const COLOR_PRESETS = ['#ffffff', '#000000', '#ff3b30', '#ffcc00', '#00c7ff', '#ff2fd6'];
+
+// 3x3 snap positions as fractions of the frame.
+const GRID_SPOTS = [0.15, 0.5, 0.85];
 
 @Component({
   selector: 'app-watermark',
@@ -20,6 +47,7 @@ import { setPageSeo } from '../../../shared/seo';
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
     }
     input[type="range"] { accent-color: #BC5227; }
+    .drag-surface { touch-action: none; }
     @media (prefers-reduced-motion: reduce) {
       .btn-primary { transition: none; }
     }
@@ -58,7 +86,7 @@ import { setPageSeo } from '../../../shared/seo';
             <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Finishing · Tool
           </p>
           <h1 class="serif mt-4 font-medium leading-[0.95] text-[clamp(2.4rem,5vw,3.8rem)]">Brand it.</h1>
-          <p class="mt-3 text-[#6B6560] max-w-[56ch] leading-relaxed">Add text watermarks to your images. Free, private, processed in your browser. Nothing uploads anywhere.</p>
+          <p class="mt-3 text-[#6B6560] max-w-[56ch] leading-relaxed">Add text or logo watermarks to images and videos. Free, private, processed in your browser. Nothing uploads anywhere.</p>
         </div>
       </section>
 
@@ -78,82 +106,210 @@ import { setPageSeo } from '../../../shared/seo';
               <polyline points="17 8 12 3 7 8"/>
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            <h2 class="serif text-[30px] leading-tight">Drop your image here</h2>
-            <p class="mt-2 text-[14px] text-[#6B6560]">or click to browse · JPG, PNG, WebP up to 20MB</p>
+            <h2 class="serif text-[30px] leading-tight">Drop your file here</h2>
+            <p class="mt-2 text-[14px] text-[#6B6560]">or click to browse · JPG, PNG, WebP, MP4</p>
+            @if (fileError) {
+              <p class="mt-3 text-[13.5px] font-medium text-red-600" role="alert">{{ fileError }}</p>
+            }
           </div>
           <input
             #fileInput
             type="file"
-            accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+            accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
             (change)="onFileSelected($event)"
             style="display: none;"
           />
         </div>
 
-        <!-- Editor State -->
-        <div *ngIf="file && fileType === 'image'" class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
-          <div class="rounded-[20px] p-2 bg-black/[0.04] border border-black/10">
-            <div
-              class="rounded-[calc(20px-0.5rem)] bg-white border border-black/[0.06] flex items-center justify-center relative min-h-[380px] cursor-crosshair overflow-hidden p-4"
-              (mousedown)="onCanvasMouseDown($event)"
-              (mousemove)="onCanvasMouseMove($event)"
-              (mouseup)="onCanvasMouseUp()"
-              (mouseleave)="onCanvasMouseUp()"
-            >
-              <canvas #previewCanvas class="max-w-full max-h-[62vh] rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)]"></canvas>
-              <span class="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1A1714]/[.06] border border-black/10 text-[#3E3A33] text-[11.5px] font-medium px-3 py-1 pointer-events-none">Drag to move watermark</span>
+        <!-- Editor: two panels — preview first on mobile, controls first on desktop -->
+        <div *ngIf="file" class="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-5 items-start">
+          <!-- LIVE PREVIEW (70%) -->
+          <div class="order-first lg:order-2 rounded-[20px] p-2 bg-black/[0.04] border border-black/10 min-w-0">
+            <div class="rounded-[calc(20px-0.5rem)] bg-white border border-black/[0.06] p-3 sm:p-4">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-1.5" role="group" aria-label="Aspect ratio">
+                  @for (a of aspectOptions; track a) {
+                    <button
+                      type="button"
+                      (click)="toggleAspect(a)"
+                      [attr.aria-pressed]="aspect === a"
+                      class="min-h-[36px] px-3 rounded-full text-[12.5px] font-semibold border transition-colors"
+                      [class]="aspect === a ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 text-[#3E3A33] hover:border-black/40'"
+                    >{{ a === 'original' ? 'Original' : a }}</button>
+                  }
+                </div>
+                <button
+                  type="button"
+                  (click)="showOriginal = !showOriginal; updatePreview()"
+                  [attr.aria-pressed]="showOriginal"
+                  class="min-h-[36px] px-4 rounded-full text-[12.5px] font-semibold border transition-colors"
+                  [class]="showOriginal ? 'bg-[#BC5227] text-white border-[#BC5227]' : 'border-black/15 text-[#3E3A33] hover:border-black/40'"
+                >{{ showOriginal ? 'Show watermarked' : 'Before / After' }}</button>
+              </div>
+
+              <div
+                class="drag-surface relative flex items-center justify-center overflow-hidden rounded-xl bg-[#1A1714]/[.03] min-h-[280px] cursor-crosshair"
+                (pointerdown)="onPointerDown($event)"
+                (pointermove)="onPointerMove($event)"
+                (pointerup)="onPointerUp()"
+                (pointercancel)="onPointerUp()"
+                (pointerleave)="onPointerUp()"
+              >
+                <canvas #previewCanvas class="max-w-full max-h-[62vh] rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)]"></canvas>
+                <video #videoEl class="hidden" [src]="fileUrl" muted playsInline preload="auto" (loadedmetadata)="onVideoLoaded()" (seeked)="updatePreview()" (ended)="onVideoEnded()"></video>
+                <span class="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1A1714]/[.06] border border-black/10 text-[#3E3A33] text-[11.5px] font-medium px-3 py-1 pointer-events-none whitespace-nowrap">Drag to move watermark</span>
+              </div>
+
+              @if (fileType === 'video') {
+                <div class="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    (click)="togglePlay()"
+                    class="shrink-0 w-11 h-11 rounded-full bg-[#1A1714] text-white inline-flex items-center justify-center text-[15px]"
+                    [attr.aria-label]="playing ? 'Pause video' : 'Play video'"
+                  >{{ playing ? '❚❚' : '▶' }}</button>
+                  <input
+                    type="range" min="0" [max]="videoDuration || 0" step="0.1"
+                    [ngModel]="videoTime" (ngModelChange)="scrubTo($event)"
+                    class="flex-1" aria-label="Video timeline scrubber"
+                  />
+                  <span class="text-[12px] font-mono text-[#6B6560] tabular-nums shrink-0">{{ formatTime(videoTime) }} / {{ formatTime(videoDuration) }}</span>
+                </div>
+              }
             </div>
           </div>
-          <div class="rounded-[20px] bg-white border border-black/[0.07] p-5 lg:sticky lg:top-24">
+
+          <!-- CONTROLS (30%) -->
+          <div class="order-last lg:order-1 rounded-[20px] bg-white border border-black/[0.07] p-5 lg:sticky lg:top-24">
             <div class="flex items-center justify-between mb-4">
               <h2 class="serif text-[20px]">Settings</h2>
+              <button type="button" (click)="resetFile()" class="text-[12.5px] font-semibold text-[#BC5227] hover:underline min-h-[32px]">New file</button>
             </div>
+
             <div class="mb-4">
-              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Watermark text</label>
-              <input type="text" [(ngModel)]="watermarkText" (ngModelChange)="updatePreview()"
-                class="w-full rounded-[12px] border border-black/15 bg-transparent px-4 h-11 text-[14.5px] outline-none focus:border-[#BC5227]" />
-            </div>
-            <div class="mb-4">
-              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Font size</label>
-              <div class="flex items-center gap-3">
-                <input type="range" min="12" max="72" step="1" [(ngModel)]="fontSize" (ngModelChange)="updatePreview()" class="flex-1" />
-                <span class="text-[12.5px] font-semibold text-[#BC5227] min-w-10 text-right">{{ fontSize }}px</span>
+              <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" id="wm-type-label">Type</span>
+              <div class="grid grid-cols-2 gap-2" role="group" aria-labelledby="wm-type-label">
+                <button type="button" (click)="setKind('text')" [attr.aria-pressed]="wmKind === 'text'"
+                  class="min-h-[44px] rounded-[12px] border text-[14px] font-semibold transition-colors"
+                  [class]="wmKind === 'text' ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 hover:border-black/40'">Text</button>
+                <button type="button" (click)="setKind('logo')" [attr.aria-pressed]="wmKind === 'logo'"
+                  class="min-h-[44px] rounded-[12px] border text-[14px] font-semibold transition-colors"
+                  [class]="wmKind === 'logo' ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 hover:border-black/40'">Logo</button>
               </div>
             </div>
+
+            @if (wmKind === 'text') {
+              <div class="mb-4">
+                <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-text">Watermark text</label>
+                <input id="wm-text" type="text" [(ngModel)]="watermarkText" (ngModelChange)="updatePreview()" maxlength="60"
+                  class="w-full rounded-[12px] border border-black/15 bg-transparent px-4 h-11 text-[14.5px] outline-none focus:border-[#BC5227]" />
+              </div>
+              <div class="mb-4">
+                <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-font">Font</label>
+                <div class="relative">
+                  <button type="button" id="wm-font" (click)="fontOpen = !fontOpen" [attr.aria-expanded]="fontOpen"
+                    class="w-full min-h-[44px] rounded-[12px] border border-black/15 bg-transparent px-4 text-left text-[14.5px] flex items-center justify-between gap-2"
+                    [style.font-family]="fontStack">
+                    <span class="truncate">{{ fontLabel }}</span><span aria-hidden="true">▾</span>
+                  </button>
+                  @if (fontOpen) {
+                    <ul class="absolute z-20 mt-1.5 w-full max-h-56 overflow-y-auto rounded-[12px] border border-black/15 bg-white shadow-xl py-1" role="listbox" aria-label="Font choices">
+                      @for (f of fonts; track f.label) {
+                        <li>
+                          <button type="button" role="option" [attr.aria-selected]="fontStack === f.stack"
+                            (click)="fontStack = f.stack; fontLabel = f.label; fontOpen = false; updatePreview()"
+                            class="w-full text-left px-4 py-2.5 text-[15px] hover:bg-black/[0.04] min-h-[44px]"
+                            [style.font-family]="f.stack">{{ f.label }}</button>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+              </div>
+            } @else {
+              <div class="mb-4">
+                <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Logo image</span>
+                <button type="button" (click)="logoInput.click()"
+                  class="w-full min-h-[44px] rounded-[12px] border border-dashed border-black/25 px-4 text-[13.5px] font-semibold text-[#3E3A33] hover:border-black/50 transition-colors">
+                  {{ logoUrl ? 'Change logo (PNG with transparency works best)' : 'Upload logo (PNG/JPG/WebP)' }}
+                </button>
+                <input #logoInput type="file" accept="image/png,image/jpeg,image/webp" (change)="onLogoSelected($event)" style="display: none;" />
+              </div>
+            }
+
             <div class="mb-4">
-              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Opacity</label>
+              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-opacity">Opacity</label>
               <div class="flex items-center gap-3">
-                <input type="range" min="0.1" max="1" step="0.05" [(ngModel)]="opacity" (ngModelChange)="updatePreview()" class="flex-1" />
-                <span class="text-[12.5px] font-semibold text-[#BC5227] min-w-10 text-right">{{ (opacity * 100).toFixed(0) }}%</span>
+                <input id="wm-opacity" type="range" min="0" max="100" step="1" [(ngModel)]="opacityPct" (ngModelChange)="updatePreview()" class="flex-1" />
+                <span class="text-[12.5px] font-semibold text-[#BC5227] min-w-11 text-right tabular-nums">{{ opacityPct }}%</span>
               </div>
             </div>
+
             <div class="mb-4">
-              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Color</label>
+              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-size">Size · % of frame width</label>
               <div class="flex items-center gap-3">
-                <input type="color" [(ngModel)]="color" (ngModelChange)="updatePreview()" class="w-9 h-9 rounded-lg border border-black/15 cursor-pointer p-0.5 bg-transparent" />
-                <span class="text-[12px] text-[#6B6560] font-mono">{{ color }}</span>
+                <input id="wm-size" type="range" min="10" max="50" step="1" [(ngModel)]="sizePct" (ngModelChange)="updatePreview()" class="flex-1" />
+                <span class="text-[12.5px] font-semibold text-[#BC5227] min-w-11 text-right tabular-nums">{{ sizePct }}%</span>
               </div>
             </div>
+
+            <div class="mb-4">
+              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-color">Color</label>
+              <div class="flex items-center gap-2 flex-wrap">
+                <input id="wm-color" type="color" [(ngModel)]="color" (ngModelChange)="updatePreview()" aria-label="Custom watermark color"
+                  class="w-11 h-11 rounded-[12px] border border-black/15 cursor-pointer p-1 bg-transparent" />
+                @for (preset of colorPresets; track preset) {
+                  <button type="button" (click)="color = preset; updatePreview()"
+                    [attr.aria-label]="'Use color ' + preset" [attr.aria-pressed]="color === preset"
+                    class="w-11 h-11 rounded-[12px] border-2 transition-transform hover:scale-105 min-w-[44px] min-h-[44px]"
+                    [style.background]="preset"
+                    [class]="color === preset ? 'border-[#BC5227]' : 'border-black/15'"></button>
+                }
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-rotation">Rotation</label>
+              <div class="flex items-center gap-3">
+                <input id="wm-rotation" type="range" min="-180" max="180" step="1" [(ngModel)]="rotation" (ngModelChange)="updatePreview()" class="flex-1" />
+                <span class="text-[12.5px] font-semibold text-[#BC5227] min-w-11 text-right tabular-nums">{{ rotation }}&deg;</span>
+              </div>
+            </div>
+
             <div class="mb-2">
-              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Rotation</label>
-              <div class="flex items-center gap-3">
-                <input type="range" min="-180" max="180" step="1" [(ngModel)]="rotation" (ngModelChange)="updatePreview()" class="flex-1" />
-                <span class="text-[12.5px] font-semibold text-[#BC5227] min-w-10 text-right">{{ rotation }}&deg;</span>
+              <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" id="wm-pos-label">Position</span>
+              <div class="grid grid-cols-3 gap-1.5 w-fit" role="group" aria-labelledby="wm-pos-label">
+                @for (row of gridRows; track row; let ri = $index) {
+                  @for (col of row; track col; let ci = $index) {
+                    <button type="button"
+                      (click)="snapToSpot(ri, ci)"
+                      [attr.aria-label]="'Move watermark to ' + spotName(ri, ci)"
+                      [attr.aria-pressed]="isActiveSpot(ri, ci)"
+                      class="w-11 h-11 rounded-[10px] border transition-colors min-w-[44px] min-h-[44px]"
+                      [class]="isActiveSpot(ri, ci) ? 'bg-[#BC5227] border-[#BC5227]' : 'border-black/15 hover:border-black/40 bg-transparent'"></button>
+                  }
+                }
               </div>
+              <p class="mt-1.5 text-[12px] text-[#6B6560]">Tip: drag directly on the preview, too.</p>
             </div>
+
+            @if (fileError) {
+              <p class="mt-3 text-[13px] font-medium text-red-600" role="alert">{{ fileError }}</p>
+            }
+
             <div class="flex flex-col gap-2.5 mt-5 pt-5 border-t border-black/10">
-              <button class="btn-primary w-full rounded-full bg-[#1A1714] text-white py-3.5 font-semibold text-[14.5px] disabled:opacity-40 disabled:cursor-not-allowed" (click)="download()" [disabled]="!downloadUrl">Download</button>
+              @if (fileType === 'image') {
+                <button class="btn-primary w-full rounded-full bg-[#1A1714] text-white py-3.5 font-semibold text-[14.5px] disabled:opacity-40 disabled:cursor-not-allowed" (click)="download()" [disabled]="!downloadUrl">Download PNG</button>
+              } @else {
+                <button class="btn-primary w-full rounded-full bg-[#1A1714] text-white py-3.5 font-semibold text-[14.5px] disabled:opacity-40 disabled:cursor-not-allowed"
+                  (click)="recording ? stopRecording() : exportVideo()" [disabled]="!videoReady">
+                  {{ recording ? 'Stop & save video (' + formatTime(videoTime) + ')' : 'Export watermarked video' }}
+                </button>
+                <p class="text-[12px] text-[#6B6560] leading-relaxed">Exports WebM with original audio by re-recording playback in your browser.</p>
+              }
               <button class="w-full rounded-full border border-black/15 py-3 text-[13.5px] font-semibold text-[#3E3A33] hover:border-black/40 transition-colors" (click)="reset()">Reset</button>
             </div>
           </div>
-        </div>
-
-        <!-- Video Coming Soon -->
-        <div *ngIf="file && fileType === 'video'" class="mx-auto max-w-[560px] text-center rounded-[20px] bg-white border border-black/[0.07] px-8 py-14">
-          <span class="inline-block rounded-full bg-[#BC5227]/10 text-[#BC5227] text-[12px] font-semibold px-3 py-1 mb-4">Coming soon</span>
-          <h2 class="serif text-[32px]">Video watermarking</h2>
-          <p class="mt-2 text-[#6B6560] text-[14.5px]">Video support is arriving soon. Please upload an image for now.</p>
-          <button class="mt-6 rounded-full border border-black/15 px-6 py-3 text-[14px] font-semibold hover:border-black/40 transition-colors" (click)="reset()">Try another file</button>
         </div>
 
         <!-- Hidden file input for editor view -->
@@ -161,7 +317,7 @@ import { setPageSeo } from '../../../shared/seo';
           *ngIf="file"
           #fileInput
           type="file"
-          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
           (change)="onFileSelected($event)"
           style="display: none;"
         />
@@ -181,43 +337,85 @@ import { setPageSeo } from '../../../shared/seo';
     </div>
   `,
 })
-export class WatermarkComponent implements OnInit, AfterViewInit {
+export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly document = inject(DOCUMENT);
 
   ngOnInit(): void {
     setPageSeo(this.document, {
       title: 'Free Watermark Tool: Add Text Watermarks to Images | Indifferent',
       description:
-        'Free in-browser watermark tool: draggable text watermarks on JPG, PNG and WebP with size, opacity, color and rotation. Private, full-resolution PNG export.',
+        'Free in-browser watermark tool: draggable text watermarks on JPG, PNG, WebP with size, opacity, color and rotation. Private, full-resolution PNG export.',
       canonical: 'https://indifferent.fun/tools/add-watermark',
     });
   }
 
   @ViewChild('previewCanvas') previewCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('videoEl') videoEl?: ElementRef<HTMLVideoElement>;
 
   currentYear = new Date().getFullYear();
 
   file: File | null = null;
   fileType: 'image' | 'video' | null = null;
   fileUrl = '';
+  fileError = '';
 
+  // Watermark settings
+  wmKind: WatermarkKind = 'text';
   watermarkText = 'Your Watermark';
-  fontSize = 24;
-  opacity = 0.5;
+  fonts = FONTS;
+  fontStack = FONTS[0].stack;
+  fontLabel = FONTS[0].label;
+  fontOpen = false;
+  colorPresets = COLOR_PRESETS;
   color = '#ffffff';
+  opacityPct = 50;
+  sizePct = 25;
   rotation = 0;
 
-  // Draggable position (percentage 0-1)
-  dragX = 0.75;
-  dragY = 0.85;
-  isDragging = false;
+  // Position as fractions of the frame; tweened by the grid, set by drag.
+  pos = { x: 0.75, y: 0.85 };
+  private dragging = false;
+  gridRows = [[0, 1, 2], [0, 1, 2], [0, 1, 2]];
+  aspectOptions: AspectOption[] = ['original', '16:9', '9:16', '1:1'];
+  aspect: AspectOption = 'original';
+  showOriginal = false;
+
+  // Logo mode
+  logoUrl = '';
+  private logoImg: HTMLImageElement | null = null;
+
+  // Cached base image (avoids re-decoding on every keystroke)
+  private baseImg: HTMLImageElement | null = null;
+  private baseW = 0;
+  private baseH = 0;
+
+  // Video state
+  videoDuration = 0;
+  videoTime = 0;
+  playing = false;
+  videoReady = false;
+  recording = false;
+  private rafId = 0;
+  private recorder: MediaRecorder | null = null;
+  private recordChunks: Blob[] = [];
+  private recordTracks: MediaStreamTrack[] = [];
 
   isDragOver = false;
   downloadUrl = '';
 
   ngAfterViewInit(): void {
-    // Preview will render once an image is loaded
+    // Preview renders once media is loaded.
   }
+
+  ngOnDestroy(): void {
+    this.stopLoop();
+    this.stopRecordingTracks();
+    if (this.fileUrl) URL.revokeObjectURL(this.fileUrl);
+    if (this.logoUrl) URL.revokeObjectURL(this.logoUrl);
+    if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
+  }
+
+  // ------------------------------------------------------------------ files
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
@@ -235,167 +433,383 @@ export class WatermarkComponent implements OnInit, AfterViewInit {
     event.preventDefault();
     event.stopPropagation();
     this.isDragOver = false;
-
     const files = event.dataTransfer?.files;
-    if (files && files.length > 0) {
-      this.handleFile(files[0]);
-    }
+    if (files && files.length > 0) this.handleFile(files[0]);
   }
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      this.handleFile(input.files[0]);
-    }
+    if (input.files && input.files.length > 0) this.handleFile(input.files[0]);
+    input.value = '';
   }
 
   private handleFile(file: File): void {
     const imageTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    const videoTypes = ['video/mp4', 'video/webm'];
-
+    const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
+    this.fileError = '';
     if (imageTypes.includes(file.type)) {
-      this.file = file;
-      this.fileType = 'image';
-      this.fileUrl = URL.createObjectURL(file);
-      setTimeout(() => this.updatePreview(), 100);
+      this.setFile(file, 'image');
+      this.loadBaseImage();
     } else if (videoTypes.includes(file.type)) {
-      this.file = file;
-      this.fileType = 'video';
-      this.fileUrl = URL.createObjectURL(file);
+      this.setFile(file, 'video');
+      // Readiness confirmed on loadedmetadata; unsupported codecs surface
+      // through the video element's error event below.
+      setTimeout(() => this.updatePreview(), 100);
+    } else {
+      this.fileError = 'Unsupported file type. Please use JPG, PNG, WebP or MP4.';
     }
   }
 
-  // --- Draggable watermark handlers ---
-
-  onCanvasMouseDown(event: MouseEvent): void {
-    if (!this.previewCanvas) return;
-    this.isDragging = true;
-    this.updateDragPosition(event);
+  private setFile(file: File, kind: 'image' | 'video'): void {
+    if (this.fileUrl) URL.revokeObjectURL(this.fileUrl);
+    this.file = file;
+    this.fileType = kind;
+    this.fileUrl = URL.createObjectURL(file);
+    this.showOriginal = false;
+    this.videoReady = false;
+    this.videoTime = 0;
+    this.playing = false;
   }
 
-  onCanvasMouseMove(event: MouseEvent): void {
-    if (!this.isDragging || !this.previewCanvas) return;
-    this.updateDragPosition(event);
+  onLogoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const logo = input.files?.[0];
+    input.value = '';
+    if (!logo || !logo.type.startsWith('image/')) return;
+    if (this.logoUrl) URL.revokeObjectURL(this.logoUrl);
+    this.logoUrl = URL.createObjectURL(logo);
+    const img = new Image();
+    img.onload = () => {
+      this.logoImg = img;
+      this.updatePreview();
+    };
+    img.src = this.logoUrl;
   }
 
-  onCanvasMouseUp(): void {
-    this.isDragging = false;
-  }
-
-  private updateDragPosition(event: MouseEvent): void {
-    const canvas = this.previewCanvas.nativeElement;
-    const rect = canvas.getBoundingClientRect();
-
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
-
-    this.dragX = Math.max(0, Math.min(1, x));
-    this.dragY = Math.max(0, Math.min(1, y));
-
+  setKind(kind: WatermarkKind): void {
+    this.wmKind = kind;
     this.updatePreview();
   }
 
-  // --- Preview and watermark rendering ---
+  // ------------------------------------------------------------------- draw
 
+  private loadBaseImage(): void {
+    const img = new Image();
+    img.onload = () => {
+      this.baseImg = img;
+      this.baseW = img.naturalWidth;
+      this.baseH = img.naturalHeight;
+      this.updatePreview();
+    };
+    img.src = this.fileUrl;
+  }
+
+  /** Redraw the preview canvas synchronously (no re-decode: ~16ms budget). */
   updatePreview(): void {
-    if (this.fileType !== 'image' || !this.previewCanvas) return;
-
+    if (!this.file || !this.previewCanvas) return;
     const canvas = this.previewCanvas.nativeElement;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const img = new Image();
-    img.onload = () => {
-      const maxPreviewWidth = 800;
-      const scale = img.width > maxPreviewWidth ? maxPreviewWidth / img.width : 1;
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
+    if (this.fileType === 'image') {
+      if (!this.baseImg) return;
+      const scale = Math.min(1, 900 / Math.max(this.baseW, this.baseH));
+      canvas.width = Math.max(1, Math.round(this.baseW * scale));
+      canvas.height = Math.max(1, Math.round(this.baseH * scale));
+      ctx.drawImage(this.baseImg, 0, 0, canvas.width, canvas.height);
+    } else {
+      const video = this.videoEl?.nativeElement;
+      if (!video || !video.videoWidth) return;
+      const scale = Math.min(1, 960 / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      } catch {
+        return;
+      }
+    }
 
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      this.drawWatermark(ctx, canvas.width, canvas.height);
-      this.generateDownload();
-    };
-    img.src = this.fileUrl;
+    if (!this.showOriginal) this.drawWatermark(ctx, canvas.width, canvas.height);
+    this.drawAspectGuide(ctx, canvas.width, canvas.height);
+    if (this.fileType === 'image') this.generateDownload();
   }
 
-  private drawWatermark(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  private drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+    if (this.wmKind === 'logo' && !this.logoImg) return;
+    if (this.wmKind === 'text' && !this.watermarkText.trim()) return;
     ctx.save();
-    ctx.globalAlpha = this.opacity;
-    ctx.font = `${this.fontSize}px Arial`;
-    ctx.fillStyle = this.color;
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
+    ctx.globalAlpha = this.opacityPct / 100;
+    ctx.translate(this.pos.x * w, this.pos.y * h);
+    ctx.rotate((this.rotation * Math.PI) / 180);
 
-    const x = this.dragX * width;
-    const y = this.dragY * height;
-
-    // Translate to position and apply rotation
-    ctx.translate(x, y);
-    ctx.rotate(this.rotation * Math.PI / 180);
-
-    // Text shadow for visibility
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = 2;
-    ctx.strokeText(this.watermarkText, 0, 0);
-
-    // Main text
-    ctx.fillText(this.watermarkText, 0, 0);
+    if (this.wmKind === 'logo' && this.logoImg) {
+      const lw = (this.sizePct / 100) * w;
+      const lh = lw * (this.logoImg.naturalHeight / Math.max(1, this.logoImg.naturalWidth));
+      ctx.drawImage(this.logoImg, -lw / 2, -lh / 2, lw, lh);
+    } else {
+      const px = (this.sizePct / 100) * w;
+      ctx.font = `${px}px ${this.fontStack}`;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = Math.max(1, px / 18);
+      ctx.strokeText(this.watermarkText, 0, 0);
+      ctx.fillStyle = this.color;
+      ctx.fillText(this.watermarkText, 0, 0);
+    }
     ctx.restore();
   }
 
-  private generateDownload(): void {
-    if (this.fileType !== 'image') return;
+  /** Dashed crop guide: largest centered rect of the chosen aspect. */
+  private drawAspectGuide(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+    if (this.aspect === 'original') return;
+    const [aw, ah] = this.aspect === '16:9' ? [16, 9] : this.aspect === '9:16' ? [9, 16] : [1, 1];
+    const target = aw / ah;
+    const frame = w / h;
+    let gw = w;
+    let gh = h;
+    if (frame > target) gw = h * target;
+    else gh = w / target;
+    const gx = (w - gw) / 2;
+    const gy = (h - gh) / 2;
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.strokeRect(gx, gy, gw, gh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeRect(gx, gy, gw, gh);
+    ctx.restore();
+  }
 
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+  // --------------------------------------------------------------- position
 
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
+  isActiveSpot(ri: number, ci: number): boolean {
+    return (
+      Math.abs(this.pos.x - GRID_SPOTS[ci]) < 0.06 && Math.abs(this.pos.y - GRID_SPOTS[ri]) < 0.06
+    );
+  }
 
-      // Scale font size proportionally for full-res output
-      const previewScale = this.previewCanvas
-        ? this.previewCanvas.nativeElement.width / img.width
-        : 1;
-      const fullFontSize = this.fontSize / (previewScale || 1);
+  spotName(ri: number, ci: number): string {
+    const v = ['top', 'middle', 'bottom'][ri];
+    const h = ['left', 'center', 'right'][ci];
+    return `${v} ${h}`;
+  }
 
-      ctx.save();
-      ctx.globalAlpha = this.opacity;
-      ctx.font = `${fullFontSize}px Arial`;
-      ctx.fillStyle = this.color;
-      ctx.textBaseline = 'middle';
-      ctx.textAlign = 'center';
+  snapToSpot(ri: number, ci: number): void {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const target = { x: GRID_SPOTS[ci], y: GRID_SPOTS[ri] };
+    if (reduce) {
+      this.pos.x = target.x;
+      this.pos.y = target.y;
+      this.updatePreview();
+      return;
+    }
+    gsap.to(this.pos, {
+      ...target,
+      duration: 0.3,
+      ease: 'power2.out',
+      overwrite: true,
+      onUpdate: () => this.updatePreview(),
+    });
+  }
 
-      const x = this.dragX * canvas.width;
-      const y = this.dragY * canvas.height;
+  toggleAspect(a: AspectOption): void {
+    this.aspect = this.aspect === a ? 'original' : a;
+    this.updatePreview();
+  }
 
-      ctx.translate(x, y);
-      ctx.rotate(this.rotation * Math.PI / 180);
+  onPointerDown(event: PointerEvent): void {
+    if (!this.previewCanvas) return;
+    this.dragging = true;
+    gsap.killTweensOf(this.pos);
+    (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
+    this.updateDragPosition(event);
+  }
 
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-      ctx.lineWidth = 2;
-      ctx.strokeText(this.watermarkText, 0, 0);
-      ctx.fillText(this.watermarkText, 0, 0);
-      ctx.restore();
+  onPointerMove(event: PointerEvent): void {
+    if (!this.dragging || !this.previewCanvas) return;
+    this.updateDragPosition(event);
+  }
 
-      canvas.toBlob((blob) => {
-        if (blob) {
-          if (this.downloadUrl) {
-            URL.revokeObjectURL(this.downloadUrl);
-          }
-          this.downloadUrl = URL.createObjectURL(blob);
-        }
-      }, 'image/png');
+  onPointerUp(): void {
+    this.dragging = false;
+  }
+
+  private updateDragPosition(event: PointerEvent): void {
+    const canvas = this.previewCanvas.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    this.pos.x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    this.pos.y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    this.updatePreview();
+  }
+
+  // ------------------------------------------------------------------ video
+
+  onVideoLoaded(): void {
+    const video = this.videoEl?.nativeElement;
+    if (!video) return;
+    if (!video.videoWidth) {
+      this.fileError = "This video can't be previewed in your browser. Try MP4 or WebM.";
+      return;
+    }
+    this.videoDuration = video.duration || 0;
+    this.videoReady = true;
+    this.updatePreview();
+  }
+
+  togglePlay(): void {
+    const video = this.videoEl?.nativeElement;
+    if (!video) return;
+    if (video.paused) {
+      void video.play().then(() => {
+        this.playing = true;
+        this.startLoop();
+      }).catch(() => {});
+    } else {
+      video.pause();
+      this.playing = false;
+      this.stopLoop();
+      this.updatePreview();
+    }
+  }
+
+  scrubTo(t: number): void {
+    const video = this.videoEl?.nativeElement;
+    if (!video) return;
+    this.videoTime = t;
+    video.currentTime = Math.min(Math.max(0, t), this.videoDuration || 0);
+    // The seeked event redraws; draw immediately too for responsiveness.
+    this.updatePreview();
+  }
+
+  onVideoEnded(): void {
+    this.playing = false;
+    this.stopLoop();
+    if (this.recording) this.stopRecording();
+    else this.updatePreview();
+  }
+
+  formatTime(s: number): string {
+    if (!s || s < 0) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  }
+
+  private startLoop(): void {
+    this.stopLoop();
+    const tick = () => {
+      const video = this.videoEl?.nativeElement;
+      if (video && !video.paused) {
+        this.videoTime = video.currentTime;
+        this.updatePreview();
+        this.rafId = requestAnimationFrame(tick);
+      }
     };
-    img.src = this.fileUrl;
+    this.rafId = requestAnimationFrame(tick);
+  }
+
+  private stopLoop(): void {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = 0;
+    }
+  }
+
+  /** Export the watermarked video by re-recording playback (WebM + audio). */
+  exportVideo(): void {
+    const video = this.videoEl?.nativeElement;
+    const canvas = this.previewCanvas?.nativeElement;
+    if (!video || !canvas || !this.videoReady || this.recording) return;
+    const capture = canvas.captureStream(30);
+    try {
+      const withMedia = (video as HTMLVideoElement & { captureStream?: () => MediaStream; mozCaptureStream?: () => MediaStream });
+      const av = withMedia.captureStream?.() ?? withMedia.mozCaptureStream?.();
+      av?.getAudioTracks().forEach((t) => {
+        capture.addTrack(t);
+        this.recordTracks.push(t);
+      });
+    } catch {
+      // Video-only export when audio capture is unavailable.
+    }
+    this.recordChunks = [];
+    const rec = new MediaRecorder(capture, { mimeType: 'video/webm', videoBitsPerSecond: 8_000_000 });
+    rec.ondataavailable = (e) => {
+      if (e.data.size > 0) this.recordChunks.push(e.data);
+    };
+    rec.onstop = () => {
+      const blob = new Blob(this.recordChunks, { type: 'video/webm' });
+      if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
+      this.downloadUrl = URL.createObjectURL(blob);
+      this.recording = false;
+      this.stopRecordingTracks();
+      // Auto-download the finished export.
+      const link = document.createElement('a');
+      link.href = this.downloadUrl;
+      link.download = `watermarked-${this.file?.name.replace(/\.[^.]+$/, '') || 'video'}.webm`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+    this.recorder = rec;
+    this.recording = true;
+    video.currentTime = 0;
+    rec.start(250);
+    void video.play().then(() => {
+      this.playing = true;
+      this.startLoop();
+    }).catch(() => {
+      this.recording = false;
+    });
+  }
+
+  stopRecording(): void {
+    if (this.recorder && this.recorder.state !== 'inactive') {
+      this.recorder.stop();
+    } else {
+      this.recording = false;
+    }
+    this.videoEl?.nativeElement.pause();
+    this.playing = false;
+    this.stopLoop();
+    this.stopRecordingTracks();
+  }
+
+  private stopRecordingTracks(): void {
+    this.recordTracks.forEach((t) => {
+      try {
+        t.stop();
+      } catch {
+        // Already stopped.
+      }
+    });
+    this.recordTracks = [];
+  }
+
+  // ----------------------------------------------------------------- export
+
+  private generateDownload(): void {
+    if (this.fileType !== 'image' || !this.baseImg) return;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    canvas.width = this.baseW;
+    canvas.height = this.baseH;
+    ctx.drawImage(this.baseImg, 0, 0);
+    if (!this.showOriginal) this.drawWatermark(ctx, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (blob) {
+        if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
+        this.downloadUrl = URL.createObjectURL(blob);
+      }
+    }, 'image/png');
   }
 
   download(): void {
     if (!this.downloadUrl) return;
-
     const link = document.createElement('a');
     link.href = this.downloadUrl;
     link.download = `watermarked-${this.file?.name || 'image.png'}`;
@@ -404,23 +818,40 @@ export class WatermarkComponent implements OnInit, AfterViewInit {
     document.body.removeChild(link);
   }
 
+  resetFile(): void {
+    this.reset();
+  }
+
   reset(): void {
-    if (this.fileUrl) {
-      URL.revokeObjectURL(this.fileUrl);
-    }
-    if (this.downloadUrl) {
-      URL.revokeObjectURL(this.downloadUrl);
-    }
+    this.stopLoop();
+    this.stopRecordingTracks();
+    if (this.fileUrl) URL.revokeObjectURL(this.fileUrl);
+    if (this.logoUrl) URL.revokeObjectURL(this.logoUrl);
+    if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
     this.file = null;
     this.fileType = null;
     this.fileUrl = '';
+    this.fileError = '';
+    this.wmKind = 'text';
     this.watermarkText = 'Your Watermark';
-    this.fontSize = 24;
-    this.opacity = 0.5;
+    this.fontStack = FONTS[0].stack;
+    this.fontLabel = FONTS[0].label;
+    this.fontOpen = false;
     this.color = '#ffffff';
+    this.opacityPct = 50;
+    this.sizePct = 25;
     this.rotation = 0;
-    this.dragX = 0.75;
-    this.dragY = 0.85;
+    this.pos = { x: 0.75, y: 0.85 };
+    this.aspect = 'original';
+    this.showOriginal = false;
+    this.logoUrl = '';
+    this.logoImg = null;
+    this.baseImg = null;
+    this.videoDuration = 0;
+    this.videoTime = 0;
+    this.playing = false;
+    this.videoReady = false;
+    this.recording = false;
     this.downloadUrl = '';
   }
 }
