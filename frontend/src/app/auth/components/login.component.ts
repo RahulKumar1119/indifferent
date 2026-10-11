@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { environment } from '../../../environments/environment';
-import { AuthService, sanitizeNextPath } from '../../core/services/auth.service';
+import { AuthService, DEFAULT_POST_AUTH_PATH, sanitizeNextPath } from '../../core/services/auth.service';
 import { setPageSeo } from '../../shared/seo';
 
 @Component({
@@ -187,6 +187,12 @@ export class LoginComponent implements OnInit {
   private postAuthPath = '/new';
 
   ngOnInit(): void {
+    // Already signed in (back button, bookmark): don't show the form —
+    // re-login would clobber valid tokens.
+    if (this.authService.isAuthenticated()) {
+      this.router.navigate([DEFAULT_POST_AUTH_PATH]);
+      return;
+    }
     setPageSeo(this.document, {
       title: 'Start Creating: Sign In | Indifferent',
       description:

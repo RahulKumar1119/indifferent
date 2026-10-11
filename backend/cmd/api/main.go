@@ -36,6 +36,9 @@ func main() {
 	if jwtSecret == "" || googleClientID == "" || dynamoDBTable == "" || s3Bucket == "" || stateMachineARN == "" {
 		log.Fatal("Missing required environment variables")
 	}
+	if googleClientSecret == "" || googleRedirectURI == "" {
+		log.Fatal("Missing required environment variables: GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI must both be set or Google OAuth fails at runtime")
+	}
 	if usersTable == "" || sessionTable == "" || shortsStateMachineARN == "" {
 		log.Fatal("Missing required environment variables: USERS_TABLE, SESSION_TABLE and SHORTS_STATE_MACHINE_ARN must all be set")
 	}

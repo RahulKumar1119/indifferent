@@ -103,7 +103,7 @@ const HOVER_PREVIEW_MS = 2000;
       @if (clips.length > 0) {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           @for (clip of clips; track clip.clipId; let i = $index) {
-            <div class="glass-card p-3 flex flex-col card-enter group" [style.animation-delay]="(i * 0.05) + 's'">
+            <div class="glass-card p-3 flex flex-col card-enter group" [style.animation-delay]="(i * 0.05) + 's'" [attr.data-clip]="clip.clipId">
               <!-- 9:16 video -->
               <div
                 class="relative w-full rounded-lg overflow-hidden bg-black aspect-[9/16]"
@@ -332,6 +332,10 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   hoverStop(clip: Clip): void {
     this.clearHoverTimer(clip.clipId);
+    const el = document.querySelector(`[data-clip="${clip.clipId}"] video`);
+    if (el instanceof HTMLVideoElement && !el.paused) {
+      el.pause();
+    }
   }
 
   /** Mobile tap: toggle play on the loaded video. */
@@ -420,7 +424,13 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
         return;
       }
       throw new Error('no-share');
-    } catch {
+    } catch (err) {
+      // A dismissed share sheet rejects with AbortError: the user declined,
+      // so don't touch the clipboard. Fall back to copy only when the
+      // native share API is missing or really failed.
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return;
+      }
       const ok = await this.copyText(text);
       this.error = ok ? '' : 'Share failed. Please try again.';
       if (ok) {

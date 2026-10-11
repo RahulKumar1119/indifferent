@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
+	sfntypes "github.com/aws/aws-sdk-go-v2/service/sfn/types"
 	"github.com/google/uuid"
 	"github.com/rahul/indifferent/backend/internal/auth"
 	"github.com/rahul/indifferent/backend/internal/models"
@@ -846,6 +847,14 @@ func (h *APIHandler) handleStartPipeline(ctx context.Context, req events.APIGate
 		Input:           aws.String(string(sfnInput)),
 	})
 	if err != nil {
+		// Idempotent restart: the deterministic execution name means a
+		// duplicate start races an already-running execution.
+		if isExecutionAlreadyExists(err) {
+			log.Printf("start_pipeline_already_running project=%s", projectID)
+			return jsonResponse(http.StatusOK, map[string]string{
+				"status": "started",
+			}), nil
+		}
 		return errorResponse(http.StatusInternalServerError, "PIPELINE_ERROR", "Failed to start processing pipeline"), nil
 	}
 
@@ -1005,12 +1014,14 @@ func validateCreateProject(req *CreateProjectRequest) error {
 	return nil
 }
 
-// sanitizeString strips HTML tags and escapes special characters.
+// sanitizeString strips HTML tags and escapes special characters. Entities
+// are decoded FIRST so encoded payloads (&lt;script&gt;) can't slip past
+// tag stripping only to be decoded later at render time.
 func sanitizeString(s string) string {
+	// Decode entities first so encoded tags become visible to the stripper.
+	s = html.UnescapeString(s)
 	// Remove HTML tags
 	s = stripHTMLTags(s)
-	// Unescape any HTML entities that resulted from stripping
-	s = html.UnescapeString(s)
 	// Trim whitespace
 	s = strings.TrimSpace(s)
 	return s
@@ -1044,6 +1055,14 @@ func isExactProjectPath(path string) bool {
 	return len(parts) == 2 && parts[0] == "projects" && parts[1] != ""
 }
 
+// isExecutionAlreadyExists reports a duplicate Step Functions start: with
+// deterministic execution names ("project-<id>") a double-click, timeout
+// retry, or restart races the first execution. It is already running, so
+// callers treat it as success instead of a 500.
+func isExecutionAlreadyExists(err error) bool {
+	var exists *sfntypes.ExecutionAlreadyExists
+	return errors.As(err, &exists)
+}
 // extractProjectID extracts the project ID from a path like /projects/{id}.
 func extractProjectID(path string) string {
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")

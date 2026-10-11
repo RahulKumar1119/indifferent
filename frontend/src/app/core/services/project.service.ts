@@ -1,7 +1,9 @@
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { HttpContext } from '@angular/common/http';
 import { Observable, timer, switchMap, takeWhile, EMPTY, of, retry, tap, map } from 'rxjs';
 import { ApiService } from './api.service';
+import { SUPPRESS_GLOBAL_ERROR } from '../interceptors/error.interceptor';
 import {
   Project,
   PipelineProgress,
@@ -32,7 +34,14 @@ export class ProjectService {
   }
 
   getProjectStatus(id: string): Observable<PipelineProgress> {
-    return this.api.get<PipelineProgress>(`/projects/${id}/status`);
+    // Polling loop: transient failures are retried internally, so the global
+    // error toast stays quiet for this path.
+    return this.api.get<PipelineProgress>(
+      `/projects/${id}/status`,
+      undefined,
+      true,
+      new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true),
+    );
   }
 
   createProject(req: CreateProjectRequest): Observable<Project> {
@@ -51,7 +60,13 @@ export class ProjectService {
 
   /** GET /projects/{id}/logo: presigned GET URL for the brand logo. */
   logoUrl(id: string): Observable<{ url: string }> {
-    return this.api.get<{ url: string }>(`/projects/${id}/logo`);
+    // A stale logoKey 404s; callers handle it locally (no global toast).
+    return this.api.get<{ url: string }>(
+      `/projects/${id}/logo`,
+      undefined,
+      true,
+      new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true),
+    );
   }
 
   /** PUT the logo file to its presigned URL (no auth cookies). */

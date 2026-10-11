@@ -86,6 +86,8 @@ func (u *StatusUpdater) UpdateStatus(ctx context.Context, input StatusInput) err
 		UpdateExpression:          aws.String(updateExpr),
 		ExpressionAttributeNames:  exprNames,
 		ExpressionAttributeValues: exprValues,
+		// Never resurrect deleted projects as ghost records.
+		ConditionExpression: aws.String("attribute_exists(PK)"),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update project status: %w", err)
@@ -165,6 +167,8 @@ func (u *StatusUpdater) UpdateShortsStatus(ctx context.Context, input ShortsStat
 		UpdateExpression:          aws.String(updateExpr),
 		ExpressionAttributeNames:  exprNames,
 		ExpressionAttributeValues: exprValues,
+		// Never resurrect deleted jobs as ghost records.
+		ConditionExpression: aws.String("attribute_exists(PK)"),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update shorts status: %w", err)

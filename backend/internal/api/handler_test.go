@@ -535,6 +535,8 @@ func TestSanitizeString(t *testing.T) {
 		{"  spaces  ", "spaces"},
 		{"No<br>tags", "Notags"},
 		{"<a href='test'>Link</a>", "Link"},
+		{"&lt;script&gt;alert(1)&lt;/script&gt;", "alert(1)"},
+		{"Fish &amp; Chips", "Fish & Chips"},
 	}
 
 	for _, tt := range tests {

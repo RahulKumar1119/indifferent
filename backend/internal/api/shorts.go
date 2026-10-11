@@ -206,6 +206,14 @@ func (h *APIHandler) handleStartShorts(ctx context.Context, req events.APIGatewa
 		Input:           aws.String(string(sfnInput)),
 	})
 	if err != nil {
+		// Idempotent restart: the deterministic execution name means a
+		// duplicate start races an already-running execution.
+		if isExecutionAlreadyExists(err) {
+			log.Printf("start_shorts_already_running job=%s", jobID)
+			return jsonResponse(http.StatusOK, map[string]string{
+				"status": "started",
+			}), nil
+		}
 		return errorResponse(http.StatusInternalServerError, "PIPELINE_ERROR", "Failed to start processing pipeline"), nil
 	}
 

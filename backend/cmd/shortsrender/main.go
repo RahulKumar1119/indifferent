@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,10 +25,17 @@ import (
 )
 
 // audioExtensions are source file types with no video stream; they render onto
-// a solid canvas rather than a center-crop.
+// a solid canvas rather than a center-crop. Extension-based by necessity (no
+// stream probe in this worker); covered formats stay generous.
 var audioExtensions = map[string]bool{
 	".mp3": true,
 	".wav": true,
+	".m4a": true,
+	".aac": true,
+	".ogg": true,
+	".opus": true,
+	".flac": true,
+	".wma": true,
 }
 
 func main() {
@@ -59,6 +67,17 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("invalid CLIP_END: %w", err)
 	}
+	// Guard the render worker against poison inputs: NaN/Inf parse cleanly
+	// but would reach ffmpeg as garbage, failing and retrying forever.
+	if math.IsNaN(start) || math.IsInf(start, 0) || math.IsNaN(end) || math.IsInf(end, 0) {
+		return fmt.Errorf("invalid clip window: start=%v end=%v must be finite numbers", start, end)
+	}
+	if start < 0 || end <= start {
+		return fmt.Errorf("invalid clip window: require 0 <= start < end, got start=%v end=%v", start, end)
+	}
+	if end-start > 600 {
+		return fmt.Errorf("invalid clip window: %.0fs exceeds the 600s source cap", end-start)
+	}
 	// CLIP_RANK is optional metadata; default 0 when unset or unparsable.
 	rank, _ := strconv.Atoi(os.Getenv("CLIP_RANK"))
 
@@ -86,15 +105,20 @@ func run(ctx context.Context) error {
 		renderer.Detector = render.NewRekognitionFaceDetector(rekognition.NewFromConfig(cfg))
 	}
 
-	// Render progress + project branding share one DynamoDB client.
-	if cfgErr == nil {
-		dbClient := dynamodb.NewFromConfig(cfg)
-		if table := os.Getenv("DYNAMODB_TABLE"); table != "" {
-			renderer.FetchLogo = render.NewLogoFetcher(dbClient, table, userID, jobID, s3Client, bucket)
-			renderer.Table = table
-			renderer.Dynamo = dbClient
-		}
+	// Render progress + project branding share one DynamoDB client. The table
+	// is required: without it renders would silently lose progress updates
+	// and brand overlays, so fail fast instead of degrading quietly.
+	if cfgErr != nil {
+		return fmt.Errorf("reframe disabled: failed to load AWS config: %v", cfgErr)
 	}
+	dbClient := dynamodb.NewFromConfig(cfg)
+	table := os.Getenv("DYNAMODB_TABLE")
+	if table == "" {
+		return fmt.Errorf("DYNAMODB_TABLE environment variable not set")
+	}
+	renderer.FetchLogo = render.NewLogoFetcher(dbClient, table, userID, jobID, s3Client, bucket)
+	renderer.Table = table
+	renderer.Dynamo = dbClient
 
 	in := render.RenderInput{
 		JobID:         jobID,
@@ -102,9 +126,13 @@ func run(ctx context.Context) error {
 		SourceKey:     sourceKey,
 		TranscriptKey: transcriptKey,
 		Clip: models.Clip{
+			// Start/End ride along for caption rebuilds (Score/HookText live
+			// only in the ranker's DynamoDB record, not in worker env).
 			ClipID:   clipID,
 			Rank:     rank,
 			Duration: end - start,
+			Start:    start,
+			End:      end,
 		},
 		ClipStart: start,
 		ClipEnd:   end,
