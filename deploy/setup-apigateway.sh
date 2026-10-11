@@ -130,7 +130,7 @@ aws apigateway put-integration-response \
   --resource-id "$PROXY_ID" \
   --http-method OPTIONS \
   --status-code 200 \
-  --response-parameters '{"method.response.header.Access-Control-Allow-Headers":"'"'"'Content-Type,Authorization'"'"'","method.response.header.Access-Control-Allow-Methods":"'"'"'GET,POST,DELETE,OPTIONS'"'"'","method.response.header.Access-Control-Allow-Origin":"'"'"'https://indifferent.fun'"'"'","method.response.header.Access-Control-Allow-Credentials":"'"'"'true'"'"'"}' \
+  --response-parameters '{"method.response.header.Access-Control-Allow-Headers":"'"'"'Content-Type,Authorization'"'"'","method.response.header.Access-Control-Allow-Methods":"'"'"'GET,POST,PUT,DELETE,OPTIONS'"'"'","method.response.header.Access-Control-Allow-Origin":"'"'"'https://indifferent.fun'"'"'","method.response.header.Access-Control-Allow-Credentials":"'"'"'true'"'"'"}' \
   --region $REGION > /dev/null
 
 echo "=== Redeploying after CORS changes ==="
