@@ -1015,3 +1015,50 @@ func TestDeleteProject_FullCleanup(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateProjectFields_RetriesOnConflict(t *testing.T) {
+	// A concurrent write between read and write fails the optimistic lock
+	// once: the helper reloads and retries instead of clobbering.
+	projectItem := map[string]dbtypes.AttributeValue{
+		"PK":        &dbtypes.AttributeValueMemberS{Value: "USER#user1"},
+		"SK":        &dbtypes.AttributeValueMemberS{Value: "PROJECT#p1"},
+		"projectId": &dbtypes.AttributeValueMemberS{Value: "p1"},
+		"name":      &dbtypes.AttributeValueMemberS{Value: "Quiz"},
+		"template":  &dbtypes.AttributeValueMemberS{Value: "classic"},
+		"voice":     &dbtypes.AttributeValueMemberS{Value: "Joanna"},
+		"status":    &dbtypes.AttributeValueMemberS{Value: "completed"},
+		"createdAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+		"updatedAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T01:00:00Z"},
+	}
+	puts := 0
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: projectItem}, nil
+		},
+		putItemFunc: func(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			puts++
+			if puts == 1 {
+				return nil, &dbtypes.ConditionalCheckFailedException{}
+			}
+			if params.ConditionExpression == nil {
+				t.Error("expected optimistic-lock condition on project write")
+			}
+			return &dynamodb.PutItemOutput{}, nil
+		},
+	}
+	h := newTestHandler()
+	h.DB = db
+
+	updated, err := h.updateProjectFields(context.Background(), "user1", "p1", func(p *models.Project) {
+		p.Name = "Renamed"
+	})
+	if err != nil {
+		t.Fatalf("expected retry to succeed, got: %v", err)
+	}
+	if updated.Name != "Renamed" {
+		t.Errorf("expected mutated project back, got %q", updated.Name)
+	}
+	if puts != 2 {
+		t.Errorf("expected 2 writes (fail + retry), got %d", puts)
+	}
+}

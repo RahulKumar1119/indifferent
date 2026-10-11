@@ -182,7 +182,7 @@ interface FfmpegEngine {
                 (pointerleave)="onPointerUp()"
               >
                 <canvas #previewCanvas class="max-w-full max-h-[62vh] rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)]"></canvas>
-                <video #videoEl class="hidden" [src]="fileUrl" muted playsInline preload="auto" (loadedmetadata)="onVideoLoaded()" (seeked)="renderPreview()" (ended)="onVideoEnded()"></video>
+                <video #videoEl class="hidden" [src]="fileUrl" muted playsInline preload="auto" (loadedmetadata)="onVideoLoaded()" (seeked)="renderPreview()" (ended)="onVideoEnded()" (error)="onVideoError()"></video>
                 <span class="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1A1714]/[.06] border border-black/10 text-[#3E3A33] text-[11.5px] font-medium px-3 py-1 pointer-events-none whitespace-nowrap">Drag to move watermark</span>
               </div>
 
@@ -819,6 +819,14 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     this.videoDuration = video.duration || 0;
     this.videoReady = true;
     this.renderPreview();
+  }
+
+  onVideoError(): void {
+    // Unsupported codec/container: loadedmetadata never fires, so surface
+    // the dead end instead of leaving Export disabled with no feedback.
+    this.videoReady = false;
+    this.playing = false;
+    this.fileError = "This video can't be played in your browser (unsupported codec). Try MP4 (H.264) or WebM.";
   }
 
   togglePlay(): void {

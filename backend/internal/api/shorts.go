@@ -152,24 +152,20 @@ func newShortsJob(userID, fileType string, duration float64, projectID string) (
 	return job, contentType
 }
 
-// linkShortsJob appends a job ID to its unified project (idempotent).
+// linkShortsJob appends a job ID to its unified project (idempotent). The
+// write is optimistically locked so a concurrent status update is retried
+// instead of clobbered.
 func (h *APIHandler) linkShortsJob(ctx context.Context, userID, projectID, jobID string) error {
-	project, err := h.getProjectByID(ctx, userID, projectID)
-	if err != nil {
-		return fmt.Errorf("project not found")
-	}
-	for _, id := range project.ShortsJobIDs {
-		if id == jobID {
-			return nil
+	_, err := h.updateProjectFields(ctx, userID, projectID, func(project *models.Project) {
+		for _, id := range project.ShortsJobIDs {
+			if id == jobID {
+				return
+			}
 		}
-	}
-	project.ShortsJobIDs = append(project.ShortsJobIDs, jobID)
-	project.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(h.TableName),
-		Item:      projectToItem(*project),
-	}); err != nil {
-		return fmt.Errorf("failed to link shorts job")
+		project.ShortsJobIDs = append(project.ShortsJobIDs, jobID)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to link shorts job: %w", err)
 	}
 	return nil
 }

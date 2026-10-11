@@ -17,6 +17,7 @@ import (
 type mockTranscribeClient struct {
 	started       bool
 	startInput    *transcribe.StartTranscriptionJobInput
+	startErr      error
 	statuses      []types.TranscriptionJobStatus
 	failureReason string
 	calls         int
@@ -25,6 +26,9 @@ type mockTranscribeClient struct {
 func (m *mockTranscribeClient) StartTranscriptionJob(ctx context.Context, in *transcribe.StartTranscriptionJobInput, optFns ...func(*transcribe.Options)) (*transcribe.StartTranscriptionJobOutput, error) {
 	m.started = true
 	m.startInput = in
+	if m.startErr != nil {
+		return nil, m.startErr
+	}
 	return &transcribe.StartTranscriptionJobOutput{}, nil
 }
 
@@ -178,5 +182,22 @@ func TestPoll_FailedSurfacesFailureReason(t *testing.T) {
 	}
 	if res.FailureReason != "Unsupported media format" {
 		t.Errorf("unexpected failure reason: %q", res.FailureReason)
+	}
+}
+
+func TestStart_ConflictResumesExistingJob(t *testing.T) {
+	// A re-entry for the same job ID reports ConflictException: Start must
+	// hand back the existing job name for polling instead of failing.
+	client := &mockTranscribeClient{
+		startErr: &types.ConflictException{Message: aws.String("job exists")},
+	}
+	svc := NewService(client, newMockStorage(), "assets", "ap-south-1")
+
+	name, err := svc.Start(context.Background(), "job1", "user1", "uploads/user1/job1/source.mp4")
+	if err != nil {
+		t.Fatalf("conflict must resume, got error: %v", err)
+	}
+	if name != "shorts-job1" {
+		t.Errorf("expected existing job name shorts-job1, got %q", name)
 	}
 }

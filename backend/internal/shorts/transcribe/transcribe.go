@@ -6,6 +6,7 @@ package transcribe
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -74,6 +75,10 @@ func rawOutputKey(userID, jobID string) string {
 // timestamps and returns the Transcribe job name. The Transcribe output is
 // written to our own bucket (via OutputBucketName/OutputKey) so Poll can read
 // it back with GetObject. (Requirements 2.1, 2.4)
+//
+// Job names are deterministic ("shorts-<jobID>"), so a retry or re-entry
+// reports ConflictException instead of starting a duplicate: the existing job
+// is returned for polling, making start idempotent.
 func (s *Service) Start(ctx context.Context, jobID, userID, sourceKey string) (string, error) {
 	name := jobName(jobID)
 	mediaURI := fmt.Sprintf("s3://%s/%s", s.Bucket, sourceKey)
@@ -88,6 +93,10 @@ func (s *Service) Start(ctx context.Context, jobID, userID, sourceKey string) (s
 		OutputKey:        aws.String(rawOutputKey(userID, jobID)),
 	})
 	if err != nil {
+		var conflict *types.ConflictException
+		if errors.As(err, &conflict) {
+			return name, nil
+		}
 		return "", fmt.Errorf("failed to start transcription job: %w", err)
 	}
 	return name, nil

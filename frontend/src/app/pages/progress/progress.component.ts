@@ -156,7 +156,13 @@ export class ProgressComponent implements OnInit, OnDestroy {
     this.pollSub = this.projectService.pollProjectStatus(this.projectId).subscribe({
       next: (progress) => {
         this.progress = progress;
-        this.currentStepIndex = this.getStepIndexForStatus(progress.stage);
+        // Unknown stages ('created', 'failed') must not reset the stepper to
+        // Parsing: keep the furthest reached step so failures are attributed
+        // to the stage that was actually running.
+        const idx = this.getStepIndexForStatus(progress.stage);
+        if (idx >= 0) {
+          this.currentStepIndex = idx;
+        }
 
         if (progress.stage === 'completed') {
           this.redirectTimeout = setTimeout(() => {
@@ -194,7 +200,8 @@ export class ProgressComponent implements OnInit, OnDestroy {
   }
 
   private getStepIndexForStatus(status: ProjectStatus): number {
-    const index = this.steps.findIndex((s) => s.status === status);
-    return index >= 0 ? index : 0;
+    // -1 for stages with no step (created, failed): callers keep the
+    // furthest reached index instead of falling back to Parsing.
+    return this.steps.findIndex((s) => s.status === status);
   }
 }
