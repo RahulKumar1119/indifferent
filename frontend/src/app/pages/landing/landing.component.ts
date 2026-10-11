@@ -3,11 +3,12 @@ import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
+import { FlipbookComponent } from './flipbook.component';
 
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [RouterLink, NavMenuComponent, NavMobileMenuComponent],
+  imports: [RouterLink, NavMenuComponent, NavMobileMenuComponent, FlipbookComponent],
   styles: [`
     /* Shape rule: pills for buttons, 20px cards, 12px inputs. Serif display only here. */
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
@@ -191,16 +192,7 @@ import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/
         <section id="process" class="scroll-mt-24 mt-16 md:mt-24 border-y border-black/[0.07] bg-[#F3EEE3]">
           <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-20 md:py-28 grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-12">
             <div class="reveal order-2 lg:order-1">
-              <div class="rounded-[20px] bg-[#1A1714] p-6 md:p-8 text-[#F4EFE6]">
-                <p class="text-[12.5px] text-white/60">Your file</p>
-                <pre class="mt-4 font-mono text-[13.5px] leading-relaxed text-white/90 whitespace-pre-wrap">1. What is the capital of France?
-a) London
-b) Paris
-c) Berlin
-d) Madrid
-Answer: b</pre>
-                <p class="mt-5 border-t border-white/10 pt-4 text-[13px] leading-relaxed text-white/70">What the parser reads: question 1, four options (a to d), answer b.</p>
-              </div>
+              <app-flipbook />
               <a routerLink="/blog/quiz-file-format-guide" class="mt-2 inline-flex items-center min-h-[44px] text-[14px] font-semibold text-[#A8481F] underline underline-offset-4">Read the format guide <span class="ml-1" aria-hidden="true">→</span></a>
             </div>
             <div class="order-1 lg:order-2">
