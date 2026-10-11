@@ -394,6 +394,16 @@ func TestListProjects(t *testing.T) {
 						"createdAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
 						"updatedAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T01:00:00Z"},
 					},
+					{
+						// Legacy pipeline artifact: ID-less status record.
+						// Must never surface as a project.
+						"PK":        &dbtypes.AttributeValueMemberS{Value: "USER#user1"},
+						"SK":        &dbtypes.AttributeValueMemberS{Value: "PROJECT#"},
+						"status":    &dbtypes.AttributeValueMemberS{Value: "rendering"},
+						"error":     &dbtypes.AttributeValueMemberS{Value: "stale corpse"},
+						"createdAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+						"updatedAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T01:00:00Z"},
+					},
 				},
 			}, nil
 		},

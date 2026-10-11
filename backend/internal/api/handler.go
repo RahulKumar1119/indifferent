@@ -375,7 +375,13 @@ func (h *APIHandler) handleListProjects(ctx context.Context, req events.APIGatew
 
 	projects := make([]models.Project, 0, len(result.Items))
 	for _, item := range result.Items {
-		projects = append(projects, itemToProject(item))
+		project := itemToProject(item)
+		if project.ProjectID == "" {
+			// Defensive: pipeline status writers once created ID-less
+			// PROJECT# records; never surface them as projects.
+			continue
+		}
+		projects = append(projects, project)
 	}
 
 	return jsonResponse(http.StatusOK, map[string]interface{}{

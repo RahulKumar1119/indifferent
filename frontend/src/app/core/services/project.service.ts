@@ -17,8 +17,13 @@ export class ProjectService {
   getProjects(): Observable<Project[]> {
     // The API returns an envelope {"projects": [...]}; unwrap it here so
     // callers always receive an array (a bare array is also tolerated).
+    // Records with an empty id (legacy pipeline artifacts) are dropped:
+    // they break detail navigation and delete calls.
     return this.api.get<{ projects: Project[] } | Project[]>('/projects').pipe(
-      map((res) => (Array.isArray(res) ? res : (res?.projects ?? []))),
+      map((res) => {
+        const list = Array.isArray(res) ? res : (res?.projects ?? []);
+        return list.filter((p) => !!p && !!p.id);
+      }),
     );
   }
 
