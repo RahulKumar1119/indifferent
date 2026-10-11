@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -231,6 +232,32 @@ func (s *googleAuthService) upsertUser(ctx context.Context, user *GoogleUserInfo
 		}
 		if v := extractStringAttr(existing.Item, "theme"); v != "" {
 			theme = v
+		}
+	}
+
+	// Claim the email address so the same address cannot also register a
+	// detached password account. A mapping to a DIFFERENT user means the
+	// address is taken (409 upstream); same-user or absent proceeds.
+	emailIdxKey := emailKey(user.Email)
+	if _, err := s.db.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName:           aws.String(s.config.UsersTable),
+		Item:                map[string]dbtypes.AttributeValue{"PK": emailIdxKey["PK"], "SK": emailIdxKey["SK"], "userId": &dbtypes.AttributeValueMemberS{Value: user.ID}},
+		ConditionExpression: aws.String("attribute_not_exists(PK)"),
+	}); err != nil {
+		var condFailed *dbtypes.ConditionalCheckFailedException
+		if !errors.As(err, &condFailed) {
+			return fmt.Errorf("reserve email: %w", err)
+		}
+		idx, ierr := s.db.GetItem(ctx, &dynamodb.GetItemInput{
+			TableName:      aws.String(s.config.UsersTable),
+			Key:            emailIdxKey,
+			ConsistentRead: aws.Bool(true),
+		})
+		if ierr != nil {
+			return fmt.Errorf("lookup email: %w", ierr)
+		}
+		if idx.Item == nil || extractStringAttr(idx.Item, "userId") != user.ID {
+			return ErrEmailTaken
 		}
 	}
 

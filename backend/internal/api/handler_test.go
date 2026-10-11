@@ -817,6 +817,28 @@ func TestPutProjectSubpathIs404(t *testing.T) {
 	}
 }
 
+func TestDeleteProjectSubpathIs404(t *testing.T) {
+	// Same exact-path rule for DELETE: deeper paths must 404 instead of
+	// deleting the parent project.
+	handler := newTestHandler()
+	ctx := context.Background()
+
+	for _, path := range []string{"/projects/abc123/status", "/projects/abc123/download", "/projects/abc123/upload"} {
+		req := events.APIGatewayProxyRequest{
+			HTTPMethod: "DELETE",
+			Path:       path,
+			Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+		}
+		resp, err := handler.HandleRequest(ctx, req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.StatusCode != 404 {
+			t.Errorf("DELETE %s: got status %d, want 404 (body: %s)", path, resp.StatusCode, resp.Body)
+		}
+	}
+}
+
 func TestGetProject_ResolvesMediaURLs(t *testing.T) {
 	completed := map[string]dbtypes.AttributeValue{
 		"projectId":    &dbtypes.AttributeValueMemberS{Value: "p1"},
@@ -887,4 +909,107 @@ func TestGetProject_ResolvesMediaURLs(t *testing.T) {
 			t.Error("did not expect videoUrl for non-completed project")
 		}
 	})
+}
+
+func TestDeleteProject_FullCleanup(t *testing.T) {
+	// Deleting a project removes linked shorts jobs, sweeps all project S3
+	// prefixes (uploads/temp/output incl. untracked leftovers), purges
+	// versions, and deletes the record.
+	projectItem := map[string]dbtypes.AttributeValue{
+		"PK":           &dbtypes.AttributeValueMemberS{Value: "USER#user1"},
+		"SK":           &dbtypes.AttributeValueMemberS{Value: "PROJECT#p1"},
+		"projectId":    &dbtypes.AttributeValueMemberS{Value: "p1"},
+		"name":         &dbtypes.AttributeValueMemberS{Value: "Quiz"},
+		"template":     &dbtypes.AttributeValueMemberS{Value: "classic"},
+		"voice":        &dbtypes.AttributeValueMemberS{Value: "Joanna"},
+		"status":       &dbtypes.AttributeValueMemberS{Value: "completed"},
+		"videoKey":     &dbtypes.AttributeValueMemberS{Value: "output/p1/video.mp4"},
+		"thumbnailKey": &dbtypes.AttributeValueMemberS{Value: "output/p1/thumbnail.png"},
+		"shortsJobIds": &dbtypes.AttributeValueMemberS{Value: `["job1"]`},
+		"createdAt":    &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+		"updatedAt":    &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+	}
+	jobItem := map[string]dbtypes.AttributeValue{
+		"PK":             &dbtypes.AttributeValueMemberS{Value: "USER#user1"},
+		"SK":             &dbtypes.AttributeValueMemberS{Value: "SHORTS#job1"},
+		"jobId":          &dbtypes.AttributeValueMemberS{Value: "job1"},
+		"status":         &dbtypes.AttributeValueMemberS{Value: "completed"},
+		"fileType":       &dbtypes.AttributeValueMemberS{Value: "mp4"},
+		"sourceDuration": &dbtypes.AttributeValueMemberN{Value: "60"},
+		"sourceKey":      &dbtypes.AttributeValueMemberS{Value: "uploads/user1/job1/source.mp4"},
+		"createdAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+		"updatedAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+	}
+	var deletedSKs []string
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, params *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			sk := params.Key["SK"].(*dbtypes.AttributeValueMemberS).Value
+			switch sk {
+			case "PROJECT#p1":
+				return &dynamodb.GetItemOutput{Item: projectItem}, nil
+			case "SHORTS#job1":
+				return &dynamodb.GetItemOutput{Item: jobItem}, nil
+			}
+			return &dynamodb.GetItemOutput{Item: nil}, nil
+		},
+		deleteItemFunc: func(_ context.Context, params *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+			deletedSKs = append(deletedSKs, params.Key["SK"].(*dbtypes.AttributeValueMemberS).Value)
+			return &dynamodb.DeleteItemOutput{}, nil
+		},
+	}
+	s3 := &stubDownloader{
+		status: storage.ObjectStatus{StorageClass: "STANDARD"},
+		listedKeys: []string{
+			"uploads/user1/p1/input.txt",
+			"temp/p1/slides/q0_question.png",
+			"temp/p1/audio/q0.mp3",
+			"output/p1/video.mp4",
+			"output/p1/thumbnail.png",
+			"uploads/user1/job1/source.mp4",
+		},
+	}
+	h := newTestHandler()
+	h.DB = db
+	h.S3 = s3
+
+	resp, err := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "DELETE",
+		Path:       "/projects/p1",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.StatusCode != 204 {
+		t.Fatalf("got status %d, want 204 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	for _, want := range []string{"PROJECT#p1", "SHORTS#job1"} {
+		found := false
+		for _, got := range deletedSKs {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected DB delete of %s, got %v", want, deletedSKs)
+		}
+	}
+	for _, want := range []string{
+		"uploads/user1/p1/input.txt",
+		"temp/p1/slides/q0_question.png",
+		"output/p1/video.mp4",
+		"uploads/user1/job1/source.mp4",
+	} {
+		found := false
+		for _, got := range s3.deletedKeys {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected S3 delete of %q, got %v", want, s3.deletedKeys)
+		}
+	}
 }

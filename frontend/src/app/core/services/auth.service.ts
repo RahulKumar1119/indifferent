@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, catchError, finalize, map, of, tap, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
@@ -29,6 +29,7 @@ export class AuthService {
   private readonly accessToken$ = new BehaviorSubject<string | null>(null);
   private readonly initialized$ = new BehaviorSubject<boolean>(false);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private refreshInFlight: Observable<AuthTokens> | null = null;
 
   constructor(
     private readonly http: HttpClient,
@@ -78,8 +79,22 @@ export class AuthService {
   }
 
   refreshToken(): Observable<AuthTokens> {
-    const refreshToken = this.getRefreshToken();
-    if (!refreshToken) {
+    // Singleflight: concurrent callers (guard vs interceptor, double clicks)
+    // share one in-flight refresh instead of racing the same token.
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.refreshOnce().pipe(
+        finalize(() => {
+          this.refreshInFlight = null;
+        }),
+        shareReplay({ bufferSize: 1, refCount: true }),
+      );
+    }
+    return this.refreshInFlight;
+  }
+
+  private refreshOnce(retried = false): Observable<AuthTokens> {
+    const attempted = this.getRefreshToken();
+    if (!attempted) {
       // No session to restore: fail fast instead of sending {}
       // (the API rejects it with 400 INVALID_INPUT).
       return throwError(() => new Error('No refresh token available'));
@@ -87,10 +102,23 @@ export class AuthService {
     return this.http
       .post<AuthTokens>(
         `${environment.apiUrl}/auth/refresh`,
-        { refreshToken },
+        { refreshToken: attempted },
         { withCredentials: true },
       )
-      .pipe(tap((tokens) => this.setTokens(tokens)));
+      .pipe(
+        tap((tokens) => this.setTokens(tokens)),
+        catchError((err) => {
+          // Cross-tab recovery: another tab may have rotated already and
+          // stored a FRESHER token via setTokens. If the stored token changed
+          // under us, retry once with it instead of treating a conflict as
+          // theft (which would wipe the family). Genuine reuse still fails.
+          const current = this.getRefreshToken();
+          if (!retried && current && current !== attempted) {
+            return this.refreshOnce(true);
+          }
+          return throwError(() => err);
+        }),
+      );
   }
 
   /** POST /auth/signup: register with email + password. */
