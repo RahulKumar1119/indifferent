@@ -95,6 +95,27 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucket, key string) error {
 	return err
 }
 
+// DeleteObjects removes up to 1000 objects in a single S3 call. Missing keys
+// are treated as success by S3, so re-running cleanup is safe (idempotent).
+// A nil/empty key list is a no-op.
+func (c *S3Client) DeleteObjects(ctx context.Context, bucket string, keys []string) error {
+	ids := make([]types.ObjectIdentifier, 0, len(keys))
+	for _, k := range keys {
+		if k == "" {
+			continue
+		}
+		ids = append(ids, types.ObjectIdentifier{Key: aws.String(k)})
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := c.client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+		Bucket: aws.String(bucket),
+		Delete: &types.Delete{Objects: ids},
+	})
+	return err
+}
+
 // HeadObject reports whether an object exists at the specified bucket and key.
 // It returns (true, nil) when the object exists, (false, nil) when it does not,
 // and (false, err) for any other error.

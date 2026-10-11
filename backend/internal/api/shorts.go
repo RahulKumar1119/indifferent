@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -237,6 +238,154 @@ func (h *APIHandler) handleCancelShorts(ctx context.Context, req events.APIGatew
 	return jsonResponse(http.StatusOK, map[string]string{
 		"status": "cancelled",
 	}), nil
+}
+
+// isExactShortsPath reports whether path is exactly /shorts/{id} (no deeper
+// sub-resource): only the job itself is deletable via DELETE, deeper DELETE
+// paths fall through to 404.
+func isExactShortsPath(path string) bool {
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	return len(parts) == 2 && parts[0] == "shorts" && parts[1] != ""
+}
+
+// shortsJobInFlight reports whether a job may still have a running Step
+// Functions execution that must be stopped before deletion.
+func shortsJobInFlight(status string) bool {
+	switch status {
+	case "uploaded", "transcribing", "ranking", "rendering":
+		return true
+	}
+	return false
+}
+
+// handleDeleteShorts permanently deletes a shorts job: it stops any running
+// pipeline, removes every S3 asset, deletes the record, and unlinks the job
+// from the user's projects.
+//
+// Ownership comes from the JWT partition key (PK=USER#<id>), so another
+// user's job reads as not found: 404 either way, no existence leak. The
+// client sends only the job ID; asset keys always come from the stored
+// record, never from the request.
+//
+// The operation is idempotent: S3 treats missing keys as success, so a retry
+// after a failed cleanup resumes from the retained record (status
+// delete_failed) instead of needing new infrastructure.
+func (h *APIHandler) handleDeleteShorts(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	jobID := extractShortsID(req.Path)
+	if jobID == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Job ID is required"), nil
+	}
+
+	job, err := h.getShortsJobByID(ctx, claims.UserID, jobID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
+	}
+
+	// Best effort: a finished execution may already be gone; the record and
+	// S3 cleanup below are what the UI observes.
+	if shortsJobInFlight(job.Status) {
+		if arn, aerr := shortsExecutionARN(h.ShortsStateMachineARN, jobID); aerr == nil {
+			_, _ = h.SFN.StopExecution(ctx, &sfn.StopExecutionInput{
+				ExecutionArn: aws.String(arn),
+			})
+		}
+	}
+
+	keys := shortsAssetKeys(job)
+	if err := h.S3.DeleteObjects(ctx, h.Bucket, keys); err != nil {
+		log.Printf("shorts_delete_s3_failed user=%s job=%s keys=%d err=%v", claims.UserID, jobID, len(keys), err)
+		job.Status = "delete_failed"
+		job.Error = "S3 cleanup failed; retry deletion."
+		job.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		if _, perr := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+			TableName: aws.String(h.TableName),
+			Item:      shortsJobToItem(*job),
+		}); perr != nil {
+			log.Printf("shorts_delete_mark_failed user=%s job=%s err=%v", claims.UserID, jobID, perr)
+		}
+		return errorResponse(http.StatusInternalServerError, "S3_CLEANUP_FAILED", "Failed to delete Short assets. Please retry."), nil
+	}
+
+	if _, err := h.DB.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(h.TableName),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + claims.UserID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
+		},
+	}); err != nil {
+		log.Printf("shorts_delete_db_failed user=%s job=%s err=%v", claims.UserID, jobID, err)
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to delete Short."), nil
+	}
+
+	// Best effort: drop dangling references from the user's projects.
+	h.unlinkShortsJob(ctx, claims.UserID, jobID)
+
+	log.Printf("short_deleted user=%s job=%s keys=%d s3=success", claims.UserID, jobID, len(keys))
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusNoContent,
+		Headers:    corsHeaders(),
+	}, nil
+}
+
+// shortsAssetKeys collects every S3 key a job may own: source media,
+// transcript, and rendered clips. Deduped with empties dropped.
+func shortsAssetKeys(job *models.ShortsJob) []string {
+	seen := map[string]bool{}
+	var keys []string
+	add := func(k string) {
+		if k == "" || seen[k] {
+			return
+		}
+		seen[k] = true
+		keys = append(keys, k)
+	}
+	add(job.SourceKey)
+	add(job.TranscriptKey)
+	for _, c := range job.Clips {
+		add(c.S3Key)
+	}
+	return keys
+}
+
+// unlinkShortsJob removes jobID from any of the caller's projects that link
+// it. Errors are logged, never fatal: a dangling link reads as "not found"
+// wherever jobs are resolved.
+func (h *APIHandler) unlinkShortsJob(ctx context.Context, userID, jobID string) {
+	result, err := h.DB.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(h.TableName),
+		KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :sk)"),
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":pk": &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+			":sk": &dbtypes.AttributeValueMemberS{Value: "PROJECT#"},
+		},
+	})
+	if err != nil {
+		log.Printf("shorts_unlink_query_failed user=%s job=%s err=%v", userID, jobID, err)
+		return
+	}
+	for _, item := range result.Items {
+		project := itemToProject(item)
+		kept := project.ShortsJobIDs[:0]
+		removed := false
+		for _, id := range project.ShortsJobIDs {
+			if id == jobID {
+				removed = true
+				continue
+			}
+			kept = append(kept, id)
+		}
+		if !removed {
+			continue
+		}
+		project.ShortsJobIDs = kept
+		project.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+			TableName: aws.String(h.TableName),
+			Item:      projectToItem(project),
+		}); err != nil {
+			log.Printf("shorts_unlink_put_failed user=%s job=%s project=%s err=%v", userID, jobID, project.ProjectID, err)
+		}
+	}
 }
 
 // shortsExecutionARN derives the execution ARN from the state machine ARN and
