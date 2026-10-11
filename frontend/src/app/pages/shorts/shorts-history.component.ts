@@ -1,14 +1,17 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { LucideDynamicIcon } from '@lucide/angular';
 import { ShortsJobSummary, ShortsService, ShortsStatus } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
+import { ToastService } from '../../shared/components/toast/toast.service';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-shorts-history',
   standalone: true,
-  imports: [CommonModule, RouterLink, NavbarComponent, ToastsComponent],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent],
   template: `
     <app-navbar></app-navbar>
     <app-toasts></app-toasts>
@@ -41,10 +44,10 @@ import { ToastsComponent } from '../../shared/components/toast/toasts.component'
         } @else {
           <ul class="mt-6 divide-y divide-[hsl(var(--border))] rounded-[20px] border border-[hsl(var(--border))] px-2 md:px-4">
             @for (job of jobs; track job.jobId) {
-              <li>
+              <li class="flex items-center gap-1 px-1 md:px-2">
                 <a
                   [routerLink]="job.status === 'completed' && job.clipCount > 0 ? ['/shorts', job.jobId, 'clips'] : ['/shorts', job.jobId, 'progress']"
-                  class="row-hover flex items-center gap-4 px-2 md:px-3 py-4 rounded-xl"
+                  class="row-hover flex flex-1 items-center gap-4 px-2 md:px-3 py-4 rounded-xl min-w-0"
                 >
                   <span class="w-9 h-9 rounded-full bg-[hsl(var(--foreground))]/[.06] flex items-center justify-center shrink-0 text-[12px] font-bold text-[hsl(var(--muted-foreground))]">
                     {{ job.fileType.toUpperCase() }}
@@ -60,12 +63,36 @@ import { ToastsComponent } from '../../shared/components/toast/toasts.component'
                   </span>
                   <span class="hidden sm:inline-flex rounded-full border border-[hsl(var(--border))] px-3 py-1 text-[11.5px] font-medium">{{ statusLabel(job.status) }}</span>
                 </a>
+                <button
+                  type="button"
+                  (click)="askDelete(job)"
+                  [disabled]="deletingId === job.jobId"
+                  class="btn-interactive shrink-0 w-9 h-9 rounded-lg inline-flex items-center justify-center text-[hsl(var(--muted-foreground))] hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                  [attr.aria-label]="'Delete short ' + job.jobId.slice(0, 8)"
+                  title="Delete short"
+                >
+                  @if (deletingId === job.jobId) {
+                    <svg lucideIcon="loader-2" [size]="16" class="animate-spin"></svg>
+                  } @else {
+                    <svg lucideIcon="trash-2" [size]="16"></svg>
+                  }
+                </button>
               </li>
             }
           </ul>
         }
       </main>
     </div>
+
+    <app-confirm-dialog
+      [open]="pendingDelete !== null"
+      title="Delete Short?"
+      [message]="deleteMessage()"
+      [details]="deleteDetails()"
+      [busy]="deletingId !== null"
+      (confirmed)="confirmDelete()"
+      (cancelled)="pendingDelete = null"
+    />
   `,
   styles: [`
     .row-hover { transition: background-color var(--transition-fast); }
@@ -76,8 +103,11 @@ export class ShortsHistoryComponent implements OnInit {
   jobs: ShortsJobSummary[] = [];
   isLoading = true;
   error = '';
+  pendingDelete: ShortsJobSummary | null = null;
+  deletingId: string | null = null;
 
-  constructor(private readonly shorts: ShortsService) {}
+  private readonly shorts = inject(ShortsService);
+  private readonly toasts = inject(ToastService);
 
   ngOnInit(): void {
     this.shorts.listJobs().subscribe({
@@ -96,6 +126,53 @@ export class ShortsHistoryComponent implements OnInit {
 
   statusLabel(status: ShortsStatus): string {
     return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  askDelete(job: ShortsJobSummary): void {
+    if (this.deletingId !== null) return;
+    this.pendingDelete = job;
+  }
+
+  deleteMessage(): string {
+    const job = this.pendingDelete;
+    if (!job) return '';
+    const bits = [`Short ${job.jobId.slice(0, 8)}`, job.fileType.toUpperCase()];
+    if (job.status === 'completed' && job.clipCount > 0) {
+      bits.push(`${job.clipCount} rendered ${job.clipCount === 1 ? 'clip' : 'clips'}`);
+    } else {
+      bits.push(`status: ${this.statusLabel(job.status)}`);
+    }
+    return `Permanently delete ${bits.join(' · ')} and all of its assets?`;
+  }
+
+  deleteDetails(): string[] {
+    const job = this.pendingDelete;
+    if (!job) return [];
+    const details = ['Original uploaded media', 'AI transcript and ranking data'];
+    if (job.status === 'completed' && job.clipCount > 0) {
+      details.push(`${job.clipCount} rendered vertical ${job.clipCount === 1 ? 'clip' : 'clips'}`);
+    }
+    details.push('Linked project references are cleaned up');
+    return details;
+  }
+
+  confirmDelete(): void {
+    const job = this.pendingDelete;
+    if (!job || this.deletingId !== null) return;
+    this.deletingId = job.jobId;
+    this.shorts.deleteJob(job.jobId).subscribe({
+      next: () => {
+        this.jobs = this.jobs.filter((j) => j.jobId !== job.jobId);
+        this.pendingDelete = null;
+        this.deletingId = null;
+        this.toasts.show('Short deleted successfully.', 'success');
+      },
+      error: () => {
+        this.pendingDelete = null;
+        this.deletingId = null;
+        this.toasts.show('Could not delete this short. Please try again.', 'error');
+      },
+    });
   }
 
   formatDate(iso: string): string {

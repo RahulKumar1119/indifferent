@@ -17,6 +17,8 @@ type stubDownloader struct {
 	statusErr    error
 	restoreCalls int
 	restoreErr   error
+	deletedKeys  []string
+	deleteErr    error
 }
 
 func (s *stubDownloader) GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error) {
@@ -37,6 +39,11 @@ func (s *stubDownloader) ObjectStatus(ctx context.Context, bucket, key string) (
 func (s *stubDownloader) RestoreObject(ctx context.Context, bucket, key string) error {
 	s.restoreCalls++
 	return s.restoreErr
+}
+
+func (s *stubDownloader) DeleteObjects(ctx context.Context, bucket string, keys []string) error {
+	s.deletedKeys = append(s.deletedKeys, keys...)
+	return s.deleteErr
 }
 
 func TestDownloadURLOrRestore_Standard(t *testing.T) {

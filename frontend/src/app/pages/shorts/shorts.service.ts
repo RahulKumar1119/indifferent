@@ -98,6 +98,11 @@ export class ShortsService {
     return this.api.post<{ status: string }>(`/shorts/${jobId}/cancel`);
   }
 
+  /** DELETE /shorts/{id}: permanently delete a job and all its S3 assets. */
+  deleteJob(jobId: string): Observable<void> {
+    return this.api.delete<void>(`/shorts/${jobId}`);
+  }
+
   /** GET /shorts/{id}: fetch current job status. */
   getStatus(jobId: string): Observable<ShortsJob> {
     return this.api.get<ShortsJob>(`/shorts/${jobId}`);

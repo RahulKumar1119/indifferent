@@ -3,12 +3,14 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/rahul/indifferent/backend/internal/auth"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/storage"
@@ -456,5 +458,192 @@ func TestGetClipURL_NotReady(t *testing.T) {
 	})
 	if resp.StatusCode != 400 {
 		t.Errorf("got status %d, want 400 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}
+
+func shortsJobItem(jobID, status string) map[string]dbtypes.AttributeValue {
+	return map[string]dbtypes.AttributeValue{
+		"PK":             &dbtypes.AttributeValueMemberS{Value: "USER#user1"},
+		"SK":             &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
+		"jobId":          &dbtypes.AttributeValueMemberS{Value: jobID},
+		"status":         &dbtypes.AttributeValueMemberS{Value: status},
+		"fileType":       &dbtypes.AttributeValueMemberS{Value: "mp4"},
+		"sourceDuration": &dbtypes.AttributeValueMemberN{Value: "120"},
+		"sourceKey":      &dbtypes.AttributeValueMemberS{Value: "uploads/user1/" + jobID + "/source.mp4"},
+		"transcriptKey":  &dbtypes.AttributeValueMemberS{Value: "uploads/user1/" + jobID + "/transcript.json"},
+		"clips":          &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-1","s3Key":"renders/` + jobID + `/clip-1.mp4","rank":1,"score":0.9,"duration":20},{"clipId":"clip-2","s3Key":"renders/` + jobID + `/clip-2.mp4","rank":2,"score":0.8,"duration":18}]`},
+		"createdAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+		"updatedAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+	}
+}
+
+type deleteProbe struct {
+	handler   *APIHandler
+	s3        *stubDownloader
+	stops     int
+	putItems  []map[string]dbtypes.AttributeValue
+	deleted   []string
+}
+
+func newDeleteProbe(t *testing.T, item map[string]dbtypes.AttributeValue, s3 *stubDownloader) *deleteProbe {
+	t.Helper()
+	p := &deleteProbe{s3: s3}
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: item}, nil
+		},
+		putItemFunc: func(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			p.putItems = append(p.putItems, params.Item)
+			return &dynamodb.PutItemOutput{}, nil
+		},
+		deleteItemFunc: func(_ context.Context, params *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+			if v, ok := params.Key["SK"].(*dbtypes.AttributeValueMemberS); ok {
+				p.deleted = append(p.deleted, v.Value)
+			}
+			return &dynamodb.DeleteItemOutput{}, nil
+		},
+	}
+	p.handler = &APIHandler{
+		AuthService:           &mockAuthService{},
+		JWTService:            &auth.JWTService{Secret: testSecret, DB: db, SessionTable: "sessions-table"},
+		DB:                    db,
+		S3:                    s3,
+		SFN:                   &mockSFN{stopExecutionFunc: func(_ context.Context, _ *sfn.StopExecutionInput, _ ...func(*sfn.Options)) (*sfn.StopExecutionOutput, error) {
+			p.stops++
+			return &sfn.StopExecutionOutput{}, nil
+		}},
+		TableName:             "table",
+		Bucket:                "test-bucket",
+		StateMachineARN:       "arn:aws:states:us-east-1:123456789:stateMachine:test",
+		ShortsStateMachineARN: "arn:aws:states:us-east-1:123456789:stateMachine:shorts",
+	}
+	return p
+}
+
+func deleteReq(jobID string) events.APIGatewayProxyRequest {
+	return events.APIGatewayProxyRequest{
+		HTTPMethod: "DELETE",
+		Path:       "/shorts/" + jobID,
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	}
+}
+
+func TestDeleteShorts_Success(t *testing.T) {
+	s3 := &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}}
+	p := newDeleteProbe(t, shortsJobItem("job1", "completed"), s3)
+
+	resp, err := p.handler.HandleRequest(context.Background(), deleteReq("job1"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.StatusCode != 204 {
+		t.Fatalf("got status %d, want 204 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	for _, want := range []string{
+		"uploads/user1/job1/source.mp4",
+		"uploads/user1/job1/transcript.json",
+		"renders/job1/clip-1.mp4",
+		"renders/job1/clip-2.mp4",
+	} {
+		found := false
+		for _, got := range s3.deletedKeys {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected S3 delete of %q, got %v", want, s3.deletedKeys)
+		}
+	}
+	if len(p.deleted) != 1 || p.deleted[0] != "SHORTS#job1" {
+		t.Errorf("expected DB delete of SHORTS#job1, got %v", p.deleted)
+	}
+	if p.stops != 0 {
+		t.Errorf("completed job must not stop an execution, got %d stops", p.stops)
+	}
+}
+
+func TestDeleteShorts_InFlightStopsExecution(t *testing.T) {
+	s3 := &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}}
+	p := newDeleteProbe(t, shortsJobItem("busy", "rendering"), s3)
+
+	resp, _ := p.handler.HandleRequest(context.Background(), deleteReq("busy"))
+	if resp.StatusCode != 204 {
+		t.Fatalf("got status %d, want 204 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if p.stops != 1 {
+		t.Errorf("expected 1 StopExecution for in-flight job, got %d", p.stops)
+	}
+}
+
+func TestDeleteShorts_NotFoundAndUnauth(t *testing.T) {
+	s3 := &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}}
+	p := newDeleteProbe(t, nil, s3)
+
+	resp, _ := p.handler.HandleRequest(context.Background(), deleteReq("missing"))
+	if resp.StatusCode != 404 {
+		t.Errorf("got status %d, want 404 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if len(s3.deletedKeys) != 0 || len(p.deleted) != 0 {
+		t.Error("no S3 or DB writes must happen for unknown jobs")
+	}
+
+	resp, _ = p.handler.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "DELETE",
+		Path:       "/shorts/job1",
+	})
+	if resp.StatusCode != 401 {
+		t.Errorf("got status %d, want 401 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}
+
+func TestDeleteShorts_S3FailureRetainsRecord(t *testing.T) {
+	s3 := &stubDownloader{
+		status:    storage.ObjectStatus{StorageClass: "STANDARD"},
+		deleteErr: errors.New("s3 down"),
+	}
+	p := newDeleteProbe(t, shortsJobItem("job9", "completed"), s3)
+
+	resp, _ := p.handler.HandleRequest(context.Background(), deleteReq("job9"))
+	if resp.StatusCode != 500 {
+		t.Fatalf("got status %d, want 500 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if len(p.deleted) != 0 {
+		t.Error("record must be retained when S3 cleanup fails")
+	}
+	if len(p.putItems) != 1 {
+		t.Fatalf("expected job marked delete_failed, got %d puts", len(p.putItems))
+	}
+	if v, ok := p.putItems[0]["status"].(*dbtypes.AttributeValueMemberS); !ok || v.Value != "delete_failed" {
+		t.Errorf("expected status delete_failed, got %v", p.putItems[0]["status"])
+	}
+}
+
+func TestDeleteShorts_RetryAfterFailure(t *testing.T) {
+	// A delete_failed record deletes cleanly on retry (idempotent path).
+	s3 := &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}}
+	p := newDeleteProbe(t, shortsJobItem("job9", "delete_failed"), s3)
+
+	resp, _ := p.handler.HandleRequest(context.Background(), deleteReq("job9"))
+	if resp.StatusCode != 204 {
+		t.Fatalf("got status %d, want 204 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if len(p.deleted) != 1 {
+		t.Error("expected record delete on retry")
+	}
+}
+
+func TestDeleteShorts_DeepPathIs404(t *testing.T) {
+	s3 := &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}}
+	p := newDeleteProbe(t, shortsJobItem("job1", "completed"), s3)
+
+	resp, _ := p.handler.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "DELETE",
+		Path:       "/shorts/job1/start",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 404 {
+		t.Errorf("got status %d, want 404 (body: %s)", resp.StatusCode, resp.Body)
 	}
 }

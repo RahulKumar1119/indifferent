@@ -420,17 +420,16 @@ export class ProfileComponent implements OnInit {
       });
       return;
     }
-    if (['uploaded', 'transcribing', 'ranking', 'rendering'].includes(v.rawStatus)) {
-      this.shorts.cancelJob(v.sourceId).subscribe({
-        next: () => {
-          this.notify('Shorts job cancelled.', 'success');
-          this.reload();
-        },
-        error: () => this.notify('Could not cancel this shorts job.', 'error'),
-      });
-      return;
-    }
-    this.notify('Completed shorts are retained automatically. No delete needed.', 'info');
+    // Shorts: the backend stops any running pipeline, removes all S3 assets,
+    // deletes the record and unlinks projects — for every status.
+    this.shorts.deleteJob(v.sourceId).subscribe({
+      next: () => {
+        this.store.logActivity('trash-2', 'Deleted short', v.title);
+        this.notify('Short deleted successfully.', 'success');
+        this.reload();
+      },
+      error: () => this.notify('Could not delete this short.', 'error'),
+    });
   }
 
   // ----------------------------------------------------------------- derived

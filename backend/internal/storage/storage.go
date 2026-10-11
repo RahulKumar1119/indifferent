@@ -17,10 +17,12 @@ type StorageClient interface {
 
 // Downloader is the S3 surface the API layer needs for user downloads:
 // presigned URLs plus archival-status awareness so Glacier-stored videos
-// degrade to a restore flow instead of a broken link.
+// degrade to a restore flow instead of a broken link. DeleteObjects lets
+// delete flows remove a job's whole asset set in one call.
 type Downloader interface {
 	GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error)
 	GenerateDownloadURL(ctx context.Context, bucket, key string, expiration time.Duration) (string, error)
 	ObjectStatus(ctx context.Context, bucket, key string) (ObjectStatus, error)
 	RestoreObject(ctx context.Context, bucket, key string) error
+	DeleteObjects(ctx context.Context, bucket string, keys []string) error
 }

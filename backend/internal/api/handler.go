@@ -140,6 +140,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleListClips)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/"):
 		return h.handleWithAuth(ctx, req, h.handleGetShorts)
+	case req.HTTPMethod == "DELETE" && isExactShortsPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handleDeleteShorts)
 	default:
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Route not found"), nil
 	}

@@ -7,6 +7,7 @@ import { Clip, ShortsService } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 import { ToastService } from '../../shared/components/toast/toast.service';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 /** Hover previews play at most this long before pausing again. */
 const HOVER_PREVIEW_MS = 2000;
@@ -14,7 +15,7 @@ const HOVER_PREVIEW_MS = 2000;
 @Component({
   selector: 'app-shorts-gallery',
   standalone: true,
-  imports: [CommonModule, LucideDynamicIcon, NavbarComponent, ToastsComponent],
+  imports: [CommonModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent],
   styles: [`
     @keyframes card-in {
       from { opacity: 0; transform: translateY(14px); }
@@ -61,6 +62,15 @@ const HOVER_PREVIEW_MS = 2000;
             (click)="goToUpload()"
           >
             New Shorts
+          </button>
+          <button
+            class="btn-interactive px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium inline-flex items-center gap-1.5"
+            (click)="pendingDelete = true"
+            [disabled]="isLoading || !!error"
+            aria-label="Delete this short and all its assets"
+          >
+            <svg lucideIcon="trash-2" [size]="15"></svg>
+            Delete
           </button>
         </div>
       </div>
@@ -201,6 +211,16 @@ const HOVER_PREVIEW_MS = 2000;
         </div>
       }
     </div>
+
+    <app-confirm-dialog
+      [open]="pendingDelete"
+      title="Delete Short?"
+      [message]="'Permanently delete Short ' + jobLabel + ' (' + clips.length + (clips.length === 1 ? ' clip' : ' clips') + ') and all of its assets?'"
+      [details]="['Original uploaded media', 'AI transcript and ranking data', 'All rendered vertical clips', 'Linked project references are cleaned up']"
+      [busy]="deleting"
+      (confirmed)="confirmDelete()"
+      (cancelled)="pendingDelete = false"
+    />
   `,
 })
 export class ShortsGalleryComponent implements OnInit, OnDestroy {
@@ -216,6 +236,12 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   copied: Record<string, boolean> = {};
   zipping = false;
   allCopied = false;
+  pendingDelete = false;
+  deleting = false;
+
+  get jobLabel(): string {
+    return this.jobId ? this.jobId.slice(0, 8) : 'this job';
+  }
 
   private hoverTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
@@ -487,5 +513,21 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     Object.keys(this.hoverTimers).forEach((id) => this.clearHoverTimer(id));
+  }
+
+  confirmDelete(): void {
+    if (!this.jobId || this.deleting) return;
+    this.deleting = true;
+    this.shorts.deleteJob(this.jobId).subscribe({
+      next: () => {
+        this.toasts.show('Short deleted successfully.', 'success');
+        this.router.navigate(['/shorts/history']);
+      },
+      error: () => {
+        this.deleting = false;
+        this.pendingDelete = false;
+        this.toasts.show('Could not delete this short. Please try again.', 'error');
+      },
+    });
   }
 }
