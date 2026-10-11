@@ -148,3 +148,27 @@ func TestPasswordLoginOAuthOnlyAccount(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func TestPasswordSignupRepairsOrphanReservation(t *testing.T) {
+	// A crashed signup left EMAIL# without a profile: the next signup must
+	// repair the reservation and succeed instead of bricking the address.
+	ctx := context.Background()
+	store := newMemoryDB()
+	store.items[itemKey("EMAIL#orphan@example.com", "PROFILE")] = map[string]dbtypes.AttributeValue{
+		"PK":     &dbtypes.AttributeValueMemberS{Value: "EMAIL#orphan@example.com"},
+		"SK":     &dbtypes.AttributeValueMemberS{Value: "PROFILE"},
+		"userId": &dbtypes.AttributeValueMemberS{Value: "ghost-user"},
+	}
+	svc := testPasswordService(store)
+
+	tokens, err := svc.SignUp(ctx, "orphan@example.com", "Fixed User", "password-1")
+	if err != nil {
+		t.Fatalf("signup after repair failed: %v", err)
+	}
+	if tokens.AccessToken == "" {
+		t.Fatal("expected access token from repaired signup")
+	}
+	if _, err := svc.Login(ctx, "orphan@example.com", "password-1"); err != nil {
+		t.Fatalf("login after repair failed: %v", err)
+	}
+}

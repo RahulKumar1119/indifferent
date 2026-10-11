@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { of, throwError } from 'rxjs';
+import { BehaviorSubject, of, throwError } from 'rxjs';
 import { authGuard } from './auth.guard';
 import { AuthService } from '../../core/services/auth.service';
 import { provideHttpClient } from '@angular/common/http';
@@ -25,6 +25,10 @@ describe('authGuard', () => {
     authService = TestBed.inject(AuthService);
     router = TestBed.inject(Router);
     httpTesting = TestBed.inject(HttpTestingController);
+    // The guard waits for boot restore: simulate a finished initializer.
+    (
+      authService as unknown as { initialized$: BehaviorSubject<boolean> }
+    ).initialized$.next(true);
   });
 
   afterEach(() => {

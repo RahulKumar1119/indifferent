@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -348,5 +349,57 @@ func TestProjectBranding_RoundTrip(t *testing.T) {
 	})
 	if resp.StatusCode != 400 {
 		t.Errorf("overlong handle: got %d, want 400 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}
+
+func TestCreateProject_ShortsLegFailureDegrades(t *testing.T) {
+	// A failing shorts leg must not fail project creation: the project is
+	// returned alone (201 + warning) with no orphan job row.
+	db := newCaptureDB()
+	putOK := db.putItemFunc
+	db.putItemFunc = func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+		if sk := strVal(params.Item, "SK"); len(sk) > 7 && sk[:7] == "SHORTS#" {
+			return nil, errors.New("db down")
+		}
+		return putOK(ctx, params, optFns...)
+	}
+	h := newUnifiedTestHandler(db)
+
+	reqBody := `{"name":"Quiz","template":"classic","voice":"Joanna","shorts":{"fileType":"mp4","duration":60}}`
+	resp, err := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/projects",
+		Body:       reqBody,
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.StatusCode != 201 {
+		t.Fatalf("got status %d, want 201 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	var body struct {
+		ID       string `json:"id"`
+		Warning  string `json:"warning"`
+		Shorts   *struct {
+			JobID string `json:"jobId"`
+		} `json:"shorts"`
+	}
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if body.Shorts != nil {
+		t.Error("shorts leg failed: response must not carry an upload")
+	}
+	if body.Warning == "" {
+		t.Error("expected a warning describing the skipped shorts leg")
+	}
+	if body.ID == "" {
+		t.Fatal("expected the project itself to be created")
+	}
+	for key := range db.items {
+		if len(key) > 12 && key[:12] == "USER#user1|S" {
+			t.Errorf("orphan job row must be compensated away, found %s", key)
+		}
 	}
 }

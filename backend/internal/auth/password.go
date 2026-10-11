@@ -90,7 +90,10 @@ func (s *PasswordAuthService) SignUp(ctx context.Context, email, name, password 
 	if err := validateCredentials(email, password); err != nil {
 		return nil, err
 	}
+	return s.signUp(ctx, email, name, password, true)
+}
 
+func (s *PasswordAuthService) signUp(ctx context.Context, email, name, password string, allowRepair bool) (*models.AuthTokens, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)
@@ -109,6 +112,12 @@ func (s *PasswordAuthService) SignUp(ctx context.Context, email, name, password 
 	}); err != nil {
 		var condFailed *dbtypes.ConditionalCheckFailedException
 		if errors.As(err, &condFailed) {
+			// Possibly an orphan reservation (crashed signup left EMAIL#
+			// without a profile): verify and repair once, then retry. A
+			// live mapping still reports taken.
+			if allowRepair && s.repairOrphanEmail(ctx, email) {
+				return s.signUp(ctx, email, name, password, false)
+			}
 			return nil, ErrEmailTaken
 		}
 		return nil, fmt.Errorf("reserve email: %w", err)
@@ -135,6 +144,36 @@ func (s *PasswordAuthService) SignUp(ctx context.Context, email, name, password 
 	}
 
 	return s.issueTokens(ctx, userID, email)
+}
+
+// repairOrphanEmail removes an EMAIL# reservation that points at a missing
+// profile (crashed signup), returning true when a signup retry is safe.
+func (s *PasswordAuthService) repairOrphanEmail(ctx context.Context, email string) bool {
+	idx, err := s.DB.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName:      aws.String(s.UsersTable),
+		Key:            emailKey(email),
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil || idx.Item == nil {
+		return false
+	}
+	userID := extractStringAttr(idx.Item, "userId")
+	if userID == "" {
+		return false
+	}
+	profile, err := s.DB.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName:      aws.String(s.UsersTable),
+		Key:            userKey(userID),
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil || profile.Item != nil {
+		return false
+	}
+	_, err = s.DB.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(s.UsersTable),
+		Key:       emailKey(email),
+	})
+	return err == nil
 }
 
 // Login verifies an email/password pair and returns a fresh token pair. The

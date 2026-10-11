@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -124,7 +125,7 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleUpdateProject)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/projects/"):
 		return h.handleWithAuth(ctx, req, h.handleGetProject)
-	case req.HTTPMethod == "DELETE" && strings.HasPrefix(req.Path, "/projects/"):
+	case req.HTTPMethod == "DELETE" && isExactProjectPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleDeleteProject)
 	case req.HTTPMethod == "POST" && req.Path == "/shorts":
 		return h.handleWithAuth(ctx, req, h.handleCreateShorts)
@@ -192,6 +193,9 @@ func (h *APIHandler) handleGoogleCallback(ctx context.Context, req events.APIGat
 
 	tokens, err := h.AuthService.Authenticate(ctx, body.Code)
 	if err != nil {
+		if errors.Is(err, auth.ErrEmailTaken) {
+			return errorResponse(http.StatusConflict, "EMAIL_TAKEN", "An account with this email already exists"), nil
+		}
 		return errorResponse(http.StatusUnauthorized, "AUTH_FAILED", "Authentication failed"), nil
 	}
 
@@ -409,10 +413,13 @@ type CreateProjectShortsRequest struct {
 }
 
 // CreateProjectResponse is the POST /projects body: the project plus, when
-// requested, the linked shorts upload.
+// requested, the linked shorts upload. Warning carries a non-fatal shorts-leg
+// failure: the project itself was created and the client should proceed
+// without the linked upload.
 type CreateProjectResponse struct {
 	models.Project
-	Shorts *CreateShortsResponse `json:"shorts,omitempty"`
+	Shorts  *CreateShortsResponse `json:"shorts,omitempty"`
+	Warning string                `json:"warning,omitempty"`
 }
 
 // handleCreateProject creates a new project. The pipeline is started later via POST /projects/:id/start
@@ -464,14 +471,19 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 	resp := CreateProjectResponse{Project: project}
 
 	// Optional linked shorts job; the upload URL lets the client PUT the
-	// source immediately after project creation.
+	// source immediately after project creation. The project itself is always
+	// valid, so a shorts-leg failure degrades to "project without linked
+	// upload" (201 + warning) instead of stranding half-written rows: the job
+	// row is compensated away and the client proceeds quiz-only.
 	if body.Shorts != nil {
 		job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.Shorts.FileType, body.Shorts.Duration, projectID)
 		if err != nil {
-			return errorResponse(http.StatusInternalServerError, "DB_ERROR", err.Error()), nil
+			log.Printf("create_project_shorts_leg_failed user=%s project=%s err=%v", claims.UserID, projectID, err)
+			resp.Warning = "Project created, but the linked Shorts upload could not be prepared. You can still create shorts separately from Shorts history."
+		} else {
+			resp.Shorts = &CreateShortsResponse{JobID: job.JobID, UploadURL: uploadURL, SourceKey: job.SourceKey}
+			resp.Project.ShortsJobIDs = []string{job.JobID}
 		}
-		resp.Shorts = &CreateShortsResponse{JobID: job.JobID, UploadURL: uploadURL, SourceKey: job.SourceKey}
-		resp.Project.ShortsJobIDs = []string{job.JobID}
 	}
 
 	return jsonResponse(http.StatusCreated, resp), nil
@@ -508,7 +520,11 @@ func (h *APIHandler) handleGetProject(ctx context.Context, req events.APIGateway
 	return jsonResponse(http.StatusOK, project), nil
 }
 
-// handleDeleteProject deletes a project, verifying ownership.
+// handleDeleteProject deletes a project, verifying ownership. Linked shorts
+// jobs are removed first (each fully: pipeline, S3, record), then every
+// project S3 asset (uploads, temp slides/audio, rendered output), then the
+// record itself. Linked-job failures are logged but don't block the project
+// delete: the job stays reachable from Shorts history for a standalone retry.
 func (h *APIHandler) handleDeleteProject(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
 	projectID := extractProjectID(req.Path)
 	if projectID == "" {
@@ -516,9 +532,36 @@ func (h *APIHandler) handleDeleteProject(ctx context.Context, req events.APIGate
 	}
 
 	// Verify ownership by trying to get the project first
-	_, err := h.getProjectByID(ctx, claims.UserID, projectID)
+	project, err := h.getProjectByID(ctx, claims.UserID, projectID)
 	if err != nil {
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
+	}
+
+	// Best effort: stop a running quiz pipeline (deterministic execution
+	// name, mirroring the start handler).
+	if quizJobInFlight(project.Status) {
+		if arn, aerr := quizExecutionARN(h.StateMachineARN, projectID); aerr == nil {
+			_, _ = h.SFN.StopExecution(ctx, &sfn.StopExecutionInput{
+				ExecutionArn: aws.String(arn),
+			})
+		}
+	}
+
+	for _, jobID := range project.ShortsJobIDs {
+		if err := h.removeShortsJob(ctx, claims.UserID, jobID); err != nil &&
+			!errors.Is(err, ErrShortsJobNotFound) {
+			log.Printf("project_delete_shorts_failed user=%s project=%s job=%s err=%v", claims.UserID, projectID, jobID, err)
+		}
+	}
+
+	keys, err := h.projectSweepKeys(ctx, claims.UserID, project)
+	if err != nil {
+		log.Printf("project_delete_list_failed user=%s project=%s err=%v (falling back to tracked keys)", claims.UserID, projectID, err)
+		keys = constrainToPrefixes(projectAssetKeys(project), projectAssetPrefixes(claims.UserID, projectID))
+	}
+	if err := h.S3.DeleteObjects(ctx, h.Bucket, keys); err != nil {
+		log.Printf("project_delete_s3_failed user=%s project=%s keys=%d err=%v", claims.UserID, projectID, len(keys), err)
+		return errorResponse(http.StatusInternalServerError, "S3_CLEANUP_FAILED", "Failed to delete project assets. Please retry."), nil
 	}
 
 	_, err = h.DB.DeleteItem(ctx, &dynamodb.DeleteItemInput{
@@ -529,13 +572,97 @@ func (h *APIHandler) handleDeleteProject(ctx context.Context, req events.APIGate
 		},
 	})
 	if err != nil {
+		log.Printf("project_delete_db_failed user=%s project=%s err=%v", claims.UserID, projectID, err)
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to delete project"), nil
 	}
 
+	for _, p := range projectAssetPrefixes(claims.UserID, projectID) {
+		if err := h.S3.DeleteObjectVersions(ctx, h.Bucket, p); err != nil {
+			log.Printf("project_delete_purge_failed user=%s project=%s prefix=%s err=%v", claims.UserID, projectID, p, err)
+		}
+	}
+
+	log.Printf("project_deleted user=%s project=%s keys=%d s3=success", claims.UserID, projectID, len(keys))
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusNoContent,
 		Headers:    corsHeaders(),
 	}, nil
+}
+
+// quizJobInFlight reports whether a quiz project may still have a running
+// Step Functions execution worth stopping before deletion.
+func quizJobInFlight(status string) bool {
+	switch status {
+	case "parsing", "generating_slides", "narrating", "rendering":
+		return true
+	}
+	return false
+}
+
+// quizExecutionARN derives the quiz pipeline execution ARN from the state
+// machine ARN and the deterministic execution name used at start.
+func quizExecutionARN(stateMachineARN, projectID string) (string, error) {
+	return stateMachineExecutionARN(stateMachineARN, "project-"+projectID)
+}
+
+// projectAssetPrefixes are the only S3 locations a quiz project may own:
+// user uploads + logo, worker temp slides/audio, rendered output.
+func projectAssetPrefixes(userID, projectID string) []string {
+	return []string{
+		"uploads/" + userID + "/" + projectID + "/",
+		"temp/" + projectID + "/",
+		"output/" + projectID + "/",
+	}
+}
+
+// projectAssetKeys collects the record's tracked keys: source text,
+// rendered video + thumbnail, and brand logo.
+func projectAssetKeys(project *models.Project) []string {
+	seen := map[string]bool{}
+	var keys []string
+	add := func(k string) {
+		if k == "" || seen[k] {
+			return
+		}
+		seen[k] = true
+		keys = append(keys, k)
+	}
+	add(project.TxtKey)
+	add(project.JSONKey)
+	add(project.VideoKey)
+	add(project.ThumbnailKey)
+	if project.Branding != nil {
+		add(project.Branding.LogoKey)
+	}
+	return keys
+}
+
+// projectSweepKeys lists every object under the project's prefixes plus the
+// record's tracked keys constrained to those prefixes.
+func (h *APIHandler) projectSweepKeys(ctx context.Context, userID string, project *models.Project) ([]string, error) {
+	prefixes := projectAssetPrefixes(userID, project.ProjectID)
+	seen := map[string]bool{}
+	var keys []string
+	add := func(k string) {
+		if k == "" || seen[k] {
+			return
+		}
+		seen[k] = true
+		keys = append(keys, k)
+	}
+	for _, p := range prefixes {
+		listed, err := h.S3.ListKeys(ctx, h.Bucket, p)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range listed {
+			add(k)
+		}
+	}
+	for _, k := range constrainToPrefixes(projectAssetKeys(project), prefixes) {
+		add(k)
+	}
+	return keys, nil
 }
 
 // handleUpload generates a signed upload URL for a TXT file.

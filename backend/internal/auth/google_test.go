@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -166,9 +167,9 @@ func TestAuthenticate_Success(t *testing.T) {
 		t.Errorf("expected email 'test@example.com', got '%v'", claims["email"])
 	}
 
-	// Verify DynamoDB was called: once for user upsert, once for session
-	if mockDB.putItemCalls != 2 {
-		t.Errorf("expected 2 DynamoDB PutItem calls, got %d", mockDB.putItemCalls)
+	// Verify DynamoDB was called: user upsert + email reservation + session
+	if mockDB.putItemCalls != 3 {
+		t.Errorf("expected 3 DynamoDB PutItem calls, got %d", mockDB.putItemCalls)
 	}
 }
 
@@ -497,11 +498,11 @@ func TestAuthenticate_SessionCreationFailure(t *testing.T) {
 	mockDB := &mockDynamoDBClient{
 		putItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 			callCount++
-			// First call (user upsert) succeeds
-			if callCount == 1 {
+			// First calls (email reservation, user upsert) succeed
+			if callCount <= 2 {
 				return &dynamodb.PutItemOutput{}, nil
 			}
-			// Second call (session creation) fails
+			// Third call (session creation) fails
 			return nil, fmt.Errorf("dynamodb throttling exception")
 		},
 	}
@@ -544,5 +545,74 @@ func TestHashToken(t *testing.T) {
 	// Hash is 64 hex characters (SHA-256 = 32 bytes = 64 hex chars)
 	if len(hash1) != 64 {
 		t.Errorf("expected hash length 64, got %d", len(hash1))
+	}
+}
+
+func googleOAuthServers(t *testing.T, googleID, email string) (string, string) {
+	t.Helper()
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(GoogleTokenResponse{
+			AccessToken: "google-access-token",
+			TokenType:   "Bearer",
+			ExpiresIn:   3600,
+			IDToken:     "google-id-token",
+		})
+	}))
+	t.Cleanup(tokenServer.Close)
+	userInfoServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(GoogleUserInfo{
+			ID:        googleID,
+			Email:     email,
+			Name:      "G User",
+			AvatarURL: "https://lh3.google.com/photo.jpg",
+		})
+	}))
+	t.Cleanup(userInfoServer.Close)
+	return tokenServer.URL, userInfoServer.URL
+}
+
+func seedUserItem(store *memoryDB, userID, email, name string) {
+	store.items[itemKey("USER#"+userID, "PROFILE")] = map[string]dbtypes.AttributeValue{
+		"PK":        &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+		"SK":        &dbtypes.AttributeValueMemberS{Value: "PROFILE"},
+		"email":     &dbtypes.AttributeValueMemberS{Value: email},
+		"name":      &dbtypes.AttributeValueMemberS{Value: name},
+		"createdAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+	}
+	store.items[itemKey("EMAIL#"+email, "PROFILE")] = map[string]dbtypes.AttributeValue{
+		"PK":     &dbtypes.AttributeValueMemberS{Value: "EMAIL#" + email},
+		"SK":     &dbtypes.AttributeValueMemberS{Value: "PROFILE"},
+		"userId": &dbtypes.AttributeValueMemberS{Value: userID},
+	}
+}
+
+func TestAuthenticate_EmailTakenByPasswordUser(t *testing.T) {
+	// A password account owns taken@example.com; a Google login for the same
+	// address must fail taken instead of creating a detached second identity.
+	store := newMemoryDB()
+	seedUserItem(store, "password-user-1", "taken@example.com", "PW User")
+	tokenURL, userURL := googleOAuthServers(t, "google-user-999", "taken@example.com")
+	svc := newGoogleAuthServiceWithURLs(testConfig(), store, &testHTTPClient{client: http.DefaultClient}, tokenURL, userURL)
+
+	if _, err := svc.Authenticate(context.Background(), "code"); !errors.Is(err, ErrEmailTaken) {
+		t.Fatalf("expected ErrEmailTaken, got: %v", err)
+	}
+}
+
+func TestAuthenticate_SameGoogleUserRelogin(t *testing.T) {
+	// Re-login keeps working: the reservation already maps to the same user.
+	store := newMemoryDB()
+	seedUserItem(store, "google-user-123", "test@example.com", "Test User")
+	tokenURL, userURL := googleOAuthServers(t, "google-user-123", "test@example.com")
+	svc := newGoogleAuthServiceWithURLs(testConfig(), store, &testHTTPClient{client: http.DefaultClient}, tokenURL, userURL)
+
+	tokens, err := svc.Authenticate(context.Background(), "code")
+	if err != nil {
+		t.Fatalf("re-login failed: %v", err)
+	}
+	if tokens.AccessToken == "" || tokens.RefreshToken == "" {
+		t.Fatal("expected a full token pair on re-login")
 	}
 }

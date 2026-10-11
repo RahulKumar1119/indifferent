@@ -121,4 +121,41 @@ describe('AuthService', () => {
     expect(service.getRefreshToken()).toBeNull();
     expect(router.navigate).toHaveBeenCalledWith(['/login']);
   });
+
+  it('should share one in-flight refresh between concurrent callers (singleflight)', () => {
+    service.setTokens({ accessToken: 'old-at', refreshToken: 'stored-rt', expiresIn: 3600 });
+    const mockTokens: AuthTokens = { accessToken: 'new-at', refreshToken: 'new-rt', expiresIn: 3600 };
+    const seen: AuthTokens[] = [];
+
+    service.refreshToken().subscribe((t) => seen.push(t));
+    service.refreshToken().subscribe((t) => seen.push(t));
+
+    // Exactly one HTTP request for both subscribers.
+    const req = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
+    req.flush(mockTokens);
+
+    expect(seen).toEqual([mockTokens, mockTokens]);
+  });
+
+  it('should retry once with a fresher stored token after a conflict (cross-tab recovery)', () => {
+    service.setTokens({ accessToken: 'old-at', refreshToken: 'stale-rt', expiresIn: 3600 });
+    const mockTokens: AuthTokens = { accessToken: 'new-at', refreshToken: 'new-rt', expiresIn: 3600 };
+    let resolved: unknown = null;
+
+    service.refreshToken().subscribe((t) => (resolved = t));
+
+    // First attempt fails; meanwhile another tab rotated and stored new-rt.
+    const first = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
+    expect(first.request.body).toEqual({ refreshToken: 'stale-rt' });
+    localStorage.setItem('indifferent.refreshToken', 'fresh-rt');
+    first.flush('conflict', { status: 401, statusText: 'Unauthorized' });
+
+    // Single retry with the fresher token, then success.
+    const second = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
+    expect(second.request.body).toEqual({ refreshToken: 'fresh-rt' });
+    second.flush(mockTokens);
+
+    expect(resolved).toEqual(mockTokens);
+    expect(service.getRefreshToken()).toBe('new-rt');
+  });
 });
