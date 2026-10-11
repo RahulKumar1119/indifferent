@@ -33,7 +33,6 @@ const ROUTES = [
   '/blog/quiz-videos-youtube',
   '/blog/educational-video-best-practices',
   '/blog/quiz-file-format-guide',
-  '/blog/video-template-comparison',
   '/blog/ai-narration-guide',
   '/features/ai-shorts',
   '/features/watermark',
