@@ -20,6 +20,14 @@ import { Project } from '../../shared/models/project.model';
         <div class="flex justify-center items-center py-24">
           <svg lucideIcon="loader-2" [size]="48" class="animate-spin text-[hsl(var(--primary))]"></svg>
         </div>
+      } @else if (!project) {
+        <div class="glass-card p-12 text-center">
+          <p class="text-lg mb-2">Video not found</p>
+          <p class="text-sm text-[hsl(var(--muted-foreground))] mb-6">
+            This project doesn't exist or you don't have access to it.
+          </p>
+          <a routerLink="/projects" class="glow-btn">Back to projects</a>
+        </div>
       } @else if (project) {
         @if (project.status !== 'completed') {
           <div class="glass-card p-12 text-center">
@@ -127,6 +135,9 @@ export class PreviewComponent implements OnInit {
           this.loading = false;
         },
       });
+    } else {
+      // No :id in the route: stop spinning and show not-found below.
+      this.loading = false;
     }
   }
 

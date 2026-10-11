@@ -78,7 +78,7 @@ func corsHeaders() map[string]string {
 		"Content-Type":                     "application/json",
 		"Access-Control-Allow-Origin":      "https://indifferent.fun",
 		"Access-Control-Allow-Headers":     "Content-Type,Authorization",
-		"Access-Control-Allow-Methods":     "GET,POST,DELETE,OPTIONS",
+		"Access-Control-Allow-Methods":     "GET,POST,PUT,DELETE,OPTIONS",
 		"Access-Control-Allow-Credentials": "true",
 	}
 }
@@ -698,27 +698,28 @@ func (h *APIHandler) handleLogoUpload(ctx context.Context, req events.APIGateway
 		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Project ID is required"), nil
 	}
 
-	project, err := h.getProjectByID(ctx, claims.UserID, projectID)
-	if err != nil {
-		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
-	}
-
 	logoKey := fmt.Sprintf("uploads/%s/%s/logo.png", claims.UserID, projectID)
 	uploadURL, err := h.S3.GenerateUploadURL(ctx, h.Bucket, logoKey, "image/png", storage.UploadURLExpiration)
 	if err != nil {
 		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to generate upload URL"), nil
 	}
 
-	if project.Branding == nil {
-		project.Branding = &models.Branding{}
-	}
-	project.Branding.LogoKey = logoKey
-	project.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(h.TableName),
-		Item:      projectToItem(*project),
+	// Optimistically locked write (see handleUpdateProject). Ownership is
+	// verified by the update itself.
+	if _, err := h.updateProjectFields(ctx, claims.UserID, projectID, func(p *models.Project) {
+		if p.Branding == nil {
+			p.Branding = &models.Branding{}
+		}
+		p.Branding.LogoKey = logoKey
 	}); err != nil {
-		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to save logo"), nil
+		switch {
+		case err.Error() == "project not found":
+			return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
+		case strings.Contains(err.Error(), "concurrently"):
+			return errorResponse(http.StatusConflict, "CONFLICT", "Project changed concurrently, please retry."), nil
+		default:
+			return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to save logo"), nil
+		}
 	}
 
 	return jsonResponse(http.StatusOK, map[string]string{
@@ -741,11 +742,6 @@ func (h *APIHandler) handleUpdateProject(ctx context.Context, req events.APIGate
 		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Project ID is required"), nil
 	}
 
-	project, err := h.getProjectByID(ctx, claims.UserID, projectID)
-	if err != nil {
-		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
-	}
-
 	var body UpdateProjectRequest
 	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
@@ -756,27 +752,38 @@ func (h *APIHandler) handleUpdateProject(ctx context.Context, req events.APIGate
 		if len(name) > 60 {
 			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", "Channel name must be 60 characters or less"), nil
 		}
-		if project.Branding == nil {
-			project.Branding = &models.Branding{}
-		}
-		project.Branding.ChannelName = name
 	}
 	if body.Watermark != nil {
 		if len(body.Watermark.Text) > 100 {
 			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", "Watermark text must be 100 characters or less"), nil
 		}
-		project.Watermark = body.Watermark
 	}
 
-	project.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(h.TableName),
-		Item:      projectToItem(*project),
-	}); err != nil {
-		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to update project"), nil
+	// Optimistically locked write: a concurrent status update is retried
+	// instead of clobbered. Ownership is verified by the update itself.
+	updated, err := h.updateProjectFields(ctx, claims.UserID, projectID, func(p *models.Project) {
+		if body.ChannelName != nil {
+			if p.Branding == nil {
+				p.Branding = &models.Branding{}
+			}
+			p.Branding.ChannelName = strings.TrimSpace(*body.ChannelName)
+		}
+		if body.Watermark != nil {
+			p.Watermark = body.Watermark
+		}
+	})
+	if err != nil {
+		switch {
+		case err.Error() == "project not found":
+			return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
+		case strings.Contains(err.Error(), "concurrently"):
+			return errorResponse(http.StatusConflict, "CONFLICT", "Project changed concurrently, please retry."), nil
+		default:
+			return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to update project"), nil
+		}
 	}
 
-	return jsonResponse(http.StatusOK, project), nil
+	return jsonResponse(http.StatusOK, updated), nil
 }
 
 // handleGetLogoURL returns a presigned GET URL for a project's brand logo.
@@ -1063,6 +1070,44 @@ func isExecutionAlreadyExists(err error) bool {
 	var exists *sfntypes.ExecutionAlreadyExists
 	return errors.As(err, &exists)
 }
+// updateProjectFields reloads the project, applies mutate, and writes it back
+// only if untouched since the read (optimistic locking on updatedAt). A
+// concurrent status-worker write between read and write fails the condition
+// instead of being silently clobbered; the operation reloads once and
+// retries. Records without updatedAt (legacy) fall back to an unconditional
+// write. Returns the stored project.
+func (h *APIHandler) updateProjectFields(ctx context.Context, userID, projectID string, mutate func(*models.Project)) (*models.Project, error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		project, err := h.getProjectByID(ctx, userID, projectID)
+		if err != nil {
+			return nil, err
+		}
+		stamp := project.UpdatedAt
+		mutate(project)
+		project.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+
+		input := &dynamodb.PutItemInput{
+			TableName: aws.String(h.TableName),
+			Item:      projectToItem(*project),
+		}
+		if stamp != "" {
+			input.ConditionExpression = aws.String("updatedAt = :old")
+			input.ExpressionAttributeValues = map[string]dbtypes.AttributeValue{
+				":old": &dbtypes.AttributeValueMemberS{Value: stamp},
+			}
+		}
+		if _, err := h.DB.PutItem(ctx, input); err != nil {
+			var condFailed *dbtypes.ConditionalCheckFailedException
+			if stamp != "" && errors.As(err, &condFailed) {
+				continue
+			}
+			return nil, err
+		}
+		return project, nil
+	}
+	return nil, fmt.Errorf("project changed concurrently, please retry")
+}
+
 // extractProjectID extracts the project ID from a path like /projects/{id}.
 func extractProjectID(path string) string {
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")

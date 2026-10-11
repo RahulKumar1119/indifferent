@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -336,32 +337,53 @@ func (s *JWTService) handleRefreshConflict(ctx context.Context, tokenHash string
 // invalidateFamily deletes all sessions belonging to the given token family.
 // This is called when token reuse is detected to protect the user.
 func (s *JWTService) invalidateFamily(ctx context.Context, familyID string) {
-	// Scan for all sessions with matching familyId
-	scanOutput, err := s.DB.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(s.SessionTable),
-		FilterExpression: aws.String("familyId = :fid"),
-		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
-			":fid": &dbtypes.AttributeValueMemberS{Value: familyID},
-		},
-	})
-	if err != nil {
-		return
-	}
-
-	// Delete each session in the family
-	for _, item := range scanOutput.Items {
-		pkAttr, pkOk := item["PK"].(*dbtypes.AttributeValueMemberS)
-		skAttr, skOk := item["SK"].(*dbtypes.AttributeValueMemberS)
-		if !pkOk || !skOk {
-			continue
-		}
-		_, _ = s.DB.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-			TableName: aws.String(s.SessionTable),
-			Key: map[string]dbtypes.AttributeValue{
-				"PK": &dbtypes.AttributeValueMemberS{Value: pkAttr.Value},
-				"SK": &dbtypes.AttributeValueMemberS{Value: skAttr.Value},
+	// Scan every page for sessions with matching familyId: a single page
+	// caps at 1MB, and stolen sessions beyond it would otherwise survive
+	// the theft response.
+	var lastKey map[string]dbtypes.AttributeValue
+	scanned, deleted, failed := 0, 0, 0
+	for {
+		scanOutput, err := s.DB.Scan(ctx, &dynamodb.ScanInput{
+			TableName:         aws.String(s.SessionTable),
+			FilterExpression:  aws.String("familyId = :fid"),
+			ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+				":fid": &dbtypes.AttributeValueMemberS{Value: familyID},
 			},
+			ExclusiveStartKey: lastKey,
 		})
+		if err != nil {
+			log.Printf("invalidate_family_scan_failed family=%s err=%v", familyID, err)
+			return
+		}
+		scanned += len(scanOutput.Items)
+
+		// Delete each session in the family
+		for _, item := range scanOutput.Items {
+			pkAttr, pkOk := item["PK"].(*dbtypes.AttributeValueMemberS)
+			skAttr, skOk := item["SK"].(*dbtypes.AttributeValueMemberS)
+			if !pkOk || !skOk {
+				continue
+			}
+			if _, err := s.DB.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+				TableName: aws.String(s.SessionTable),
+				Key: map[string]dbtypes.AttributeValue{
+					"PK": &dbtypes.AttributeValueMemberS{Value: pkAttr.Value},
+					"SK": &dbtypes.AttributeValueMemberS{Value: skAttr.Value},
+				},
+			}); err != nil {
+				failed++
+				log.Printf("invalidate_family_delete_failed family=%s pk=%s err=%v", familyID, pkAttr.Value, err)
+				continue
+			}
+			deleted++
+		}
+		if len(scanOutput.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = scanOutput.LastEvaluatedKey
+	}
+	if failed > 0 {
+		log.Printf("invalidate_family_partial family=%s scanned=%d deleted=%d failed=%d", familyID, scanned, deleted, failed)
 	}
 }
 

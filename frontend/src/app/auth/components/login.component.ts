@@ -202,7 +202,13 @@ export class LoginComponent implements OnInit {
     this.route.queryParamMap.subscribe((params) => {
       this.isSignupMode = params.get('mode') === 'signup';
       this.postAuthPath = sanitizeNextPath(params.get('next'));
-      this.formError = params.get('error') === 'auth_failed' ? 'Sign-in failed. Please try again.' : '';
+      const err = params.get('error');
+      this.formError =
+        err === 'auth_failed'
+          ? 'Sign-in failed. Please try again.'
+          : err === 'missing_code'
+            ? 'Sign-in was interrupted before completion. Please try again.'
+            : '';
     });
   }
 
