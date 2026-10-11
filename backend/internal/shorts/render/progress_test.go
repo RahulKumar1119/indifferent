@@ -75,8 +75,8 @@ func TestRender_ReportsProgress(t *testing.T) {
 	if _, err := r.Render(context.Background(), in); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(reported) != 2 || reported[0] != 10 || reported[1] != 30 {
-		t.Errorf("expected reporter to receive [10 30], got %v", reported)
+	if len(reported) != 2 || reported[0] != 80 || reported[1] != 84 {
+		t.Errorf("expected reporter to receive mapped [80 84], got %v", reported)
 	}
 }
 
@@ -91,7 +91,7 @@ func TestReportProgress_WritesPercent(t *testing.T) {
 		t.Fatal("expected job progress item written")
 	}
 	n, ok := item["progress"].(*dbtypes.AttributeValueMemberN)
-	if !ok || n.Value != "42" {
-		t.Errorf("expected progress 42, got %+v", item["progress"])
+	if !ok || n.Value != "86" {
+		t.Errorf("expected progress 86 (42 mapped into 78-99), got %+v", item["progress"])
 	}
 }

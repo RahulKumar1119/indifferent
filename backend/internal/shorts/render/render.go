@@ -366,8 +366,17 @@ func defaultRunCommandProgress(name string, args []string, duration float64, onP
 
 // reportProgress persists a render percent for the job. Without a reporter
 // and table configured it is a no-op; failures only log (progress must never
-// fail a render).
+// fail a render). ffmpeg reports 0-99 within the render stage, which starts
+// at baseline 78: values are offset into 78-99 so progress never regresses
+// (100 is reserved for the completed transition).
 func (r *Renderer) reportProgress(ctx context.Context, in RenderInput, percent int) {
+	percent = 78 + percent*21/100
+	if percent < 78 {
+		percent = 78
+	}
+	if percent > 99 {
+		percent = 99
+	}
 	if r.ProgressReporter != nil {
 		if err := r.ProgressReporter(ctx, in, percent); err != nil {
 			log.Printf("progress report failed: %v", err)

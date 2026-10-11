@@ -58,7 +58,15 @@ import { Project, ProjectStatus } from '../../shared/models/project.model';
         </div>
 
         <section class="mt-8 rounded-[20px] bg-white border border-black/[0.07] overflow-hidden">
-          @if (projects.length === 0) {
+          @if (loadError) {
+            <div class="py-16 text-center px-6" role="alert">
+              <p class="serif text-[30px]">Couldn't load projects.</p>
+              <p class="mt-2 text-[14.5px] text-[#6B6560]">Check your connection and try again.</p>
+              <button type="button" (click)="reload()" class="btn-primary mt-6 inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white px-7 py-3.5 font-semibold text-[14.5px]">
+                Retry
+              </button>
+            </div>
+          } @else if (projects.length === 0) {
             <div class="py-16 text-center px-6">
               <p class="serif text-[30px]">No projects yet.</p>
               <p class="mt-2 text-[14.5px] text-[#6B6560]">Upload a TXT file and render your first quiz video.</p>
@@ -119,12 +127,23 @@ export class ProjectsComponent implements OnInit {
 
   currentYear = new Date().getFullYear();
   projects: Project[] = [];
+  loadError = false;
 
   ngOnInit(): void {
-    this.projectService.getProjects().subscribe((projects) => {
-      this.projects = [...projects].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
+    this.reload();
+  }
+
+  reload(): void {
+    this.loadError = false;
+    this.projectService.getProjects().subscribe({
+      next: (projects) => {
+        this.projects = [...projects].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+      },
+      error: () => {
+        this.loadError = true;
+      },
     });
   }
 

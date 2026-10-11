@@ -1,4 +1,5 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Subject, takeUntil } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -132,11 +133,12 @@ import { ShortsJob, ShortsService } from '../shorts/shorts.service';
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
   `],
 })
-export class ProjectDetailComponent implements OnInit {
+export class ProjectDetailComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly projects = inject(ProjectService);
   private readonly shorts = inject(ShortsService);
+  private readonly destroy$ = new Subject<void>();
 
   project: Project | null = null;
   shortsJobs: ShortsJob[] = [];
@@ -155,19 +157,19 @@ export class ProjectDetailComponent implements OnInit {
       this.router.navigate(['/projects']);
       return;
     }
-    this.projects.getProject(id).subscribe({
+    this.projects.getProject(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: (project) => {
         this.project = project;
         this.channelName = project.branding?.channelName ?? '';
         this.isLoading = false;
         if (project.branding?.logoKey) {
-          this.projects.logoUrl(project.id).subscribe({
+          this.projects.logoUrl(project.id).pipe(takeUntil(this.destroy$)).subscribe({
             next: (res) => { this.logoPreviewUrl = res.url; },
             error: () => {},
           });
         }
         for (const jobId of project.shortsJobIds ?? []) {
-          this.shorts.getStatus(jobId).subscribe({
+          this.shorts.getStatus(jobId).pipe(takeUntil(this.destroy$)).subscribe({
             next: (job) => {
               this.shortsJobs = [...this.shortsJobs, job].sort((a, b) => a.jobId.localeCompare(b.jobId));
             },
@@ -180,6 +182,11 @@ export class ProjectDetailComponent implements OnInit {
         this.error = 'Project not found.';
       },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   saveChannel(): void {

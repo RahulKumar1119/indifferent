@@ -179,19 +179,14 @@ export class AuthService {
   }
 
   logout(): void {
+    // Optimistic: clear local session and leave immediately, even offline or
+    // on a hanging request. The server-side revoke is fire-and-forget.
     const refreshToken = this.getRefreshToken();
+    this.clearAccessToken();
+    this.router.navigate(['/login']);
     this.http
       .post(`${environment.apiUrl}/auth/logout`, { refreshToken }, { withCredentials: true })
-      .subscribe({
-        complete: () => {
-          this.clearAccessToken();
-          this.router.navigate(['/login']);
-        },
-        error: () => {
-          this.clearAccessToken();
-          this.router.navigate(['/login']);
-        },
-      });
+      .subscribe({ error: () => {} });
   }
 
   isAuthenticated(): boolean {

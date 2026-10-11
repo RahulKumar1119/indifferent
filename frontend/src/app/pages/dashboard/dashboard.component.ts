@@ -59,6 +59,13 @@ import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
           <p class="text-[13.5px] text-[#6B6560]">{{ totalProjects }} {{ totalProjects === 1 ? 'film' : 'films' }} in the cutting room</p>
         </div>
 
+        @if (loadError) {
+          <div class="mt-6 rounded-[20px] border border-red-500/30 bg-red-500/[0.06] p-5 flex flex-wrap items-center justify-between gap-3" role="alert">
+            <p class="text-[14px]"><span class="font-semibold">Couldn't load your projects.</span> Check your connection and try again.</p>
+            <button type="button" (click)="reload()" class="rounded-full bg-[#1A1714] text-white px-5 py-2.5 text-[13.5px] font-semibold">Retry</button>
+          </div>
+        }
+
         <!-- Summary cards -->
         <div class="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-6">
@@ -207,19 +214,30 @@ export class DashboardComponent implements OnInit {
   completedCount = 0;
   inProgressCount = 0;
   failedCount = 0;
+  loadError = false;
 
   ngOnInit(): void {
-    this.projectService.getProjects().subscribe((projects) => {
-      this.projects = projects;
-      this.totalProjects = projects.length;
-      this.completedCount = projects.filter((p) => p.status === 'completed').length;
-      this.inProgressCount = projects.filter((p) =>
-        ['parsing', 'generating_slides', 'narrating', 'rendering'].includes(p.status),
-      ).length;
-      this.failedCount = projects.filter((p) => p.status === 'failed').length;
-      this.recentProjects = [...projects]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 5);
+    this.reload();
+  }
+
+  reload(): void {
+    this.loadError = false;
+    this.projectService.getProjects().subscribe({
+      next: (projects) => {
+        this.projects = projects;
+        this.totalProjects = projects.length;
+        this.completedCount = projects.filter((p) => p.status === 'completed').length;
+        this.inProgressCount = projects.filter((p) =>
+          ['parsing', 'generating_slides', 'narrating', 'rendering'].includes(p.status),
+        ).length;
+        this.failedCount = projects.filter((p) => p.status === 'failed').length;
+        this.recentProjects = [...projects]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5);
+      },
+      error: () => {
+        this.loadError = true;
+      },
     });
     this.shortsService.listJobs().subscribe({
       next: (jobs) => {

@@ -488,6 +488,10 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   private baseImg: HTMLImageElement | null = null;
   private baseW = 0;
   private baseH = 0;
+  // Monotonic render generation: async toBlob callbacks from older renders
+  // are ignored so fast typing never serves a stale watermark.
+  private renderSeq = 0;
+  private uiTimers: number[] = [];
 
   // Video state
   videoDuration = 0;
@@ -526,9 +530,24 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopLoop();
     this.clearProgressTimer();
+    this.clearUiTimers();
     if (this.fileUrl) URL.revokeObjectURL(this.fileUrl);
     if (this.logoUrl) URL.revokeObjectURL(this.logoUrl);
     if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
+  }
+
+  /** Tracked timeout: cleared on destroy so callbacks never touch a dead component. */
+  private later(fn: () => void, ms: number): void {
+    const id: number = window.setTimeout(() => {
+      this.uiTimers = this.uiTimers.filter((t) => t !== id);
+      fn();
+    }, ms);
+    this.uiTimers.push(id);
+  }
+
+  private clearUiTimers(): void {
+    this.uiTimers.forEach((id) => clearTimeout(id));
+    this.uiTimers = [];
   }
 
   // ------------------------------------------------------------------ files
@@ -626,11 +645,11 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Control change entry point: resets export UI, then redraws. */
   updatePreview(): void {
     this.resetExportUi();
-    this.renderPreview();
+    this.renderPreview(++this.renderSeq);
   }
 
   /** Pure redraw with no side effects (scrubber, playback loop, seeks). */
-  renderPreview(): void {
+  renderPreview(seq: number = this.renderSeq): void {
     if (!this.file || !this.previewCanvas) return;
     const canvas = this.previewCanvas.nativeElement;
     const ctx = canvas.getContext('2d');
@@ -657,7 +676,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (!this.showOriginal) this.drawWatermark(ctx, canvas.width, canvas.height);
     this.drawAspectGuide(ctx, canvas.width, canvas.height);
-    if (this.fileType === 'image') this.generateDownload();
+    if (this.fileType === 'image') this.generateDownload(seq);
   }
 
   private resetExportUi(): void {
@@ -949,13 +968,15 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showProgressBar = false;
     this.exportState = 'loading';
     this.exportStartedAt = Date.now();
+    let ff: FfmpegEngine | null = null;
+    let unlinkInputs: string[] = [];
     this.progressTimer = window.setTimeout(() => {
       if (this.exportState === 'rendering') this.showProgressBar = true;
     }, 5000);
 
     try {
       await this.ensureEngine();
-      const ff = this.engine;
+      ff = this.engine;
       if (!ff) throw new Error('engine unavailable');
       const vw = video.videoWidth;
       const vh = video.videoHeight;
@@ -997,13 +1018,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
         'out.mp4',
       );
       const data = ff.FS('readFile', 'out.mp4') as unknown as Uint8Array;
-      for (const name of [`input.${ext}`, 'wm.png', 'out.mp4']) {
-        try {
-          ff.FS('unlink', name);
-        } catch {
-          // Best effort cleanup of the in-memory FS.
-        }
-      }
+      unlinkInputs = [`input.${ext}`, 'wm.png', 'out.mp4'];
       const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
       if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
       this.downloadUrl = URL.createObjectURL(new Blob([buf], { type: 'video/mp4' }));
@@ -1024,6 +1039,17 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
         ? `Processing failed (${detail.slice(0, 140)}). Try a smaller file or use server mode.`
         : 'Processing failed. Try a smaller file or use server mode.';
     } finally {
+      // Always release WASM MEMFS files, even when the run throws — failed
+      // exports of large videos would otherwise leak hundreds of MB.
+      if (ff) {
+        for (const name of unlinkInputs) {
+          try {
+            ff.FS('unlink', name);
+          } catch {
+            // Best effort cleanup of the in-memory FS.
+          }
+        }
+      }
       this.clearProgressTimer();
     }
   }
@@ -1077,7 +1103,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   copyShareLink(): void {
     const done = () => {
       this.copiedLink = true;
-      window.setTimeout(() => (this.copiedLink = false), 2000);
+      this.later(() => (this.copiedLink = false), 2000);
     };
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(this.shareUrl).then(done, done);
@@ -1092,7 +1118,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ----------------------------------------------------------------- export
 
-  private generateDownload(): void {
+  private generateDownload(seq: number): void {
     if (this.fileType !== 'image' || !this.baseImg) return;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -1109,6 +1135,8 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     const mime = this.imgFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
     canvas.toBlob(
       (blob) => {
+        // Drop renders superseded by newer control changes (stale toBlob).
+        if (seq !== this.renderSeq) return;
         if (blob) {
           if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
           this.downloadUrl = URL.createObjectURL(blob);
@@ -1130,7 +1158,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     this.exportState = 'done';
     this.showShare = true;
     this.confettiBurst();
-    window.setTimeout(() => {
+    this.later(() => {
       if (this.exportState === 'done') this.exportState = 'idle';
     }, 3000);
   }

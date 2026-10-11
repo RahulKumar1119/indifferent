@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
+import { HttpContext } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ApiService } from '../../core';
+import { SUPPRESS_GLOBAL_ERROR } from '../../core/interceptors/error.interceptor';
 
 /** Status values reported by the Shorts pipeline. */
 export type ShortsStatus =
@@ -105,7 +107,13 @@ export class ShortsService {
 
   /** GET /shorts/{id}: fetch current job status. */
   getStatus(jobId: string): Observable<ShortsJob> {
-    return this.api.get<ShortsJob>(`/shorts/${jobId}`);
+    // Polled by progress pages: keep the global error toast quiet here.
+    return this.api.get<ShortsJob>(
+      `/shorts/${jobId}`,
+      undefined,
+      true,
+      new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true),
+    );
   }
 
   /** GET /shorts: list my shorts jobs, newest first. */
