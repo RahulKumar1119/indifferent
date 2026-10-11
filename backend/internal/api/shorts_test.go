@@ -597,7 +597,9 @@ func TestDeleteShorts_Success(t *testing.T) {
 	}
 }
 
-func TestDeleteShorts_ListFailureRetainsRecord(t *testing.T) {
+func TestDeleteShorts_ListFailureFallsBackToTrackedKeys(t *testing.T) {
+	// Without s3:ListBucket the sweep degrades to tracked keys instead of
+	// failing: the large assets still go and the record is removed.
 	s3 := &stubDownloader{
 		status:  storage.ObjectStatus{StorageClass: "STANDARD"},
 		listErr: errors.New("list down"),
@@ -605,11 +607,27 @@ func TestDeleteShorts_ListFailureRetainsRecord(t *testing.T) {
 	p := newDeleteProbe(t, shortsJobItem("job1", "completed"), s3)
 
 	resp, _ := p.handler.HandleRequest(context.Background(), deleteReq("job1"))
-	if resp.StatusCode != 500 {
-		t.Fatalf("got status %d, want 500 (body: %s)", resp.StatusCode, resp.Body)
+	if resp.StatusCode != 204 {
+		t.Fatalf("got status %d, want 204 (body: %s)", resp.StatusCode, resp.Body)
 	}
-	if len(p.deleted) != 0 {
-		t.Error("record must be retained when enumeration fails")
+	for _, want := range []string{
+		"uploads/user1/job1/source.mp4",
+		"shorts/user1/job1/transcript.json",
+		"shorts/user1/job1/clips/clip-1.mp4",
+	} {
+		found := false
+		for _, got := range s3.deletedKeys {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected fallback delete of %q, got %v", want, s3.deletedKeys)
+		}
+	}
+	if len(p.deleted) != 1 {
+		t.Error("expected record delete on fallback path")
 	}
 }
 

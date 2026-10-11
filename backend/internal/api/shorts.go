@@ -293,8 +293,11 @@ func (h *APIHandler) handleDeleteShorts(ctx context.Context, req events.APIGatew
 
 	keys, err := h.shortsSweepKeys(ctx, claims.UserID, job)
 	if err != nil {
-		log.Printf("shorts_delete_list_failed user=%s job=%s err=%v", claims.UserID, jobID, err)
-		return errorResponse(http.StatusInternalServerError, "S3_CLEANUP_FAILED", "Failed to delete Short assets. Please retry."), nil
+		// Enumeration needs s3:ListBucket; if it is unavailable (or any
+		// listing fails), fall back to the record's tracked keys rather
+		// than failing the whole delete — the large assets still go.
+		log.Printf("shorts_delete_list_failed user=%s job=%s err=%v (falling back to tracked keys)", claims.UserID, jobID, err)
+		keys = constrainToPrefixes(shortsAssetKeys(job), shortsJobPrefixes(claims.UserID, jobID))
 	}
 	if err := h.S3.DeleteObjects(ctx, h.Bucket, keys); err != nil {
 		log.Printf("shorts_delete_s3_failed user=%s job=%s keys=%d err=%v", claims.UserID, jobID, len(keys), err)
@@ -375,20 +378,38 @@ func (h *APIHandler) shortsSweepKeys(ctx context.Context, userID string, job *mo
 		}
 	}
 	for _, k := range shortsAssetKeys(job) {
-		inside := false
 		for _, p := range prefixes {
 			if strings.HasPrefix(k, p) {
-				inside = true
+				add(k)
 				break
 			}
 		}
-		if inside {
-			add(k)
-		} else {
+		if !seen[k] && k != "" {
 			log.Printf("shorts_sweep_skip_outside_prefix user=%s job=%s key=%s", userID, job.JobID, k)
 		}
 	}
 	return keys, nil
+}
+
+// constrainToPrefixes keeps only keys under one of the prefixes (deduped).
+// Used when prefix enumeration is unavailable: the record's tracked keys
+// still clean the large assets without ever escaping the job directories.
+func constrainToPrefixes(keys, prefixes []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, k := range keys {
+		if k == "" || seen[k] {
+			continue
+		}
+		for _, p := range prefixes {
+			if strings.HasPrefix(k, p) {
+				seen[k] = true
+				out = append(out, k)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // shortsAssetKeys collects every S3 key a job may own: source media,
