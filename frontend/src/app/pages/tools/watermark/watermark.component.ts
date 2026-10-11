@@ -33,13 +33,13 @@ import { setPageSeo } from '../../../shared/seo';
             <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
           </a>
           <div class="hidden md:flex items-center gap-7 text-[13.5px] text-white/70">
-            <a routerLink="/login" class="hover:text-white transition-colors">Templates</a>
+            <a routerLink="/" fragment="process" class="hover:text-white transition-colors">How it works</a>
             <a routerLink="/blog" class="hover:text-white transition-colors">Journal</a>
             <a routerLink="/about" class="hover:text-white transition-colors">Studio</a>
           </div>
           <div class="flex items-center gap-1">
             <app-nav-mobile-menu>
-              <a routerLink="/login" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Templates</a>
+              <a routerLink="/" fragment="process" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">How it works</a>
               <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
               <a routerLink="/about" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Studio</a>
             </app-nav-mobile-menu>
