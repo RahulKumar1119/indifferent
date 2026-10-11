@@ -218,21 +218,32 @@ func (m *memoryDB) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemIn
 func (m *memoryDB) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
 	item, ok := m.items[itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))]
 	if !ok {
-		return &dynamodb.UpdateItemOutput{}, nil
+		// attribute_exists(PK) fails: no such session.
+		return &dynamodb.UpdateItemOutput{}, &dbtypes.ConditionalCheckFailedException{Message: aws.String("condition failed")}
 	}
+	if v, ok := item["rotated"].(*dbtypes.AttributeValueMemberBOOL); ok && v.Value {
+		// Already claimed: the rotation guard fails.
+		return &dynamodb.UpdateItemOutput{}, &dbtypes.ConditionalCheckFailedException{Message: aws.String("condition failed")}
+	}
+	// ReturnValues ALL_OLD: snapshot before applying the claim.
+	old := make(map[string]dbtypes.AttributeValue, len(item))
+	for k, v := range item {
+		old[k] = v
+	}
+	item["rotated"] = &dbtypes.AttributeValueMemberBOOL{Value: true}
 	for k, v := range params.ExpressionAttributeValues {
 		switch k {
 		case ":r":
 			if b, ok := v.(*dbtypes.AttributeValueMemberBOOL); ok {
 				item["rotated"] = &dbtypes.AttributeValueMemberBOOL{Value: b.Value}
 			}
-		case ":e":
+		case ":e", ":exp":
 			if n, ok := v.(*dbtypes.AttributeValueMemberN); ok {
 				item["expiresAt"] = &dbtypes.AttributeValueMemberN{Value: n.Value}
 			}
 		}
 	}
-	return &dynamodb.UpdateItemOutput{}, nil
+	return &dynamodb.UpdateItemOutput{Attributes: old}, nil
 }
 
 func (m *memoryDB) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {

@@ -145,7 +145,7 @@ export class CreatorDnaComponent {
 
   fields(): { key: keyof CreatorDNA; label: string; value: string }[] {
     const d = this.dna();
-    return this.dnaKeys.slice(0, 8).map((key) => ({ key, label: this.labels[key], value: d[key] }));
+    return this.dnaKeys.map((key) => ({ key, label: this.labels[key], value: d[key] }));
   }
 
   openDialog(): void {

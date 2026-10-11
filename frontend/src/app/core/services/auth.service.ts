@@ -46,7 +46,13 @@ export class AuthService {
 
   /** Refresh token persisted across reloads (the API expects it in the request body). */
   getRefreshToken(): string | null {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
+    // Guarded: prerender/SSR has no localStorage.
+    if (!this.isBrowser) return null;
+    try {
+      return localStorage.getItem(REFRESH_TOKEN_KEY);
+    } catch {
+      return null;
+    }
   }
 
   /** Remember where to land after the OAuth round-trip (survives Google). */
@@ -63,7 +69,12 @@ export class AuthService {
 
   setTokens(tokens: AuthTokens): void {
     this.accessToken$.next(tokens.accessToken);
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    if (!this.isBrowser) return;
+    try {
+      localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    } catch {
+      // Private-mode quota: session lasts for this page load only.
+    }
   }
 
   refreshToken(): Observable<AuthTokens> {
@@ -131,7 +142,12 @@ export class AuthService {
 
   clearAccessToken(): void {
     this.accessToken$.next(null);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    if (!this.isBrowser) return;
+    try {
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+    } catch {
+      // Already gone or unavailable: nothing to clear.
+    }
   }
 
   logout(): void {

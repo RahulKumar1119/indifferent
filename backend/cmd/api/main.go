@@ -36,6 +36,9 @@ func main() {
 	if jwtSecret == "" || googleClientID == "" || dynamoDBTable == "" || s3Bucket == "" || stateMachineARN == "" {
 		log.Fatal("Missing required environment variables")
 	}
+	if usersTable == "" || sessionTable == "" || shortsStateMachineARN == "" {
+		log.Fatal("Missing required environment variables: USERS_TABLE, SESSION_TABLE and SHORTS_STATE_MACHINE_ARN must all be set")
+	}
 
 	// Load AWS config
 	awsCfg, err := config.LoadDefaultConfig(ctx)

@@ -395,3 +395,66 @@ func TestExtractShortsClipIDs(t *testing.T) {
 		})
 	}
 }
+
+func TestStartShorts_RejectsRestart(t *testing.T) {
+	// A completed job must not re-enter the pipeline.
+	db := &mockDynamoDB{
+		getItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{
+				Item: map[string]dbtypes.AttributeValue{
+					"PK":             &dbtypes.AttributeValueMemberS{Value: "USER#user1"},
+					"SK":             &dbtypes.AttributeValueMemberS{Value: "SHORTS#done"},
+					"jobId":          &dbtypes.AttributeValueMemberS{Value: "done"},
+					"status":         &dbtypes.AttributeValueMemberS{Value: "completed"},
+					"fileType":       &dbtypes.AttributeValueMemberS{Value: "mp4"},
+					"sourceDuration": &dbtypes.AttributeValueMemberN{Value: "120"},
+					"sourceKey":      &dbtypes.AttributeValueMemberS{Value: "uploads/user1/done/source.mp4"},
+					"createdAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+					"updatedAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+				},
+			}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/shorts/done/start",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 400 {
+		t.Errorf("got status %d, want 400 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}
+
+func TestGetClipURL_NotReady(t *testing.T) {
+	// A clip record on a non-completed job must not yield a presigned URL.
+	db := &mockDynamoDB{
+		getItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{
+				Item: map[string]dbtypes.AttributeValue{
+					"PK":             &dbtypes.AttributeValueMemberS{Value: "USER#user1"},
+					"SK":             &dbtypes.AttributeValueMemberS{Value: "SHORTS#busy"},
+					"jobId":          &dbtypes.AttributeValueMemberS{Value: "busy"},
+					"status":         &dbtypes.AttributeValueMemberS{Value: "rendering"},
+					"fileType":       &dbtypes.AttributeValueMemberS{Value: "mp4"},
+					"sourceDuration": &dbtypes.AttributeValueMemberN{Value: "120"},
+					"sourceKey":      &dbtypes.AttributeValueMemberS{Value: "uploads/user1/busy/source.mp4"},
+					"clips":          &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-1","s3Key":"renders/busy/clip-1.mp4","rank":1,"score":0.9,"duration":20}]`},
+					"createdAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+					"updatedAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+				},
+			}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "GET",
+		Path:       "/shorts/busy/clips/clip-1/url",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 400 {
+		t.Errorf("got status %d, want 400 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}

@@ -167,6 +167,17 @@ func TestRefreshToken_ValidRefreshToken(t *testing.T) {
 		deleteItemFunc: func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
 			return &dynamodb.DeleteItemOutput{}, nil
 		},
+		updateItemFunc: func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+			return &dynamodb.UpdateItemOutput{
+				Attributes: map[string]dbtypes.AttributeValue{
+					"PK":        &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
+					"SK":        &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+					"userId":    &dbtypes.AttributeValueMemberS{Value: "user-789"},
+					"email":     &dbtypes.AttributeValueMemberS{Value: "refresh@example.com"},
+					"expiresAt": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Add(7*24*time.Hour).Unix())},
+				},
+			}, nil
+		},
 		putItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 			if params.TableName == nil || *params.TableName != "TestSessions" {
 				t.Errorf("expected table 'TestSessions', got '%v'", params.TableName)
@@ -236,6 +247,18 @@ func TestRefreshToken_SessionExpired(t *testing.T) {
 					"email":     &dbtypes.AttributeValueMemberS{Value: "expired@example.com"},
 					"expiresAt": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Add(-1*time.Hour).Unix())},
 					"createdAt": &dbtypes.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+				},
+			}, nil
+		},
+		updateItemFunc: func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+			// Unrotated session: the atomic claim succeeds, returning old attrs.
+			return &dynamodb.UpdateItemOutput{
+				Attributes: map[string]dbtypes.AttributeValue{
+					"PK":        &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
+					"SK":        &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+					"userId":    &dbtypes.AttributeValueMemberS{Value: "user-expired"},
+					"email":     &dbtypes.AttributeValueMemberS{Value: "expired@example.com"},
+					"expiresAt": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Add(-1*time.Hour).Unix())},
 				},
 			}, nil
 		},
@@ -355,6 +378,10 @@ func TestRefreshToken_ReuseDetection(t *testing.T) {
 				},
 			}, nil
 		},
+		updateItemFunc: func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+			// The atomic claim must fail on an already-rotated session.
+			return &dynamodb.UpdateItemOutput{}, &dbtypes.ConditionalCheckFailedException{}
+		},
 		scanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
 			scanCalled = true
 			// Return two sessions in the same family
@@ -424,7 +451,21 @@ func TestRefreshToken_RotationIncludesFamilyId(t *testing.T) {
 			if pk != "SESSION#"+tokenHash {
 				t.Errorf("expected update on SESSION#%s, got %s", tokenHash, pk)
 			}
-			return &dynamodb.UpdateItemOutput{}, nil
+			// The atomic claim must be conditional (no unconditional overwrite).
+			if params.ConditionExpression == nil || *params.ConditionExpression == "" {
+				t.Error("expected a ConditionExpression guarding the rotation claim")
+			}
+			// Return the pre-claim attributes (ReturnValues ALL_OLD).
+			return &dynamodb.UpdateItemOutput{
+				Attributes: map[string]dbtypes.AttributeValue{
+					"PK":        &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
+					"SK":        &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+					"userId":    &dbtypes.AttributeValueMemberS{Value: "user-normal"},
+					"email":     &dbtypes.AttributeValueMemberS{Value: "normal@example.com"},
+					"familyId":  &dbtypes.AttributeValueMemberS{Value: familyID},
+					"expiresAt": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Add(7*24*time.Hour).Unix())},
+				},
+			}, nil
 		},
 		putItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 			// Capture the familyId from the new session
@@ -477,7 +518,15 @@ func TestRefreshToken_LegacySessionWithoutFamilyId(t *testing.T) {
 			}, nil
 		},
 		updateItemFunc: func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
-			return &dynamodb.UpdateItemOutput{}, nil
+			return &dynamodb.UpdateItemOutput{
+				Attributes: map[string]dbtypes.AttributeValue{
+					"PK":        &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
+					"SK":        &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+					"userId":    &dbtypes.AttributeValueMemberS{Value: "user-legacy"},
+					"email":     &dbtypes.AttributeValueMemberS{Value: "legacy@example.com"},
+					"expiresAt": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Add(7*24*time.Hour).Unix())},
+				},
+			}, nil
 		},
 		putItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 			if fid, ok := params.Item["familyId"]; ok {
@@ -523,7 +572,17 @@ func TestRefreshToken_NonRotatedSessionWorks(t *testing.T) {
 			}, nil
 		},
 		updateItemFunc: func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
-			return &dynamodb.UpdateItemOutput{}, nil
+			return &dynamodb.UpdateItemOutput{
+				Attributes: map[string]dbtypes.AttributeValue{
+					"PK":        &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
+					"SK":        &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+					"userId":    &dbtypes.AttributeValueMemberS{Value: "user-ok"},
+					"email":     &dbtypes.AttributeValueMemberS{Value: "ok@example.com"},
+					"familyId":  &dbtypes.AttributeValueMemberS{Value: "family-ok"},
+					"rotated":   &dbtypes.AttributeValueMemberBOOL{Value: false},
+					"expiresAt": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Add(7*24*time.Hour).Unix())},
+				},
+			}, nil
 		},
 		putItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
 			return &dynamodb.PutItemOutput{}, nil

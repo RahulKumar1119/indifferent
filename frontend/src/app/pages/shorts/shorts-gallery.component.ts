@@ -203,7 +203,7 @@ const HOVER_PREVIEW_MS = 2000;
     </div>
   `,
 })
-export class ShortsGalleryComponent implements OnInit {
+export class ShortsGalleryComponent implements OnInit, OnDestroy {
   private jobId = '';
 
   clips: Clip[] = [];
@@ -483,5 +483,9 @@ export class ShortsGalleryComponent implements OnInit {
       clearTimeout(timer);
       delete this.hoverTimers[clipId];
     }
+  }
+
+  ngOnDestroy(): void {
+    Object.keys(this.hoverTimers).forEach((id) => this.clearHoverTimer(id));
   }
 }

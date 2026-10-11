@@ -1,6 +1,6 @@
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Observable, timer, switchMap, takeWhile, EMPTY, of, retry, tap } from 'rxjs';
+import { Observable, timer, switchMap, takeWhile, EMPTY, of, retry, tap, map } from 'rxjs';
 import { ApiService } from './api.service';
 import {
   Project,
@@ -15,7 +15,11 @@ export class ProjectService {
   constructor(private readonly api: ApiService) {}
 
   getProjects(): Observable<Project[]> {
-    return this.api.get<Project[]>('/projects');
+    // The API returns an envelope {"projects": [...]}; unwrap it here so
+    // callers always receive an array (a bare array is also tolerated).
+    return this.api.get<{ projects: Project[] } | Project[]>('/projects').pipe(
+      map((res) => (Array.isArray(res) ? res : (res?.projects ?? []))),
+    );
   }
 
   getProject(id: string): Observable<Project> {

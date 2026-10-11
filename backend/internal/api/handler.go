@@ -120,7 +120,7 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleUpload)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/projects/") && strings.HasSuffix(req.Path, "/logo"):
 		return h.handleWithAuth(ctx, req, h.handleLogoUpload)
-	case req.HTTPMethod == "PUT" && strings.HasPrefix(req.Path, "/projects/"):
+	case req.HTTPMethod == "PUT" && isExactProjectPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleUpdateProject)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/projects/"):
 		return h.handleWithAuth(ctx, req, h.handleGetProject)
@@ -479,6 +479,22 @@ func (h *APIHandler) handleGetProject(ctx context.Context, req events.APIGateway
 	project, err := h.getProjectByID(ctx, claims.UserID, projectID)
 	if err != nil {
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
+	}
+
+	// Resolve playable URLs for completed projects so detail/preview pages
+	// can play inline without a separate download round-trip. Glacier-archived
+	// files resolve on their next request once restored (no error surfaced).
+	if project.Status == "completed" {
+		if project.VideoKey != "" {
+			if url, restoring, err := h.downloadURLOrRestore(ctx, project.VideoKey); err == nil && !restoring {
+				project.VideoURL = url
+			}
+		}
+		if project.ThumbnailKey != "" {
+			if url, restoring, err := h.downloadURLOrRestore(ctx, project.ThumbnailKey); err == nil && !restoring {
+				project.ThumbnailURL = url
+			}
+		}
 	}
 
 	return jsonResponse(http.StatusOK, project), nil
@@ -883,6 +899,14 @@ func stripHTMLTags(s string) string {
 		}
 	}
 	return result.String()
+}
+
+// isExactProjectPath reports whether path is exactly /projects/{id} (no
+// deeper sub-resource): only exact updates are mutable via PUT, deeper PUT
+// paths fall through to 404 instead of mutating the parent project.
+func isExactProjectPath(path string) bool {
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	return len(parts) == 2 && parts[0] == "projects" && parts[1] != ""
 }
 
 // extractProjectID extracts the project ID from a path like /projects/{id}.

@@ -28,7 +28,7 @@ import { Project } from '../../shared/models/project.model';
             <p class="text-sm text-[hsl(var(--muted-foreground))] mb-6">
               Current status: {{ getStatusLabel(project.status) }}
             </p>
-            <a [routerLink]="['/projects', project.id, 'upload']" class="glow-btn">
+            <a [routerLink]="['/projects', project.id, 'progress']" class="glow-btn">
               <svg lucideIcon="play" [size]="18"></svg>
               View Progress
             </a>

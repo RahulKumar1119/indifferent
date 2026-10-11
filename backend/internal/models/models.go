@@ -129,6 +129,11 @@ type Project struct {
 	CreatedAt     string             `json:"createdAt"`
 	UpdatedAt     string             `json:"updatedAt"`
 	CompletedAt   string             `json:"completedAt,omitempty"`
+	// VideoURL/ThumbnailURL are presigned GET URLs resolved on read for
+	// completed projects only. Never persisted: projectToItem/itemToProject
+	// intentionally ignore them.
+	VideoURL     string `json:"videoUrl,omitempty"`
+	ThumbnailURL string `json:"thumbnailUrl,omitempty"`
 }
 
 // Branding is a project's custom identity burned into its videos: an
