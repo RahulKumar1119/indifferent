@@ -18,6 +18,9 @@ import { ThemeService } from '../../../core/services/theme.service';
           <a routerLink="/shorts/history" class="px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">History</a>
           <a routerLink="/dashboard" class="hidden sm:inline px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">Dashboard</a>
           <a routerLink="/profile" class="hidden sm:inline px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">Profile</a>
+          <a routerLink="/profile" class="sm:hidden w-9 h-9 rounded-lg hover:bg-white/5 inline-flex items-center justify-center" aria-label="Profile">
+            <svg lucideIcon="user" [size]="17"></svg>
+          </a>
           <button
             class="btn-interactive ml-1 w-9 h-9 rounded-lg border border-[hsl(var(--border))] inline-flex items-center justify-center"
             (click)="theme.toggleTheme()"

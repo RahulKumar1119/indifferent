@@ -107,33 +107,39 @@ func (s *JWTService) ExtractUserID(tokenString string) (string, error) {
 func (s *JWTService) RefreshToken(ctx context.Context, refreshToken string) (*models.AuthTokens, error) {
 	tokenHash := hashToken(refreshToken)
 
-	// Look up session in DynamoDB.
-	result, err := s.DB.GetItem(ctx, &dynamodb.GetItemInput{
+	// Atomically claim the session: set rotated=true only when the session
+	// exists and has not been rotated yet. Check-and-set in a single write
+	// closes the race where two concurrent refreshes with the same token both
+	// pass the read check and fork the session family (theft detection bypass).
+	// The pre-claim attributes come back via ReturnValues for the checks below.
+	rotatedExpiresAt := time.Now().Add(RotatedSessionTTL).Unix()
+	claim, err := s.DB.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(s.SessionTable),
 		Key: map[string]dbtypes.AttributeValue{
 			"PK": &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
 			"SK": &dbtypes.AttributeValueMemberS{Value: "SESSION"},
 		},
-		ConsistentRead: aws.Bool(true),
+		UpdateExpression:    aws.String("SET rotated = :claimed, expiresAt = :exp"),
+		ConditionExpression: aws.String("attribute_exists(PK) AND (attribute_not_exists(rotated) OR rotated = :unclaimed)"),
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":claimed":   &dbtypes.AttributeValueMemberBOOL{Value: true},
+			":unclaimed": &dbtypes.AttributeValueMemberBOOL{Value: false},
+			":exp":       &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", rotatedExpiresAt)},
+		},
+		ReturnValues: dbtypes.ReturnValueAllOld,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("get session: %w", err)
+		var condFailed *dbtypes.ConditionalCheckFailedException
+		if errors.As(err, &condFailed) {
+			// Unknown session or already rotated: read once to tell them apart.
+			return s.handleRefreshConflict(ctx, tokenHash)
+		}
+		return nil, fmt.Errorf("claim session: %w", err)
 	}
 
+	result := &dynamodb.GetItemOutput{Item: claim.Attributes}
 	if result.Item == nil {
 		return nil, ErrSessionNotFound
-	}
-
-	// Check if this token was already rotated (reuse detection)
-	if rotatedAttr, ok := result.Item["rotated"]; ok {
-		if boolVal, ok := rotatedAttr.(*dbtypes.AttributeValueMemberBOOL); ok && boolVal.Value {
-			// THEFT DETECTED! Invalidate all sessions in this family
-			familyID := extractStringAttr(result.Item, "familyId")
-			if familyID != "" {
-				s.invalidateFamily(ctx, familyID)
-			}
-			return nil, ErrTokenReuse
-		}
 	}
 
 	// Extract userId from the session item
@@ -165,9 +171,6 @@ func (s *JWTService) RefreshToken(ctx context.Context, refreshToken string) (*mo
 	if familyID == "" {
 		familyID = uuid.New().String()
 	}
-
-	// Mark old session as rotated (keep for reuse detection window)
-	s.markSessionRotated(ctx, tokenHash)
 
 	// Generate new access token
 	accessToken, err := s.GenerateAccessToken(userID, email)
@@ -267,23 +270,34 @@ func (s *JWTService) createSessionWithFamily(ctx context.Context, userID, email,
 	return refreshToken, nil
 }
 
-// markSessionRotated marks a session as already used. The session is kept
-// for a short window (RotatedSessionTTL) so that reuse can be detected.
-func (s *JWTService) markSessionRotated(ctx context.Context, tokenHash string) {
-	rotatedExpiresAt := time.Now().Add(RotatedSessionTTL).Unix()
-
-	_, _ = s.DB.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+// handleRefreshConflict resolves a failed session claim: an unknown session
+// is not found, an already-rotated one means theft (invalidate the family).
+func (s *JWTService) handleRefreshConflict(ctx context.Context, tokenHash string) (*models.AuthTokens, error) {
+	result, err := s.DB.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(s.SessionTable),
 		Key: map[string]dbtypes.AttributeValue{
 			"PK": &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
 			"SK": &dbtypes.AttributeValueMemberS{Value: "SESSION"},
 		},
-		UpdateExpression: aws.String("SET rotated = :r, expiresAt = :e"),
-		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
-			":r": &dbtypes.AttributeValueMemberBOOL{Value: true},
-			":e": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", rotatedExpiresAt)},
-		},
+		ConsistentRead: aws.Bool(true),
 	})
+	if err != nil {
+		return nil, fmt.Errorf("get session: %w", err)
+	}
+	if result.Item == nil {
+		return nil, ErrSessionNotFound
+	}
+	if rotatedAttr, ok := result.Item["rotated"]; ok {
+		if boolVal, ok := rotatedAttr.(*dbtypes.AttributeValueMemberBOOL); ok && boolVal.Value {
+			// THEFT DETECTED! Invalidate all sessions in this family
+			familyID := extractStringAttr(result.Item, "familyId")
+			if familyID != "" {
+				s.invalidateFamily(ctx, familyID)
+			}
+			return nil, ErrTokenReuse
+		}
+	}
+	return nil, ErrSessionNotFound
 }
 
 // invalidateFamily deletes all sessions belonging to the given token family.

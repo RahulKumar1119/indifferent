@@ -369,7 +369,7 @@ export class CreateProjectComponent {
     this.api.post<CreateProjectResponse>('/projects', request).subscribe({
       next: (project) => {
         if (project.shorts && this.shortsFile) {
-          this.uploadShortsFile(project.shorts.uploadUrl, project.id);
+          this.uploadShortsFile(project.shorts.uploadUrl, project.id, project.shorts.jobId);
         } else {
           this.isSubmitting = false;
           this.router.navigate(['/projects', project.id]);
@@ -382,11 +382,23 @@ export class CreateProjectComponent {
     });
   }
 
-  private uploadShortsFile(uploadUrl: string, projectId: string): void {
+  private uploadShortsFile(uploadUrl: string, projectId: string, jobId: string): void {
     this.api.putAbsolute<void>(uploadUrl, this.shortsFile!).subscribe({
       next: () => {
-        this.isSubmitting = false;
-        this.router.navigate(['/projects', projectId]);
+        // Kick off the linked Shorts pipeline: without this the job would
+        // sit in "uploaded" forever.
+        this.api.post<unknown>(`/shorts/${jobId}/start`).subscribe({
+          next: () => {
+            this.isSubmitting = false;
+            this.router.navigate(['/projects', projectId]);
+          },
+          error: () => {
+            this.isSubmitting = false;
+            this.errorMessage =
+              'Project created and file uploaded, but the Shorts pipeline failed to start. Retry it from Shorts history.';
+            this.router.navigate(['/projects', projectId]);
+          },
+        });
       },
       error: (err) => {
         this.isSubmitting = false;

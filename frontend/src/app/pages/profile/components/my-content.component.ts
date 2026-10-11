@@ -91,7 +91,7 @@ export class MyContentComponent {
     const all = this.videos();
     switch (tab) {
       case 'generated':
-        return all.filter((v) => v.status === 'generated' || v.status === 'published');
+        return all.filter((v) => v.status === 'generated');
       case 'published':
         return all.filter((v) => v.status === 'published');
       case 'drafts':
@@ -107,7 +107,7 @@ export class MyContentComponent {
     const all = this.videos();
     switch (tab) {
       case 'generated':
-        return all.filter((v) => v.status === 'generated' || v.status === 'published').length;
+        return all.filter((v) => v.status === 'generated').length;
       case 'published':
         return all.filter((v) => v.status === 'published').length;
       case 'drafts':

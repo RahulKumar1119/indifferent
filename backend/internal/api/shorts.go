@@ -169,6 +169,13 @@ func (h *APIHandler) handleStartShorts(ctx context.Context, req events.APIGatewa
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
 	}
 
+	// Only a freshly uploaded job may start the pipeline: re-running a
+	// completed/failed/in-flight job would duplicate expensive transcribe,
+	// rank and render work (or collide on the deterministic execution name).
+	if job.Status != "uploaded" {
+		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Shorts pipeline has already been started"), nil
+	}
+
 	sfnInput, _ := json.Marshal(map[string]interface{}{
 		"jobId":          job.JobID,
 		"userId":         claims.UserID,
@@ -352,6 +359,15 @@ func (h *APIHandler) handleGetClipURL(ctx context.Context, req events.APIGateway
 		}
 	}
 	if clip == nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
+	}
+
+	// Clips exist only on completed renders; anything else means the caller is
+	// early (or the record is corrupt) — never presign a missing key.
+	if job.Status != "completed" {
+		return errorResponse(http.StatusBadRequest, "NOT_READY", "Clips are not yet rendered"), nil
+	}
+	if clip.S3Key == "" {
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
 	}
 

@@ -21,6 +21,7 @@ const LS_SOCIAL = 'indifferent.creatorSocial.v1';
 const LS_FAVORITES = 'indifferent.creatorFavorites.v1';
 const LS_PUBLISHED = 'indifferent.creatorPublished.v1';
 const LS_ACTIVITY = 'indifferent.creatorActivity.v1';
+const LS_AVATAR_SYNCED = 'indifferent.creatorAvatarSynced.v1';
 
 export type SocialPlatform = 'youtube' | 'instagram' | 'tiktok';
 
@@ -69,14 +70,27 @@ export class ProfileService {
     return next;
   }
 
-  /** Merge backend identity into the local profile (backend wins for name/email/avatar when present). */
+  /** Merge backend identity into the local profile (backend wins for name/email;
+   *  for the avatar, the backend wins only when the user hasn't customized it:
+   *  a locally uploaded avatar is kept, and a changed backend avatar is adopted
+   *  when the local one still matches the last-synced backend URL. */
   mergeBackendUser(local: CreatorProfile, remote: UserProfile | null): CreatorProfile {
     if (!remote) return local;
+    const synced = this.read<string>(LS_AVATAR_SYNCED);
+    let avatarUrl = local.avatarUrl;
+    if (!local.avatarUrl && remote.avatarUrl) {
+      avatarUrl = remote.avatarUrl;
+    } else if (remote.avatarUrl && local.avatarUrl === synced) {
+      avatarUrl = remote.avatarUrl;
+    }
+    if (remote.avatarUrl && avatarUrl === remote.avatarUrl && synced !== remote.avatarUrl) {
+      this.write(LS_AVATAR_SYNCED, remote.avatarUrl);
+    }
     const merged: CreatorProfile = {
       ...local,
       name: remote.name || local.name,
       email: remote.email || local.email,
-      avatarUrl: local.avatarUrl || remote.avatarUrl || '',
+      avatarUrl,
       createdAt: remote.createdAt || local.createdAt,
     };
     if (!local.username && merged.name) merged.username = toUsername(merged.name, merged.email);

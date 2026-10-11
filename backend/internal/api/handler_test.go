@@ -14,6 +14,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/rahul/indifferent/backend/internal/auth"
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/storage"
 )
 
 const testSecret = "test-secret-key-for-testing-only"
@@ -782,4 +783,98 @@ func awsString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func TestPutProjectSubpathIs404(t *testing.T) {
+	// Only exact /projects/{id} is mutable via PUT; deeper PUT paths must 404
+	// instead of mutating the parent project.
+	handler := newTestHandler()
+	ctx := context.Background()
+
+	for _, path := range []string{"/projects/abc123/upload", "/projects/abc123/start", "/projects/abc123/status"} {
+		req := events.APIGatewayProxyRequest{
+			HTTPMethod: "PUT",
+			Path:       path,
+			Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+		}
+		resp, err := handler.HandleRequest(ctx, req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.StatusCode != 404 {
+			t.Errorf("PUT %s: got status %d, want 404 (body: %s)", path, resp.StatusCode, resp.Body)
+		}
+	}
+}
+
+func TestGetProject_ResolvesMediaURLs(t *testing.T) {
+	completed := map[string]dbtypes.AttributeValue{
+		"projectId":    &dbtypes.AttributeValueMemberS{Value: "p1"},
+		"name":         &dbtypes.AttributeValueMemberS{Value: "Quiz 1"},
+		"template":     &dbtypes.AttributeValueMemberS{Value: "classic"},
+		"voice":        &dbtypes.AttributeValueMemberS{Value: "Joanna"},
+		"status":       &dbtypes.AttributeValueMemberS{Value: "completed"},
+		"videoKey":     &dbtypes.AttributeValueMemberS{Value: "output/p1/video.mp4"},
+		"thumbnailKey": &dbtypes.AttributeValueMemberS{Value: "output/p1/thumb.png"},
+		"createdAt":    &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+		"updatedAt":    &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+	}
+	draft := map[string]dbtypes.AttributeValue{
+		"projectId": &dbtypes.AttributeValueMemberS{Value: "p2"},
+		"name":      &dbtypes.AttributeValueMemberS{Value: "Quiz 2"},
+		"template":  &dbtypes.AttributeValueMemberS{Value: "modern"},
+		"voice":     &dbtypes.AttributeValueMemberS{Value: "Amy"},
+		"status":    &dbtypes.AttributeValueMemberS{Value: "created"},
+		"createdAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+		"updatedAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+	}
+
+	newHandler := func(item map[string]dbtypes.AttributeValue) *APIHandler {
+		h := newTestHandler()
+		h.S3 = &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}}
+		h.DB = &mockDynamoDB{
+			getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				return &dynamodb.GetItemOutput{Item: item}, nil
+			},
+		}
+		return h
+	}
+	get := func(h *APIHandler, id string) (int, map[string]interface{}) {
+		resp, err := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+			HTTPMethod: "GET",
+			Path:       "/projects/" + id,
+			Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var body map[string]interface{}
+		if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		return resp.StatusCode, body
+	}
+
+	t.Run("completed resolves urls", func(t *testing.T) {
+		status, body := get(newHandler(completed), "p1")
+		if status != 200 {
+			t.Fatalf("got status %d, want 200", status)
+		}
+		if body["videoUrl"] == "" || body["videoUrl"] == nil {
+			t.Error("expected videoUrl to be resolved for completed project")
+		}
+		if body["thumbnailUrl"] == "" || body["thumbnailUrl"] == nil {
+			t.Error("expected thumbnailUrl to be resolved for completed project")
+		}
+	})
+
+	t.Run("draft resolves no urls", func(t *testing.T) {
+		status, body := get(newHandler(draft), "p2")
+		if status != 200 {
+			t.Fatalf("got status %d, want 200", status)
+		}
+		if _, ok := body["videoUrl"]; ok {
+			t.Error("did not expect videoUrl for non-completed project")
+		}
+	})
 }

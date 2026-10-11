@@ -465,7 +465,7 @@ export class ProfileComponent implements OnInit {
         status,
         rawStatus: p.status,
         createdAt: p.createdAt,
-        duration: p.status === 'completed' ? 'MP4 · 16:9' : this.stageLabel(p.status),
+        duration: p.status === 'completed' ? 'Ready' : this.stageLabel(p.status),
         aspectRatio: '16:9',
         thumbnailUrl: p.thumbnailUrl,
         favorite: favs.has(`video:${p.id}`),
