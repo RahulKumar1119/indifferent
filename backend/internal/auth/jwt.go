@@ -107,11 +107,44 @@ func (s *JWTService) ExtractUserID(tokenString string) (string, error) {
 func (s *JWTService) RefreshToken(ctx context.Context, refreshToken string) (*models.AuthTokens, error) {
 	tokenHash := hashToken(refreshToken)
 
+	// Pre-read for the cheap rejections (unknown / already-rotated / expired)
+	// before touching anything: an expired token must fail cleanly WITHOUT
+	// burning the session, otherwise its retry would look like reuse and wipe
+	// the whole family. The rotation itself is still claimed atomically below.
+	pre, err := s.DB.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(s.SessionTable),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+		},
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get session: %w", err)
+	}
+	if pre.Item == nil {
+		return nil, ErrSessionNotFound
+	}
+	if rotatedAttr, ok := pre.Item["rotated"]; ok {
+		if boolVal, ok := rotatedAttr.(*dbtypes.AttributeValueMemberBOOL); ok && boolVal.Value {
+			return s.handleRefreshConflict(ctx, tokenHash)
+		}
+	}
+	if expiresAtAttr, ok := pre.Item["expiresAt"]; ok {
+		if expiresAtVal, ok := expiresAtAttr.(*dbtypes.AttributeValueMemberN); ok {
+			if expiresAt, err := strconv.ParseInt(expiresAtVal.Value, 10, 64); err == nil && time.Now().Unix() > expiresAt {
+				return nil, ErrSessionExpired
+			}
+		}
+	}
+
 	// Atomically claim the session: set rotated=true only when the session
 	// exists and has not been rotated yet. Check-and-set in a single write
 	// closes the race where two concurrent refreshes with the same token both
 	// pass the read check and fork the session family (theft detection bypass).
 	// The pre-claim attributes come back via ReturnValues for the checks below.
+	// (The pre-read above narrows the race to tokens expiring mid-flight —
+	// vanishingly narrow, and it degrades to the same clean expiry error.)
 	rotatedExpiresAt := time.Now().Add(RotatedSessionTTL).Unix()
 	claim, err := s.DB.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(s.SessionTable),
