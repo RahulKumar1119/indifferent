@@ -158,13 +158,6 @@ export const routes: Routes = [
       ),
   },
   {
-    path: 'blog/video-template-comparison',
-    loadComponent: () =>
-      import('./pages/blog/articles/video-template-comparison.component').then(
-        (m) => m.VideoTemplateComparisonComponent,
-      ),
-  },
-  {
     path: 'blog/ai-narration-guide',
     loadComponent: () =>
       import('./pages/blog/articles/ai-narration-guide.component').then(

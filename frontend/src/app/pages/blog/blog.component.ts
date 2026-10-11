@@ -221,7 +221,7 @@ export class BlogComponent implements OnInit, AfterViewInit {
 
   currentYear = new Date().getFullYear();
 
-  categories = ['All', 'YouTube', 'Teaching', 'Formatting', 'Templates', 'Narration'];
+  categories = ['All', 'YouTube', 'Teaching', 'Formatting', 'Narration'];
   activeCategory = 'All';
   query = '';
 
@@ -252,15 +252,6 @@ export class BlogComponent implements OnInit, AfterViewInit {
       read: '6 min read',
       category: 'Formatting',
       image: 'https://picsum.photos/seed/indifferent-b-format/800/600',
-    },
-    {
-      route: '/blog/video-template-comparison',
-      title: 'Video Template Comparison: Which Style Fits?',
-      excerpt: 'All six themes compared: which grade, type scale, and timer suits your audience and subject.',
-      date: 'Dec 28, 2024',
-      read: '7 min read',
-      category: 'Templates',
-      image: 'https://picsum.photos/seed/indifferent-b-templates/800/600',
     },
     {
       route: '/blog/ai-narration-guide',
