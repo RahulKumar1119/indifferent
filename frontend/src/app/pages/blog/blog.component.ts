@@ -265,7 +265,7 @@ export class BlogComponent implements OnInit, AfterViewInit {
     {
       route: '/blog/ai-narration-guide',
       title: 'AI Narration for Videos: A Complete Guide',
-      excerpt: 'Everything about AI voiceovers: choosing voices, scoring countdowns, and mixing narration beds.',
+      excerpt: 'Everything about AI voiceovers: choosing a voice, pacing, and when human narration is the better choice.',
       date: 'Dec 20, 2024',
       read: '6 min read',
       category: 'Narration',

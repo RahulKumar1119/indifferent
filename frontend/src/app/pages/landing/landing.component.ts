@@ -4,11 +4,12 @@ import { RouterLink } from '@angular/router';
 import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { FlipbookComponent } from './flipbook.component';
+import { HeroSceneComponent } from './hero-scene.component';
 
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [RouterLink, NavMenuComponent, NavMobileMenuComponent, FlipbookComponent],
+  imports: [RouterLink, NavMenuComponent, NavMobileMenuComponent, FlipbookComponent, HeroSceneComponent],
   styles: [`
     /* Shape rule: pills for buttons, 20px cards, 12px inputs. Serif display only here. */
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
@@ -133,36 +134,8 @@ import { FlipbookComponent } from './flipbook.component';
             </dl>
           </div>
 
-          <!-- Right: layered preview stack -->
-          <div class="relative lg:justify-self-end w-full max-w-[520px]">
-            <div class="rounded-[2rem] p-2 bg-white/[0.06] border border-white/10 backdrop-blur-sm">
-              <div class="rounded-[calc(2rem-0.5rem)] overflow-hidden bg-[#17150F] border border-white/10">
-                <div class="flex items-center gap-1.5 px-4 h-10 border-b border-white/10">
-                  <span class="w-2.5 h-2.5 rounded-full bg-white/15"></span>
-                  <span class="w-2.5 h-2.5 rounded-full bg-white/15"></span>
-                  <span class="w-2.5 h-2.5 rounded-full bg-[#D96C3D]/70"></span>
-                  <span class="ml-3 text-[11px] tracking-widest uppercase text-white/60">Example frame · 1080p</span>
-                </div>
-                <div class="relative sm:aspect-video">
-                  <div class="sm:absolute sm:inset-0 flex flex-col items-center justify-center p-6 text-center" style="background: linear-gradient(to bottom, rgba(15,14,11,0.25), rgba(15,14,11,0.72));">
-                    <p class="text-[11px] uppercase tracking-[0.25em] text-white/60">Question 1 of 3</p>
-                    <p class="serif text-2xl md:text-3xl mt-2">Which empire built the Colosseum?</p>
-                    <div class="grid grid-cols-2 gap-2 mt-5 w-full max-w-[340px] text-[13px]">
-                      <span class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">A · Greece</span>
-                      <span class="rounded-lg bg-[#BC5227] text-white px-3 py-2 font-semibold">B · Rome</span>
-                      <span class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">C · Persia</span>
-                      <span class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">D · Egypt</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="flex items-center gap-3 px-4 h-12 border-t border-white/10 text-white/60 text-[12px]">
-                  <span class="w-6 h-6 rounded-full bg-white text-black flex items-center justify-center text-[10px]" aria-hidden="true">▶</span>
-                  <div class="flex-1 h-1 rounded bg-white/15 overflow-hidden"><div class="h-full w-2/5 bg-[#D96C3D]"></div></div>
-                  <span>AI · Aditi</span>
-                </div>
-              </div>
-            </div>
-            <p class="mt-4 text-[13px] leading-relaxed text-white/60">Example frame. Each question is read aloud, then its answer is revealed and read aloud.</p>
+          <div class="relative lg:justify-self-end w-full max-w-[540px]">
+            <app-hero-scene />
           </div>
         </div>
       </section>

@@ -100,10 +100,10 @@ Answer: Gold</pre>
           <li>Recommended: 15 to 25 questions (produces videos of eight to fifteen minutes, ideal for YouTube)</li>
           <li>Maximum: 100 questions per file (longer quizzes should be split into multiple videos)</li>
         </ul>
-        <p>Each question should have between three and five answer options. Four options is the sweet spot: enough to provide genuine challenge without overwhelming viewers with too many choices to read within the countdown timer.</p>
+        <p>Each question should have between three and five answer options. Four options is the sweet spot: enough to provide genuine challenge without overwhelming viewers with too many choices to read while the question is on screen.</p>
 
         <h2>Best Practices for Answer Options</h2>
-        <p>The standard and most effective configuration is four answer options with exactly one correct answer. This format provides enough variety to be challenging while remaining manageable for viewers to read and evaluate within the time allowed by the countdown timer.</p>
+        <p>The standard and most effective configuration is four answer options with exactly one correct answer. This format provides enough variety to be challenging while remaining manageable for viewers to read and evaluate within the time the question is on screen.</p>
         <p>Three options work well for simpler topics or content aimed at younger audiences. They reduce cognitive load and allow for faster pacing. Five options are appropriate for advanced or professional-level content where more nuanced distinctions between answers are meaningful.</p>
         <p>Always place the correct answer in a random position across your questions. If the correct answer is consistently option B or always the longest choice, observant viewers will notice the pattern and game the system rather than actually testing their knowledge.</p>
 

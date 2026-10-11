@@ -70,12 +70,12 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
     title: 'TXT to Quiz Video Generator',
     hook: 'Turn a text file of questions into a narrated quiz video.',
     description:
-      'Upload a TXT file with multiple-choice questions, pick a template and an AI voice, and get a narrated MP4 video with timed question cards and answer reveals, ready for YouTube or the classroom.',
+      'Upload a TXT file with multiple-choice questions, pick an AI voice, and get a narrated MP4 video. Each question is read aloud on its slide, then its answer is revealed and read aloud, ready for YouTube or the classroom.',
     bullets: [
       'Plain-text question format: no special authoring tools',
-      '5 AI narration voices with timed pacing',
-      'Multiple visual templates (classic, modern, education, dark, minimal, neon)',
-      'Answer reveals and smooth transitions built in',
+      '5 AI narration voices to choose from',
+      'Classic template today; more templates are marked "Soon" in the project form',
+      'A question slide followed by an answer slide, both narrated',
     ],
     steps: [
       { title: 'Upload TXT', text: 'Your questions in a simple text format.' },
@@ -84,7 +84,7 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
     ],
     cta: 'Create a quiz video',
     ctaLink: '/projects/new',
-    specs: ['1080p MP4', '5 AI voices', '6 templates', 'Timed reveals'],
+    specs: ['1080p MP4', '5 AI voices', 'Narrated answers'],
   },
 };
 
