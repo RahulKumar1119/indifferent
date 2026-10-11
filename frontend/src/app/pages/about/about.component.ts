@@ -64,7 +64,7 @@ import { setPageSeo } from '../../shared/seo';
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div>
             <h2 class="serif font-medium tracking-[-0.02em] text-[clamp(2rem,4vw,3rem)] leading-[1.02]">Our mission</h2>
-            <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it effortless to convert your multiple-choice quiz files into engaging, YouTube-ready video content. Whether you're an educator, content creator, or training professional, our platform automates the entire production: from parsing your questions to generating narrated, animated videos with countdown timers and answer reveals.</p>
+            <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it effortless to convert your multiple-choice quiz files into engaging, YouTube-ready video content. Whether you're an educator, content creator, or training professional, our platform automates the entire production: from parsing your questions to generating a narrated video that reads each question aloud and then reveals the answer.</p>
             <a routerLink="/login" class="btn-primary mt-6 inline-flex items-center gap-3 rounded-full bg-[#1A1714] text-white pl-6 pr-2 py-2 font-semibold text-[14.5px]">Start creating <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">→</span></a>
           </div>
           <div class="rounded-[20px] overflow-hidden border border-black/10">
@@ -86,7 +86,7 @@ import { setPageSeo } from '../../shared/seo';
             </li>
             <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-t border-black/10">
               <span class="serif italic text-[26px] text-[#BC5227] leading-none">03</span>
-              <div><h3 class="font-semibold">Automatic processing</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">Our serverless pipeline parses questions, builds animated slides, creates narration, and renders the video.</p></div>
+              <div><h3 class="font-semibold">Automatic processing</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">Our serverless pipeline parses questions, builds question and answer slides, creates narration, and renders the video.</p></div>
             </li>
             <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-y border-black/10">
               <span class="serif italic text-[26px] text-[#BC5227] leading-none">04</span>
@@ -120,15 +120,8 @@ import { setPageSeo } from '../../shared/seo';
 
         <!-- Templates -->
         <section class="mt-16">
-          <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">Six themes, one engine</h2>
-          <div class="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
-            @for (t of templates; track t.name) {
-              <div class="rounded-[20px] bg-white border border-black/[0.07] p-5">
-                <p class="font-semibold text-[15px]">{{ t.name }}</p>
-                <p class="text-[13px] text-[#6B6560] mt-0.5">{{ t.desc }}</p>
-              </div>
-            }
-          </div>
+          <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">One template today, more on the way</h2>
+          <p class="mt-4 max-w-[60ch] text-[16px] leading-relaxed text-[#3E3A33]">Every video uses the Classic template: a clean white page with a purple accent. The other templates (Modern, Education, Dark, Minimal and Neon) appear in the project form marked "Soon" and are not available yet.</p>
         </section>
 
         <!-- Voices -->
@@ -203,14 +196,6 @@ export class AboutComponent implements OnInit {
   }
 
   currentYear = new Date().getFullYear();
-  templates = [
-    { name: 'Classic', desc: 'Clean blue theme, professional look' },
-    { name: 'Modern', desc: 'Gradient backgrounds, contemporary design' },
-    { name: 'Education', desc: 'Warm colors, classroom-friendly' },
-    { name: 'Dark', desc: 'Dark mode, high contrast for readability' },
-    { name: 'Minimal', desc: 'Simple white, distraction-free' },
-    { name: 'Neon', desc: 'Vibrant colors, energetic style' },
-  ];
   voices = [
     { name: 'Joanna', desc: 'US English, female, clear and professional', initials: 'JO' },
     { name: 'Matthew', desc: 'US English, male, warm and authoritative', initials: 'MA' },
