@@ -3,11 +3,12 @@ import { isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
+import { FlipbookComponent } from './flipbook.component';
 
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [RouterLink, NavMenuComponent, NavMobileMenuComponent],
+  imports: [RouterLink, NavMenuComponent, NavMobileMenuComponent, FlipbookComponent],
   styles: [`
     /* Shape rule: pills for buttons, 20px cards, 12px inputs. Serif display only here. */
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
@@ -64,11 +65,7 @@ import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/
               </a>
               <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                 <span class="block text-white text-[13.5px] font-medium">AI narration</span>
-                <span class="block text-white/60 text-[12px] mt-0.5">5 voices, timed delivery</span>
-              </a>
-              <a routerLink="/blog/video-template-comparison" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                <span class="block text-white text-[13.5px] font-medium">Video templates</span>
-                <span class="block text-white/60 text-[12px] mt-0.5">Classic to Neon styles</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">5 voices to choose from</span>
               </a>
             </app-nav-menu>
             <app-nav-menu label="Resources" [width]="270">
@@ -96,7 +93,6 @@ import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/
               <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">YouTube creators</a>
               <a routerLink="/blog/educational-video-best-practices" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Teachers &amp; educators</a>
               <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">AI narration</a>
-              <a routerLink="/blog/video-template-comparison" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Video templates</a>
               <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Resources</p>
               <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
               <a routerLink="/blog/quiz-file-format-guide" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Format guide</a>
@@ -118,26 +114,22 @@ import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/
 
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-12 items-center">
           <div>
-            <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-white/15 text-white/70">
-              <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Studio &amp; Engine · TXT to Video
-            </p>
-            <h1 #heroTitle class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(3rem,8vw,6.2rem)] text-balance">
-              Video<br><em class="font-light italic">Architecture.</em>
+            <h1 #heroTitle class="serif font-medium leading-[1.02] tracking-[-0.02em] text-[clamp(2.6rem,6vw,4.6rem)] text-balance">
+              Turn a quiz text file into a <em class="font-light italic">narrated video.</em>
             </h1>
             <p #heroSubtitle class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[46ch]">
-              Upload a quiz file. Receive a narrated, timed, YouTube-ready film.
+              Upload a TXT file of multiple-choice questions, choose one of five AI voices, and download a 1080p MP4 where each question is read aloud and then answered.
             </p>
             <div #heroCta class="mt-8 flex flex-wrap items-center gap-4">
               <a routerLink="/login" class="btn-primary inline-flex items-center gap-3 rounded-full bg-[#E8E0D2] text-[#141310] pl-7 pr-2 py-2 font-semibold">
                 Start creating
                 <span class="w-9 h-9 rounded-full bg-[#141310] text-white flex items-center justify-center">→</span>
               </a>
-              <a href="#templates" class="inline-flex items-center min-h-[44px] text-[15px] text-white/80 underline underline-offset-8 decoration-white/30 hover:decoration-white transition">View templates →</a>
+              <a href="#process" class="inline-flex items-center min-h-[44px] text-[15px] text-white/80 underline underline-offset-8 decoration-white/30 hover:decoration-white transition">See how it works</a>
             </div>
-            <dl class="mt-10 flex gap-8 text-[13px] text-white/55">
-              <div><dt class="sr-only">Render time</dt><dd class="serif text-2xl text-white">~4 min</dd><dd>file to MP4</dd></div>
-              <div class="border-l border-white/10 pl-8"><dd class="serif text-2xl text-white">6</dd><dd>art-directed themes</dd></div>
-              <div class="border-l border-white/10 pl-8"><dd class="serif text-2xl text-white">5</dd><dd>AI narrator voices</dd></div>
+            <dl class="mt-10 flex flex-wrap gap-x-8 gap-y-4 text-[13px] text-white/60">
+              <div><dd class="serif text-2xl text-white">5</dd><dd>AI narrator voices</dd></div>
+              <div class="border-l border-white/10 pl-8"><dd class="serif text-2xl text-white">1080p</dd><dd>MP4 export</dd></div>
             </dl>
           </div>
 
@@ -149,12 +141,11 @@ import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/
                   <span class="w-2.5 h-2.5 rounded-full bg-white/15"></span>
                   <span class="w-2.5 h-2.5 rounded-full bg-white/15"></span>
                   <span class="w-2.5 h-2.5 rounded-full bg-[#D96C3D]/70"></span>
-                  <span class="ml-3 text-[11px] tracking-widest uppercase text-white/60">world-history-quiz.mp4 · 1080p</span>
+                  <span class="ml-3 text-[11px] tracking-widest uppercase text-white/60">Example frame · 1080p</span>
                 </div>
-                <div class="relative aspect-video">
-                  <img src="https://picsum.photos/seed/indifferent-quiz-frame/960/540" alt="Generated quiz video frame showing a timed question card" class="absolute inset-0 w-full h-full object-cover">
-                  <div class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center" style="background: linear-gradient(to bottom, rgba(15,14,11,0.25), rgba(15,14,11,0.72));">
-                    <p class="text-[11px] uppercase tracking-[0.25em] text-white/60">Question 07 / 20</p>
+                <div class="relative sm:aspect-video">
+                  <div class="sm:absolute sm:inset-0 flex flex-col items-center justify-center p-6 text-center" style="background: linear-gradient(to bottom, rgba(15,14,11,0.25), rgba(15,14,11,0.72));">
+                    <p class="text-[11px] uppercase tracking-[0.25em] text-white/60">Question 1 of 3</p>
                     <p class="serif text-2xl md:text-3xl mt-2">Which empire built the Colosseum?</p>
                     <div class="grid grid-cols-2 gap-2 mt-5 w-full max-w-[340px] text-[13px]">
                       <span class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">A · Greece</span>
@@ -163,74 +154,54 @@ import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/
                       <span class="rounded-lg bg-white/10 border border-white/20 px-3 py-2">D · Egypt</span>
                     </div>
                   </div>
-                  <span class="absolute bottom-3 right-3 rounded-md bg-black/70 text-white text-[11px] px-2 py-0.5">03:24</span>
                 </div>
                 <div class="flex items-center gap-3 px-4 h-12 border-t border-white/10 text-white/60 text-[12px]">
-                  <span class="w-6 h-6 rounded-full bg-white text-black flex items-center justify-center text-[10px]">▶</span>
+                  <span class="w-6 h-6 rounded-full bg-white text-black flex items-center justify-center text-[10px]" aria-hidden="true">▶</span>
                   <div class="flex-1 h-1 rounded bg-white/15 overflow-hidden"><div class="h-full w-2/5 bg-[#D96C3D]"></div></div>
                   <span>AI · Aditi</span>
                 </div>
               </div>
             </div>
-            <div class="absolute -bottom-5 -left-4 md:-left-8 rounded-2xl bg-[#F4EFE6] text-[#1A1714] px-4 py-3 shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-black/10 rotate-[-2deg]">
-              <p class="text-[11px] uppercase tracking-[0.18em] text-[#6B6560]">Narration</p>
-              <p class="text-[14px] font-medium">“Answer B: Rome…”</p>
-            </div>
-            <div class="absolute -top-4 -right-2 md:-right-4 rounded-full bg-[#1E3A2A] text-[#EDE8DB] px-4 py-2 text-[12.5px] border border-white/15 rotate-[3deg]">Auto timers · Reveals · Captions</div>
+            <p class="mt-4 text-[13px] leading-relaxed text-white/60">Example frame. Each question is read aloud, then its answer is revealed and read aloud.</p>
           </div>
         </div>
       </section>
 
       <main class="bg-[#FAF7F2]">
-        <!-- TEMPLATES · curated assemblages -->
-        <section id="templates" class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-24 md:py-32">
-          <div class="reveal flex flex-wrap items-end justify-between gap-6">
-            <h2 class="serif font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2rem,4.5vw,3.4rem)] max-w-[14ch]">Curated templates, ready to render.</h2>
-            <a routerLink="/login" class="rounded-full border border-[#1A1714]/20 px-6 py-3 text-[14px] font-semibold hover:bg-[#1A1714] hover:text-white transition-colors">View complete archive</a>
-          </div>
-          <p class="reveal mt-4 text-[#6B6560] max-w-[62ch] leading-relaxed">Living themes designed for watch time. Not slideshows. Timed, narrated films with countdowns and reveals.</p>
-
-          <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-            @for (t of templates; track t.name) {
-              <article class="reveal card-lift rounded-[20px] overflow-hidden bg-white border border-black/[0.07]">
-                <div class="relative aspect-[4/3] overflow-hidden">
-                  <img [src]="t.image" [alt]="t.name + ' template preview'" loading="lazy" class="w-full h-full object-cover">
-                  <span class="absolute top-3 left-3 rounded-full bg-black/55 backdrop-blur text-white text-[11.5px] px-3 py-1">{{ t.tag }}</span>
-                </div>
-                <div class="p-6">
-                  <div class="flex items-baseline justify-between">
-                    <h3 class="serif text-[26px] leading-none">{{ t.name }}</h3>
-                    <span class="text-[13px] text-[#6B6560]">{{ t.meta }}</span>
-                  </div>
-                  <p class="mt-2 text-[14.5px] text-[#6B6560] leading-relaxed">{{ t.desc }}</p>
-                  <a routerLink="/login" class="btn-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1A1714] text-white py-3 text-[14.5px] font-semibold hover:bg-[#2A2620]">
-                    Use {{ t.name }} <span aria-hidden="true">→</span>
-                  </a>
-                </div>
-              </article>
-            }
+        <!-- TOOLS · the rest of the studio -->
+        <section aria-labelledby="tools-heading" class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-16 md:pt-20">
+          <h2 id="tools-heading" class="reveal text-[13px] font-medium text-[#6B6560]">Also in the studio</h2>
+          <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <a routerLink="/shorts-maker" class="reveal card-lift flex items-center justify-between gap-6 rounded-[20px] bg-[#1A1714] p-6 md:p-7 text-[#F4EFE6]">
+              <span>
+                <span class="serif block text-[26px] leading-tight">AI Shorts generator</span>
+                <span class="mt-1.5 block max-w-[44ch] text-[14.5px] leading-relaxed text-white/70">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions.</span>
+              </span>
+              <span class="shrink-0 text-[20px]" aria-hidden="true">→</span>
+            </a>
+            <a routerLink="/tools/add-watermark" class="reveal card-lift flex items-center justify-between gap-6 rounded-[20px] bg-[#1E3A2A] p-6 md:p-7 text-[#EDE8DB]">
+              <span>
+                <span class="serif block text-[26px] leading-tight">Watermark tool</span>
+                <span class="mt-1.5 block max-w-[44ch] text-[14.5px] leading-relaxed text-[#EDE8DB]/80">Add draggable text watermarks to JPG, PNG and WebP images. It runs in your browser and nothing is uploaded.</span>
+              </span>
+              <span class="shrink-0 text-[20px]" aria-hidden="true">→</span>
+            </a>
           </div>
         </section>
-
-        <!-- PROCESS · architecture of video -->
-        <section id="process" class="border-y border-black/[0.07] bg-[#F3EEE3]">
-          <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-24 md:py-32 grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-12">
-            <div class="reveal relative order-2 lg:order-1">
-              <div class="rounded-[20px] overflow-hidden border border-black/10">
-                <img src="https://picsum.photos/seed/indifferent-process-studio/900/1100" alt="Editorial view of the rendering studio workflow" loading="lazy" class="w-full h-[420px] lg:h-[560px] object-cover">
-              </div>
-              <div class="absolute bottom-5 left-5 right-5 rounded-2xl bg-[#0F0E0B]/85 backdrop-blur text-white p-5 border border-white/10">
-                <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-white/50">$ cat capitals-quiz.txt</p>
-                <p class="mt-2 font-mono text-[13px] leading-relaxed text-white/85">1. Capital of Japan?<br>a) Kyoto&nbsp;&nbsp;b) Tokyo *&nbsp;&nbsp;c) Osaka<br>→ detected · 20 questions · 03:41 runtime</p>
-              </div>
+        <!-- PROCESS · how it works -->
+        <section id="process" class="scroll-mt-24 mt-16 md:mt-24 border-y border-black/[0.07] bg-[#F3EEE3]">
+          <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-20 md:py-28 grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-12">
+            <div class="reveal order-2 lg:order-1">
+              <app-flipbook />
+              <a routerLink="/blog/quiz-file-format-guide" class="mt-2 inline-flex items-center min-h-[44px] text-[14px] font-semibold text-[#A8481F] underline underline-offset-4">Read the format guide <span class="ml-1" aria-hidden="true">→</span></a>
             </div>
             <div class="order-1 lg:order-2">
-              <h2 class="reveal serif font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2rem,4.5vw,3.4rem)]">The architecture<br>of video.</h2>
-              <p class="reveal mt-4 text-[#6B6560] max-w-[52ch] leading-relaxed">A deliberate rejection of screen-recording. Every upload is treated as a timed broadcast.</p>
+              <h2 class="reveal serif font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2rem,4.5vw,3.4rem)]">How it works.</h2>
+              <p class="reveal mt-4 max-w-[52ch] leading-relaxed text-[#6B6560]">Three steps from a text file to a finished video.</p>
               <ol class="mt-10">
                 @for (s of steps; track s.n) {
                   <li class="reveal grid grid-cols-[56px_1fr] gap-5 py-7 border-t border-black/10 last:border-b">
-                    <span class="serif italic text-[30px] text-[#BC5227] leading-none">{{ s.n }}</span>
+                    <span class="serif italic text-[30px] text-[#A8481F] leading-none">{{ s.n }}</span>
                     <div>
                       <h3 class="text-[19px] font-semibold">{{ s.title }}</h3>
                       <p class="mt-1.5 text-[15px] text-[#6B6560] leading-relaxed max-w-[52ch]">{{ s.body }}</p>
@@ -241,40 +212,23 @@ import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/
             </div>
           </div>
         </section>
-
-        <!-- ARCHIVE · use-case bento -->
-        <section id="archive" class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-24 md:py-32">
-          <h2 class="reveal serif font-medium tracking-[-0.02em] text-[clamp(2rem,4.5vw,3.4rem)]">The archive.</h2>
-          <p class="reveal mt-3 text-[#6B6560] max-w-[58ch]">Pick a lane and the timing, voices, and reveals adapt.</p>
-          <div class="mt-10 grid grid-cols-1 md:grid-cols-6 gap-5">
-            <a routerLink="/login" id="use-youtube" class="reveal card-lift group relative overflow-hidden rounded-[20px] md:col-span-4 min-h-[300px] flex items-end scroll-mt-24">
-              <img src="https://picsum.photos/seed/indifferent-youtube/1200/700" alt="YouTube quiz channel setup" loading="lazy" class="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700">
-              <span class="absolute inset-0" style="background: linear-gradient(to top, rgba(15,14,11,0.78), transparent 60%);"></span>
-              <span class="relative p-7 text-white"><span class="block text-[12px] uppercase tracking-[0.2em] text-white/65">01 · Faceless channels</span><span class="serif block text-3xl mt-1">YouTube quiz shows</span></span>
-            </a>
-            <a routerLink="/login" id="use-lessons" class="reveal card-lift group relative overflow-hidden rounded-[20px] md:col-span-2 min-h-[300px] flex items-end scroll-mt-24">
-              <img src="https://picsum.photos/seed/indifferent-classroom/800/700" alt="Classroom revision video" loading="lazy" class="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700">
-              <span class="absolute inset-0" style="background: linear-gradient(to top, rgba(15,14,11,0.78), transparent 60%);"></span>
-              <span class="relative p-7 text-white"><span class="block text-[12px] uppercase tracking-[0.2em] text-white/65">02 · Teaching</span><span class="serif block text-3xl mt-1">Lesson recaps</span></span>
-            </a>
-            <a routerLink="/login" id="use-events" class="reveal card-lift group relative overflow-hidden rounded-[20px] md:col-span-2 min-h-[260px] flex items-end scroll-mt-24">
-              <img src="https://picsum.photos/seed/indifferent-trivia/800/600" alt="Pub trivia night visuals" loading="lazy" class="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700">
-              <span class="absolute inset-0" style="background: linear-gradient(to top, rgba(15,14,11,0.78), transparent 60%);"></span>
-              <span class="relative p-6 text-white"><span class="block text-[12px] uppercase tracking-[0.2em] text-white/65">03 · Events</span><span class="serif block text-[26px] mt-1">Trivia nights</span></span>
-            </a>
-            <a routerLink="/login" id="use-teams" class="reveal card-lift group relative overflow-hidden rounded-[20px] md:col-span-2 min-h-[260px] flex items-end scroll-mt-24">
-              <img src="https://picsum.photos/seed/indifferent-training/800/600" alt="Corporate training still" loading="lazy" class="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700">
-              <span class="absolute inset-0" style="background: linear-gradient(to top, rgba(15,14,11,0.78), transparent 60%);"></span>
-              <span class="relative p-6 text-white"><span class="block text-[12px] uppercase tracking-[0.2em] text-white/65">04 · Teams</span><span class="serif block text-[26px] mt-1">Staff training</span></span>
-            </a>
-            <a routerLink="/tools/add-watermark" class="reveal card-lift relative overflow-hidden rounded-[20px] md:col-span-2 min-h-[260px] flex flex-col justify-between p-6 bg-[#1E3A2A] text-[#EDE8DB]">
-              <span class="text-[12px] uppercase tracking-[0.2em] text-white/60">05 · Finishing</span>
-              <span class="serif text-[26px] leading-tight">Brand it.<br>Watermark &amp; ship.</span>
-              <span class="inline-flex w-max items-center gap-2 rounded-full bg-white/10 border border-white/15 px-4 py-2 text-[13.5px]">Open tool →</span>
-            </a>
-          </div>
+        <!-- WHO · where a quiz video fits -->
+        <section id="who" class="scroll-mt-24 w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-20 md:py-28">
+          <h2 class="reveal serif font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2rem,4.5vw,3.4rem)]">Where a quiz video fits.</h2>
+          <ul class="mt-10 border-t border-[#1A1714]/15">
+            @for (u of useCases; track u.title) {
+              <li class="reveal border-b border-[#1A1714]/15">
+                <a [routerLink]="u.href" class="flex items-center justify-between gap-6 py-6 transition-colors hover:bg-black/[0.02]">
+                  <span>
+                    <span class="serif block text-[26px] md:text-[30px] leading-tight">{{ u.title }}</span>
+                    <span class="mt-1 block max-w-[56ch] text-[15px] text-[#6B6560]">{{ u.text }}</span>
+                  </span>
+                  <span class="shrink-0 text-[14px] font-semibold text-[#A8481F]"><span class="hidden sm:inline">{{ u.cta }} </span><span aria-hidden="true">→</span></span>
+                </a>
+              </li>
+            }
+          </ul>
         </section>
-
       </main>
 
       <!-- CLOSING dark block: manifesto + newsletter + footer -->
@@ -286,39 +240,38 @@ import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/
             <p class="serif text-center leading-none tracking-[-0.03em] text-[clamp(3.5rem,14vw,11rem)] text-[#F4EFE6]/95 select-none">INDIFFERENT</p>
             <div class="mt-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-[14px]">
               <div>
-                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Archive</p>
-                <ul class="space-y-2 text-white/75">
-                  <li><a routerLink="/login" class="hover:text-white">Templates</a></li>
-                  <li><a routerLink="/blog" class="hover:text-white">Journal</a></li>
-                  <li><a routerLink="/features/watermark" class="hover:text-white">Watermark tool</a></li>
-                  <li><a routerLink="/features/ai-shorts" class="hover:text-white">AI Shorts generator</a></li>
-                  <li><a routerLink="/features/txt-to-video-quiz" class="hover:text-white">TXT to quiz video</a></li>
+                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Product</p>
+                <ul class="text-white/75">
+                  <li><a href="#process" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">How it works</a></li>
+                  <li><a routerLink="/blog" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Journal</a></li>
+                  <li><a routerLink="/features/watermark" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Watermark tool</a></li>
+                  <li><a routerLink="/features/ai-shorts" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">AI Shorts generator</a></li>
+                  <li><a routerLink="/features/txt-to-video-quiz" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">TXT to quiz video</a></li>
                 </ul>
               </div>
               <div>
                 <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Studio</p>
-                <ul class="space-y-2 text-white/75">
-                  <li><a routerLink="/about" class="hover:text-white">About</a></li>
-                  <li><a routerLink="/contact" class="hover:text-white">Contact</a></li>
-                  <li><a routerLink="/blog" class="hover:text-white">Format guide</a></li>
+                <ul class="text-white/75">
+                  <li><a routerLink="/about" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">About</a></li>
+                  <li><a routerLink="/contact" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Contact</a></li>
+                  <li><a routerLink="/blog/quiz-file-format-guide" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Format guide</a></li>
                 </ul>
               </div>
               <div>
                 <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Legal</p>
-                <ul class="space-y-2 text-white/75">
-                  <li><a routerLink="/privacy" class="hover:text-white">Privacy</a></li>
-                  <li><a routerLink="/terms" class="hover:text-white">Terms</a></li>
+                <ul class="text-white/75">
+                  <li><a routerLink="/privacy" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Privacy</a></li>
+                  <li><a routerLink="/terms" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Terms</a></li>
                 </ul>
               </div>
               <div>
                 <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Start</p>
                 <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#BC5227] text-white px-6 py-3 font-semibold text-[14px]">Start creating →</a>
-                <p class="mt-4 text-white/50 text-[13px]">TXT in. MP4 out.<br>Built with Angular, Go &amp; AWS.</p>
+                <p class="mt-4 text-white/60 text-[13px]">TXT in. MP4 out.</p>
               </div>
             </div>
             <div class="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-white/60">
               <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-              <span>Architecture of video</span>
             </div>
           </footer>
         </div>
@@ -336,46 +289,28 @@ export class LandingComponent implements AfterViewInit {
 
   currentYear = new Date().getFullYear();
 
-  templates = [
-    {
-      name: 'Midnight Lecture',
-      tag: 'High contrast',
-      meta: '16:9 · 1080p',
-      desc: 'High-contrast cards with calm narration bed. Built for retention.',
-      image: 'https://picsum.photos/seed/indifferent-t-midnight/800/600',
-    },
-    {
-      name: 'Blush Seminar',
-      tag: 'Warm grade',
-      meta: '16:9 · 1080p',
-      desc: 'Paper-warm backgrounds with ink type. Feels like a printed handout, filmed.',
-      image: 'https://picsum.photos/seed/indifferent-t-blush/800/600',
-    },
-    {
-      name: 'Neon Recall',
-      tag: 'High energy',
-      meta: '9:16 ready',
-      desc: 'Countdown timers and answer stings. Made for Shorts and Reels cuts.',
-      image: 'https://picsum.photos/seed/indifferent-t-neon/800/600',
-    },
-  ];
-
   steps = [
     {
       n: '01',
-      title: 'Upload & vision',
+      title: 'Upload',
       body: 'Drop a TXT file. We detect numbering, options, and answer keys automatically. No formatting cleanup.',
     },
     {
       n: '02',
-      title: 'Voice & timing',
-      body: 'Pick from 5 Polly narrators. Questions, countdowns, and reveals are scored to the voice track.',
+      title: 'Choose a voice',
+      body: 'Pick one of five AI narrators. Each question and each answer is read aloud in that voice.',
     },
     {
       n: '03',
-      title: 'Render & publish',
-      body: 'Serverless pipeline cuts the MP4 in minutes. Download, watermark, and post to YouTube.',
+      title: 'Render and download',
+      body: 'We render the MP4 for you. Download it, watermark it if you like, and post it to YouTube.',
     },
+  ];
+  useCases = [
+    { title: 'YouTube quiz shows', text: 'Faceless quiz channels: upload a file, publish the video.', href: '/blog/quiz-videos-youtube', cta: 'Read the guide' },
+    { title: 'Lesson recaps', text: 'Turn revision questions into a video students can replay.', href: '/blog/educational-video-best-practices', cta: 'Read the guide' },
+    { title: 'Trivia nights', text: 'Run a round straight from a text file of questions.', href: '/features/txt-to-video-quiz', cta: 'See the feature' },
+    { title: 'Staff training', text: 'Check understanding with multiple-choice questions.', href: '/features/txt-to-video-quiz', cta: 'See the feature' },
   ];
 
   ngAfterViewInit(): void {

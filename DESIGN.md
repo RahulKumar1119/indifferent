@@ -56,6 +56,7 @@ Conflicts to resolve (Owner decision):
 
 - The token --color-primary #6366f1 (indigo) and the theme-color #7c3aed (purple) are not part of the palette above. Indigo on paper is 4.18:1 and fails as small text. Both read as the default AI palette (R-01).
 - The "Aurora gradient background" in styles.css, and 40 gradient uses across the frontend, each need a written reason or removal (R-01).
+- The slides the renderer produces (and the landing page now shows) use a purple accent, #7C3AED, and plain white pages. That is not the palette above, and the renderer ignores the template name, so all six template names look the same. Decide whether the renderer should adopt this palette and whether the six templates should be real.
 
 ## Typography
 
@@ -78,6 +79,14 @@ Dial: ENERGY 2 / RHYTHM 2 / MOTION 1
 - ENERGY 2: the site has to explain two tools and earn trust, so it is confident but not experimental.
 - RHYTHM 2: sections stay consistent with a few deliberate breaks, so pages are not one repeated template (R-05).
 - MOTION 1: hover states and real progress feedback only. Both tools are task-driven, and motion should show job progress, not decorate.
+
+Landing page exception: MOTION 3, requested by the owner (page-flip, three.js and GSAP). Everything else on the site stays at MOTION 1. The written purpose (R-19), and the limits that keep it honest:
+
+- The book turns pages through one real worked example, from a TXT file to the slides a video is made of. Page turns are the visitor's choice. The only automatic motion is one cover-opening flip, which never plays after the visitor has touched the book.
+- The hero shows the two slides every video is built from, a question slide and an answer slide, rendered by the product's own renderer. It tilts with the pointer and fans apart as the hero scrolls away.
+- Nothing loops. The 3D scene draws only when something changed, and measured 0 draw calls when idle.
+- With prefers-reduced-motion, or with data saver on, or without WebGL, or if a library fails to load, visitors get static images and the pages as a plain list. The three.js code is not even downloaded.
+- The libraries load after the page is interactive, so the first paint is a plain image.
 
 These are drafts for the owner to change.
 

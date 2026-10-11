@@ -48,16 +48,14 @@ interface Post {
             <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
           </a>
           <div class="hidden md:flex items-center gap-7 text-[13.5px] text-white/70">
-            <a routerLink="/login" class="hover:text-white transition-colors">Templates</a>
-            <a routerLink="/" fragment="process" class="hover:text-white transition-colors">Process</a>
-            <a routerLink="/" fragment="archive" class="hover:text-white transition-colors">Archive</a>
+            <a routerLink="/" fragment="process" class="hover:text-white transition-colors">How it works</a>
+            <a routerLink="/" fragment="who" class="hover:text-white transition-colors">Who it's for</a>
             <a routerLink="/blog" class="text-white font-medium">Journal</a>
           </div>
           <div class="flex items-center gap-1">
             <app-nav-mobile-menu>
-              <a routerLink="/login" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Templates</a>
-              <a routerLink="/" fragment="process" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Process</a>
-              <a routerLink="/" fragment="archive" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Archive</a>
+              <a routerLink="/" fragment="process" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">How it works</a>
+              <a routerLink="/" fragment="who" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Who it\'s for</a>
               <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
             </app-nav-mobile-menu>
             <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-11 pl-5 pr-5 sm:pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
