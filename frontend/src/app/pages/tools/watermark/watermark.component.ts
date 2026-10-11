@@ -6,6 +6,15 @@ import { FormsModule } from '@angular/forms';
 import gsap from 'gsap';
 import { setPageSeo } from '../../../shared/seo';
 
+// FFmpeg.wasm single-thread core (no COOP/COEP headers needed). Pinned CDN
+// URLs, fetched lazily on first video export — never on page load.
+const FF_CORE_JS = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js';
+const FF_CORE_WASM = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.wasm';
+// The -st core exports _main (cwrap name 'main'), not the default proxy_main.
+const FF_MAIN_NAME = 'main';
+// Client-side processing gate: larger files need ~2GB free RAM.
+const MAX_CLIENT_BYTES = 500 * 1024 * 1024;
+
 type WatermarkKind = 'text' | 'logo';
 type AspectOption = 'original' | '16:9' | '9:16' | '1:1';
 
@@ -31,6 +40,22 @@ const COLOR_PRESETS = ['#ffffff', '#000000', '#ff3b30', '#ffcc00', '#00c7ff', '#
 
 // 3x3 snap positions as fractions of the frame.
 const GRID_SPOTS = [0.15, 0.5, 0.85];
+
+// Minimal surface of @ffmpeg/ffmpeg 0.11 used by the video export.
+interface FfmpegFactory {
+  createFFmpeg(options: { corePath: string; mainName?: string; log?: boolean }): FfmpegEngine;
+  fetchFile(input: File | Blob | string): Promise<Uint8Array>;
+}
+
+interface FfmpegEngine {
+  isLoaded(): boolean;
+  load(): Promise<void>;
+  run(...args: string[]): Promise<void>;
+  FS(op: 'writeFile', name: string, data: Uint8Array): void;
+  FS(op: 'readFile', name: string): Uint8Array;
+  FS(op: 'unlink', name: string): void;
+  setProgress(cb: (progress: { ratio: number }) => void): void;
+}
 
 @Component({
   selector: 'app-watermark',
@@ -148,6 +173,7 @@ const GRID_SPOTS = [0.15, 0.5, 0.85];
               </div>
 
               <div
+                #fxLayer
                 class="drag-surface relative flex items-center justify-center overflow-hidden rounded-xl bg-[#1A1714]/[.03] min-h-[280px] cursor-crosshair"
                 (pointerdown)="onPointerDown($event)"
                 (pointermove)="onPointerMove($event)"
@@ -156,7 +182,7 @@ const GRID_SPOTS = [0.15, 0.5, 0.85];
                 (pointerleave)="onPointerUp()"
               >
                 <canvas #previewCanvas class="max-w-full max-h-[62vh] rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)]"></canvas>
-                <video #videoEl class="hidden" [src]="fileUrl" muted playsInline preload="auto" (loadedmetadata)="onVideoLoaded()" (seeked)="updatePreview()" (ended)="onVideoEnded()"></video>
+                <video #videoEl class="hidden" [src]="fileUrl" muted playsInline preload="auto" (loadedmetadata)="onVideoLoaded()" (seeked)="renderPreview()" (ended)="onVideoEnded()"></video>
                 <span class="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1A1714]/[.06] border border-black/10 text-[#3E3A33] text-[11.5px] font-medium px-3 py-1 pointer-events-none whitespace-nowrap">Drag to move watermark</span>
               </div>
 
@@ -174,6 +200,25 @@ const GRID_SPOTS = [0.15, 0.5, 0.85];
                     class="flex-1" aria-label="Video timeline scrubber"
                   />
                   <span class="text-[12px] font-mono text-[#6B6560] tabular-nums shrink-0">{{ formatTime(videoTime) }} / {{ formatTime(videoDuration) }}</span>
+                </div>
+              }
+
+              @if (showShare) {
+                <div class="mt-4 rounded-2xl border border-black/10 bg-[#1E3A2A] text-[#EDE8DB] p-5">
+                  <p class="serif text-[20px]">Share your work</p>
+                  <p class="mt-1 text-[13px] text-white/70">Your watermarked file is ready. Show it off.</p>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <a [href]="xShareHref" target="_blank" rel="noopener"
+                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">Post to X</a>
+                    <a [href]="facebookShareHref" target="_blank" rel="noopener"
+                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">Facebook</a>
+                    <a [href]="whatsappShareHref" target="_blank" rel="noopener"
+                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">WhatsApp</a>
+                    <button type="button" (click)="copyShareLink()"
+                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">
+                      {{ copiedLink ? 'Copied!' : 'Copy link' }}
+                    </button>
+                  </div>
                 </div>
               }
             </div>
@@ -293,19 +338,73 @@ const GRID_SPOTS = [0.15, 0.5, 0.85];
               <p class="mt-1.5 text-[12px] text-[#6B6560]">Tip: drag directly on the preview, too.</p>
             </div>
 
+            @if (sizeGate && !sizeGateDismissed) {
+              <div class="rounded-2xl border border-amber-500/40 bg-amber-500/[0.07] p-4" role="alert">
+                <p class="text-[13.5px] font-semibold">Large file (over 500&nbsp;MB)</p>
+                <p class="mt-1 text-[12.5px] text-[#6B6560] leading-relaxed">
+                  Server-side processing isn't available in this version, so exports run
+                  entirely in your browser and need roughly 2&nbsp;GB of free memory.
+                  You can try anyway, or pick a smaller file.
+                </p>
+                <div class="mt-3 flex flex-col gap-2">
+                  <button type="button" (click)="dismissGate()"
+                    class="w-full rounded-full bg-[#1A1714] text-white py-2.5 text-[13px] font-semibold">Process anyway</button>
+                  <button type="button" (click)="reset()"
+                    class="w-full rounded-full border border-black/15 py-2.5 text-[13px] font-semibold hover:border-black/40 transition-colors">Choose smaller file</button>
+                </div>
+              </div>
+            }
+
             @if (fileError) {
               <p class="mt-3 text-[13px] font-medium text-red-600" role="alert">{{ fileError }}</p>
             }
 
+            @if (exportError) {
+              <p class="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3 text-[13px] font-medium text-red-600" role="alert">{{ exportError }}</p>
+            }
+
             <div class="flex flex-col gap-2.5 mt-5 pt-5 border-t border-black/10">
               @if (fileType === 'image') {
-                <button class="btn-primary w-full rounded-full bg-[#1A1714] text-white py-3.5 font-semibold text-[14.5px] disabled:opacity-40 disabled:cursor-not-allowed" (click)="download()" [disabled]="!downloadUrl">Download PNG</button>
-              } @else {
+                <div>
+                  <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Format</span>
+                  <div class="grid grid-cols-2 gap-2" role="group" aria-label="Image export format">
+                    <button type="button" (click)="setImgFormat('png')" [attr.aria-pressed]="imgFormat === 'png'"
+                      class="min-h-[44px] rounded-[12px] border text-[14px] font-semibold transition-colors"
+                      [class]="imgFormat === 'png' ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 hover:border-black/40'">PNG</button>
+                    <button type="button" (click)="setImgFormat('jpeg')" [attr.aria-pressed]="imgFormat === 'jpeg'"
+                      class="min-h-[44px] rounded-[12px] border text-[14px] font-semibold transition-colors"
+                      [class]="imgFormat === 'jpeg' ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 hover:border-black/40'">JPEG</button>
+                  </div>
+                  <p class="mt-1.5 text-[12px] text-[#6B6560]">JPEG flattens transparency onto white.</p>
+                </div>
                 <button class="btn-primary w-full rounded-full bg-[#1A1714] text-white py-3.5 font-semibold text-[14.5px] disabled:opacity-40 disabled:cursor-not-allowed"
-                  (click)="recording ? stopRecording() : exportVideo()" [disabled]="!videoReady">
-                  {{ recording ? 'Stop & save video (' + formatTime(videoTime) + ')' : 'Export watermarked video' }}
+                  (click)="download()" [disabled]="!downloadUrl || exportBusy()">
+                  {{ exportState === 'done' ? 'Downloaded ✓' : 'Download ' + (imgFormat === 'jpeg' ? 'JPEG' : 'PNG') }}
                 </button>
-                <p class="text-[12px] text-[#6B6560] leading-relaxed">Exports WebM with original audio by re-recording playback in your browser.</p>
+              } @else {
+                <div>
+                  <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Format</span>
+                  <div class="rounded-[12px] border border-black/15 px-4 min-h-[44px] flex items-center text-[14px] font-semibold">MP4 · H.264 + AAC</div>
+                </div>
+                <button class="btn-primary w-full rounded-full bg-[#1A1714] text-white py-3.5 font-semibold text-[14.5px] disabled:opacity-40 disabled:cursor-not-allowed"
+                  (click)="exportVideo()" [disabled]="!videoReady || exportBusy() || (sizeGate && !sizeGateDismissed)">
+                  @if (exportState === 'loading') {
+                    <span class="inline-flex items-center justify-center gap-2"><span class="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true"></span>Loading engine…</span>
+                  } @else if (exportState === 'rendering') {
+                    <span class="inline-flex items-center justify-center gap-2"><span class="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true"></span>Rendering…{{ showProgressBar ? ' ' + exportProgress + '%' : '' }}</span>
+                  } @else if (exportState === 'done') {
+                    Downloaded ✓
+                  } @else {
+                    Export watermarked video
+                  }
+                </button>
+                @if (showProgressBar && exportState === 'rendering') {
+                  <div class="h-2 rounded-full bg-black/10 overflow-hidden" role="progressbar"
+                    [attr.aria-valuenow]="exportProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Render progress">
+                    <div class="h-full bg-[#BC5227] rounded-full transition-all duration-300" [style.width.%]="exportProgress"></div>
+                  </div>
+                }
+                <p class="text-[12px] text-[#6B6560] leading-relaxed">Rendered fully in your browser. Nothing uploads anywhere.</p>
               }
               <button class="w-full rounded-full border border-black/15 py-3 text-[13.5px] font-semibold text-[#3E3A33] hover:border-black/40 transition-colors" (click)="reset()">Reset</button>
             </div>
@@ -351,6 +450,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('previewCanvas') previewCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('videoEl') videoEl?: ElementRef<HTMLVideoElement>;
+  @ViewChild('fxLayer') fxLayer?: ElementRef<HTMLDivElement>;
 
   currentYear = new Date().getFullYear();
 
@@ -394,11 +494,27 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   videoTime = 0;
   playing = false;
   videoReady = false;
-  recording = false;
   private rafId = 0;
-  private recorder: MediaRecorder | null = null;
-  private recordChunks: Blob[] = [];
-  private recordTracks: MediaStreamTrack[] = [];
+
+  // Export state machine: idle → loading → rendering → done | error.
+  exportState: 'idle' | 'loading' | 'rendering' | 'done' | 'error' = 'idle';
+  exportProgress = 0;
+  showProgressBar = false;
+  exportError = '';
+  private exportStartedAt = 0;
+  private progressTimer: number | null = null;
+  private engine: FfmpegEngine | null = null;
+  private engineLoading: Promise<void> | null = null;
+  private ffApi: FfmpegFactory | null = null;
+
+  // Image export format + large-file gate + share panel.
+  imgFormat: 'png' | 'jpeg' = 'png';
+  sizeGate = false;
+  sizeGateDismissed = false;
+  showShare = false;
+  copiedLink = false;
+  readonly shareUrl = 'https://indifferent.fun/tools/add-watermark';
+  readonly shareText = 'I just branded my content with the Indifferent Watermark Tool — free, in-browser, private.';
 
   isDragOver = false;
   downloadUrl = '';
@@ -409,7 +525,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopLoop();
-    this.stopRecordingTracks();
+    this.clearProgressTimer();
     if (this.fileUrl) URL.revokeObjectURL(this.fileUrl);
     if (this.logoUrl) URL.revokeObjectURL(this.logoUrl);
     if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
@@ -469,6 +585,9 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     this.videoReady = false;
     this.videoTime = 0;
     this.playing = false;
+    this.sizeGate = file.size > MAX_CLIENT_BYTES;
+    this.sizeGateDismissed = false;
+    this.resetExportUi();
   }
 
   onLogoSelected(event: Event): void {
@@ -504,8 +623,14 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     img.src = this.fileUrl;
   }
 
-  /** Redraw the preview canvas synchronously (no re-decode: ~16ms budget). */
+  /** Control change entry point: resets export UI, then redraws. */
   updatePreview(): void {
+    this.resetExportUi();
+    this.renderPreview();
+  }
+
+  /** Pure redraw with no side effects (scrubber, playback loop, seeks). */
+  renderPreview(): void {
     if (!this.file || !this.previewCanvas) return;
     const canvas = this.previewCanvas.nativeElement;
     const ctx = canvas.getContext('2d');
@@ -533,6 +658,23 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.showOriginal) this.drawWatermark(ctx, canvas.width, canvas.height);
     this.drawAspectGuide(ctx, canvas.width, canvas.height);
     if (this.fileType === 'image') this.generateDownload();
+  }
+
+  private resetExportUi(): void {
+    this.clearProgressTimer();
+    if (this.exportState === 'done' || this.exportState === 'error') {
+      this.exportState = 'idle';
+    }
+    this.exportError = '';
+    this.showProgressBar = false;
+    this.showShare = false;
+  }
+
+  private clearProgressTimer(): void {
+    if (this.progressTimer) {
+      clearTimeout(this.progressTimer);
+      this.progressTimer = null;
+    }
   }
 
   private drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number): void {
@@ -657,7 +799,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.videoDuration = video.duration || 0;
     this.videoReady = true;
-    this.updatePreview();
+    this.renderPreview();
   }
 
   togglePlay(): void {
@@ -672,7 +814,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
       video.pause();
       this.playing = false;
       this.stopLoop();
-      this.updatePreview();
+      this.renderPreview();
     }
   }
 
@@ -682,14 +824,13 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     this.videoTime = t;
     video.currentTime = Math.min(Math.max(0, t), this.videoDuration || 0);
     // The seeked event redraws; draw immediately too for responsiveness.
-    this.updatePreview();
+    this.renderPreview();
   }
 
   onVideoEnded(): void {
     this.playing = false;
     this.stopLoop();
-    if (this.recording) this.stopRecording();
-    else this.updatePreview();
+    this.renderPreview();
   }
 
   formatTime(s: number): string {
@@ -705,7 +846,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
       const video = this.videoEl?.nativeElement;
       if (video && !video.paused) {
         this.videoTime = video.currentTime;
-        this.updatePreview();
+        this.renderPreview();
         this.rafId = requestAnimationFrame(tick);
       }
     };
@@ -719,74 +860,234 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /** Export the watermarked video by re-recording playback (WebM + audio). */
-  exportVideo(): void {
-    const video = this.videoEl?.nativeElement;
-    const canvas = this.previewCanvas?.nativeElement;
-    if (!video || !canvas || !this.videoReady || this.recording) return;
-    const capture = canvas.captureStream(30);
-    try {
-      const withMedia = (video as HTMLVideoElement & { captureStream?: () => MediaStream; mozCaptureStream?: () => MediaStream });
-      const av = withMedia.captureStream?.() ?? withMedia.mozCaptureStream?.();
-      av?.getAudioTracks().forEach((t) => {
-        capture.addTrack(t);
-        this.recordTracks.push(t);
+  /** Lazily boot FFmpeg.wasm (single-thread core, no special headers needed).
+   * Never called on page load — only on first video export. The promise is
+   * shared so concurrent clicks boot exactly once. */
+  private ensureEngine(): Promise<void> {
+    if (this.engine?.isLoaded()) return Promise.resolve();
+    if (!this.engineLoading) {
+      this.engineLoading = (async () => {
+        // The 0.11 package is CJS: esbuild exposes it as a default-only
+        // namespace, so normalize both shapes here.
+        const ns = (await import('@ffmpeg/ffmpeg')) as unknown as Record<string, unknown>;
+        const api =
+          typeof ns['createFFmpeg'] === 'function'
+            ? (ns as unknown as FfmpegFactory)
+            : (ns['default'] as unknown as FfmpegFactory);
+        const ff = api.createFFmpeg({ corePath: FF_CORE_JS, mainName: FF_MAIN_NAME, log: false });
+        ff.setProgress(({ ratio }: { ratio: number }) => this.onEngineProgress(ratio));
+        await ff.load();
+        this.ffApi = api;
+        this.engine = ff;
+      })().catch((err) => {
+        this.engineLoading = null;
+        throw err;
       });
-    } catch {
-      // Video-only export when audio capture is unavailable.
     }
-    this.recordChunks = [];
-    const rec = new MediaRecorder(capture, { mimeType: 'video/webm', videoBitsPerSecond: 8_000_000 });
-    rec.ondataavailable = (e) => {
-      if (e.data.size > 0) this.recordChunks.push(e.data);
-    };
-    rec.onstop = () => {
-      const blob = new Blob(this.recordChunks, { type: 'video/webm' });
+    return this.engineLoading;
+  }
+
+  private onEngineProgress(ratio: number): void {
+    if (this.exportState !== 'rendering') this.exportState = 'rendering';
+    if (typeof ratio === 'number' && isFinite(ratio)) {
+      this.exportProgress = Math.min(99, Math.max(0, Math.round(ratio * 100)));
+    }
+    if (Date.now() - this.exportStartedAt > 5000) this.showProgressBar = true;
+  }
+
+  /** Render the watermark alone (transparent PNG) at full video resolution,
+   * with opacity baked into the alpha channel for the ffmpeg overlay. */
+  private renderWatermarkPng(vw: number, vh: number): HTMLCanvasElement | null {
+    if (this.wmKind === 'logo' && !this.logoImg) return null;
+    if (this.wmKind === 'text' && !this.watermarkText.trim()) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, vw);
+    canvas.height = Math.max(1, vh);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const cx = this.pos.x * vw;
+    const cy = this.pos.y * vh;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((this.rotation * Math.PI) / 180);
+    if (this.wmKind === 'logo' && this.logoImg) {
+      const lw = (this.sizePct / 100) * vw;
+      const lh = lw * (this.logoImg.naturalHeight / Math.max(1, this.logoImg.naturalWidth));
+      ctx.drawImage(this.logoImg, -lw / 2, -lh / 2, lw, lh);
+    } else {
+      const px = (this.sizePct / 100) * vw;
+      ctx.font = `${px}px ${this.fontStack}`;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = Math.max(1, px / 18);
+      ctx.strokeText(this.watermarkText, 0, 0);
+      ctx.fillStyle = this.color;
+      ctx.fillText(this.watermarkText, 0, 0);
+    }
+    ctx.restore();
+    // Multiply opacity into alpha so the overlay filter needs no extra stage.
+    if (this.opacityPct < 100) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.globalAlpha = this.opacityPct / 100;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+    return canvas;
+  }
+
+  /** Export the watermarked video as MP4 (H.264 + AAC) via FFmpeg.wasm. */
+  async exportVideo(): Promise<void> {
+    const video = this.videoEl?.nativeElement;
+    if (!video || !this.videoReady || this.exportState === 'loading' || this.exportState === 'rendering') {
+      return;
+    }
+    this.exportError = '';
+    this.showShare = false;
+    this.exportProgress = 0;
+    this.showProgressBar = false;
+    this.exportState = 'loading';
+    this.exportStartedAt = Date.now();
+    this.progressTimer = window.setTimeout(() => {
+      if (this.exportState === 'rendering') this.showProgressBar = true;
+    }, 5000);
+
+    try {
+      await this.ensureEngine();
+      const ff = this.engine;
+      if (!ff) throw new Error('engine unavailable');
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const wm = this.renderWatermarkPng(vw, vh);
+      if (!wm) throw new Error('Add watermark text or a logo first.');
+      const wmBytes = await new Promise<Uint8Array>((resolve, reject) => {
+        wm.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('watermark raster failed'));
+            return;
+          }
+          blob.arrayBuffer().then(
+            (buf) => resolve(new Uint8Array(buf)),
+            () => reject(new Error('watermark raster failed')),
+          );
+        }, 'image/png');
+      });
+      const ext = this.file?.type === 'video/webm' ? 'webm' : this.file?.type === 'video/quicktime' ? 'mov' : 'mp4';
+      if (!this.ffApi || !this.file) throw new Error('engine unavailable');
+      ff.FS('writeFile', `input.${ext}`, await this.ffApi.fetchFile(this.file));
+      ff.FS('writeFile', 'wm.png', wmBytes);
+      const rad = (this.rotation * Math.PI) / 180;
+      const fx = this.pos.x.toFixed(4);
+      const fy = this.pos.y.toFixed(4);
+      // Note: no shell quoting here — args pass directly to ffmpeg, so
+      // literal quotes would break filter parsing.
+      const overlay =
+        this.rotation !== 0
+          ? `[1:v]format=rgba,rotate=${rad}:fillcolor=none@0:ow=rotw(iw):oh=roth(ih)[wm];[0:v][wm]overlay=x=(W-w)*${fx}:y=(H-h)*${fy}:format=yuv420`
+          : `[0:v][1:v]overlay=x=(W-w)*${fx}:y=(H-h)*${fy}:format=yuv420`;
+      this.exportState = 'rendering';
+      await ff.run(
+        '-i', `input.${ext}`,
+        '-i', 'wm.png',
+        '-filter_complex', overlay,
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-b:a', '128k',
+        '-movflags', '+faststart', '-shortest',
+        'out.mp4',
+      );
+      const data = ff.FS('readFile', 'out.mp4') as unknown as Uint8Array;
+      for (const name of [`input.${ext}`, 'wm.png', 'out.mp4']) {
+        try {
+          ff.FS('unlink', name);
+        } catch {
+          // Best effort cleanup of the in-memory FS.
+        }
+      }
+      const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
       if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
-      this.downloadUrl = URL.createObjectURL(blob);
-      this.recording = false;
-      this.stopRecordingTracks();
-      // Auto-download the finished export.
+      this.downloadUrl = URL.createObjectURL(new Blob([buf], { type: 'video/mp4' }));
       const link = document.createElement('a');
       link.href = this.downloadUrl;
-      link.download = `watermarked-${this.file?.name.replace(/\.[^.]+$/, '') || 'video'}.webm`;
+      link.download = `watermarked-${this.file?.name.replace(/\.[^.]+$/, '') || 'video'}.mp4`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    };
-    this.recorder = rec;
-    this.recording = true;
-    video.currentTime = 0;
-    rec.start(250);
-    void video.play().then(() => {
-      this.playing = true;
-      this.startLoop();
-    }).catch(() => {
-      this.recording = false;
-    });
-  }
-
-  stopRecording(): void {
-    if (this.recorder && this.recorder.state !== 'inactive') {
-      this.recorder.stop();
-    } else {
-      this.recording = false;
+      this.exportState = 'done';
+      this.exportProgress = 100;
+      this.showShare = true;
+      this.confettiBurst();
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      this.exportState = 'error';
+      this.exportError = detail
+        ? `Processing failed (${detail.slice(0, 140)}). Try a smaller file or use server mode.`
+        : 'Processing failed. Try a smaller file or use server mode.';
+    } finally {
+      this.clearProgressTimer();
     }
-    this.videoEl?.nativeElement.pause();
-    this.playing = false;
-    this.stopLoop();
-    this.stopRecordingTracks();
   }
 
-  private stopRecordingTracks(): void {
-    this.recordTracks.forEach((t) => {
-      try {
-        t.stop();
-      } catch {
-        // Already stopped.
-      }
-    });
-    this.recordTracks = [];
+  /** GSAP confetti burst (~1s particles) inside the preview panel. */
+  private confettiBurst(): void {
+    const layer = this.fxLayer?.nativeElement;
+    if (!layer) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+    const colors = ['#BC5227', '#D96C3D', '#1A1714', '#6366f1', '#22c55e', '#eab308'];
+    const rect = layer.getBoundingClientRect();
+    for (let i = 0; i < 48; i++) {
+      const p = document.createElement('span');
+      const size = 5 + Math.random() * 6;
+      p.style.cssText = `position:absolute;left:${rect.width / 2}px;top:${rect.height * 0.35}px;width:${size}px;height:${size * (Math.random() > 0.5 ? 1 : 0.5)}px;background:${colors[i % colors.length]};border-radius:2px;pointer-events:none;z-index:30;`;
+      layer.appendChild(p);
+      gsap.fromTo(
+        p,
+        { x: 0, y: 0, opacity: 1, scale: 1 },
+        {
+          x: gsap.utils.random(-170, 170),
+          y: gsap.utils.random(-60, 190),
+          rotation: gsap.utils.random(-270, 270),
+          opacity: 0,
+          duration: gsap.utils.random(0.7, 1.1),
+          ease: 'power2.out',
+          onComplete: () => p.remove(),
+        },
+      );
+    }
+  }
+
+  // ------------------------------------------------------------------ share
+
+  get xShareHref(): string {
+    const params = new URLSearchParams({ text: this.shareText, url: this.shareUrl });
+    return `https://twitter.com/intent/tweet?${params.toString()}`;
+  }
+
+  get facebookShareHref(): string {
+    const params = new URLSearchParams({ u: this.shareUrl });
+    return `https://www.facebook.com/sharer/sharer.php?${params.toString()}`;
+  }
+
+  get whatsappShareHref(): string {
+    const params = new URLSearchParams({ text: `${this.shareText} ${this.shareUrl}` });
+    return `https://wa.me/?${params.toString()}`;
+  }
+
+  copyShareLink(): void {
+    const done = () => {
+      this.copiedLink = true;
+      window.setTimeout(() => (this.copiedLink = false), 2000);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(this.shareUrl).then(done, done);
+    } else {
+      done();
+    }
+  }
+
+  dismissGate(): void {
+    this.sizeGateDismissed = true;
   }
 
   // ----------------------------------------------------------------- export
@@ -798,24 +1099,50 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!ctx) return;
     canvas.width = this.baseW;
     canvas.height = this.baseH;
+    if (this.imgFormat === 'jpeg') {
+      // JPEG has no alpha: composite over white instead of black.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     ctx.drawImage(this.baseImg, 0, 0);
     if (!this.showOriginal) this.drawWatermark(ctx, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (blob) {
-        if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
-        this.downloadUrl = URL.createObjectURL(blob);
-      }
-    }, 'image/png');
+    const mime = this.imgFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
+          this.downloadUrl = URL.createObjectURL(blob);
+        }
+      },
+      mime,
+      0.92,
+    );
   }
-
   download(): void {
-    if (!this.downloadUrl) return;
+    if (!this.downloadUrl || this.fileType !== 'image') return;
+    const ext = this.imgFormat === 'jpeg' ? 'jpg' : 'png';
     const link = document.createElement('a');
     link.href = this.downloadUrl;
-    link.download = `watermarked-${this.file?.name || 'image.png'}`;
+    link.download = `watermarked-${this.file?.name.replace(/\.[^.]+$/, '') || 'image'}.${ext}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    this.exportState = 'done';
+    this.showShare = true;
+    this.confettiBurst();
+    window.setTimeout(() => {
+      if (this.exportState === 'done') this.exportState = 'idle';
+    }, 3000);
+  }
+
+  setImgFormat(format: 'png' | 'jpeg'): void {
+    if (this.imgFormat === format) return;
+    this.imgFormat = format;
+    this.updatePreview();
+  }
+
+  exportBusy(): boolean {
+    return this.exportState === 'loading' || this.exportState === 'rendering';
   }
 
   resetFile(): void {
@@ -824,7 +1151,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
 
   reset(): void {
     this.stopLoop();
-    this.stopRecordingTracks();
+    this.clearProgressTimer();
     if (this.fileUrl) URL.revokeObjectURL(this.fileUrl);
     if (this.logoUrl) URL.revokeObjectURL(this.logoUrl);
     if (this.downloadUrl) URL.revokeObjectURL(this.downloadUrl);
@@ -851,7 +1178,16 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     this.videoTime = 0;
     this.playing = false;
     this.videoReady = false;
-    this.recording = false;
+    this.exportState = 'idle';
+    this.exportProgress = 0;
+    this.showProgressBar = false;
+    this.exportError = '';
+    this.clearProgressTimer();
+    this.imgFormat = 'png';
+    this.sizeGate = false;
+    this.sizeGateDismissed = false;
+    this.showShare = false;
+    this.copiedLink = false;
     this.downloadUrl = '';
   }
 }
