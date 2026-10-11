@@ -116,6 +116,69 @@ func (c *S3Client) DeleteObjects(ctx context.Context, bucket string, keys []stri
 	return err
 }
 
+// ListKeys returns every key under prefix, following pagination.
+func (c *S3Client) ListKeys(ctx context.Context, bucket, prefix string) ([]string, error) {
+	var keys []string
+	var token *string
+	for {
+		out, err := c.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+			Bucket:            aws.String(bucket),
+			Prefix:            aws.String(prefix),
+			ContinuationToken: token,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range out.Contents {
+			if o.Key != nil {
+				keys = append(keys, *o.Key)
+			}
+		}
+		if out.IsTruncated == nil || !*out.IsTruncated {
+			return keys, nil
+		}
+		token = out.NextContinuationToken
+	}
+}
+
+// DeleteObjectVersions permanently removes all versions and delete markers
+// under prefix (paginated, ≤1000 IDs per call). On a non-versioned bucket
+// the listing is empty and this is a no-op.
+func (c *S3Client) DeleteObjectVersions(ctx context.Context, bucket, prefix string) error {
+	paginator := s3.NewListObjectVersionsPaginator(c.client, &s3.ListObjectVersionsInput{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
+	})
+	for paginator.HasMorePages() {
+		out, err := paginator.NextPage(ctx)
+		if err != nil {
+			return err
+		}
+		var ids []types.ObjectIdentifier
+		for _, v := range out.Versions {
+			if v.Key != nil && v.VersionId != nil {
+				ids = append(ids, types.ObjectIdentifier{Key: v.Key, VersionId: v.VersionId})
+			}
+		}
+		for _, m := range out.DeleteMarkers {
+			if m.Key != nil && m.VersionId != nil {
+				ids = append(ids, types.ObjectIdentifier{Key: m.Key, VersionId: m.VersionId})
+			}
+		}
+		for len(ids) > 0 {
+			n := min(len(ids), 1000)
+			if _, err := c.client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+				Bucket: aws.String(bucket),
+				Delete: &types.Delete{Objects: ids[:n]},
+			}); err != nil {
+				return err
+			}
+			ids = ids[n:]
+		}
+	}
+	return nil
+}
+
 // HeadObject reports whether an object exists at the specified bucket and key.
 // It returns (true, nil) when the object exists, (false, nil) when it does not,
 // and (false, err) for any other error.

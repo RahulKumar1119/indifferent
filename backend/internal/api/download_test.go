@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +20,10 @@ type stubDownloader struct {
 	restoreErr   error
 	deletedKeys  []string
 	deleteErr    error
+	listedKeys   []string
+	listErr      error
+	purged       []string
+	purgeErr     error
 }
 
 func (s *stubDownloader) GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error) {
@@ -44,6 +49,24 @@ func (s *stubDownloader) RestoreObject(ctx context.Context, bucket, key string) 
 func (s *stubDownloader) DeleteObjects(ctx context.Context, bucket string, keys []string) error {
 	s.deletedKeys = append(s.deletedKeys, keys...)
 	return s.deleteErr
+}
+
+func (s *stubDownloader) ListKeys(ctx context.Context, bucket, prefix string) ([]string, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	var out []string
+	for _, k := range s.listedKeys {
+		if strings.HasPrefix(k, prefix) {
+			out = append(out, k)
+		}
+	}
+	return out, nil
+}
+
+func (s *stubDownloader) DeleteObjectVersions(ctx context.Context, bucket, prefix string) error {
+	s.purged = append(s.purged, prefix)
+	return s.purgeErr
 }
 
 func TestDownloadURLOrRestore_Standard(t *testing.T) {

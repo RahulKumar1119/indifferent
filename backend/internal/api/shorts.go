@@ -291,7 +291,11 @@ func (h *APIHandler) handleDeleteShorts(ctx context.Context, req events.APIGatew
 		}
 	}
 
-	keys := shortsAssetKeys(job)
+	keys, err := h.shortsSweepKeys(ctx, claims.UserID, job)
+	if err != nil {
+		log.Printf("shorts_delete_list_failed user=%s job=%s err=%v", claims.UserID, jobID, err)
+		return errorResponse(http.StatusInternalServerError, "S3_CLEANUP_FAILED", "Failed to delete Short assets. Please retry."), nil
+	}
 	if err := h.S3.DeleteObjects(ctx, h.Bucket, keys); err != nil {
 		log.Printf("shorts_delete_s3_failed user=%s job=%s keys=%d err=%v", claims.UserID, jobID, len(keys), err)
 		job.Status = "delete_failed"
@@ -317,6 +321,15 @@ func (h *APIHandler) handleDeleteShorts(ctx context.Context, req events.APIGatew
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to delete Short."), nil
 	}
 
+	// The bucket is versioned: plain deletes only hide objects, so purge all
+	// versions/markers or storage costs linger. A purge failure is logged but
+	// not fatal — the assets are already unreachable.
+	for _, p := range shortsJobPrefixes(claims.UserID, jobID) {
+		if err := h.S3.DeleteObjectVersions(ctx, h.Bucket, p); err != nil {
+			log.Printf("shorts_delete_purge_failed user=%s job=%s prefix=%s err=%v", claims.UserID, jobID, p, err)
+		}
+	}
+
 	// Best effort: drop dangling references from the user's projects.
 	h.unlinkShortsJob(ctx, claims.UserID, jobID)
 
@@ -325,6 +338,57 @@ func (h *APIHandler) handleDeleteShorts(ctx context.Context, req events.APIGatew
 		StatusCode: http.StatusNoContent,
 		Headers:    corsHeaders(),
 	}, nil
+}
+
+// shortsJobPrefixes are the only S3 locations a job may own. Cleanup stays
+// scoped to these exact prefixes, so sibling jobs and projects are untouched.
+func shortsJobPrefixes(userID, jobID string) []string {
+	return []string{
+		"uploads/" + userID + "/" + jobID + "/",
+		"shorts/" + userID + "/" + jobID + "/",
+	}
+}
+
+// shortsSweepKeys lists every object under the job's prefixes — catching
+// untracked intermediates the record never references (transcribe-raw.json,
+// access-check temp files) — plus the record's tracked keys, but only when
+// they fall under those prefixes. A record can therefore never cause deletion
+// outside the job's own directories.
+func (h *APIHandler) shortsSweepKeys(ctx context.Context, userID string, job *models.ShortsJob) ([]string, error) {
+	prefixes := shortsJobPrefixes(userID, job.JobID)
+	seen := map[string]bool{}
+	var keys []string
+	add := func(k string) {
+		if k == "" || seen[k] {
+			return
+		}
+		seen[k] = true
+		keys = append(keys, k)
+	}
+	for _, p := range prefixes {
+		listed, err := h.S3.ListKeys(ctx, h.Bucket, p)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range listed {
+			add(k)
+		}
+	}
+	for _, k := range shortsAssetKeys(job) {
+		inside := false
+		for _, p := range prefixes {
+			if strings.HasPrefix(k, p) {
+				inside = true
+				break
+			}
+		}
+		if inside {
+			add(k)
+		} else {
+			log.Printf("shorts_sweep_skip_outside_prefix user=%s job=%s key=%s", userID, job.JobID, k)
+		}
+	}
+	return keys, nil
 }
 
 // shortsAssetKeys collects every S3 key a job may own: source media,

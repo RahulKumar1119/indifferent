@@ -25,4 +25,10 @@ type Downloader interface {
 	ObjectStatus(ctx context.Context, bucket, key string) (ObjectStatus, error)
 	RestoreObject(ctx context.Context, bucket, key string) error
 	DeleteObjects(ctx context.Context, bucket string, keys []string) error
+	// ListKeys returns all keys under prefix (paginated internally).
+	ListKeys(ctx context.Context, bucket, prefix string) ([]string, error)
+	// DeleteObjectVersions permanently removes every version and delete
+	// marker under prefix. Needed because plain deletes on a versioned
+	// bucket only hide objects (noncurrent versions keep costing).
+	DeleteObjectVersions(ctx context.Context, bucket, prefix string) error
 }

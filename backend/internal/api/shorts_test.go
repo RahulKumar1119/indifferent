@@ -470,8 +470,8 @@ func shortsJobItem(jobID, status string) map[string]dbtypes.AttributeValue {
 		"fileType":       &dbtypes.AttributeValueMemberS{Value: "mp4"},
 		"sourceDuration": &dbtypes.AttributeValueMemberN{Value: "120"},
 		"sourceKey":      &dbtypes.AttributeValueMemberS{Value: "uploads/user1/" + jobID + "/source.mp4"},
-		"transcriptKey":  &dbtypes.AttributeValueMemberS{Value: "uploads/user1/" + jobID + "/transcript.json"},
-		"clips":          &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-1","s3Key":"renders/` + jobID + `/clip-1.mp4","rank":1,"score":0.9,"duration":20},{"clipId":"clip-2","s3Key":"renders/` + jobID + `/clip-2.mp4","rank":2,"score":0.8,"duration":18}]`},
+		"transcriptKey":  &dbtypes.AttributeValueMemberS{Value: "shorts/user1/" + jobID + "/transcript.json"},
+		"clips":          &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-1","s3Key":"shorts/user1/` + jobID + `/clips/clip-1.mp4","rank":1,"score":0.9,"duration":20},{"clipId":"clip-2","s3Key":"shorts/user1/` + jobID + `/clips/clip-2.mp4","rank":2,"score":0.8,"duration":18},{"clipId":"clip-x","s3Key":"elsewhere/evil.mp4","rank":3,"score":0.1,"duration":5}]`},
 		"createdAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
 		"updatedAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
 	}
@@ -529,7 +529,17 @@ func deleteReq(jobID string) events.APIGatewayProxyRequest {
 }
 
 func TestDeleteShorts_Success(t *testing.T) {
-	s3 := &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}}
+	s3 := &stubDownloader{
+		status: storage.ObjectStatus{StorageClass: "STANDARD"},
+		listedKeys: []string{
+			"uploads/user1/job1/source.mp4",
+			"shorts/user1/job1/transcript.json",
+			"shorts/user1/job1/transcribe-raw.json",
+			"shorts/user1/job1/.write_access_check_file.temp",
+			"shorts/user1/job1/clips/clip-1.mp4",
+			"shorts/user1/job1/clips/clip-2.mp4",
+		},
+	}
 	p := newDeleteProbe(t, shortsJobItem("job1", "completed"), s3)
 
 	resp, err := p.handler.HandleRequest(context.Background(), deleteReq("job1"))
@@ -539,11 +549,15 @@ func TestDeleteShorts_Success(t *testing.T) {
 	if resp.StatusCode != 204 {
 		t.Fatalf("got status %d, want 204 (body: %s)", resp.StatusCode, resp.Body)
 	}
+	// Every listed object under the job prefixes must go, including files the
+	// record never tracks (raw transcript, temp files).
 	for _, want := range []string{
 		"uploads/user1/job1/source.mp4",
-		"uploads/user1/job1/transcript.json",
-		"renders/job1/clip-1.mp4",
-		"renders/job1/clip-2.mp4",
+		"shorts/user1/job1/transcript.json",
+		"shorts/user1/job1/transcribe-raw.json",
+		"shorts/user1/job1/.write_access_check_file.temp",
+		"shorts/user1/job1/clips/clip-1.mp4",
+		"shorts/user1/job1/clips/clip-2.mp4",
 	} {
 		found := false
 		for _, got := range s3.deletedKeys {
@@ -556,11 +570,46 @@ func TestDeleteShorts_Success(t *testing.T) {
 			t.Errorf("expected S3 delete of %q, got %v", want, s3.deletedKeys)
 		}
 	}
+	// A tracked key outside the job prefixes must never be deleted.
+	for _, got := range s3.deletedKeys {
+		if got == "elsewhere/evil.mp4" {
+			t.Errorf("must not delete keys outside the job prefixes, got %v", s3.deletedKeys)
+		}
+	}
 	if len(p.deleted) != 1 || p.deleted[0] != "SHORTS#job1" {
 		t.Errorf("expected DB delete of SHORTS#job1, got %v", p.deleted)
 	}
 	if p.stops != 0 {
 		t.Errorf("completed job must not stop an execution, got %d stops", p.stops)
+	}
+	// Versioned bucket: both job prefixes must be purged of all versions.
+	for _, want := range []string{"uploads/user1/job1/", "shorts/user1/job1/"} {
+		found := false
+		for _, got := range s3.purged {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected version purge of %q, got %v", want, s3.purged)
+		}
+	}
+}
+
+func TestDeleteShorts_ListFailureRetainsRecord(t *testing.T) {
+	s3 := &stubDownloader{
+		status:  storage.ObjectStatus{StorageClass: "STANDARD"},
+		listErr: errors.New("list down"),
+	}
+	p := newDeleteProbe(t, shortsJobItem("job1", "completed"), s3)
+
+	resp, _ := p.handler.HandleRequest(context.Background(), deleteReq("job1"))
+	if resp.StatusCode != 500 {
+		t.Fatalf("got status %d, want 500 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if len(p.deleted) != 0 {
+		t.Error("record must be retained when enumeration fails")
 	}
 }
 
