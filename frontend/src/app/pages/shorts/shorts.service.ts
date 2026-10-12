@@ -47,6 +47,9 @@ export interface ShortsJob {
   /** 0-100 progress within the current stage (backend-computed). */
   progress?: number;
   error?: string;
+  /** Stage that was running on failure + machine-readable error class. */
+  failedStage?: string;
+  errorCode?: string;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -98,6 +101,11 @@ export class ShortsService {
   /** POST /shorts/{id}/cancel: stop a running pipeline. */
   cancelJob(jobId: string): Observable<{ status: string }> {
     return this.api.post<{ status: string }>(`/shorts/${jobId}/cancel`);
+  }
+
+  /** POST /shorts/{id}/retry: restart a failed job from its source media. */
+  retryJob(jobId: string): Observable<{ status: string }> {
+    return this.api.post<{ status: string }>(`/shorts/${jobId}/retry`);
   }
 
   /** DELETE /shorts/{id}: permanently delete a job and all its S3 assets. */

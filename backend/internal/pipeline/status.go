@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -30,6 +31,7 @@ type StatusInput struct {
 // DynamoDBClient defines the interface for DynamoDB operations needed by the status updater.
 type DynamoDBClient interface {
 	UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
+	GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 }
 
 // StatusUpdater handles updating project status in DynamoDB after each pipeline stage.
@@ -156,9 +158,20 @@ func (u *StatusUpdater) UpdateShortsStatus(ctx context.Context, input ShortsStat
 		exprValues[":completedAt"] = &types.AttributeValueMemberS{Value: now}
 
 	case ShortsStatusFailed:
+		errMsg := extractErrorMessage(input.Error)
 		updateExpr += ", #error = :error"
 		exprNames["#error"] = "error"
-		exprValues[":error"] = &types.AttributeValueMemberS{Value: extractErrorMessage(input.Error)}
+		exprValues[":error"] = &types.AttributeValueMemberS{Value: errMsg}
+		// Record where it broke and what kind of failure it was, so retries
+		// and the UI can distinguish "try again" from "fix the input".
+		// The previous stage is read from the record itself (no ASL change).
+		if stage, code := classifyShortsFailure(ctx, u, input, errMsg); stage != "" {
+			updateExpr += ", #failedStage = :failedStage, #errorCode = :errorCode"
+			exprNames["#failedStage"] = "failedStage"
+			exprNames["#errorCode"] = "errorCode"
+			exprValues[":failedStage"] = &types.AttributeValueMemberS{Value: stage}
+			exprValues[":errorCode"] = &types.AttributeValueMemberS{Value: code}
+		}
 	}
 
 	_, err := u.DB.UpdateItem(ctx, &dynamodb.UpdateItemInput{
@@ -224,6 +237,66 @@ func segmentsToClips(userID, jobID string, segments []models.RankedSegment) []mo
 // GenerateVideoURL generates a presigned download URL for the video with 24-hour expiration.
 func (u *StatusUpdater) GenerateVideoURL(ctx context.Context, videoKey string) (string, error) {
 	return u.S3Storage.GenerateDownloadURL(ctx, u.Bucket, videoKey, storage.DownloadURLExpiration)
+}
+
+// classifyShortsFailure determines the failed stage (from the record's
+// current status) and a machine-readable error code (from the message) for a
+// failed shorts job. A previously recorded stage is preserved on re-marks.
+func classifyShortsFailure(ctx context.Context, u *StatusUpdater, input ShortsStatusInput, errMsg string) (stage, code string) {
+	if prev, perr := u.DB.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(u.TableName),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", input.UserID)},
+			"SK": &types.AttributeValueMemberS{Value: fmt.Sprintf("SHORTS#%s", input.JobID)},
+		},
+		ConsistentRead: aws.Bool(true),
+	}); perr == nil && prev.Item != nil {
+		if s, ok := prev.Item["status"].(*types.AttributeValueMemberS); ok {
+			switch s.Value {
+			case "transcribing", "ranking", "rendering", "uploaded":
+				stage = s.Value
+			case "failed", "delete_failed":
+				if fs, ok := prev.Item["failedStage"].(*types.AttributeValueMemberS); ok && fs.Value != "" {
+					stage = fs.Value
+				}
+			}
+		}
+		if stage == "" {
+			if ec, ok := prev.Item["errorCode"].(*types.AttributeValueMemberS); ok {
+				code = ec.Value
+			}
+		}
+	}
+	if code == "" {
+		code = classifyShortsErrorCode(errMsg)
+	}
+	return stage, code
+}
+
+// classifyShortsErrorCode maps a failure message to a stable error code.
+// Validation codes mean retrying the same input is futile (fix the file);
+// anything else is safe to retry.
+func classifyShortsErrorCode(msg string) string {
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "cancelled by user"):
+		return "CANCELLED"
+	case strings.Contains(lower, "no speech detected"):
+		return "VALIDATION_NO_SPEECH"
+	case strings.Contains(lower, "over the") && strings.Contains(lower, "limit"):
+		return "VALIDATION_DURATION"
+	case strings.Contains(lower, "upload not found") ||
+		strings.Contains(lower, "empty") && strings.Contains(lower, "upload") ||
+		strings.Contains(lower, "too large") ||
+		strings.Contains(lower, "looks like"):
+		return "VALIDATION_UPLOAD"
+	case strings.Contains(lower, "bedrock") || strings.Contains(lower, "invokemodel") || strings.Contains(lower, "inference profile"):
+		return "RANKING_BACKEND"
+	case strings.Contains(lower, "conflictexception") || strings.Contains(lower, "already exists"):
+		return "TRANSIENT_CONFLICT"
+	default:
+		return "INFRASTRUCTURE"
+	}
 }
 
 // extractErrorMessage extracts a human-readable error message from the Step Functions error object.

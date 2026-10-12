@@ -16,6 +16,7 @@
     "StartTranscription": {
       "Type": "Task",
       "Resource": "${ShortsTranscribeLambdaArn}",
+      "TimeoutSeconds": 180,
       "Parameters": {
         "mode": "start",
         "jobId.$": "$.jobId",
@@ -48,6 +49,7 @@
     "CheckTranscription": {
       "Type": "Task",
       "Resource": "${ShortsTranscribeLambdaArn}",
+      "TimeoutSeconds": 180,
       "Parameters": {
         "mode": "poll",
         "jobId.$": "$.jobId",
@@ -107,6 +109,7 @@
     "Rank": {
       "Type": "Task",
       "Resource": "${ShortsRankLambdaArn}",
+      "TimeoutSeconds": 900,
       "Parameters": {
         "jobId.$": "$.jobId",
         "userId.$": "$.userId",
@@ -158,6 +161,7 @@
       "Type": "Map",
       "ItemsPath": "$.rank.clips",
       "MaxConcurrency": 3,
+      "TimeoutSeconds": 5400,
       "Parameters": {
         "jobId.$": "$.jobId",
         "userId.$": "$.userId",

@@ -16,11 +16,19 @@ import (
 type mockDynamoDBClient struct {
 	updateItemInput *dynamodb.UpdateItemInput
 	updateItemErr   error
+	getItemResult   map[string]types.AttributeValue
 }
 
 func (m *mockDynamoDBClient) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
 	m.updateItemInput = params
 	return &dynamodb.UpdateItemOutput{}, m.updateItemErr
+}
+
+func (m *mockDynamoDBClient) GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+	if m.getItemResult == nil {
+		return &dynamodb.GetItemOutput{}, nil
+	}
+	return &dynamodb.GetItemOutput{Item: m.getItemResult}, nil
 }
 
 func TestUpdateStatus_Parsing(t *testing.T) {
@@ -425,5 +433,75 @@ func TestUpdateShortsStatus_DynamoDBError(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestClassifyShortsErrorCode(t *testing.T) {
+	cases := []struct{ msg, want string }{
+		{"Cancelled by user.", "CANCELLED"},
+		{"no speech detected: try a file with clear speech", "VALIDATION_NO_SPEECH"},
+		{"media runs about 700s, over the 600s limit", "VALIDATION_DURATION"},
+		{"Upload not found. Please upload again.", "VALIDATION_UPLOAD"},
+		{"Uploaded file is empty.", "VALIDATION_UPLOAD"},
+		{"Uploaded file looks like application/pdf, not MP4.", "VALIDATION_UPLOAD"},
+		{"ranking failed: bedrock InvokeModel failed", "RANKING_BACKEND"},
+		{"use an inference profile instead", "RANKING_BACKEND"},
+		{"ConflictException: job exists", "TRANSIENT_CONFLICT"},
+		{"weird ffmpeg crash", "INFRASTRUCTURE"},
+	}
+	for _, tc := range cases {
+		if got := classifyShortsErrorCode(tc.msg); got != tc.want {
+			t.Errorf("classify(%q) = %q, want %q", tc.msg, got, tc.want)
+		}
+	}
+}
+
+func TestUpdateShortsStatus_FailedRecordsStageAndCode(t *testing.T) {
+	mock := &mockDynamoDBClient{
+		getItemResult: map[string]types.AttributeValue{
+			"status": &types.AttributeValueMemberS{Value: "ranking"},
+		},
+	}
+	updater := &StatusUpdater{DB: mock, TableName: "jobs"}
+	err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
+		JobID:  "j1",
+		UserID: "u1",
+		Status: ShortsStatusFailed,
+		Error:  "ranking failed: bedrock InvokeModel failed",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	vals := mock.updateItemInput.ExpressionAttributeValues
+	if v, ok := vals[":failedStage"].(*types.AttributeValueMemberS); !ok || v.Value != "ranking" {
+		t.Errorf("expected failedStage=ranking, got %+v", vals[":failedStage"])
+	}
+	if v, ok := vals[":errorCode"].(*types.AttributeValueMemberS); !ok || v.Value != "RANKING_BACKEND" {
+		t.Errorf("expected errorCode=RANKING_BACKEND, got %+v", vals[":errorCode"])
+	}
+}
+
+func TestUpdateShortsStatus_FailedPreservesPriorStage(t *testing.T) {
+	// Re-marking an already-failed job keeps the original stage.
+	mock := &mockDynamoDBClient{
+		getItemResult: map[string]types.AttributeValue{
+			"status":      &types.AttributeValueMemberS{Value: "failed"},
+			"failedStage": &types.AttributeValueMemberS{Value: "rendering"},
+			"errorCode":   &types.AttributeValueMemberS{Value: "INFRASTRUCTURE"},
+		},
+	}
+	updater := &StatusUpdater{DB: mock, TableName: "jobs"}
+	err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
+		JobID:  "j1",
+		UserID: "u1",
+		Status: ShortsStatusFailed,
+		Error:  "another failure",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	vals := mock.updateItemInput.ExpressionAttributeValues
+	if v, ok := vals[":failedStage"].(*types.AttributeValueMemberS); !ok || v.Value != "rendering" {
+		t.Errorf("expected preserved failedStage=rendering, got %+v", vals[":failedStage"])
 	}
 }
