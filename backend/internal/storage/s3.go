@@ -141,6 +141,40 @@ func (c *S3Client) ListKeys(ctx context.Context, bucket, prefix string) ([]strin
 	}
 }
 
+// ObjectMeta describes an S3 object for upload validation: presence, size,
+// and stored content type. Missing keys report Found=false (never an error);
+// other failures are returned.
+type ObjectMeta struct {
+	Found       bool
+	Size        int64
+	ContentType string
+}
+
+func (c *S3Client) ObjectMeta(ctx context.Context, bucket, key string) (ObjectMeta, error) {
+	api := c.headAPI
+	if api == nil {
+		api = c.client
+	}
+	out, err := api.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		if isHeadObjectNotFound(err) {
+			return ObjectMeta{}, nil
+		}
+		return ObjectMeta{}, err
+	}
+	meta := ObjectMeta{Found: true}
+	if out.ContentLength != nil {
+		meta.Size = *out.ContentLength
+	}
+	if out.ContentType != nil {
+		meta.ContentType = *out.ContentType
+	}
+	return meta, nil
+}
+
 // DeleteObjectVersions permanently removes all versions and delete markers
 // under prefix (paginated, ≤1000 IDs per call). On a non-versioned bucket
 // the listing is empty and this is a no-op.

@@ -24,6 +24,8 @@ type stubDownloader struct {
 	listErr      error
 	purged       []string
 	purgeErr     error
+	meta         storage.ObjectMeta
+	metaErr      error
 }
 
 func (s *stubDownloader) GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error) {
@@ -67,6 +69,13 @@ func (s *stubDownloader) ListKeys(ctx context.Context, bucket, prefix string) ([
 func (s *stubDownloader) DeleteObjectVersions(ctx context.Context, bucket, prefix string) error {
 	s.purged = append(s.purged, prefix)
 	return s.purgeErr
+}
+
+func (s *stubDownloader) ObjectMeta(ctx context.Context, bucket, key string) (storage.ObjectMeta, error) {
+	if s.metaErr != nil {
+		return storage.ObjectMeta{}, s.metaErr
+	}
+	return s.meta, nil
 }
 
 func TestDownloadURLOrRestore_Standard(t *testing.T) {

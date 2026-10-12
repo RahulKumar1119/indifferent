@@ -5,11 +5,11 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import { ShortsService } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
-import { ToastService } from '../../shared/components/toast/toast.service';
 
 const MAX_DURATION_SECONDS = 600; // 10 minutes (Requirement 9.1)
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB
 const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
+const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
 
 @Component({
   selector: 'app-shorts-upload',
@@ -189,9 +189,18 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
       <!-- Upload Progress -->
       @if (uploadProgress >= 0) {
         <div class="mt-6">
-          <div class="flex justify-between text-sm text-[hsl(var(--muted-foreground))] mb-2">
+          <div class="flex justify-between items-center text-sm text-[hsl(var(--muted-foreground))] mb-2">
             <span>Uploading…</span>
-            <span>{{ uploadProgress }}%</span>
+            <span class="flex items-center gap-3">
+              <span>{{ uploadProgress }}%</span>
+              <button
+                type="button"
+                (click)="cancelUpload()"
+                class="rounded-full border border-[hsl(var(--border))] px-3 py-1 text-[12.5px] font-medium hover:bg-white/5"
+              >
+                Cancel
+              </button>
+            </span>
           </div>
           <div class="h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden">
             <div
@@ -228,6 +237,14 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
             <svg lucideIcon="circle-x" [size]="16"></svg>
             {{ uploadError }}
           </p>
+          <button
+            type="button"
+            (click)="retryUpload()"
+            [disabled]="isUploading || isProbing"
+            class="mt-2 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+          >
+            Try again
+          </button>
         </div>
       }
     </div>
@@ -247,6 +264,10 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   dragFileName = '';
   dragPreviewUrl: string | null = null;
 
+  private xhr: XMLHttpRequest | null = null;
+  private lastJobId: string | null = null;
+  private stallTimer: ReturnType<typeof setTimeout> | null = null;
+
   private readonly preventWindowDrop = (event: DragEvent): void => {
     // Drops outside the zone must never navigate the browser away.
     event.preventDefault();
@@ -265,6 +286,11 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     window.removeEventListener('dragover', this.preventWindowDrop);
     window.removeEventListener('drop', this.preventWindowDrop);
+    this.clearStallTimer();
+    if (this.xhr) {
+      this.xhr.abort();
+      this.xhr = null;
+    }
   }
 
   get isAudioFile(): boolean {
@@ -355,9 +381,41 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     this.uploadProgress = 0;
 
     this.shorts.createJob(this.fileType, this.durationSeconds).subscribe({
-      next: (res) => this.uploadToS3(res.uploadUrl, res.jobId),
+      next: (res) => {
+        this.lastJobId = res.jobId;
+        this.uploadToS3(res.uploadUrl, res.jobId);
+      },
       error: (err) => this.failUpload(err, 'Failed to initiate upload. Please try again.'),
     });
+  }
+
+  /** Cancel the in-flight upload and clean up its orphan job row. */
+  cancelUpload(): void {
+    this.clearStallTimer();
+    if (this.xhr) {
+      this.xhr.abort();
+      this.xhr = null;
+    }
+    const jobId = this.lastJobId;
+    this.lastJobId = null;
+    this.isUploading = false;
+    this.uploadProgress = -1;
+    this.uploadError = '';
+    if (jobId) {
+      // Best effort: don't strand an `uploaded` job that will never start.
+      this.shorts.deleteJob(jobId).subscribe({ error: () => {} });
+    }
+  }
+
+  /** Explicit retry: drop the previous attempt's job row, then start over. */
+  retryUpload(): void {
+    if (this.isUploading || this.isProbing || !this.selectedFile || this.error) return;
+    const stale = this.lastJobId;
+    this.lastJobId = null;
+    if (stale) {
+      this.shorts.deleteJob(stale).subscribe({ error: () => {} });
+    }
+    this.startProcessing();
   }
 
   private handleFile(file: File): void {
@@ -428,16 +486,22 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   private uploadToS3(uploadUrl: string, jobId: string): void {
     const file = this.selectedFile!;
     const xhr = new XMLHttpRequest();
+    this.xhr = xhr;
     xhr.open('PUT', uploadUrl, true);
     xhr.setRequestHeader('ngsw-bypass', 'true');
+    this.armStallTimer();
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         this.uploadProgress = Math.round((event.loaded / event.total) * 100);
+        // Progress resets the stall clock: slow is fine, stuck is not.
+        this.armStallTimer();
       }
     };
 
     xhr.onload = () => {
+      this.clearStallTimer();
+      this.xhr = null;
       if (xhr.status >= 200 && xhr.status < 300) {
         this.uploadProgress = 100;
         this.startPipeline(jobId);
@@ -449,12 +513,34 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     };
 
     xhr.onerror = () => {
+      this.clearStallTimer();
+      this.xhr = null;
       this.uploadProgress = -1;
       this.isUploading = false;
       this.uploadError = 'Upload failed. Please try again.';
     };
 
     xhr.send(file);
+  }
+
+  private armStallTimer(): void {
+    this.clearStallTimer();
+    this.stallTimer = setTimeout(() => {
+      if (this.xhr) {
+        this.xhr.abort();
+        this.xhr = null;
+      }
+      this.isUploading = false;
+      this.uploadProgress = -1;
+      this.uploadError = 'Upload stalled (no progress for 60s). Check your connection and try again.';
+    }, UPLOAD_STALL_MS);
+  }
+
+  private clearStallTimer(): void {
+    if (this.stallTimer !== null) {
+      clearTimeout(this.stallTimer);
+      this.stallTimer = null;
+    }
   }
 
   private startPipeline(jobId: string): void {
@@ -468,12 +554,25 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   }
 
   private failUpload(err: { error?: { message?: string } }, fallback: string): void {
+    this.clearStallTimer();
+    this.xhr = null;
     this.isUploading = false;
     this.uploadProgress = -1;
     this.uploadError = err?.error?.message || fallback;
   }
 
   private reset(): void {
+    this.clearStallTimer();
+    if (this.xhr) {
+      this.xhr.abort();
+      this.xhr = null;
+    }
+    if (this.lastJobId) {
+      // Replacing the file strands the previous attempt's job row.
+      const stale = this.lastJobId;
+      this.lastJobId = null;
+      this.shorts.deleteJob(stale).subscribe({ error: () => {} });
+    }
     if (this.previewUrl) {
       URL.revokeObjectURL(this.previewUrl);
       this.previewUrl = null;
@@ -484,6 +583,8 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     this.durationSeconds = 0;
     this.error = '';
     this.uploadError = '';
+    this.isUploading = false;
+    this.uploadProgress = -1;
     this.isProbing = false;
   }
 }
