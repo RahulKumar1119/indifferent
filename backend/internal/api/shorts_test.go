@@ -774,3 +774,87 @@ func TestStartShorts_VerifiesUpload(t *testing.T) {
 		}
 	})
 }
+
+func failedJobItem(jobID string) map[string]dbtypes.AttributeValue {
+	item := shortsJobItem(jobID, "failed")
+	item["error"] = &dbtypes.AttributeValueMemberS{Value: "transcode exploded"}
+	item["errorCode"] = &dbtypes.AttributeValueMemberS{Value: "INFRASTRUCTURE"}
+	item["failedStage"] = &dbtypes.AttributeValueMemberS{Value: "rendering"}
+	item["clips"] = &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-1","s3Key":"shorts/user1/` + jobID + `/clips/clip-1.mp4","rank":1,"score":0.9,"duration":20}]`}
+	return item
+}
+
+func TestRetryShorts_RestartsFailedJob(t *testing.T) {
+	var puts []map[string]dbtypes.AttributeValue
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: failedJobItem("job1")}, nil
+		},
+		putItemFunc: func(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			puts = append(puts, params.Item)
+			return &dynamodb.PutItemOutput{}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/shorts/job1/retry",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if len(puts) != 1 {
+		t.Fatalf("expected 1 reset write, got %d", len(puts))
+	}
+	reset := puts[0]
+	if v, _ := reset["status"].(*dbtypes.AttributeValueMemberS); v.Value != "uploaded" {
+		t.Errorf("expected reset to uploaded, got %v", reset["status"])
+	}
+	for _, k := range []string{"error", "errorCode", "failedStage", "clips"} {
+		if _, ok := reset[k]; ok {
+			t.Errorf("expected %s cleared on reset, still present", k)
+		}
+	}
+}
+
+func TestRetryShorts_RejectsNonFailed(t *testing.T) {
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: shortsJobItem("job1", "rendering")}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/shorts/job1/retry",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 400 {
+		t.Errorf("got status %d, want 400 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}
+
+func TestRetryShorts_ConflictOnDoubleRestart(t *testing.T) {
+	// A concurrent retry already reset the row: the conditional write fails.
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: failedJobItem("job1")}, nil
+		},
+		putItemFunc: func(_ context.Context, _ *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			return nil, &dbtypes.ConditionalCheckFailedException{}
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/shorts/job1/retry",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 409 {
+		t.Errorf("got status %d, want 409 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}

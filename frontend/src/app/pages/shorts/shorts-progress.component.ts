@@ -164,7 +164,23 @@ const STAGES: Stage[] = [
           <p class="text-sm text-[hsl(var(--muted-foreground))] mt-2">
             {{ errorMessage || 'Something went wrong while processing your media. Please try again.' }}
           </p>
-          <button class="glow-btn mt-4" (click)="goToUpload()">Start Over</button>
+          <div class="mt-4 flex flex-wrap justify-center gap-2">
+            @if (retryableFailure) {
+              <button class="glow-btn" (click)="retry()" [disabled]="retrying">
+                @if (retrying) {
+                  <svg lucideIcon="loader-2" [size]="16" class="animate-spin"></svg>
+                  Restarting…
+                } @else {
+                  Retry processing
+                }
+              </button>
+            } @else {
+              <p class="w-full text-[13px] text-[hsl(var(--muted-foreground))]">
+                This file can't be processed as-is — try a different file with clear speech under 10 minutes.
+              </p>
+            }
+            <button class="glow-btn" (click)="goToUpload()">Start Over</button>
+          </div>
         </div>
       }
     </div>
@@ -181,9 +197,11 @@ export class ShortsProgressComponent implements OnInit, OnDestroy {
   durationSeconds = 0;
   eta = '';
   errorMessage = '';
+  errorCode = '';
   resumed = false;
   cancelling = false;
   cancelDone = false;
+  retrying = false;
 
   stages: Stage[] = STAGES;
   eqBars = [
@@ -220,6 +238,11 @@ export class ShortsProgressComponent implements OnInit, OnDestroy {
       // Private mode: toast simply never shows.
     }
 
+    this.startPolling();
+  }
+
+  private startPolling(): void {
+    this.pollSub?.unsubscribe();
     this.pollSub = interval(3000)
       .pipe(
         startWith(0),
@@ -274,10 +297,37 @@ export class ShortsProgressComponent implements OnInit, OnDestroy {
     this.router.navigate(['/shorts']);
   }
 
-  private onStatus(job: { status: ShortsStatus; error?: string; sourceDuration: number; progress?: number }): void {
+  /** Validation failures can't succeed on retry (same input, same verdict):
+   * steer to a different file; everything else restarts in place. */
+  get retryableFailure(): boolean {
+    return this.status === 'failed' && !this.errorCode.startsWith('VALIDATION');
+  }
+
+  retry(): void {
+    if (this.retrying || this.status !== 'failed') return;
+    this.retrying = true;
+    this.shorts.retryJob(this.jobId).subscribe({
+      next: () => {
+        this.retrying = false;
+        this.errorMessage = '';
+        this.errorCode = '';
+        this.status = null;
+        this.progress = 0;
+        this.toasts.show('Restarting processing from your source file.', 'success');
+        this.startPolling();
+      },
+      error: (err) => {
+        this.retrying = false;
+        this.toasts.show(err?.error?.message || 'Could not restart processing.', 'error');
+      },
+    });
+  }
+
+  private onStatus(job: { status: ShortsStatus; error?: string; errorCode?: string; sourceDuration: number; progress?: number }): void {
     const prevOrder = this.stageOrder();
     this.status = job.status;
     this.errorMessage = job.error ?? '';
+    this.errorCode = job.errorCode ?? '';
     this.durationSeconds = job.sourceDuration || 0;
     this.progress = Math.max(0, Math.min(100, job.progress ?? this.fallbackProgress(job.status)));
     this.eta = this.buildEta(job.status);

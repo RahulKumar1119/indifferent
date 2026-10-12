@@ -172,6 +172,12 @@ type ShortsJob struct {
 	// ffmpeg output; status transitions reset it to the stage baseline).
 	Progress       int             `json:"progress,omitempty"`
 	ProgressDetail string          `json:"progressDetail,omitempty"`
+	// FailedStage records which stage was running when the job failed
+	// (transcribing|ranking|rendering); ErrorCode is a machine-readable
+	// failure class (VALIDATION_*|CANCELLED|RANKING_BACKEND|TRANSIENT_*|
+	// INFRASTRUCTURE) driving retry guidance. Both feed safe retries.
+	FailedStage    string          `json:"failedStage,omitempty"`
+	ErrorCode      string          `json:"errorCode,omitempty"`
 	Error          string          `json:"error,omitempty"`
 	CreatedAt      string          `json:"createdAt"`
 	UpdatedAt      string          `json:"updatedAt"`

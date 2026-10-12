@@ -317,6 +317,85 @@ func (h *APIHandler) verifyShortsUpload(ctx context.Context, job *models.ShortsJ
 	return nil
 }
 
+// handleRetryShorts restarts a failed job from the source media: the record
+// is conditionally reset to uploaded (concurrent retries collide on the
+// condition instead of double-running the pipeline) and a fresh execution is
+// started under a unique name. Only failed/delete_failed jobs may restart;
+// stale clips are cleared so the gallery never shows previous-run renders
+// mid-rerun. Validation failures (VALIDATION_*) restart the same way — the
+// pipeline will fail fast again unless the input changed — so the UI steers
+// those toward a different file instead.
+func (h *APIHandler) handleRetryShorts(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	jobID := extractShortsIDFromSubpath(req.Path, "/retry")
+	if jobID == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Job ID is required"), nil
+	}
+
+	job, err := h.getShortsJobByID(ctx, claims.UserID, jobID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
+	}
+	if job.Status != "failed" && job.Status != "delete_failed" {
+		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Only failed jobs can be retried"), nil
+	}
+
+	reset := *job
+	reset.Status = "uploaded"
+	reset.Error = ""
+	reset.ErrorCode = ""
+	reset.FailedStage = ""
+	reset.Progress = 0
+	reset.ProgressDetail = ""
+	reset.Clips = nil
+	reset.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+
+	_, err = h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(h.TableName),
+		Item:      shortsJobToItem(reset),
+		ConditionExpression: aws.String("#status IN (:failed, :deleteFailed)"),
+		ExpressionAttributeNames: map[string]string{
+			"#status": "status",
+		},
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":failed":       &dbtypes.AttributeValueMemberS{Value: "failed"},
+			":deleteFailed": &dbtypes.AttributeValueMemberS{Value: "delete_failed"},
+		},
+	})
+	if err != nil {
+		var condFailed *dbtypes.ConditionalCheckFailedException
+		if errors.As(err, &condFailed) {
+			return errorResponse(http.StatusConflict, "CONFLICT", "Job was already restarted."), nil
+		}
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to restart job."), nil
+	}
+
+	sfnInput, _ := json.Marshal(map[string]interface{}{
+		"jobId":          reset.JobID,
+		"userId":         claims.UserID,
+		"sourceKey":      reset.SourceKey,
+		"sourceDuration": reset.SourceDuration,
+	})
+	_, err = h.SFN.StartExecution(ctx, &sfn.StartExecutionInput{
+		StateMachineArn: aws.String(h.ShortsStateMachineARN),
+		Name:            aws.String(fmt.Sprintf("shorts-%s-r%d", jobID, time.Now().UnixNano())),
+		Input:           aws.String(string(sfnInput)),
+	})
+	if err != nil {
+		if isExecutionAlreadyExists(err) {
+			log.Printf("retry_shorts_already_running job=%s", jobID)
+			return jsonResponse(http.StatusOK, map[string]string{
+				"status": "restarted",
+			}), nil
+		}
+		return errorResponse(http.StatusInternalServerError, "PIPELINE_ERROR", "Failed to restart processing pipeline"), nil
+	}
+
+	log.Printf("shorts_retried user=%s job=%s", claims.UserID, jobID)
+	return jsonResponse(http.StatusOK, map[string]string{
+		"status": "restarted",
+	}), nil
+}
+
 // isExactShortsPath reports whether path is exactly /shorts/{id} (no deeper
 // sub-resource): only the job itself is deletable via DELETE, deeper DELETE
 // paths fall through to 404.
@@ -821,6 +900,12 @@ func shortsJobToItem(j models.ShortsJob) map[string]dbtypes.AttributeValue {
 	if j.Error != "" {
 		item["error"] = &dbtypes.AttributeValueMemberS{Value: j.Error}
 	}
+	if j.FailedStage != "" {
+		item["failedStage"] = &dbtypes.AttributeValueMemberS{Value: j.FailedStage}
+	}
+	if j.ErrorCode != "" {
+		item["errorCode"] = &dbtypes.AttributeValueMemberS{Value: j.ErrorCode}
+	}
 	if j.CompletedAt != "" {
 		item["completedAt"] = &dbtypes.AttributeValueMemberS{Value: j.CompletedAt}
 	}
@@ -870,6 +955,12 @@ func itemToShortsJob(item map[string]dbtypes.AttributeValue) models.ShortsJob {
 	}
 	if v, ok := item["error"].(*dbtypes.AttributeValueMemberS); ok {
 		j.Error = v.Value
+	}
+	if v, ok := item["failedStage"].(*dbtypes.AttributeValueMemberS); ok {
+		j.FailedStage = v.Value
+	}
+	if v, ok := item["errorCode"].(*dbtypes.AttributeValueMemberS); ok {
+		j.ErrorCode = v.Value
 	}
 	if v, ok := item["createdAt"].(*dbtypes.AttributeValueMemberS); ok {
 		j.CreatedAt = v.Value
