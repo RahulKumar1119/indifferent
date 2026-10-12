@@ -189,6 +189,17 @@ func (h *APIHandler) handleStartShorts(ctx context.Context, req events.APIGatewa
 		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Shorts pipeline has already been started"), nil
 	}
 
+	// Verify the upload actually landed: presence, non-emptiness, size cap,
+	// and a sane content type. The presigned URL alone guarantees none of
+	// these (no size/type conditions), and the client-supplied duration is
+	// advisory only.
+	var problem *uploadProblem
+	if err := h.verifyShortsUpload(ctx, job); errors.As(err, &problem) {
+		return errorResponse(http.StatusBadRequest, problem.code, problem.message), nil
+	} else if err != nil {
+		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to verify upload. Please try again."), nil
+	}
+
 	sfnInput, _ := json.Marshal(map[string]interface{}{
 		"jobId":          job.JobID,
 		"userId":         claims.UserID,
@@ -258,6 +269,52 @@ func (h *APIHandler) handleCancelShorts(ctx context.Context, req events.APIGatew
 	return jsonResponse(http.StatusOK, map[string]string{
 		"status": "cancelled",
 	}), nil
+}
+
+// uploadProblem is an actionable client-facing upload rejection.
+type uploadProblem struct {
+	code    string
+	message string
+}
+
+func (e *uploadProblem) Error() string { return e.code + ": " + e.message }
+
+// verifyShortsUpload enforces server-side what the browser only claims:
+// the source object exists, is non-empty, fits the size cap, and carries a
+// content type matching its extension. S3 lookup failures (non-missing) are
+// returned raw for a 500.
+func (h *APIHandler) verifyShortsUpload(ctx context.Context, job *models.ShortsJob) error {
+	meta, err := h.S3.ObjectMeta(ctx, h.Bucket, job.SourceKey)
+	if err != nil {
+		return err
+	}
+	if !meta.Found {
+		return &uploadProblem{
+			code:    "UPLOAD_NOT_FOUND",
+			message: "Upload not found. Your file may not have finished uploading — please upload it again.",
+		}
+	}
+	if meta.Size == 0 {
+		return &uploadProblem{
+			code:    "EMPTY_UPLOAD",
+			message: "Uploaded file is empty. Please select a file with content.",
+		}
+	}
+	if meta.Size > shorts.MaxUploadBytes {
+		return &uploadProblem{
+			code:    "UPLOAD_TOO_LARGE",
+			message: fmt.Sprintf("Uploaded file is %.0f MB; maximum is %d MB. Please use a smaller file.", float64(meta.Size)/1024/1024, shorts.MaxUploadBytes/1024/1024),
+		}
+	}
+	if want, ok := validShortsFileTypes[strings.ToLower(strings.TrimSpace(job.FileType))]; ok && meta.ContentType != "" {
+		if !strings.EqualFold(strings.TrimSpace(strings.Split(meta.ContentType, ";")[0]), want) {
+			return &uploadProblem{
+				code:    "UPLOAD_TYPE_MISMATCH",
+				message: fmt.Sprintf("Uploaded file looks like %s, not %s. Please re-upload the correct file.", meta.ContentType, strings.ToUpper(job.FileType)),
+			}
+		}
+	}
+	return nil
 }
 
 // isExactShortsPath reports whether path is exactly /shorts/{id} (no deeper

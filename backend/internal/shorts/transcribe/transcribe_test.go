@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -199,5 +200,33 @@ func TestStart_ConflictResumesExistingJob(t *testing.T) {
 	}
 	if name != "shorts-job1" {
 		t.Errorf("expected existing job name shorts-job1, got %q", name)
+	}
+}
+
+func TestPoll_EmptyTranscriptFailsActionably(t *testing.T) {
+	// Silence/music with no transcribable words must fail fast with guidance,
+	// not burn rank/render work downstream.
+	client := &mockTranscribeClient{statuses: []types.TranscriptionJobStatus{types.TranscriptionJobStatusCompleted}}
+	store := newMockStorage()
+	store.objects[rawOutputKey("user1", "job1")] = []byte(`{"results":{"transcripts":[{"transcript":""}],"items":[]}}`)
+	svc := NewService(client, store, "my-bucket", "us-east-1")
+
+	_, err := svc.Poll(context.Background(), "job1", "user1", "shorts-job1")
+	if err == nil || !strings.Contains(err.Error(), "no speech detected") {
+		t.Fatalf("expected no-speech error, got: %v", err)
+	}
+}
+
+func TestPoll_OverlongTranscriptFailsActionably(t *testing.T) {
+	// A transcript running far past the duration cap means the duration claim
+	// was wrong: fail with the limit instead of rendering blindly.
+	client := &mockTranscribeClient{statuses: []types.TranscriptionJobStatus{types.TranscriptionJobStatusCompleted}}
+	store := newMockStorage()
+	store.objects[rawOutputKey("user1", "job1")] = []byte(`{"results":{"transcripts":[{"transcript":"hi"}],"items":[{"type":"pronunciation","start_time":"0.0","end_time":"700.0","alternatives":[{"content":"hi"}]}]}}`)
+	svc := NewService(client, store, "my-bucket", "us-east-1")
+
+	_, err := svc.Poll(context.Background(), "job1", "user1", "shorts-job1")
+	if err == nil || !strings.Contains(err.Error(), "over the") {
+		t.Fatalf("expected duration-limit error, got: %v", err)
 	}
 }

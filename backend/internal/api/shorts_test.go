@@ -18,15 +18,11 @@ import (
 
 func newShortsTestHandler(t *testing.T, db *mockDynamoDB) *APIHandler {
 	t.Helper()
-	s3Client, err := storage.NewS3ClientWithRegion(context.Background(), "us-east-1")
-	if err != nil {
-		t.Fatalf("failed to create S3 client: %v", err)
-	}
 	return &APIHandler{
 		AuthService:           &mockAuthService{},
 		JWTService:            &auth.JWTService{Secret: testSecret, DB: db, SessionTable: "sessions-table"},
 		DB:                    db,
-		S3:                    s3Client,
+		S3:                    &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}, meta: storage.ObjectMeta{Found: true, Size: 50 << 20}},
 		SFN:                   &mockSFN{},
 		TableName:             "table",
 		Bucket:                "test-bucket",
@@ -713,4 +709,68 @@ func TestDeleteShorts_DeepPathIs404(t *testing.T) {
 	if resp.StatusCode != 404 {
 		t.Errorf("got status %d, want 404 (body: %s)", resp.StatusCode, resp.Body)
 	}
+}
+
+func TestStartShorts_VerifiesUpload(t *testing.T) {
+	base := map[string]dbtypes.AttributeValue{
+		"PK":             &dbtypes.AttributeValueMemberS{Value: "USER#user1"},
+		"SK":             &dbtypes.AttributeValueMemberS{Value: "SHORTS#job1"},
+		"jobId":          &dbtypes.AttributeValueMemberS{Value: "job1"},
+		"status":         &dbtypes.AttributeValueMemberS{Value: "uploaded"},
+		"fileType":       &dbtypes.AttributeValueMemberS{Value: "mp4"},
+		"sourceDuration": &dbtypes.AttributeValueMemberN{Value: "120"},
+		"sourceKey":      &dbtypes.AttributeValueMemberS{Value: "uploads/user1/job1/source.mp4"},
+		"createdAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+		"updatedAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+	}
+	start := func(meta storage.ObjectMeta) (int, string) {
+		db := &mockDynamoDB{
+			getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				return &dynamodb.GetItemOutput{Item: base}, nil
+			},
+		}
+		h := newShortsTestHandler(t, db)
+		h.S3 = &stubDownloader{status: storage.ObjectStatus{StorageClass: "STANDARD"}, meta: meta}
+		resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+			HTTPMethod: "POST",
+			Path:       "/shorts/job1/start",
+			Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+		})
+		return resp.StatusCode, resp.Body
+	}
+
+	t.Run("missing upload rejected", func(t *testing.T) {
+		status, body := start(storage.ObjectMeta{Found: false})
+		if status != 400 || !strings.Contains(body, "UPLOAD_NOT_FOUND") {
+			t.Errorf("got %d %s, want 400 UPLOAD_NOT_FOUND", status, body)
+		}
+	})
+
+	t.Run("empty upload rejected", func(t *testing.T) {
+		status, body := start(storage.ObjectMeta{Found: true, Size: 0, ContentType: "video/mp4"})
+		if status != 400 || !strings.Contains(body, "EMPTY_UPLOAD") {
+			t.Errorf("got %d %s, want 400 EMPTY_UPLOAD", status, body)
+		}
+	})
+
+	t.Run("oversize upload rejected", func(t *testing.T) {
+		status, body := start(storage.ObjectMeta{Found: true, Size: 600 << 20, ContentType: "video/mp4"})
+		if status != 400 || !strings.Contains(body, "UPLOAD_TOO_LARGE") {
+			t.Errorf("got %d %s, want 400 UPLOAD_TOO_LARGE", status, body)
+		}
+	})
+
+	t.Run("type mismatch rejected", func(t *testing.T) {
+		status, body := start(storage.ObjectMeta{Found: true, Size: 10 << 20, ContentType: "application/pdf"})
+		if status != 400 || !strings.Contains(body, "UPLOAD_TYPE_MISMATCH") {
+			t.Errorf("got %d %s, want 400 UPLOAD_TYPE_MISMATCH", status, body)
+		}
+	})
+
+	t.Run("valid upload starts", func(t *testing.T) {
+		status, _ := start(storage.ObjectMeta{Found: true, Size: 10 << 20, ContentType: "video/mp4"})
+		if status != 200 {
+			t.Errorf("got status %d, want 200", status)
+		}
+	})
 }
