@@ -34,5 +34,7 @@ export function setPageSeo(
   setMetaTag(doc, 'property', 'og:title', opts.title);
   setMetaTag(doc, 'property', 'og:description', opts.description);
   setMetaTag(doc, 'property', 'og:url', opts.canonical);
+  setMetaTag(doc, 'name', 'twitter:title', opts.title);
+  setMetaTag(doc, 'name', 'twitter:description', opts.description);
   setCanonical(doc, opts.canonical);
 }
