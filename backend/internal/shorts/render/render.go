@@ -163,21 +163,30 @@ func ClipKey(userID, jobID, clipID string) string {
 // true the whole frame is scaled to fit over a blurred background instead of
 // cropping (cropX is ignored).
 func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float64, audioOnly bool, cropX string, fit bool) []string {
-	subtitlesFilter := fmt.Sprintf("subtitles=%s:force_style='%s'", subs, captionForceStyle)
+	// An empty subs path means "no captions": the subtitles filter rejects
+	// empty files, so it is omitted entirely (identical picture, no failure).
+	subsFilter := ""
+	if subs != "" {
+		subsFilter = fmt.Sprintf(",subtitles=%s:force_style='%s'", subs, captionForceStyle)
+	}
 
 	if audioOnly {
 		// No video stream: synthesize a black 1080x1920 canvas for the clip
 		// duration, mix in the trimmed audio, and burn captions onto it.
 		// fps=30 keeps the canvas at a Shorts-supported frame rate.
 		duration := end - start
-		return []string{
+		args := []string{
 			"-f", "lavfi",
 			"-i", fmt.Sprintf("color=c=black:s=%dx%d:r=30", outputWidth, outputHeight),
 			"-ss", formatSeconds(start),
 			"-to", formatSeconds(end),
 			"-i", src,
 			"-t", formatSeconds(duration),
-			"-vf", subtitlesFilter,
+		}
+		if subsFilter != "" {
+			args = append(args, "-vf", subsFilter[1:])
+		}
+		return append(args,
 			"-c:v", "libx264",
 			"-preset", "veryfast",
 			"-pix_fmt", "yuv420p",
@@ -188,7 +197,7 @@ func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float6
 			"-shortest",
 			"-movflags", "+faststart",
 			"-y", out,
-		}
+		)
 	}
 
 	// Video source: -ss/-to before -i seek quickly; the caption file is
@@ -204,7 +213,7 @@ func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float6
 		"-ss", formatSeconds(start),
 		"-to", formatSeconds(end),
 		"-i", src,
-		"-vf", fmt.Sprintf("%s,%s", videoFilter, subtitlesFilter),
+		"-vf", fmt.Sprintf("%s%s", videoFilter, subsFilter),
 		"-c:v", "libx264",
 		"-preset", "veryfast",
 		"-pix_fmt", "yuv420p",
@@ -493,11 +502,17 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	}
 
 	// Filter words to the segment and build the SRT relative to the clip start.
+	// Segments with no words (silence, out-of-window ranks) skip captions
+	// entirely: the subtitles filter rejects empty files, so no SRT means
+	// no filter (identical picture, no failure).
 	words := filterWords(transcript.Words, in.ClipStart, in.ClipEnd)
-	srt := BuildSRT(words, in.ClipStart)
-	srtPath := filepath.Join(r.WorkDir, in.Clip.ClipID+".srt")
-	if err := os.WriteFile(srtPath, []byte(srt), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write captions: %w", err)
+	srtPath := ""
+	if len(words) > 0 {
+		srt := BuildSRT(words, in.ClipStart)
+		srtPath = filepath.Join(r.WorkDir, in.Clip.ClipID+".srt")
+		if err := os.WriteFile(srtPath, []byte(srt), 0o644); err != nil {
+			return "", fmt.Errorf("failed to write captions: %w", err)
+		}
 	}
 
 	// Render with FFmpeg, streaming -progress so the job record reflects the
