@@ -58,6 +58,11 @@ html, body {
   color: hsl(var(--foreground));
   font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   scroll-behavior: smooth;
+  /* Transformed fixed decor (aurora background) must never create a
+     horizontal scrollbar. `clip` preserves sticky positioning (unlike
+     hidden); the hidden declaration is a fallback for older browsers. */
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 ::selection { background: #D96C3D; color: #fff; }
