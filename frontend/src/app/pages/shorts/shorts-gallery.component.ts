@@ -101,9 +101,77 @@ const HOVER_PREVIEW_MS = 2000;
       }
 
       @if (clips.length > 0) {
+        <!-- Selection toolbar -->
+        <div class="mb-4 flex flex-wrap items-center gap-2" aria-label="Clip selection">
+          <button
+            type="button"
+            (click)="toggleSelectAll()"
+            [attr.aria-pressed]="allSelected"
+            class="btn-interactive inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium min-h-[40px]"
+          >
+            <span
+              class="w-5 h-5 rounded-md border flex items-center justify-center shrink-0"
+              [class]="allSelected ? 'bg-[hsl(var(--primary))] border-[hsl(var(--primary))]' : 'border-[hsl(var(--muted-foreground))]'"
+              aria-hidden="true"
+            >
+              @if (allSelected) {
+                <svg lucideIcon="check" [size]="14" class="text-white"></svg>
+              }
+            </span>
+            {{ allSelected ? 'Deselect all' : 'Select all' }}
+          </button>
+          <span class="text-[13px] text-[hsl(var(--muted-foreground))]" role="status" aria-live="polite">
+            {{ selectedCount }} of {{ clips.length }} selected
+          </span>
+          <span class="flex-1"></span>
+          @if (selectedCount > 0) {
+            <button
+              type="button"
+              (click)="clearSelection()"
+              class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium min-h-[40px]"
+            >
+              Clear
+            </button>
+          }
+          <button
+            type="button"
+            (click)="downloadSelected()"
+            [disabled]="selectedCount === 0 || bulkActive"
+            class="btn-interactive inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-semibold disabled:opacity-40 min-h-[40px]"
+          >
+            @if (bulkActive) {
+              <svg lucideIcon="loader-2" [size]="15" class="animate-spin"></svg>
+              {{ bulkLabel }}
+            } @else {
+              <svg lucideIcon="download" [size]="15"></svg>
+              Download selected
+            }
+          </button>
+        </div>
+
+        @if (bulkActive || bulkFailed.length > 0) {
+          <div class="mb-4 glass-card p-4" role="status" aria-live="polite">
+            <div class="flex justify-between text-[13px] text-[hsl(var(--muted-foreground))] mb-2">
+              <span>{{ bulkLabel }}</span>
+              <span>{{ bulkDone }} / {{ bulkTotal }}</span>
+            </div>
+            <div class="h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden">
+              <div
+                class="h-full rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-purple-400 transition-all duration-300"
+                [style.width.%]="bulkTotal ? (bulkDone / bulkTotal) * 100 : 0"
+              ></div>
+            </div>
+            @if (bulkFailed.length > 0 && !bulkActive) {
+              <p class="mt-2 text-[13px] text-red-400">
+                Couldn't download: {{ bulkFailed.join(', ') }}. The rest saved successfully — retry these individually.
+              </p>
+            }
+          </div>
+        }
+
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           @for (clip of clips; track clip.clipId; let i = $index) {
-            <div class="glass-card p-3 flex flex-col card-enter group" [style.animation-delay]="(i * 0.05) + 's'" [attr.data-clip]="clip.clipId">
+            <div class="glass-card p-3 flex flex-col card-enter group" [style.animation-delay]="(i * 0.05) + 's'" [attr.data-clip]="clip.clipId" [class.ring-2]="isSelected(clip)" [class.ring-[hsl(var(--primary))]]="isSelected(clip)">
               <!-- 9:16 video -->
               <div
                 class="relative w-full rounded-lg overflow-hidden bg-black aspect-[9/16]"
@@ -135,9 +203,26 @@ const HOVER_PREVIEW_MS = 2000;
                   </button>
                 }
 
+                <!-- Selection checkbox -->
+                <button
+                  type="button"
+                  (click)="toggleSelect(clip)"
+                  role="checkbox"
+                  [attr.aria-checked]="isSelected(clip)"
+                  [attr.aria-label]="(isSelected(clip) ? 'Deselect' : 'Select') + ' clip ' + clip.rank"
+                  class="absolute top-2 left-2 z-10 w-9 h-9 rounded-full backdrop-blur flex items-center justify-center transition-colors"
+                  [class]="isSelected(clip) ? 'bg-[hsl(var(--primary))] text-white' : 'bg-black/55 text-white hover:bg-black/75'"
+                >
+                  @if (isSelected(clip)) {
+                    <svg lucideIcon="check" [size]="17"></svg>
+                  } @else {
+                    <span class="w-[18px] h-[18px] rounded-full border-2 border-white/80" aria-hidden="true"></span>
+                  }
+                </button>
+
                 <!-- Rank badge -->
                 <span
-                  class="absolute top-2 left-2 inline-flex items-center text-[11px] font-bold px-2 py-1 rounded-full text-white shadow"
+                  class="absolute bottom-2 left-2 inline-flex items-center text-[11px] font-bold px-2 py-1 rounded-full text-white shadow"
                   [class]="rankBadgeClass(clip.rank)"
                 >
                   #{{ clip.rank }}
@@ -239,8 +324,61 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   pendingDelete = false;
   deleting = false;
 
+  /** Selected clip IDs. Keyed by stable clipId so selection survives
+   * re-sorts and list refreshes; pruned when the list changes. */
+  private readonly selectedIds = new Set<string>();
+
+  bulkActive = false;
+  bulkDone = 0;
+  bulkTotal = 0;
+  bulkFailed: string[] = [];
+
   get jobLabel(): string {
     return this.jobId ? this.jobId.slice(0, 8) : 'this job';
+  }
+
+  get selectedCount(): number {
+    return this.selectedIds.size;
+  }
+
+  get allSelected(): boolean {
+    return this.clips.length > 0 && this.clips.every((c) => this.selectedIds.has(c.clipId));
+  }
+
+  get bulkLabel(): string {
+    if (!this.bulkActive) return '';
+    return `Fetching ${Math.min(this.bulkDone + 1, this.bulkTotal)} of ${this.bulkTotal}…`;
+  }
+
+  isSelected(clip: Clip): boolean {
+    return this.selectedIds.has(clip.clipId);
+  }
+
+  toggleSelect(clip: Clip): void {
+    if (this.selectedIds.has(clip.clipId)) {
+      this.selectedIds.delete(clip.clipId);
+    } else {
+      this.selectedIds.add(clip.clipId);
+    }
+  }
+
+  toggleSelectAll(): void {
+    if (this.allSelected) {
+      this.selectedIds.clear();
+    } else {
+      this.clips.forEach((c) => this.selectedIds.add(c.clipId));
+    }
+  }
+
+  clearSelection(): void {
+    this.selectedIds.clear();
+  }
+
+  private pruneSelection(): void {
+    const live = new Set(this.clips.map((c) => c.clipId));
+    [...this.selectedIds].forEach((id) => {
+      if (!live.has(id)) this.selectedIds.delete(id);
+    });
   }
 
   private hoverTimers: Record<string, ReturnType<typeof setTimeout>> = {};
@@ -262,6 +400,7 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     this.shorts.listClips(this.jobId).subscribe({
       next: (clips) => {
         this.clips = [...clips].sort((a, b) => a.rank - b.rank);
+        this.pruneSelection();
         this.isLoading = false;
       },
       error: (err) => {
@@ -385,6 +524,49 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
         this.error = 'Copy failed. Please try again.';
       }
     });
+  }
+
+  async downloadSelected(): Promise<void> {
+    const targets = this.clips.filter((c) => this.selectedIds.has(c.clipId));
+    if (targets.length === 0 || this.bulkActive) return;
+    this.bulkActive = true;
+    this.bulkDone = 0;
+    this.bulkTotal = targets.length;
+    this.bulkFailed = [];
+    this.error = '';
+    try {
+      const zip = new JSZip();
+      for (const clip of targets) {
+        try {
+          const url = await this.clipUrl(clip);
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`fetch ${res.status}`);
+          zip.file(`short-${clip.rank}.mp4`, await res.blob());
+        } catch {
+          this.bulkFailed.push(`clip #${clip.rank}`);
+        } finally {
+          this.bulkDone++;
+        }
+      }
+      if (this.bulkDone - this.bulkFailed.length === 0) {
+        throw new Error('all-failed');
+      }
+      const content = await zip.generateAsync({ type: 'blob' });
+      const objectUrl = URL.createObjectURL(content);
+      this.triggerDownload(objectUrl, `shorts-selected-${targets.length}.zip`);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      if (this.bulkFailed.length === 0) {
+        this.toasts.show(`Downloaded ${targets.length} selected ${targets.length === 1 ? 'clip' : 'clips'}.`, 'success');
+      } else {
+        this.error = `Downloaded ${targets.length - this.bulkFailed.length} of ${targets.length}. Failed: ${this.bulkFailed.join(', ')}.`;
+        this.toasts.show('Some clips failed to download — see details above.', 'error');
+      }
+    } catch {
+      this.bulkFailed = targets.map((c) => `clip #${c.rank}`);
+      this.error = 'Selected download failed. Please try clips individually.';
+    } finally {
+      this.bulkActive = false;
+    }
   }
 
   async downloadAll(): Promise<void> {
