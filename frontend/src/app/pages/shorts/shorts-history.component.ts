@@ -34,6 +34,13 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
         } @else if (error) {
           <div class="mt-8 rounded-[16px] border border-red-500/30 p-6 text-center">
             <p class="text-sm text-red-400">{{ error }}</p>
+            <button
+              type="button"
+              (click)="reload()"
+              class="btn-interactive mt-4 inline-flex items-center gap-2 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-5 py-2.5 text-[13.5px] font-semibold"
+            >
+              Try again
+            </button>
           </div>
         } @else if (jobs.length === 0) {
           <div class="mt-8 rounded-[20px] border border-[hsl(var(--border))] p-10 text-center">
@@ -110,6 +117,12 @@ export class ShortsHistoryComponent implements OnInit {
   private readonly toasts = inject(ToastService);
 
   ngOnInit(): void {
+    this.reload();
+  }
+
+  reload(): void {
+    this.isLoading = true;
+    this.error = '';
     this.shorts.listJobs().subscribe({
       next: (jobs) => {
         this.jobs = [...jobs].sort(

@@ -37,7 +37,7 @@ const HOVER_PREVIEW_MS = 2000;
             Ranked by predicted engagement. Hover to preview, download or share.
           </p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           @if (clips.length > 1) {
             <button
               class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium disabled:opacity-50"
@@ -89,6 +89,13 @@ const HOVER_PREVIEW_MS = 2000;
             <svg lucideIcon="circle-x" [size]="16"></svg>
             {{ error }}
           </p>
+          <button
+            type="button"
+            (click)="reload()"
+            class="mt-3 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[13px] font-medium hover:bg-white/5"
+          >
+            Try again
+          </button>
         </div>
       }
 
@@ -396,7 +403,13 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
       this.router.navigate(['/shorts']);
       return;
     }
+    this.reload();
+  }
 
+  reload(): void {
+    if (!this.jobId) return;
+    this.isLoading = true;
+    this.error = '';
     this.shorts.listClips(this.jobId).subscribe({
       next: (clips) => {
         this.clips = [...clips].sort((a, b) => a.rank - b.rank);
