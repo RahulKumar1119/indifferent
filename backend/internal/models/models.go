@@ -2,6 +2,11 @@
 // the TXT-to-Video SaaS pipeline stages and API.
 package models
 
+import (
+	"fmt"
+	"regexp"
+)
+
 // ParserInput represents the event triggering the parser.
 type ParserInput struct {
 	ProjectID string `json:"projectId"`
@@ -178,6 +183,9 @@ type ShortsJob struct {
 	// INFRASTRUCTURE) driving retry guidance. Both feed safe retries.
 	FailedStage    string          `json:"failedStage,omitempty"`
 	ErrorCode      string          `json:"errorCode,omitempty"`
+	// Caption is the reusable caption style chosen for this job's renders
+	// (preset + user overrides). Zero value renders the legacy bold look.
+	Caption        CaptionStyle    `json:"caption,omitempty"`
 	Error          string          `json:"error,omitempty"`
 	CreatedAt      string          `json:"createdAt"`
 	UpdatedAt      string          `json:"updatedAt"`
@@ -214,6 +222,43 @@ type Clip struct {
 	// Start/End locate the clip in the source for future caption rebuilds.
 	Start float64 `json:"start,omitempty"`
 	End   float64 `json:"end,omitempty"`
+}
+
+// CaptionStyle is the stored per-job caption choice: a preset plus user
+// overrides. Zero value resolves to the legacy bold look so old jobs render
+// exactly as before.
+type CaptionStyle struct {
+	Preset    string `json:"preset,omitempty"`    // minimal|bold|karaoke|clean
+	FontSize  int    `json:"fontSize,omitempty"`  // libass script units, 8-72
+	Color     string `json:"color,omitempty"`     // #RRGGBB text color
+	Highlight string `json:"highlight,omitempty"` // #RRGGBB karaoke sweep color
+	Position  string `json:"position,omitempty"`  // top|middle|bottom
+}
+
+var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
+// Validate rejects unknown presets, out-of-range sizes, malformed colors,
+// and unknown positions. Empty fields are allowed (preset defaults apply).
+func (s CaptionStyle) Validate() error {
+	switch s.Preset {
+	case "", "minimal", "bold", "karaoke", "clean":
+	default:
+		return fmt.Errorf("unknown caption preset %q: must be minimal, bold, karaoke or clean", s.Preset)
+	}
+	if s.FontSize != 0 && (s.FontSize < 8 || s.FontSize > 72) {
+		return fmt.Errorf("font size %d out of range 8-72", s.FontSize)
+	}
+	for _, c := range []string{s.Color, s.Highlight} {
+		if c != "" && !hexColor.MatchString(c) {
+			return fmt.Errorf("color %q must be #RRGGBB", c)
+		}
+	}
+	switch s.Position {
+	case "", "top", "middle", "bottom":
+	default:
+		return fmt.Errorf("unknown caption position %q: must be top, middle or bottom", s.Position)
+	}
+	return nil
 }
 
 // Transcript is the normalized word-level transcription used by ranking/rendering.

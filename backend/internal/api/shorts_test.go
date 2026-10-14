@@ -858,3 +858,97 @@ func TestRetryShorts_ConflictOnDoubleRestart(t *testing.T) {
 		t.Errorf("got status %d, want 409 (body: %s)", resp.StatusCode, resp.Body)
 	}
 }
+
+func styleReq(jobID, body string) events.APIGatewayProxyRequest {
+	return events.APIGatewayProxyRequest{
+		HTTPMethod: "PUT",
+		Path:       "/shorts/" + jobID + "/style",
+		Body:       body,
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	}
+}
+
+func TestUpdateCaption_SavesValidatedStyle(t *testing.T) {
+	var puts []map[string]dbtypes.AttributeValue
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: shortsJobItem("job1", "uploaded")}, nil
+		},
+		putItemFunc: func(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			puts = append(puts, params.Item)
+			return &dynamodb.PutItemOutput{}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	resp, _ := h.HandleRequest(context.Background(), styleReq("job1",
+		`{"caption":{"preset":"karaoke","fontSize":24,"color":"#FFD60A","highlight":"#9AA0A6","position":"top"}}`))
+	if resp.StatusCode != 200 {
+		t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if len(puts) != 1 {
+		t.Fatalf("expected 1 persisted write, got %d", len(puts))
+	}
+	raw, ok := puts[0]["caption"].(*dbtypes.AttributeValueMemberS)
+	if !ok || !strings.Contains(raw.Value, `"preset":"karaoke"`) {
+		t.Errorf("expected persisted karaoke caption, got %v", puts[0]["caption"])
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	cap, ok := body["caption"].(map[string]interface{})
+	if !ok || cap["preset"] != "karaoke" || cap["position"] != "top" {
+		t.Errorf("expected echoed caption in response, got %v", body["caption"])
+	}
+}
+
+func TestUpdateCaption_RejectsBadInput(t *testing.T) {
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: shortsJobItem("job1", "uploaded")}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	for _, body := range []string{
+		`{"caption":{"preset":"comic"}}`,
+		`{"caption":{"fontSize":200}}`,
+		`{"caption":{"color":"red"}}`,
+		`{"caption":{"position":"left"}}`,
+		`not-json`,
+	} {
+		resp, _ := h.HandleRequest(context.Background(), styleReq("job1", body))
+		if resp.StatusCode != 400 {
+			t.Errorf("body %q: got status %d, want 400 (body: %s)", body, resp.StatusCode, resp.Body)
+		}
+	}
+}
+
+func TestUpdateCaption_RejectsWrongState(t *testing.T) {
+	for _, status := range []string{"transcribing", "ranking", "rendering", "completed", "delete_failed"} {
+		db := &mockDynamoDB{
+			getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				return &dynamodb.GetItemOutput{Item: shortsJobItem("job1", status)}, nil
+			},
+		}
+		h := newShortsTestHandler(t, db)
+		resp, _ := h.HandleRequest(context.Background(), styleReq("job1", `{"caption":{"preset":"minimal"}}`))
+		if resp.StatusCode != 400 {
+			t.Errorf("status %s: got %d, want 400 (body: %s)", status, resp.StatusCode, resp.Body)
+		}
+	}
+}
+
+func TestUpdateCaption_UnknownJob(t *testing.T) {
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: nil}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+	resp, _ := h.HandleRequest(context.Background(), styleReq("job1", `{"caption":{"preset":"minimal"}}`))
+	if resp.StatusCode != 404 {
+		t.Errorf("got status %d, want 404 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}
