@@ -345,6 +345,60 @@ func frameEdge(t *testing.T, clipPath string, at float64, left bool) []byte {
 	return out
 }
 
+func TestRenderOutput_Karaoke(t *testing.T) {
+	requireFFmpeg(t)
+	// A karaoke-styled job must burn ASS captions and still hit the preset.
+	src := makeSource(t, 640, 360, 4, true)
+	tr := makeTranscript(t, []models.Word{
+		word("alpha", 0.2, 0.9),
+		word("beta", 1.2, 1.9),
+	})
+	out := renderStyledFixture(t, src, tr, 0, 3, models.CaptionStyle{Preset: "karaoke"})
+	info := probe(t, out)
+	assertPortraitPreset(t, info, 3)
+	if !info.hasAudio {
+		t.Error("karaoke render must keep the audio stream")
+	}
+	// Captions visible: bottom band differs from a captionless render.
+	plain := renderFixture(t, src, makeTranscript(t, nil), 0, 3, false, nil)
+	if bytes.Equal(frameBand(t, out, 0.5, 0.3), frameBand(t, plain, 0.5, 0.3)) {
+		t.Error("karaoke captions not visible in output")
+	}
+}
+
+// renderStyledFixture is renderFixture with an explicit caption style.
+func renderStyledFixture(t *testing.T, srcPath string, transcript []byte, start, end float64, style models.CaptionStyle) string {
+	t.Helper()
+	workDir := t.TempDir()
+	srcBytes, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	store := &mockStorage{objects: map[string][]byte{
+		"src":        srcBytes,
+		"transcript": transcript,
+	}}
+	r := NewRenderer(store, "assets", workDir)
+	in := RenderInput{
+		JobID:         "j1",
+		UserID:        "u1",
+		SourceKey:     "src",
+		TranscriptKey: "transcript",
+		Clip:          models.Clip{ClipID: "clip1", Rank: 1},
+		ClipStart:     start,
+		ClipEnd:       end,
+		Caption:       style,
+	}
+	key, err := r.Render(context.Background(), in)
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+	if key == "" {
+		t.Fatal("expected non-empty clip key")
+	}
+	return filepath.Join(workDir, "clip1.mp4")
+}
+
 func TestComputeCropX_MovingSpeaker(t *testing.T) {
 	// A speaker crossing 0.2 -> 0.8 resolves near the middle (median), so one
 	// stray frame cannot yank the 9:16 window.

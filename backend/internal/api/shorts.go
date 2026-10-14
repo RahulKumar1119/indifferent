@@ -396,6 +396,49 @@ func (h *APIHandler) handleRetryShorts(ctx context.Context, req events.APIGatewa
 	}), nil
 }
 
+// UpdateCaptionRequest carries the reusable caption style for a job.
+type UpdateCaptionRequest struct {
+	Caption models.CaptionStyle `json:"caption"`
+}
+
+// handleUpdateCaption stores a validated caption style on a shorts job for
+// future renders (including retries, which preserve it). Styles apply only
+// before rendering starts: changing mid-render would race the worker, and
+// changing a finished job would mislead (nothing left to render).
+func (h *APIHandler) handleUpdateCaption(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	jobID := extractShortsIDFromSubpath(req.Path, "/style")
+	if jobID == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Job ID is required"), nil
+	}
+
+	var body UpdateCaptionRequest
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	}
+	if err := body.Caption.Validate(); err != nil {
+		return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
+	}
+
+	job, err := h.getShortsJobByID(ctx, claims.UserID, jobID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
+	}
+	if job.Status != "uploaded" && job.Status != "failed" {
+		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Caption style can only be changed before rendering starts."), nil
+	}
+
+	job.Caption = body.Caption
+	job.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(h.TableName),
+		Item:      shortsJobToItem(*job),
+	}); err != nil {
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to save caption style."), nil
+	}
+
+	return jsonResponse(http.StatusOK, job), nil
+}
+
 // isExactShortsPath reports whether path is exactly /shorts/{id} (no deeper
 // sub-resource): only the job itself is deletable via DELETE, deeper DELETE
 // paths fall through to 404.
@@ -906,6 +949,11 @@ func shortsJobToItem(j models.ShortsJob) map[string]dbtypes.AttributeValue {
 	if j.ErrorCode != "" {
 		item["errorCode"] = &dbtypes.AttributeValueMemberS{Value: j.ErrorCode}
 	}
+	if j.Caption.Preset != "" || j.Caption.FontSize != 0 || j.Caption.Color != "" || j.Caption.Highlight != "" || j.Caption.Position != "" {
+		if b, err := json.Marshal(j.Caption); err == nil {
+			item["caption"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+		}
+	}
 	if j.CompletedAt != "" {
 		item["completedAt"] = &dbtypes.AttributeValueMemberS{Value: j.CompletedAt}
 	}
@@ -961,6 +1009,9 @@ func itemToShortsJob(item map[string]dbtypes.AttributeValue) models.ShortsJob {
 	}
 	if v, ok := item["errorCode"].(*dbtypes.AttributeValueMemberS); ok {
 		j.ErrorCode = v.Value
+	}
+	if v, ok := item["caption"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		_ = json.Unmarshal([]byte(v.Value), &j.Caption)
 	}
 	if v, ok := item["createdAt"].(*dbtypes.AttributeValueMemberS); ok {
 		j.CreatedAt = v.Value

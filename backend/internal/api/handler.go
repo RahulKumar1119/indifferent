@@ -138,6 +138,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleCancelShorts)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/retry"):
 		return h.handleWithAuth(ctx, req, h.handleRetryShorts)
+	case req.HTTPMethod == "PUT" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/style"):
+		return h.handleWithAuth(ctx, req, h.handleUpdateCaption)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/url"):
 		return h.handleWithAuth(ctx, req, h.handleGetClipURL)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/clips"):

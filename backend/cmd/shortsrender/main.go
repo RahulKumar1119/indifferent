@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -16,8 +17,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/rekognition"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/shorts/render"
@@ -125,6 +128,7 @@ func run(ctx context.Context) error {
 		UserID:        userID,
 		SourceKey:     sourceKey,
 		TranscriptKey: transcriptKey,
+		Caption:       fetchJobCaption(ctx, dbClient, table, userID, jobID),
 		Clip: models.Clip{
 			// Start/End ride along for caption rebuilds (Score/HookText live
 			// only in the ranker's DynamoDB record, not in worker env).
@@ -146,6 +150,38 @@ func run(ctx context.Context) error {
 
 	log.Printf("rendered clip %s -> s3://%s/%s", clipID, bucket, clipKey)
 	return nil
+}
+
+// fetchJobCaption loads the job's reusable caption style for the render.
+// Any failure (missing record, unreadable value) falls back to the zero
+// style, which renders the legacy bold look: branding must never block an
+// otherwise finished clip.
+func fetchJobCaption(ctx context.Context, dbClient *dynamodb.Client, table, userID, jobID string) models.CaptionStyle {
+	out, err := dbClient.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(table),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
+		},
+	})
+	if err != nil || out.Item == nil {
+		return models.CaptionStyle{}
+	}
+	return captionFromItem(out.Item)
+}
+
+// captionFromItem decodes the stored caption style; anything unexpected
+// resolves to the zero (legacy) style.
+func captionFromItem(item map[string]dbtypes.AttributeValue) models.CaptionStyle {
+	raw, ok := item["caption"].(*dbtypes.AttributeValueMemberS)
+	if !ok || raw.Value == "" {
+		return models.CaptionStyle{}
+	}
+	var style models.CaptionStyle
+	if err := json.Unmarshal([]byte(raw.Value), &style); err != nil {
+		return models.CaptionStyle{}
+	}
+	return style
 }
 
 // isAudioOnly reports whether the source key names an audio-only file.

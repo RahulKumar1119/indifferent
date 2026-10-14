@@ -25,10 +25,6 @@ const (
 	// every rendered clip is normalized to (Requirement 4.2).
 	outputWidth  = 1080
 	outputHeight = 1920
-
-	// forceStyle styles the burned-in captions: bottom-centered, white text
-	// with an outlined box for readability without sound (Requirement 4.4).
-	captionForceStyle = "Alignment=2,FontSize=18,PrimaryColour=&H00FFFFFF,BorderStyle=3,Outline=2"
 )
 
 // cropCaptionFilter is the 9:16 center-crop + scale video filter applied to a
@@ -60,6 +56,8 @@ type RenderInput struct {
 	// AudioOnly indicates the source has no video stream (MP3/WAV); when true
 	// a solid 1080x1920 canvas is rendered instead of a center-crop.
 	AudioOnly bool
+	// Caption is the job's reusable caption style (zero value = legacy bold).
+	Caption models.CaptionStyle
 }
 
 // Renderer renders a single ranked segment into a 9:16 captioned clip and
@@ -162,12 +160,18 @@ func ClipKey(userID, jobID, clipID string) string {
 // offset (as produced by ComputeCropX for subject tracking). When fit is
 // true the whole frame is scaled to fit over a blurred background instead of
 // cropping (cropX is ignored).
-func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float64, audioOnly bool, cropX string, fit bool) []string {
+func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float64, audioOnly bool, cropX string, fit bool, style models.CaptionStyle) []string {
 	// An empty subs path means "no captions": the subtitles filter rejects
 	// empty files, so it is omitted entirely (identical picture, no failure).
+	// Karaoke styles burn ASS (word sweep) with embedded styling; all others
+	// use SRT with a force_style override.
 	subsFilter := ""
 	if subs != "" {
-		subsFilter = fmt.Sprintf(",subtitles=%s:force_style='%s'", subs, captionForceStyle)
+		if isKaraokeStyle(style) {
+			subsFilter = fmt.Sprintf(",subtitles=%s", subs)
+		} else {
+			subsFilter = fmt.Sprintf(",subtitles=%s:force_style='%s'", subs, ResolveForceStyle(style))
+		}
 	}
 
 	if audioOnly {
@@ -501,16 +505,25 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 		return "", fmt.Errorf("failed to parse transcript: %w", err)
 	}
 
-	// Filter words to the segment and build the SRT relative to the clip start.
-	// Segments with no words (silence, out-of-window ranks) skip captions
-	// entirely: the subtitles filter rejects empty files, so no SRT means
-	// no filter (identical picture, no failure).
+	// Filter words to the segment and build captions relative to the clip
+	// start. Segments with no words (silence, out-of-window ranks) skip
+	// captions entirely: the subtitles filter rejects empty files, so no
+	// caption file means no filter (identical picture, no failure).
+	// Karaoke styles build ASS (word sweep); all others build SRT.
 	words := filterWords(transcript.Words, in.ClipStart, in.ClipEnd)
-	srtPath := ""
+	subsPath := ""
 	if len(words) > 0 {
-		srt := BuildSRT(words, in.ClipStart)
-		srtPath = filepath.Join(r.WorkDir, in.Clip.ClipID+".srt")
-		if err := os.WriteFile(srtPath, []byte(srt), 0o644); err != nil {
+		var doc string
+		var ext string
+		if isKaraokeStyle(in.Caption) {
+			doc = BuildASS(words, in.ClipStart, in.Caption)
+			ext = ".ass"
+		} else {
+			doc = BuildSRT(words, in.ClipStart)
+			ext = ".srt"
+		}
+		subsPath = filepath.Join(r.WorkDir, in.Clip.ClipID+ext)
+		if err := os.WriteFile(subsPath, []byte(doc), 0o644); err != nil {
 			return "", fmt.Errorf("failed to write captions: %w", err)
 		}
 	}
@@ -518,7 +531,7 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	// Render with FFmpeg, streaming -progress so the job record reflects the
 	// live encode percent (clamped at 99; completion is marked downstream).
 	outPath := filepath.Join(r.WorkDir, in.Clip.ClipID+".mp4")
-	args := r.buildCropCaptionArgs(srcPath, srtPath, outPath, in.ClipStart, in.ClipEnd, in.AudioOnly, cropX, fit)
+	args := r.buildCropCaptionArgs(srcPath, subsPath, outPath, in.ClipStart, in.ClipEnd, in.AudioOnly, cropX, fit, in.Caption)
 	runProgress := r.RunCommandProgress
 	if runProgress == nil {
 		runProgress = defaultRunCommandProgress

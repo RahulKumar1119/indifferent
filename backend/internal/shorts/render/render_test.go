@@ -56,7 +56,7 @@ func (m *mockStorage) HeadObject(ctx context.Context, bucket, key string) (bool,
 
 func TestBuildCropCaptionArgs_VideoFilterAndFlags(t *testing.T) {
 	r := &Renderer{Bucket: "b", WorkDir: "/tmp"}
-	args := r.buildCropCaptionArgs("source.mp4", "cap.srt", "out.mp4", 12.4, 39.9, false, "", false)
+	args := r.buildCropCaptionArgs("source.mp4", "cap.srt", "out.mp4", 12.4, 39.9, false, "", false, models.CaptionStyle{})
 	joined := strings.Join(args, " ")
 
 	// Trim before input.
@@ -107,7 +107,7 @@ func TestBuildCropCaptionArgs_VideoFilterAndFlags(t *testing.T) {
 
 func TestBuildCropCaptionArgs_AudioOnlyCanvas(t *testing.T) {
 	r := &Renderer{Bucket: "b", WorkDir: "/tmp"}
-	args := r.buildCropCaptionArgs("audio.mp3", "cap.srt", "out.mp4", 5.0, 25.0, true, "", false)
+	args := r.buildCropCaptionArgs("audio.mp3", "cap.srt", "out.mp4", 5.0, 25.0, true, "", false, models.CaptionStyle{})
 	joined := strings.Join(args, " ")
 
 	// Audio-only synthesizes a black 1080x1920 canvas via lavfi.

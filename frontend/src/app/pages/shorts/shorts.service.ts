@@ -50,10 +50,29 @@ export interface ShortsJob {
   /** Stage that was running on failure + machine-readable error class. */
   failedStage?: string;
   errorCode?: string;
+  /** Reusable caption style for this job's renders. */
+  caption?: CaptionStyle;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
 }
+
+/** Reusable caption style stored per shorts job (mirrors backend models). */
+export interface CaptionStyle {
+  preset?: 'minimal' | 'bold' | 'karaoke' | 'clean';
+  fontSize?: number;
+  color?: string;
+  highlight?: string;
+  position?: 'top' | 'middle' | 'bottom';
+}
+
+export const DEFAULT_CAPTION_STYLE: Required<CaptionStyle> = {
+  preset: 'bold',
+  fontSize: 18,
+  color: '#FFFFFF',
+  highlight: '#FFD60A',
+  position: 'bottom',
+};
 
 /** Trimmed shorts job for history lists (matches backend ShortsJobSummary). */
 export interface ShortsJobSummary {
@@ -106,6 +125,11 @@ export class ShortsService {
   /** POST /shorts/{id}/retry: restart a failed job from its source media. */
   retryJob(jobId: string): Observable<{ status: string }> {
     return this.api.post<{ status: string }>(`/shorts/${jobId}/retry`);
+  }
+
+  /** PUT /shorts/{id}/style: store a validated caption style for future renders. */
+  updateCaption(jobId: string, caption: CaptionStyle): Observable<ShortsJob> {
+    return this.api.put<ShortsJob>(`/shorts/${jobId}/style`, { caption });
   }
 
   /** DELETE /shorts/{id}: permanently delete a job and all its S3 assets. */

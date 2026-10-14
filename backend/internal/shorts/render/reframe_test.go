@@ -237,7 +237,7 @@ func TestSmartCropX_VerticalSourcePinsLeft(t *testing.T) {
 
 func TestBuildCropCaptionArgs_FitFill(t *testing.T) {
 	r := &Renderer{Bucket: "b", WorkDir: "/tmp"}
-	args := r.buildCropCaptionArgs("source.mp4", "cap.srt", "out.mp4", 12.4, 39.9, false, "", true)
+	args := r.buildCropCaptionArgs("source.mp4", "cap.srt", "out.mp4", 12.4, 39.9, false, "", true, models.CaptionStyle{})
 	joined := strings.Join(args, " ")
 	for _, want := range []string{"overlay=(W-w)/2:(H-h)/2", "gblur=", "force_original_aspect_ratio=decrease", "subtitles=cap.srt"} {
 		if !strings.Contains(joined, want) {
@@ -251,7 +251,7 @@ func TestBuildCropCaptionArgs_FitFill(t *testing.T) {
 
 func TestBuildCropCaptionArgs_SmartCropOffset(t *testing.T) {
 	r := &Renderer{Bucket: "b", WorkDir: "/tmp"}
-	args := r.buildCropCaptionArgs("source.mp4", "cap.srt", "out.mp4", 12.4, 39.9, false, "656", false)
+	args := r.buildCropCaptionArgs("source.mp4", "cap.srt", "out.mp4", 12.4, 39.9, false, "656", false, models.CaptionStyle{})
 	joined := strings.Join(args, " ")
 	if !strings.Contains(joined, "crop=w=ih*9/16:h=ih:x=656:y=0") {
 		t.Errorf("expected tracked crop x=656, got: %s", joined)
