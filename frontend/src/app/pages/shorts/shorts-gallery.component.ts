@@ -142,6 +142,11 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
               <h2 class="font-semibold text-[15px]">Caption style</h2>
               <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Saved per job · used by renders and retries</span>
             </div>
+            @if (styleLoaded && !styleEditable) {
+              <p class="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-2.5 text-[13px] text-[hsl(var(--muted-foreground))]" role="note">
+                This job is already rendered — styles apply to future renders. Retry the job to re-render with a new style.
+              </p>
+            }
             <div class="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2.5" role="group" aria-label="Caption presets">
               @for (p of captionPresets; track p.id) {
                 <button
@@ -206,7 +211,8 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
               <button
                 type="button"
                 (click)="saveStyle()"
-                [disabled]="styleSaving"
+                [disabled]="styleSaving || !styleEditable"
+                [title]="!styleEditable && styleLoaded ? 'Styles apply to future renders only' : 'Save caption style'"
                 class="btn-interactive min-h-[40px] px-5 rounded-full bg-[hsl(var(--primary))] text-white text-[13.5px] font-semibold disabled:opacity-50"
               >{{ styleSaving ? 'Saving…' : 'Save style' }}</button>
             </div>
@@ -503,6 +509,7 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   styleLoaded = false;
   styleSaving = false;
   styleError = '';
+  styleJobStatus = '';
   styleDraft: Required<CaptionStyle> = { ...DEFAULT_CAPTION_STYLE };
   readonly captionPresets = CAPTION_PRESETS;
   readonly positionOptions: NonNullable<CaptionStyle['position']>[] = ['top', 'middle', 'bottom'];
@@ -1067,6 +1074,7 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   saveStyle(): void {
     if (this.styleSaving || !this.jobId) return;
+    if (this.styleLoaded && !this.styleEditable) return;
     this.styleSaving = true;
     this.styleError = '';
     this.shorts.updateCaption(this.jobId, { ...this.styleDraft }).subscribe({
@@ -1086,13 +1094,20 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     this.shorts.getStatus(this.jobId).subscribe({
       next: (job) => {
         this.styleDraft = { ...DEFAULT_CAPTION_STYLE, ...(job.caption ?? {}) };
+        this.styleJobStatus = job.status ?? '';
         this.styleLoaded = true;
       },
       error: () => {
         this.styleDraft = { ...DEFAULT_CAPTION_STYLE };
+        this.styleJobStatus = '';
         this.styleLoaded = true;
       },
     });
+  }
+
+  /** Styles apply to future renders: completed/in-flight jobs are read-only. */
+  get styleEditable(): boolean {
+    return this.styleJobStatus === 'uploaded' || this.styleJobStatus === 'failed';
   }
 
   /** HTML approximation of a preset for the studio preview cards. */
