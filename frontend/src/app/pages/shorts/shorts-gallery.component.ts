@@ -142,7 +142,11 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
               <h2 class="font-semibold text-[15px]">Caption style</h2>
               <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Saved per job · used by renders and retries</span>
             </div>
-            @if (styleLoaded && !styleEditable) {
+            @if (styleLoaded && styleLoadError) {
+              <p class="mt-2 rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-2.5 text-[13px] text-red-400" role="alert">
+                Couldn't load the saved style. Check your connection and reopen this panel.
+              </p>
+            } @else if (styleLoaded && !styleEditable) {
               <p class="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-2.5 text-[13px] text-[hsl(var(--muted-foreground))]" role="note">
                 This job is already rendered — styles apply to future renders. Retry the job to re-render with a new style.
               </p>
@@ -507,6 +511,7 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   /** Caption studio state (per-job reusable style). */
   styleOpen = false;
   styleLoaded = false;
+  styleLoadError = false;
   styleSaving = false;
   styleError = '';
   styleJobStatus = '';
@@ -1091,6 +1096,7 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   private loadStyle(): void {
     if (!this.jobId) return;
+    this.styleLoadError = false;
     this.shorts.getStatus(this.jobId).subscribe({
       next: (job) => {
         this.styleDraft = { ...DEFAULT_CAPTION_STYLE, ...(job.caption ?? {}) };
@@ -1100,6 +1106,7 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
       error: () => {
         this.styleDraft = { ...DEFAULT_CAPTION_STYLE };
         this.styleJobStatus = '';
+        this.styleLoadError = true;
         this.styleLoaded = true;
       },
     });
