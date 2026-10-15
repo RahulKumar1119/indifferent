@@ -2,6 +2,7 @@ package render
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -105,6 +106,21 @@ type DynamoUpdater interface {
 // logoOverlayWidth is the on-screen width of the brand logo on a 1080x1920
 // clip (top-right, 24px margin). Height scales to preserve aspect ratio.
 const logoOverlayWidth = 200
+
+// EnsureCaptionFonts verifies the runtime can shape burned-in captions.
+// libass silently renders nothing when fontconfig has no usable fonts, so
+// this preflight turns that silent wrong output into a loud, retryable
+// render error.
+func EnsureCaptionFonts() error {
+	out, err := exec.Command("fc-list", "--format=%{family}\n").Output()
+	if err != nil {
+		return fmt.Errorf("caption fonts unavailable (fc-list failed: %v): install fontconfig fonts in the render image", err)
+	}
+	if len(bytes.TrimSpace(out)) == 0 {
+		return fmt.Errorf("caption fonts unavailable: fontconfig lists no font families")
+	}
+	return nil
+}
 
 // buildLogoOverlayArgs burns a brand logo onto a finished clip (top-right
 // corner) without re-encoding audio.
@@ -410,7 +426,7 @@ func (r *Renderer) reportProgress(ctx context.Context, in RenderInput, percent i
 		},
 		UpdateExpression: aws.String("SET #progress = :p, #updatedAt = :u"),
 		ExpressionAttributeNames: map[string]string{
-			"#progress": "progress",
+			"#progress":  "progress",
 			"#updatedAt": "updatedAt",
 		},
 		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
@@ -422,6 +438,7 @@ func (r *Renderer) reportProgress(ctx context.Context, in RenderInput, percent i
 		log.Printf("progress report failed: %v", err)
 	}
 }
+
 // 640 wide to bound Rekognition payload size) evenly across [start, end].
 func (r *Renderer) defaultExtractFrames(src string, start, end float64) ([][]byte, error) {
 	times := sampleTimes(start, end)
@@ -477,6 +494,13 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 
 	if err := os.MkdirAll(r.WorkDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create work directory: %w", err)
+	}
+
+	// Fail fast when the runtime cannot shape captions: libass silently
+	// produces captionless video when fontconfig has no fonts (observed in
+	// production). A loud retryable error beats silent wrong output.
+	if err := EnsureCaptionFonts(); err != nil {
+		return "", err
 	}
 
 	// Download the source media.

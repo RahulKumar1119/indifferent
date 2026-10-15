@@ -31,7 +31,10 @@ RUN apk add --no-cache curl tar xz \
 # Stage 3: Plain Alpine runtime (this is an ECS Fargate task, not a Lambda)
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates
+# ca-certificates for TLS; fontconfig + DejaVu so libass can actually shape
+# and rasterize burned-in captions. Without fonts the subtitles filter
+# silently produces captionless video (no error, no glyphs).
+RUN apk add --no-cache ca-certificates fontconfig ttf-dejavu
 
 # Copy static FFmpeg binaries (include libx264, libmp3lame, subtitles filter, etc.)
 COPY --from=ffmpeg-downloader /ffmpeg/ffmpeg /usr/local/bin/ffmpeg
