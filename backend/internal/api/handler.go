@@ -144,6 +144,10 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleGetClipURL)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/clips"):
 		return h.handleWithAuth(ctx, req, h.handleListClips)
+	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/captions"):
+		return h.handleWithAuth(ctx, req, h.handleGetClipCaptions)
+	case req.HTTPMethod == "PUT" && strings.HasPrefix(req.Path, "/shorts/") && strings.Contains(req.Path, "/clips/"):
+		return h.handleWithAuth(ctx, req, h.handleUpdateClipEdit)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/shorts/"):
 		return h.handleWithAuth(ctx, req, h.handleGetShorts)
 	case req.HTTPMethod == "DELETE" && isExactShortsPath(req.Path):

@@ -1,11 +1,11 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, forkJoin } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import JSZip from 'jszip';
-import { Clip, ShortsService, CaptionStyle, DEFAULT_CAPTION_STYLE } from './shorts.service';
+import { Clip, ShortsService, CaptionStyle, DEFAULT_CAPTION_STYLE, CaptionWord, ClipEdit } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 import { ToastService } from '../../shared/components/toast/toast.service';
@@ -432,6 +432,15 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
                   <svg lucideIcon="image" [size]="15"></svg>
                   <span class="hidden sm:inline">Frames</span>
                 </button>
+                <button
+                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-[13px]"
+                  (click)="toggleEditor(clip)"
+                  [attr.aria-expanded]="editorFor === clip.clipId"
+                  [attr.aria-label]="'Edit boundaries and captions for clip ' + clip.rank"
+                >
+                  <svg lucideIcon="pencil" [size]="15"></svg>
+                  <span class="hidden sm:inline">Edit</span>
+                </button>
               </div>
 
               @if (stripFor === clip.clipId) {
@@ -465,7 +474,111 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
                 @if (clip.hookText) {
                   · {{ clip.hookText }}
                 }
+                @if (boundsFor(clip); as bounds) {
+                  <span class="block tabular-nums">
+                    {{ formatTime(bounds.start) }} – {{ formatTime(bounds.end) }}
+                    @if (boundsEdited(clip)) {
+                      <span class="ml-1 rounded-full bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))] px-1.5 py-px text-[10px] font-semibold">edited</span>
+                    }
+                  </span>
+                }
               </p>
+
+              @if (editorFor === clip.clipId) {
+                <div class="mt-2 rounded-xl border border-[hsl(var(--border))] bg-white/[0.02] p-3.5" aria-label="Clip editor">
+                  @if (editorLoading || !editor) {
+                    <div class="space-y-2" aria-label="Loading editor">
+                      <div class="skeleton h-4 w-2/3"></div>
+                      <div class="skeleton h-10 w-full"></div>
+                      <div class="skeleton h-10 w-full"></div>
+                    </div>
+                  } @else {
+                    <p class="text-[12px] text-[hsl(var(--muted-foreground))]">
+                      AI suggestion:
+                      <span class="tabular-nums">{{ formatTime(editor.aiStart) }} – {{ formatTime(editor.aiEnd) }}</span>
+                      @if (editor.hasSavedEdit) {
+                        <span class="ml-1 rounded-full bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))] px-1.5 py-px text-[10px] font-semibold">customized</span>
+                      }
+                    </p>
+                    <div class="mt-3 space-y-3">
+                      <label class="block">
+                        <span class="flex justify-between text-[12.5px] font-medium">
+                          Start <span class="tabular-nums">{{ formatTime(editor.start) }}</span>
+                        </span>
+                        <input type="range" min="0" [max]="editor.sourceDuration" step="0.1" [(ngModel)]="editor.start" class="w-full" aria-label="Clip start time in seconds" />
+                      </label>
+                      <label class="block">
+                        <span class="flex justify-between text-[12.5px] font-medium">
+                          End <span class="tabular-nums">{{ formatTime(editor.end) }}</span>
+                        </span>
+                        <input type="range" min="0" [max]="editor.sourceDuration" step="0.1" [(ngModel)]="editor.end" class="w-full" aria-label="Clip end time in seconds" />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      (click)="previewRange()"
+                      class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[12.5px] font-medium hover:bg-white/5 min-h-[40px]"
+                    >
+                      <svg lucideIcon="play" [size]="14"></svg>
+                      Preview range
+                    </button>
+                    <div class="mt-3">
+                      <p class="text-[12.5px] font-medium mb-1.5">
+                        Captions
+                        <span class="font-normal text-[hsl(var(--muted-foreground))]">· timings preserved, text is editable</span>
+                      </p>
+                      @if (editor.words.length === 0) {
+                        <p class="text-[12.5px] text-[hsl(var(--muted-foreground))]">No captions in this range.</p>
+                      } @else {
+                        <ul class="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                          @for (w of editor.words; track $index; let wi = $index) {
+                            <li class="flex items-center gap-2">
+                              <span class="shrink-0 text-[11px] font-mono text-[hsl(var(--muted-foreground))] tabular-nums w-[86px]">{{ formatTime(w.start) }}</span>
+                              <input
+                                type="text"
+                                [(ngModel)]="editor.words[wi].text"
+                                maxlength="60"
+                                class="min-w-0 flex-1 rounded-lg border border-[hsl(var(--border))] bg-transparent px-2.5 py-2 text-[13px] outline-none focus:border-[hsl(var(--primary))]"
+                                [attr.aria-label]="'Caption word ' + (wi + 1) + ' at ' + formatTime(w.start)"
+                              />
+                            </li>
+                          }
+                        </ul>
+                      }
+                    </div>
+                    @if (!editorValid() && !editor.saving) {
+                      <p class="mt-2 text-[12.5px] text-red-400" role="alert">
+                        Check the range: need 0 ≤ start &lt; end ≤ {{ formatTime(editor.sourceDuration) }}, at least 1s long, and no empty captions.
+                      </p>
+                    }
+                    @if (editor.dropped !== null && editor.dropped > 0) {
+                      <p class="mt-2 text-[12.5px] text-amber-400">
+                        {{ editor.dropped }} caption{{ editor.dropped === 1 ? '' : 's' }} fall outside the new range and won't render.
+                      </p>
+                    }
+                    @if (editor.error) {
+                      <p class="mt-2 text-[12.5px] text-red-400" role="alert">{{ editor.error }}</p>
+                    }
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        (click)="saveEdit()"
+                        [disabled]="editor.saving || !editorValid()"
+                        class="btn-interactive min-h-[40px] px-5 rounded-full bg-[hsl(var(--primary))] text-white text-[13px] font-semibold disabled:opacity-50"
+                      >{{ editor.saving ? 'Saving…' : 'Save changes' }}</button>
+                      @if (editor.hasSavedEdit) {
+                        <button
+                          type="button"
+                          (click)="resetEdit()"
+                          [disabled]="editor.saving"
+                          class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+                        >Reset to AI suggestion</button>
+                      }
+                    </div>
+                    <p class="mt-2 text-[11.5px] text-[hsl(var(--muted-foreground))]">Saved edits apply on retry or re-render. The original clip stays until the new render succeeds.</p>
+                  }
+                </div>
+              }
             </div>
           }
         </div>
@@ -507,6 +620,26 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   stripFor: string | null = null;
   stripThumbs: Record<string, string[]> = {};
   stripLoading = false;
+
+  /** Per-card clip editor (one open at a time): trim + caption corrections. */
+  editorFor: string | null = null;
+  editorLoading = false;
+  editor: {
+    clipId: string;
+    aiStart: number;
+    aiEnd: number;
+    start: number;
+    end: number;
+    sourceDuration: number;
+    words: CaptionWord[];
+    hasSavedEdit: boolean;
+    saving: boolean;
+    error: string;
+    dropped: number | null;
+  } | null = null;
+  /** Applied bounds shown on cards (from saves this session). */
+  appliedEdits: Record<string, { start: number; end: number }> = {};
+  private previewToken = 0;
 
   /** Caption studio state (per-job reusable style). */
   styleOpen = false;
@@ -795,6 +928,169 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ------------------------------------------------------------------ editor
+
+  /** Effective bounds for display: saved edit wins, else AI bounds. */
+  boundsFor(clip: Clip): { start: number; end: number } | null {
+    const applied = this.appliedEdits[clip.clipId];
+    if (applied) return applied;
+    if (typeof clip.start === 'number' && typeof clip.end === 'number' && clip.end > clip.start) {
+      return { start: clip.start, end: clip.end };
+    }
+    return null;
+  }
+
+  boundsEdited(clip: Clip): boolean {
+    return this.appliedEdits[clip.clipId] !== undefined;
+  }
+
+  toggleEditor(clip: Clip): void {
+    if (this.editorFor === clip.clipId) {
+      this.editorFor = null;
+      this.editor = null;
+      return;
+    }
+    this.editorFor = clip.clipId;
+    this.editor = null;
+    this.editorLoading = true;
+    const aiStart = typeof clip.start === 'number' ? clip.start : 0;
+    const aiEnd = typeof clip.end === 'number' && clip.end > aiStart ? clip.end : 0;
+    forkJoin({
+      job: this.shorts.getStatus(this.jobId),
+      captions: this.shorts.getClipCaptions(this.jobId, clip.clipId),
+    }).subscribe({
+      next: ({ job, captions }) => {
+        if (this.editorFor !== clip.clipId) return;
+        const saved = job.clipEdits?.[clip.clipId];
+        this.editorLoading = false;
+        this.editor = {
+          clipId: clip.clipId,
+          aiStart,
+          aiEnd,
+          start: saved?.start ?? captions.start,
+          end: saved?.end ?? captions.end,
+          sourceDuration: job.sourceDuration || Math.max(aiEnd, captions.end, 1),
+          words: (saved?.words?.length ? saved.words : captions.words).map((w) => ({ ...w })),
+          hasSavedEdit: !!saved,
+          saving: false,
+          error: '',
+          dropped: null,
+        };
+      },
+      error: () => {
+        if (this.editorFor !== clip.clipId) return;
+        this.editorLoading = false;
+        this.editor = {
+          clipId: clip.clipId,
+          aiStart,
+          aiEnd,
+          start: aiStart,
+          end: aiEnd,
+          sourceDuration: Math.max(aiEnd, 1),
+          words: [],
+          hasSavedEdit: false,
+          saving: false,
+          error: 'Could not load captions. Boundary trim is still available.',
+          dropped: null,
+        };
+      },
+    });
+  }
+
+  editorValid(): boolean {
+    const ed = this.editor;
+    if (!ed) return false;
+    if (!isFinite(ed.start) || !isFinite(ed.end)) return false;
+    if (!(ed.start >= 0 && ed.end > ed.start && ed.end <= ed.sourceDuration + 0.5)) return false;
+    if (ed.end - ed.start < 1) return false;
+    return ed.words.every((w) => w.text.trim().length > 0 && isFinite(w.start) && isFinite(w.end) && w.end > w.start);
+  }
+
+  saveEdit(): void {
+    const ed = this.editor;
+    if (!ed || ed.saving || !this.editorValid()) return;
+    ed.saving = true;
+    ed.error = '';
+    ed.dropped = null;
+    this.shorts
+      .updateClipEdit(this.jobId, ed.clipId, {
+        start: ed.start,
+        end: ed.end,
+        words: ed.words.map((w) => ({ text: w.text.trim(), start: w.start, end: w.end })),
+      })
+      .subscribe({
+        next: (res) => {
+          ed.saving = false;
+          ed.dropped = res.droppedWords ?? 0;
+          ed.hasSavedEdit = true;
+          this.appliedEdits[ed.clipId] = { start: ed.start, end: ed.end };
+          this.toasts.show(
+            ed.dropped > 0
+              ? `Saved. ${ed.dropped} caption${ed.dropped === 1 ? '' : 's'} fall outside the new range and won't render.`
+              : 'Clip edit saved. Applies on retry or re-render.',
+            'success',
+          );
+        },
+        error: (err) => {
+          ed.saving = false;
+          ed.error = err?.error?.message || 'Could not save. Please try again.';
+        },
+      });
+  }
+
+  resetEdit(): void {
+    const ed = this.editor;
+    if (!ed || ed.saving) return;
+    ed.saving = true;
+    ed.error = '';
+    this.shorts.updateClipEdit(this.jobId, ed.clipId, { reset: true }).subscribe({
+      next: () => {
+        ed.saving = false;
+        ed.hasSavedEdit = false;
+        ed.dropped = null;
+        ed.start = ed.aiStart;
+        ed.end = ed.aiEnd;
+        delete this.appliedEdits[ed.clipId];
+        this.toasts.show('Restored the AI suggestion.', 'success');
+      },
+      error: (err) => {
+        ed.saving = false;
+        ed.error = err?.error?.message || 'Could not reset. Please try again.';
+      },
+    });
+  }
+
+  /** Preview the edited range in the card player (pauses at the new end). */
+  async previewRange(): Promise<void> {
+    const ed = this.editor;
+    if (!ed) return;
+    const clip = this.clips.find((c) => c.clipId === ed.clipId);
+    if (!clip) return;
+    const token = ++this.previewToken;
+    await this.preview(clip);
+    if (token !== this.previewToken || this.editorFor !== clip.clipId) return;
+    if (!this.previewUrls[clip.clipId]) return;
+    this.showVideo[clip.clipId] = true;
+    requestAnimationFrame(() => {
+      if (token !== this.previewToken) return;
+      const el = document.querySelector(`[data-clip="${clip.clipId}"] video`);
+      if (!(el instanceof HTMLVideoElement)) return;
+      el.currentTime = Math.min(Math.max(0, ed.start), Math.max(0, (el.duration || ed.end) - 0.1));
+      const stopAtEnd = () => {
+        if (el.currentTime >= ed.end) {
+          el.pause();
+          el.removeEventListener('timeupdate', stopAtEnd);
+        }
+      };
+      el.addEventListener('timeupdate', stopAtEnd);
+      el.muted = false;
+      el.play().catch(() => {
+        el.muted = true;
+        el.play().catch(() => {});
+      });
+    });
+  }
+
   /** Desktop hover: ensure a URL, then autoplay muted for a short burst. */
   hoverPlay(clip: Clip, event: MouseEvent): void {
     if (window.matchMedia('(hover: none)').matches) return;
@@ -977,6 +1273,14 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   formatDuration(seconds: number): string {
     const total = Math.round(seconds);
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  formatTime(seconds: number): string {
+    if (!isFinite(seconds) || seconds < 0) return '0:00';
+    const total = Math.floor(seconds);
     const mins = Math.floor(total / 60);
     const secs = total % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;

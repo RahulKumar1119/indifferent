@@ -399,6 +399,59 @@ func renderStyledFixture(t *testing.T, srcPath string, transcript []byte, start,
 	return filepath.Join(workDir, "clip1.mp4")
 }
 
+func TestRenderOutput_UserEdit(t *testing.T) {
+	requireFFmpeg(t)
+	// A saved user edit overrides the trim window and caption text: a [0,4]
+	// source trimmed to [1,3] with corrected words renders a ~2s clip whose
+	// captions carry the corrected text.
+	src := makeSource(t, 640, 360, 5, true)
+	tr := makeTranscript(t, []models.Word{
+		word("original", 0.2, 0.9),
+		word("speech", 3.2, 3.9),
+	})
+	edit := &models.ClipEdit{
+		Start: 1.0,
+		End:   3.0,
+		Words: []models.Word{word("corrected", 1.2, 1.9)},
+	}
+	out := renderEditedFixture(t, src, tr, 0, 4, edit)
+	info := probe(t, out)
+	assertPortraitPreset(t, info, 2)
+}
+
+// renderEditedFixture is renderFixture with a user edit applied.
+func renderEditedFixture(t *testing.T, srcPath string, transcript []byte, start, end float64, edit *models.ClipEdit) string {
+	t.Helper()
+	workDir := t.TempDir()
+	srcBytes, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	store := &mockStorage{objects: map[string][]byte{
+		"src":        srcBytes,
+		"transcript": transcript,
+	}}
+	r := NewRenderer(store, "assets", workDir)
+	in := RenderInput{
+		JobID:         "j1",
+		UserID:        "u1",
+		SourceKey:     "src",
+		TranscriptKey: "transcript",
+		Clip:          models.Clip{ClipID: "clip1", Rank: 1},
+		ClipStart:     start,
+		ClipEnd:       end,
+		Edit:          edit,
+	}
+	key, err := r.Render(context.Background(), in)
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+	if key == "" {
+		t.Fatal("expected non-empty clip key")
+	}
+	return filepath.Join(workDir, "clip1.mp4")
+}
+
 func TestComputeCropX_MovingSpeaker(t *testing.T) {
 	// A speaker crossing 0.2 -> 0.8 resolves near the middle (median), so one
 	// stray frame cannot yank the 9:16 window.

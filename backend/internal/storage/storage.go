@@ -29,6 +29,8 @@ type Downloader interface {
 	ListKeys(ctx context.Context, bucket, prefix string) ([]string, error)
 	// ObjectMeta reads size + content type for upload validation.
 	ObjectMeta(ctx context.Context, bucket, key string) (ObjectMeta, error)
+	// GetObject reads a whole object (transcripts, small JSON).
+	GetObject(ctx context.Context, bucket, key string) ([]byte, error)
 	// DeleteObjectVersions permanently removes every version and delete
 	// marker under prefix. Needed because plain deletes on a versioned
 	// bucket only hide objects (noncurrent versions keep costing).

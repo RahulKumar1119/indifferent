@@ -529,7 +529,7 @@ func TestDeleteShorts_Success(t *testing.T) {
 		status: storage.ObjectStatus{StorageClass: "STANDARD"},
 		listedKeys: []string{
 			"uploads/user1/job1/source.mp4",
-			"shorts/user1/job1/transcript.json",
+		"shorts/user1/job1/transcript.json",
 			"shorts/user1/job1/transcribe-raw.json",
 			"shorts/user1/job1/.write_access_check_file.temp",
 			"shorts/user1/job1/clips/clip-1.mp4",
@@ -950,5 +950,174 @@ func TestUpdateCaption_UnknownJob(t *testing.T) {
 	resp, _ := h.HandleRequest(context.Background(), styleReq("job1", `{"caption":{"preset":"minimal"}}`))
 	if resp.StatusCode != 404 {
 		t.Errorf("got status %d, want 404 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}
+
+func editedJobItem(jobID, status string) map[string]dbtypes.AttributeValue {
+	item := shortsJobItem(jobID, status)
+	item["segments"] = &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-9","start":10,"end":40,"score":0.9,"rank":1,"hookText":"h"}]`}
+	return item
+}
+
+func clipEditReq(jobID, clipID, body string) events.APIGatewayProxyRequest {
+	return events.APIGatewayProxyRequest{
+		HTTPMethod: "PUT",
+		Path:       "/shorts/" + jobID + "/clips/" + clipID,
+		Body:       body,
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	}
+}
+
+func TestUpdateClipEdit_SavesAndReportsDropped(t *testing.T) {
+	var puts []map[string]dbtypes.AttributeValue
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: editedJobItem("job1", "completed")}, nil
+		},
+		putItemFunc: func(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			puts = append(puts, params.Item)
+			return &dynamodb.PutItemOutput{}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	resp, _ := h.HandleRequest(context.Background(), clipEditReq("job1", "clip-9",
+		`{"start":12,"end":38,"words":[{"text":"fixed","start":15,"end":15.5},{"text":"late","start":50,"end":50.5}]}`))
+	if resp.StatusCode != 200 {
+		t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	var body struct {
+		DroppedWords int `json:"droppedWords"`
+		Edit         struct {
+			Start float64 `json:"start"`
+			End   float64 `json:"end"`
+		} `json:"edit"`
+	}
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if body.DroppedWords != 1 {
+		t.Errorf("expected 1 dropped word, got %d", body.DroppedWords)
+	}
+	if len(puts) != 1 {
+		t.Fatalf("expected 1 persisted write, got %d", len(puts))
+	}
+	raw, ok := puts[0]["clipEdits"].(*dbtypes.AttributeValueMemberS)
+	if !ok || !strings.Contains(raw.Value, "clip-9") {
+		t.Errorf("expected persisted clipEdits, got %v", puts[0]["clipEdits"])
+	}
+}
+
+func TestUpdateClipEdit_RejectsBadInput(t *testing.T) {
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: editedJobItem("job1", "failed")}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	for _, tc := range []struct{ name, body string }{
+		{"end-before-start", `{"start":30,"end":20}`},
+		{"negative", `{"start":-5,"end":20}`},
+		{"too-short", `{"start":10,"end":10.5}`},
+		{"over-duration", `{"start":10,"end":700}`},
+		{"empty-word", `{"start":10,"end":40,"words":[{"text":" ","start":15,"end":15.5}]}`},
+		{"bad-word-timing", `{"start":10,"end":40,"words":[{"text":"x","start":16,"end":15}]}`},
+		{"not-json", `oops`},
+	} {
+		resp, _ := h.HandleRequest(context.Background(), clipEditReq("job1", "clip-9", tc.body))
+		if resp.StatusCode != 400 {
+			t.Errorf("%s: got status %d, want 400 (body: %s)", tc.name, resp.StatusCode, resp.Body)
+		}
+	}
+	// Unknown clip ID is 404, not 400.
+	resp, _ := h.HandleRequest(context.Background(), clipEditReq("job1", "nope", `{"start":10,"end":40}`))
+	if resp.StatusCode != 404 {
+		t.Errorf("unknown clip: got status %d, want 404 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}
+
+func TestUpdateClipEdit_ResetAndStateGuard(t *testing.T) {
+	var puts []map[string]dbtypes.AttributeValue
+	newHandler := func(status string) *APIHandler {
+		db := &mockDynamoDB{
+			getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				item := editedJobItem("job1", status)
+				item["clipEdits"] = &dbtypes.AttributeValueMemberS{Value: `{"clip-9":{"start":12,"end":38}}`}
+				return &dynamodb.GetItemOutput{Item: item}, nil
+			},
+			putItemFunc: func(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+				puts = append(puts, params.Item)
+				return &dynamodb.PutItemOutput{}, nil
+			},
+		}
+		return newShortsTestHandler(t, db)
+	}
+
+	// Reset clears the override (reset-to-AI-suggestion).
+	puts = nil
+	h := newHandler("completed")
+	resp, _ := h.HandleRequest(context.Background(), clipEditReq("job1", "clip-9", `{"reset":true}`))
+	if resp.StatusCode != 200 || !strings.Contains(resp.Body, `"reset":true`) {
+		t.Fatalf("reset: got status %d (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if _, ok := puts[0]["clipEdits"]; ok {
+		t.Error("reset must drop the clipEdits attribute")
+	}
+
+	// In-flight jobs reject edits.
+	for _, status := range []string{"transcribing", "ranking", "rendering"} {
+		h := newHandler(status)
+		resp, _ := h.HandleRequest(context.Background(), clipEditReq("job1", "clip-9", `{"start":10,"end":20}`))
+		if resp.StatusCode != 400 {
+			t.Errorf("status %s: got %d, want 400", status, resp.StatusCode)
+		}
+	}
+}
+
+func TestGetClipCaptions_WindowedWords(t *testing.T) {
+	tr, _ := json.Marshal(map[string]interface{}{
+		"text": "all",
+		"words": []map[string]interface{}{
+			{"text": "early", "start": 1.0, "end": 1.5},
+			{"text": "kept", "start": 12.0, "end": 12.5},
+			{"text": "late", "start": 50.0, "end": 50.5},
+		},
+	})
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: editedJobItem("job1", "completed")}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+	h.S3 = &stubDownloader{
+		status:  storage.ObjectStatus{StorageClass: "STANDARD"},
+		objects: map[string][]byte{"shorts/user1/job1/transcript.json": tr},
+	}
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "GET",
+		Path:       "/shorts/job1/clips/clip-9/captions",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	var body struct {
+		Start float64 `json:"start"`
+		End   float64 `json:"end"`
+		Words []struct {
+			Text string `json:"text"`
+		} `json:"words"`
+	}
+	if err := json.Unmarshal([]byte(resp.Body), &body); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	// Segment clip-9 spans [10,40]: only "kept" survives windowing.
+	if body.Start != 10 || body.End != 40 {
+		t.Errorf("expected window [10,40], got [%v,%v]", body.Start, body.End)
+	}
+	if len(body.Words) != 1 || body.Words[0].Text != "kept" {
+		t.Errorf("expected only the in-window word, got %+v", body.Words)
 	}
 }

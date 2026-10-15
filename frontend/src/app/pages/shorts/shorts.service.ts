@@ -52,6 +52,8 @@ export interface ShortsJob {
   errorCode?: string;
   /** Reusable caption style for this job's renders. */
   caption?: CaptionStyle;
+  /** Per-clip user overrides (boundaries + corrected captions). */
+  clipEdits?: Record<string, ClipEdit>;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -73,6 +75,21 @@ export const DEFAULT_CAPTION_STYLE: Required<CaptionStyle> = {
   highlight: '#FFD60A',
   position: 'bottom',
 };
+
+/** A word with preserved timing (mirrors backend models.Word). */
+export interface CaptionWord {
+  text: string;
+  start: number;
+  end: number;
+}
+
+/** A saved per-clip override (mirrors backend models.ClipEdit). */
+export interface ClipEdit {
+  start: number;
+  end: number;
+  words?: CaptionWord[];
+  updatedAt?: string;
+}
 
 /** Trimmed shorts job for history lists (matches backend ShortsJobSummary). */
 export interface ShortsJobSummary {
@@ -130,6 +147,23 @@ export class ShortsService {
   /** PUT /shorts/{id}/style: store a validated caption style for future renders. */
   updateCaption(jobId: string, caption: CaptionStyle): Observable<ShortsJob> {
     return this.api.put<ShortsJob>(`/shorts/${jobId}/style`, { caption });
+  }
+
+  /** GET /shorts/{id}/clips/{clipId}/captions: words inside the clip window. */
+  getClipCaptions(jobId: string, clipId: string): Observable<{ start: number; end: number; words: CaptionWord[] }> {
+    return this.api.get<{ start: number; end: number; words: CaptionWord[] }>(`/shorts/${jobId}/clips/${clipId}/captions`);
+  }
+
+  /** PUT /shorts/{id}/clips/{clipId}: save boundary/caption override (or reset). */
+  updateClipEdit(
+    jobId: string,
+    clipId: string,
+    body: { start?: number; end?: number; words?: CaptionWord[]; reset?: boolean },
+  ): Observable<{ edit?: ClipEdit; droppedWords?: number; reset?: boolean }> {
+    return this.api.put<{ edit?: ClipEdit; droppedWords?: number; reset?: boolean }>(
+      `/shorts/${jobId}/clips/${clipId}`,
+      body,
+    );
   }
 
   /** DELETE /shorts/{id}: permanently delete a job and all its S3 assets. */

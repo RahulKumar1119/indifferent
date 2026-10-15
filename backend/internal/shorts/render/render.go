@@ -58,6 +58,9 @@ type RenderInput struct {
 	AudioOnly bool
 	// Caption is the job's reusable caption style (zero value = legacy bold).
 	Caption models.CaptionStyle
+	// Edit, when non-nil, overrides the trim window and caption words with
+	// the user's saved correction (timings preserved as stored).
+	Edit *models.ClipEdit
 }
 
 // Renderer renders a single ranked segment into a 9:16 captioned clip and
@@ -489,11 +492,9 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	// Subject-aware reframing for landscape sources: track the dominant
 	// face and pan the 9:16 window onto it; scale faceless content to fit
 	// over a blurred background instead of blindly center cropping.
-	// Falls back to center when reframing is unavailable.
+	// Falls back to center when reframing is unavailable. Samples the
+	// effective (possibly user-edited) window below.
 	cropX, fit := "", false
-	if !in.AudioOnly {
-		cropX, fit = r.smartReframe(ctx, srcPath, in.ClipStart, in.ClipEnd)
-	}
 
 	// Download and parse the transcript.
 	transcriptData, err := r.Storage.GetObject(ctx, r.Bucket, in.TranscriptKey)
@@ -510,16 +511,27 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	// captions entirely: the subtitles filter rejects empty files, so no
 	// caption file means no filter (identical picture, no failure).
 	// Karaoke styles build ASS (word sweep); all others build SRT.
-	words := filterWords(transcript.Words, in.ClipStart, in.ClipEnd)
+	// A saved user edit overrides the trim window; edited words replace the
+	// transcript slice (timings preserved as stored).
+	clipStart, clipEnd := in.ClipStart, in.ClipEnd
+	words := filterWords(transcript.Words, clipStart, clipEnd)
+	if in.Edit != nil && in.Edit.End > in.Edit.Start && in.Edit.Start >= 0 {
+		clipStart, clipEnd = in.Edit.Start, in.Edit.End
+		if len(in.Edit.Words) > 0 {
+			words = filterWords(in.Edit.Words, clipStart, clipEnd)
+		} else {
+			words = filterWords(transcript.Words, clipStart, clipEnd)
+		}
+	}
 	subsPath := ""
 	if len(words) > 0 {
 		var doc string
 		var ext string
 		if isKaraokeStyle(in.Caption) {
-			doc = BuildASS(words, in.ClipStart, in.Caption)
+			doc = BuildASS(words, clipStart, in.Caption)
 			ext = ".ass"
 		} else {
-			doc = BuildSRT(words, in.ClipStart)
+			doc = BuildSRT(words, clipStart)
 			ext = ".srt"
 		}
 		subsPath = filepath.Join(r.WorkDir, in.Clip.ClipID+ext)
@@ -528,15 +540,19 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 		}
 	}
 
+	if !in.AudioOnly {
+		cropX, fit = r.smartReframe(ctx, srcPath, clipStart, clipEnd)
+	}
+
 	// Render with FFmpeg, streaming -progress so the job record reflects the
 	// live encode percent (clamped at 99; completion is marked downstream).
 	outPath := filepath.Join(r.WorkDir, in.Clip.ClipID+".mp4")
-	args := r.buildCropCaptionArgs(srcPath, subsPath, outPath, in.ClipStart, in.ClipEnd, in.AudioOnly, cropX, fit, in.Caption)
+	args := r.buildCropCaptionArgs(srcPath, subsPath, outPath, clipStart, clipEnd, in.AudioOnly, cropX, fit, in.Caption)
 	runProgress := r.RunCommandProgress
 	if runProgress == nil {
 		runProgress = defaultRunCommandProgress
 	}
-	duration := in.ClipEnd - in.ClipStart
+	duration := clipEnd - clipStart
 	var runErr error
 	if duration > 0 {
 		runErr = runProgress("ffmpeg", args, duration, func(pct int) {

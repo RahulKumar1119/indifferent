@@ -129,6 +129,7 @@ func run(ctx context.Context) error {
 		SourceKey:     sourceKey,
 		TranscriptKey: transcriptKey,
 		Caption:       fetchJobCaption(ctx, dbClient, table, userID, jobID),
+		Edit:          fetchClipEdit(ctx, dbClient, table, userID, jobID, clipID),
 		Clip: models.Clip{
 			// Start/End ride along for caption rebuilds (Score/HookText live
 			// only in the ranker's DynamoDB record, not in worker env).
@@ -182,6 +183,34 @@ func captionFromItem(item map[string]dbtypes.AttributeValue) models.CaptionStyle
 		return models.CaptionStyle{}
 	}
 	return style
+}
+
+// fetchClipEdit loads one clip's saved user override for the render. Any
+// failure (or none saved) yields nil: the ranker segment renders untouched.
+func fetchClipEdit(ctx context.Context, dbClient *dynamodb.Client, table, userID, jobID, clipID string) *models.ClipEdit {
+	out, err := dbClient.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(table),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
+		},
+	})
+	if err != nil || out.Item == nil {
+		return nil
+	}
+	raw, ok := out.Item["clipEdits"].(*dbtypes.AttributeValueMemberS)
+	if !ok || raw.Value == "" {
+		return nil
+	}
+	var edits map[string]models.ClipEdit
+	if err := json.Unmarshal([]byte(raw.Value), &edits); err != nil {
+		return nil
+	}
+	edit, ok := edits[clipID]
+	if !ok || edit.End <= edit.Start {
+		return nil
+	}
+	return &edit
 }
 
 // isAudioOnly reports whether the source key names an audio-only file.

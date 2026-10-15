@@ -26,6 +26,7 @@ type stubDownloader struct {
 	purgeErr     error
 	meta         storage.ObjectMeta
 	metaErr      error
+	objects      map[string][]byte
 }
 
 func (s *stubDownloader) GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error) {
@@ -76,6 +77,13 @@ func (s *stubDownloader) ObjectMeta(ctx context.Context, bucket, key string) (st
 		return storage.ObjectMeta{}, s.metaErr
 	}
 	return s.meta, nil
+}
+
+func (s *stubDownloader) GetObject(ctx context.Context, bucket, key string) ([]byte, error) {
+	if data, ok := s.objects[key]; ok {
+		return data, nil
+	}
+	return nil, errors.New("stubDownloader.GetObject: no such key " + key)
 }
 
 func TestDownloadURLOrRestore_Standard(t *testing.T) {
