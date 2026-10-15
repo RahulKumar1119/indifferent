@@ -507,3 +507,15 @@ func TestFilterWords_Boundaries(t *testing.T) {
 		t.Errorf("unexpected window contents: %+v", got)
 	}
 }
+
+func TestEnsureCaptionFonts(t *testing.T) {
+	// Present case: this environment must list at least one family.
+	if err := EnsureCaptionFonts(); err != nil {
+		t.Errorf("expected fonts present, got: %v", err)
+	}
+	// Absent case: empty PATH hides fc-list entirely.
+	t.Setenv("PATH", t.TempDir())
+	if err := EnsureCaptionFonts(); err == nil {
+		t.Error("expected error with no fc-list available")
+	}
+}
