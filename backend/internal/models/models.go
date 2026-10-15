@@ -4,7 +4,9 @@ package models
 
 import (
 	"fmt"
+	"math"
 	"regexp"
+	"strings"
 )
 
 // ParserInput represents the event triggering the parser.
@@ -186,6 +188,9 @@ type ShortsJob struct {
 	// Caption is the reusable caption style chosen for this job's renders
 	// (preset + user overrides). Zero value renders the legacy bold look.
 	Caption        CaptionStyle    `json:"caption,omitempty"`
+	// ClipEdits maps clipId to the user's boundary/caption overrides,
+	// honored by renders and retries.
+	ClipEdits      map[string]ClipEdit `json:"clipEdits,omitempty"`
 	Error          string          `json:"error,omitempty"`
 	CreatedAt      string          `json:"createdAt"`
 	UpdatedAt      string          `json:"updatedAt"`
@@ -261,7 +266,44 @@ func (s CaptionStyle) Validate() error {
 	return nil
 }
 
-// Transcript is the normalized word-level transcription used by ranking/rendering.
+// ClipEdit is a user's override for one clip: trimmed boundaries and
+// corrected caption text. Word timings are preserved as-is (text-only
+// edits); words falling outside [Start, End] are filtered at render time.
+type ClipEdit struct {
+	Start     float64 `json:"start"`
+	End       float64 `json:"end"`
+	Words     []Word  `json:"words,omitempty"`
+	UpdatedAt string  `json:"updatedAt,omitempty"`
+}
+
+// Validate checks bounds against the source duration and word sanity.
+// An empty Words list means "trim only, keep AI captions".
+func (e ClipEdit) Validate(sourceDuration float64) error {
+	if math.IsNaN(e.Start) || math.IsInf(e.Start, 0) || math.IsNaN(e.End) || math.IsInf(e.End, 0) {
+		return fmt.Errorf("clip boundaries must be finite numbers")
+	}
+	if e.Start < 0 || e.End <= e.Start {
+		return fmt.Errorf("require 0 <= start < end, got start=%.1f end=%.1f", e.Start, e.End)
+	}
+	if e.End-e.Start < 1.0 {
+		return fmt.Errorf("clip must be at least 1 second long")
+	}
+	if sourceDuration > 0 && e.End > sourceDuration+0.5 {
+		return fmt.Errorf("end %.1fs exceeds source duration %.0fs", e.End, sourceDuration)
+	}
+	for i, w := range e.Words {
+		if math.IsNaN(w.Start) || math.IsNaN(w.End) || math.IsInf(w.Start, 0) || math.IsInf(w.End, 0) {
+			return fmt.Errorf("word %d has non-finite timing", i+1)
+		}
+		if w.End <= w.Start {
+			return fmt.Errorf("word %d ends before it starts", i+1)
+		}
+		if strings.TrimSpace(w.Text) == "" {
+			return fmt.Errorf("word %d has empty text", i+1)
+		}
+	}
+	return nil
+}
 type Transcript struct {
 	Text  string `json:"text"`
 	Words []Word `json:"words"`

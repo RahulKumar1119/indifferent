@@ -350,8 +350,8 @@ func (h *APIHandler) handleRetryShorts(ctx context.Context, req events.APIGatewa
 	reset.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 
 	_, err = h.DB.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(h.TableName),
-		Item:      shortsJobToItem(reset),
+		TableName:           aws.String(h.TableName),
+		Item:                shortsJobToItem(reset),
 		ConditionExpression: aws.String("#status IN (:failed, :deleteFailed)"),
 		ExpressionAttributeNames: map[string]string{
 			"#status": "status",
@@ -437,6 +437,173 @@ func (h *APIHandler) handleUpdateCaption(ctx context.Context, req events.APIGate
 	}
 
 	return jsonResponse(http.StatusOK, job), nil
+}
+
+// extractClipPath splits /shorts/{jobId}/clips/{clipId} exactly (len 4).
+func extractClipPath(path string) (jobID, clipID string, ok bool) {
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if len(parts) == 4 && parts[0] == "shorts" && parts[1] != "" && parts[2] == "clips" && parts[3] != "" {
+		return parts[1], parts[3], true
+	}
+	return "", "", false
+}
+
+// UpdateClipEditRequest saves (or, with reset:true, clears) a clip override.
+type UpdateClipEditRequest struct {
+	Start float64       `json:"start"`
+	End   float64       `json:"end"`
+	Words []models.Word `json:"words,omitempty"`
+	Reset bool          `json:"reset,omitempty"`
+}
+
+// handleUpdateClipEdit stores a validated boundary/caption override for one
+// clip, or clears it back to the AI suggestion. Edits apply on the next
+// render or retry. In-flight jobs are rejected (moving target); completed
+// and failed jobs accept edits.
+func (h *APIHandler) handleUpdateClipEdit(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	jobID, clipID, ok := extractClipPath(req.Path)
+	if !ok {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Route not found"), nil
+	}
+
+	var body UpdateClipEditRequest
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	}
+
+	job, err := h.getShortsJobByID(ctx, claims.UserID, jobID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
+	}
+	switch job.Status {
+	case "completed", "failed", "uploaded":
+	default:
+		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Clip edits are accepted before rendering starts and after it finishes, not mid-flight."), nil
+	}
+	if !clipKnown(job, clipID) {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
+	}
+
+	if job.ClipEdits == nil {
+		job.ClipEdits = map[string]models.ClipEdit{}
+	}
+	if body.Reset {
+		delete(job.ClipEdits, clipID)
+	} else {
+		edit := models.ClipEdit{Start: body.Start, End: body.End, Words: body.Words}
+		if err := edit.Validate(job.SourceDuration); err != nil {
+			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
+		}
+		dropped := 0
+		for _, w := range edit.Words {
+			if w.End < edit.Start || w.Start > edit.End {
+				dropped++
+			}
+		}
+		edit.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		job.ClipEdits[clipID] = edit
+		job.UpdatedAt = edit.UpdatedAt
+		if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+			TableName: aws.String(h.TableName),
+			Item:      shortsJobToItem(*job),
+		}); err != nil {
+			return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to save clip edit."), nil
+		}
+		return jsonResponse(http.StatusOK, map[string]interface{}{
+			"edit":         edit,
+			"droppedWords": dropped,
+		}), nil
+	}
+	job.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(h.TableName),
+		Item:      shortsJobToItem(*job),
+	}); err != nil {
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to reset clip edit."), nil
+	}
+	return jsonResponse(http.StatusOK, map[string]interface{}{
+		"reset": true,
+	}), nil
+}
+
+// clipKnown reports whether clipId matches a rendered clip or a ranked
+// segment of the job.
+func clipKnown(job *models.ShortsJob, clipID string) bool {
+	for _, c := range job.Clips {
+		if c.ClipID == clipID {
+			return true
+		}
+	}
+	for _, s := range job.Segments {
+		if s.ClipID == clipID {
+			return true
+		}
+	}
+	return false
+}
+
+// handleGetClipCaptions returns the transcript words inside one clip's window
+// (absolute timings) so the editor can offer text corrections that preserve
+// timing. Applies the saved boundary override when one exists.
+func (h *APIHandler) handleGetClipCaptions(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	trimmed := strings.TrimSuffix(req.Path, "/captions")
+	jobID, clipID, ok := extractClipPath(trimmed)
+	if !ok {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Route not found"), nil
+	}
+
+	job, err := h.getShortsJobByID(ctx, claims.UserID, jobID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
+	}
+	if !clipKnown(job, clipID) {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
+	}
+	if job.TranscriptKey == "" {
+		return errorResponse(http.StatusBadRequest, "NOT_READY", "Transcript is not available yet."), nil
+	}
+
+	raw, err := h.S3.GetObject(ctx, h.Bucket, job.TranscriptKey)
+	if err != nil {
+		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to read transcript."), nil
+	}
+	var transcript models.Transcript
+	if err := json.Unmarshal(raw, &transcript); err != nil {
+		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Transcript is corrupt."), nil
+	}
+
+	start, end := clipWindow(job, clipID)
+	var words []models.Word
+	for _, w := range transcript.Words {
+		if w.End < start || w.Start > end {
+			continue
+		}
+		words = append(words, w)
+	}
+	return jsonResponse(http.StatusOK, map[string]interface{}{
+		"start": start,
+		"end":   end,
+		"words": words,
+	}), nil
+}
+
+// clipWindow resolves a clip's [start, end]: the saved override wins,
+// otherwise the rendered/ranked bounds, otherwise the full source.
+func clipWindow(job *models.ShortsJob, clipID string) (float64, float64) {
+	if edit, ok := job.ClipEdits[clipID]; ok && edit.End > edit.Start {
+		return edit.Start, edit.End
+	}
+	for _, c := range job.Clips {
+		if c.ClipID == clipID && c.End > c.Start {
+			return c.Start, c.End
+		}
+	}
+	for _, s := range job.Segments {
+		if s.ClipID == clipID && s.End > s.Start {
+			return s.Start, s.End
+		}
+	}
+	return 0, job.SourceDuration
 }
 
 // isExactShortsPath reports whether path is exactly /shorts/{id} (no deeper
@@ -954,6 +1121,11 @@ func shortsJobToItem(j models.ShortsJob) map[string]dbtypes.AttributeValue {
 			item["caption"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
 		}
 	}
+	if len(j.ClipEdits) > 0 {
+		if b, err := json.Marshal(j.ClipEdits); err == nil {
+			item["clipEdits"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+		}
+	}
 	if j.CompletedAt != "" {
 		item["completedAt"] = &dbtypes.AttributeValueMemberS{Value: j.CompletedAt}
 	}
@@ -1012,6 +1184,9 @@ func itemToShortsJob(item map[string]dbtypes.AttributeValue) models.ShortsJob {
 	}
 	if v, ok := item["caption"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
 		_ = json.Unmarshal([]byte(v.Value), &j.Caption)
+	}
+	if v, ok := item["clipEdits"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		_ = json.Unmarshal([]byte(v.Value), &j.ClipEdits)
 	}
 	if v, ok := item["createdAt"].(*dbtypes.AttributeValueMemberS); ok {
 		j.CreatedAt = v.Value
