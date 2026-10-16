@@ -51,8 +51,8 @@ func TestValidateSegments_DropsDurationOutsideBounds(t *testing.T) {
 
 func TestValidateSegments_AssignsDeterministicClipIDs(t *testing.T) {
 	raw := []rawSegment{
-		{Start: 0, End: 20, Score: 0.5},
-		{Start: 30, End: 50, Score: 0.9},
+		{Start: 0, End: 35, Score: 0.5},
+		{Start: 40, End: 75, Score: 0.9},
 	}
 	got := validateSegments(raw, 600)
 	if len(got) != 2 {
@@ -76,11 +76,11 @@ func TestValidateSegments_AssignsDeterministicClipIDs(t *testing.T) {
 
 func TestValidateSegments_TruncatesToMaxClipCount(t *testing.T) {
 	raw := []rawSegment{
-		{Start: 0, End: 20, Score: 0.5},
-		{Start: 30, End: 50, Score: 0.9},
-		{Start: 60, End: 80, Score: 0.7},
-		{Start: 90, End: 110, Score: 0.8},
-		{Start: 120, End: 140, Score: 0.6},
+		{Start: 0, End: 35, Score: 0.5},
+		{Start: 40, End: 75, Score: 0.9},
+		{Start: 80, End: 115, Score: 0.7},
+		{Start: 120, End: 155, Score: 0.8},
+		{Start: 160, End: 195, Score: 0.6},
 	}
 	got := validateSegments(raw, 600)
 	if len(got) != shorts.MaxClipCount {
