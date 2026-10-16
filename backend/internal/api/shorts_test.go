@@ -1121,3 +1121,37 @@ func TestGetClipCaptions_WindowedWords(t *testing.T) {
 		t.Errorf("expected only the in-window word, got %+v", body.Words)
 	}
 }
+
+func TestGetClipCaptions_FallsBackToConventionalKey(t *testing.T) {
+	// Old jobs predate transcriptKey persistence: the conventional location
+	// is used when present instead of 400ing.
+	tr, _ := json.Marshal(map[string]interface{}{
+		"text":  "hi",
+		"words": []map[string]interface{}{{"text": "hi", "start": 12.0, "end": 12.5}},
+	})
+	item := editedJobItem("job1", "completed")
+	delete(item, "transcriptKey")
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: item}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+	h.S3 = &stubDownloader{
+		status:  storage.ObjectStatus{StorageClass: "STANDARD"},
+		meta:    storage.ObjectMeta{Found: true, Size: 100, ContentType: "application/json"},
+		objects: map[string][]byte{"shorts/user1/job1/transcript.json": tr},
+	}
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "GET",
+		Path:       "/shorts/job1/clips/clip-9/captions",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if !strings.Contains(resp.Body, `"hi"`) {
+		t.Errorf("expected captioned word in response, got %s", resp.Body)
+	}
+}

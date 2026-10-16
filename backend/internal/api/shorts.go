@@ -560,6 +560,14 @@ func (h *APIHandler) handleGetClipCaptions(ctx context.Context, req events.APIGa
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
 	}
 	if job.TranscriptKey == "" {
+		// Older jobs predate transcriptKey persistence: fall back to the
+		// conventional location when it actually exists there.
+		conventional := fmt.Sprintf("shorts/%s/%s/transcript.json", claims.UserID, jobID)
+		if meta, err := h.S3.ObjectMeta(ctx, h.Bucket, conventional); err == nil && meta.Found {
+			job.TranscriptKey = conventional
+		}
+	}
+	if job.TranscriptKey == "" {
 		return errorResponse(http.StatusBadRequest, "NOT_READY", "Transcript is not available yet."), nil
 	}
 
