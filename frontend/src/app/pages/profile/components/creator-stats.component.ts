@@ -57,8 +57,6 @@ export class CreatorStatsComponent {
       { label: 'Shorts', value: String(s.shortsGenerated), hint: 'AI clips generated', icon: 'scissors', color: '', tint: 'hsl(var(--primary) / 0.1)' },
       { label: 'Published', value: String(s.published), hint: 'Marked published', icon: 'circle-check', color: '#1E7A4C', tint: 'rgba(30,122,76,0.12)' },
       { label: 'Favorites', value: String(s.favorites), hint: 'Saved to favorites', icon: 'star', color: '#B8860B', tint: 'rgba(184,134,11,0.12)' },
-      { label: 'Credits used', value: String(s.creditsUsed), hint: `of ${s.creditsQuota} this cycle`, icon: 'zap', color: '#BC5227', tint: 'rgba(188,82,39,0.12)' },
-      { label: 'Time saved', value: `${s.minutesSaved}m`, hint: 'Vs. manual editing', icon: 'clock', color: '#6D28D9', tint: 'rgba(109,40,217,0.12)' },
     ];
   }
 }

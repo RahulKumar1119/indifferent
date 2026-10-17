@@ -68,8 +68,6 @@ interface Post {
 
       <!-- HERO · dark opening block -->
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-16 md:pb-20">
-        <img src="https://picsum.photos/seed/indifferent-journal-hero/1800/900" alt="" aria-hidden="true"
-          class="absolute inset-0 w-full h-full object-cover opacity-30">
         <div class="absolute inset-0" style="background: radial-gradient(ellipse at 20% 15%, rgba(217,108,61,0.20), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.93));"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-10 items-end">
           <div>
@@ -120,10 +118,7 @@ interface Post {
             @if (showFeatured()) {
               <a [routerLink]="filteredPosts[0].route"
                 class="reveal card-lift group grid grid-cols-1 lg:grid-cols-2 overflow-hidden rounded-[20px] bg-white border border-black/[0.07]">
-                <div class="relative min-h-[280px] lg:min-h-[380px] overflow-hidden">
-                  <img [src]="filteredPosts[0].image" [alt]="filteredPosts[0].title" class="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700">
-                  <span class="absolute top-4 left-4 rounded-full bg-black/55 backdrop-blur text-white text-[12px] px-3 py-1">Featured · {{ filteredPosts[0].category }}</span>
-                </div>
+
                 <div class="p-8 md:p-12 flex flex-col justify-center">
                   <p class="text-[12px] uppercase tracking-[0.2em] text-[#6B6560]">{{ filteredPosts[0].date }} · {{ filteredPosts[0].read }}</p>
                   <h2 class="serif mt-3 font-medium leading-[1.02] tracking-[-0.01em] text-[clamp(1.8rem,3.5vw,2.8rem)]">{{ filteredPosts[0].title }}</h2>
@@ -137,10 +132,7 @@ interface Post {
             <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5">
               @for (p of gridPosts(); track p.route) {
                 <a [routerLink]="p.route" class="reveal card-lift group rounded-[20px] overflow-hidden bg-white border border-black/[0.07] flex flex-col">
-                  <div class="relative aspect-[16/9] overflow-hidden">
-                    <img [src]="p.image" [alt]="p.title" loading="lazy" class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700">
-                    <span class="absolute top-3 left-3 rounded-full bg-black/55 backdrop-blur text-white text-[11.5px] px-3 py-1">{{ p.category }}</span>
-                  </div>
+
                   <div class="p-6 md:p-7 flex flex-col flex-1">
                     <p class="text-[12px] uppercase tracking-[0.18em] text-[#6B6560]">{{ p.date }} · {{ p.read }}</p>
                     <h3 class="serif mt-2 text-[26px] leading-[1.05]">{{ p.title }}</h3>
@@ -183,12 +175,19 @@ interface Post {
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6]">
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-20 pb-10">
           <h2 class="reveal serif font-medium text-center leading-[1.0] text-[clamp(2rem,5vw,3.6rem)] max-w-[22ch] mx-auto text-balance">Get the next essay first.</h2>
-          <form (submit)="$event.preventDefault()" class="reveal mt-8 mx-auto max-w-[520px] rounded-[20px] p-2 bg-white/[0.06] border border-white/10 backdrop-blur flex flex-col sm:flex-row gap-2">
-            <label for="blog-newsletter-email" class="sr-only">Email address</label>
-            <input id="blog-newsletter-email" type="email" required placeholder="you@studio.com"
-              class="flex-1 rounded-[12px] bg-transparent px-5 h-12 text-[15px] placeholder:text-white/60 outline-none border border-transparent focus:border-white/30">
-            <button type="submit" class="btn-primary rounded-full bg-[#E8E0D2] text-[#141310] px-7 h-12 font-semibold text-[14.5px]">Subscribe</button>
-          </form>
+          @if (newsletterSubscribed) {
+            <div class="reveal mt-8 mx-auto max-w-[520px] rounded-[20px] p-4 bg-white/[0.06] border border-white/10 backdrop-blur flex items-center gap-3">
+              <svg lucideIcon="circle-check" size="16" class="text-emerald-400 shrink-0"></svg>
+              <p class="text-[14px] text-[#F4EFE6]">Thanks. Newsletter signup is coming soon - we will not share your address.</p>
+            </div>
+          } @else {
+            <form (submit)="subscribeNewsletter($event)" class="reveal mt-8 mx-auto max-w-[520px] rounded-[20px] p-2 bg-white/[0.06] border border-white/10 backdrop-blur flex flex-col sm:flex-row gap-2">
+              <label for="blog-newsletter-email" class="sr-only">Email address</label>
+              <input id="blog-newsletter-email" type="email" required placeholder="you@studio.com"
+                class="flex-1 rounded-[12px] bg-transparent px-5 h-12 text-[15px] placeholder:text-white/60 outline-none border border-transparent focus:border-white/30">
+              <button type="submit" class="btn-primary rounded-full bg-[#E8E0D2] text-[#141310] px-7 h-12 font-semibold text-[14.5px]">Subscribe</button>
+            </form>
+          }
           <footer class="mt-16 border-t border-white/10 pt-10">
             <p class="serif text-center leading-none tracking-[-0.03em] text-[clamp(3rem,13vw,10rem)] text-[#F4EFE6]/95 select-none">INDIFFERENT</p>
             <div class="mt-10 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/60">
@@ -220,8 +219,14 @@ export class BlogComponent implements OnInit, AfterViewInit {
   }
 
   currentYear = new Date().getFullYear();
+  newsletterSubscribed = false;
 
   categories = ['All', 'YouTube', 'Teaching', 'Formatting', 'Narration'];
+
+  subscribeNewsletter(event: Event): void {
+    event.preventDefault();
+    this.newsletterSubscribed = true;
+  }
   activeCategory = 'All';
   query = '';
 

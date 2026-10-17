@@ -101,7 +101,7 @@ const STAGES: Stage[] = [
                   class="font-medium"
                   [ngClass]="{
                     'text-green-400': stageState(i) === 'done',
-                    'text-[hsl(var(--primary))]': stageState(i) === 'active'
+                    'text-white': stageState(i) === 'active'
                   }"
                 >
                   {{ stage.label }}
@@ -176,7 +176,7 @@ const STAGES: Stage[] = [
               </button>
             } @else {
               <p class="w-full text-[13px] text-[hsl(var(--muted-foreground))]">
-                This file can't be processed as-is — try a different file with clear speech under 10 minutes.
+                This file can't be processed as-is. Try a different file with clear speech under 10 minutes.
               </p>
             }
             <button class="glow-btn" (click)="goToUpload()">Start Over</button>
@@ -352,22 +352,13 @@ export class ShortsProgressComponent implements OnInit, OnDestroy {
   }
 
   private fallbackProgress(status: ShortsStatus): number {
-    switch (status) {
-      case 'completed': return 100;
-      case 'failed': return 0;
-      case 'rendering': return 78;
-      case 'ranking': return 55;
-      case 'transcribing': return 25;
-      default: return 5;
-    }
+    return status === 'completed' ? 100 : 0;
   }
 
   private buildEta(status: ShortsStatus): string {
     let seconds: number;
     if (status === 'transcribing') {
       seconds = Math.max(30, this.durationSeconds * 1.0 + 30);
-    } else if (status === 'ranking') {
-      seconds = 45;
     } else if (status === 'rendering') {
       seconds = Math.max(30, this.durationSeconds * 0.6);
     } else {

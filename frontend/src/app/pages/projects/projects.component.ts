@@ -58,7 +58,19 @@ import { Project, ProjectStatus } from '../../shared/models/project.model';
         </div>
 
         <section class="mt-8 rounded-[20px] bg-white border border-black/[0.07] overflow-hidden">
-          @if (loadError) {
+          @if (isLoading && !loadError) {
+            <div class="py-16 text-center px-6">
+              <div class="skeleton h-[24px] w-[18%] mx-auto mb-4"></div>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+                  <div class="rounded-[20px] bg-white border border-black/[0.07] p-6">
+                    <div class="skeleton h-[44px] mb-2"></div>
+                    <div class="skeleton h-[14px] w-[40%]"></div>
+                  </div>
+                }
+              </div>
+            </div>
+          } @else if (loadError) {
             <div class="py-16 text-center px-6" role="alert">
               <p class="serif text-[30px]">Couldn't load projects.</p>
               <p class="mt-2 text-[14.5px] text-[#6B6560]">Check your connection and try again.</p>
@@ -128,6 +140,7 @@ export class ProjectsComponent implements OnInit {
   currentYear = new Date().getFullYear();
   projects: Project[] = [];
   loadError = false;
+  isLoading = true;
 
   ngOnInit(): void {
     this.reload();
@@ -135,14 +148,17 @@ export class ProjectsComponent implements OnInit {
 
   reload(): void {
     this.loadError = false;
+    this.isLoading = true;
     this.projectService.getProjects().subscribe({
       next: (projects) => {
         this.projects = [...projects].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
+        this.isLoading = false;
       },
       error: () => {
         this.loadError = true;
+        this.isLoading = false;
       },
     });
   }

@@ -141,17 +141,16 @@ export class ProfileService {
     const next = this.loadSocial().map((c) => {
       if (c.platform !== platform) return c;
       if (c.connected) return { ...c, connected: false, handle: '', connectedAt: undefined };
-      const handle = '@' + toUsername(username || 'creator');
       const entry: SocialConnection = {
         ...c,
         connected: true,
-        handle,
+        handle: '',
         connectedAt: new Date().toISOString(),
       };
       this.logActivity(
         'share-2',
-        `Connected ${platform === 'youtube' ? 'YouTube' : platform === 'instagram' ? 'Instagram' : 'TikTok'}`,
-        handle,
+        `Linked ${platform === 'youtube' ? 'YouTube' : platform === 'instagram' ? 'Instagram' : 'TikTok'} on this device`,
+        'OAuth integration coming soon',
       );
       return entry;
     });

@@ -55,7 +55,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
             <p class="text-sm text-[hsl(var(--muted-foreground))]">or</p>
             <button
               class="px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
-              (click)="$event.stopPropagation()"
+              (click)="fileInput.click(); $event.stopPropagation()"
             >
               Browse Files
             </button>

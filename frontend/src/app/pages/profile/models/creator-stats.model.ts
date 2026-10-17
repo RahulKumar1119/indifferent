@@ -16,7 +16,7 @@ export function emptyCreatorStats(): CreatorStats {
     published: 0,
     favorites: 0,
     creditsUsed: 0,
-    creditsQuota: 500,
+    creditsQuota: 0,
     minutesSaved: 0,
   };
 }

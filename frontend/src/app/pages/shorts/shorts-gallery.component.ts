@@ -148,7 +148,7 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
               </p>
             } @else if (styleLoaded && !styleEditable) {
               <p class="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-2.5 text-[13px] text-[hsl(var(--muted-foreground))]" role="note">
-                This job is already rendered — styles apply to future renders. Retry the job to re-render with a new style.
+                This job is already rendered. Styles apply to future renders. Retry the job to re-render with a new style.
               </p>
             }
             <div class="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2.5" role="group" aria-label="Caption presets">
@@ -286,7 +286,7 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
             </div>
             @if (bulkFailed.length > 0 && !bulkActive) {
               <p class="mt-2 text-[13px] text-red-400">
-                Couldn't download: {{ bulkFailed.join(', ') }}. The rest saved successfully — retry these individually.
+                Couldn't download: {{ bulkFailed.join(', ') }}. The rest saved successfully. Retry these individually.
               </p>
             }
           </div>
@@ -478,7 +478,7 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
                   <span class="block tabular-nums">
                     {{ formatTime(bounds.start) }} – {{ formatTime(bounds.end) }}
                     @if (boundsEdited(clip)) {
-                      <span class="ml-1 rounded-full bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))] px-1.5 py-px text-[10px] font-semibold">edited</span>
+                      <span class="ml-1 rounded-full bg-[hsl(var(--primary))]/15 text-white px-1.5 py-px text-[10px] font-semibold">edited</span>
                     }
                   </span>
                 }
@@ -497,7 +497,7 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
                       AI suggestion:
                       <span class="tabular-nums">{{ formatTime(editor.aiStart) }} – {{ formatTime(editor.aiEnd) }}</span>
                       @if (editor.hasSavedEdit) {
-                        <span class="ml-1 rounded-full bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))] px-1.5 py-px text-[10px] font-semibold">customized</span>
+                        <span class="ml-1 rounded-full bg-[hsl(var(--primary))]/15 text-white px-1.5 py-px text-[10px] font-semibold">customized</span>
                       }
                     </p>
                     <div class="mt-3 space-y-3">
@@ -1208,7 +1208,7 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
         this.toasts.show(`Downloaded ${targets.length} selected ${targets.length === 1 ? 'clip' : 'clips'}.`, 'success');
       } else {
         this.error = `Downloaded ${targets.length - this.bulkFailed.length} of ${targets.length}. Failed: ${this.bulkFailed.join(', ')}.`;
-        this.toasts.show('Some clips failed to download — see details above.', 'error');
+        this.toasts.show('Some clips failed to download. See details above.', 'error');
       }
     } catch {
       this.bulkFailed = targets.map((c) => `clip #${c.rank}`);

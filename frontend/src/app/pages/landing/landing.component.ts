@@ -109,8 +109,6 @@ import { HeroSceneComponent } from './hero-scene.component';
 
       <!-- HERO · dark opening block -->
       <section #heroSection class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-24 pb-14 md:pb-20 min-h-[100dvh] flex items-center">
-        <img src="https://picsum.photos/seed/indifferent-studio-dark/1800/1200" alt="" aria-hidden="true"
-          class="absolute inset-0 w-full h-full object-cover opacity-35">
         <div class="absolute inset-0" style="background: radial-gradient(ellipse at 75% 20%, rgba(217,108,61,0.22), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.92));"></div>
 
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-12 items-center">
@@ -206,7 +204,6 @@ import { HeroSceneComponent } from './hero-scene.component';
 
       <!-- CLOSING dark block: manifesto + newsletter + footer -->
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6]">
-        <img src="https://picsum.photos/seed/indifferent-manifesto/1800/900" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover opacity-25">
         <div class="absolute inset-0" style="background: linear-gradient(to bottom, #0F0E0B, rgba(15,14,11,0.75) 45%, #0F0E0B);"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-24 md:pt-32 pb-10">
           <footer class="border-t border-white/10 pt-10">

@@ -116,7 +116,7 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
             <p class="text-sm text-[hsl(var(--muted-foreground))]">or</p>
             <button
               class="px-6 py-3 rounded-lg bg-[hsl(var(--primary))] text-white hover:opacity-90 transition-opacity text-sm font-semibold min-h-[48px] min-w-[200px]"
-              (click)="$event.stopPropagation()"
+              (click)="fileInput.click(); $event.stopPropagation()"
             >
               or click to browse
             </button>

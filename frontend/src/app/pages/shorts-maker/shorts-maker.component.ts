@@ -380,18 +380,6 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
     });
     this.addJsonLd({
       '@context': 'https://schema.org',
-      '@type': 'VideoObject',
-      name: 'AI Shorts Maker: Long Video to Ranked Clips',
-      description,
-      url: pageUrl,
-      embedUrl: pageUrl,
-      thumbnailUrl: 'https://indifferent.fun/logo.svg',
-      uploadDate: '2026-10-03',
-      duration: 'PT1M',
-      contentRating: 'General',
-    });
-    this.addJsonLd({
-      '@context': 'https://schema.org',
       '@type': 'FAQPage',
       mainEntity: this.faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
     });

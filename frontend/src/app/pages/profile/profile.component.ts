@@ -14,7 +14,6 @@ import {
   ContentTab,
   CreatorStats,
   CreatorVideo,
-  CreditUsage,
   emptyCreatorStats,
 } from './models/creator-stats.model';
 import { ProfileService, SocialConnection, SocialPlatform } from './services/profile.service';
@@ -22,13 +21,8 @@ import { ProfileHeaderComponent } from './components/profile-header.component';
 import { CreatorStatsComponent } from './components/creator-stats.component';
 import { MyContentComponent, VideoActionEvent } from './components/my-content.component';
 import { CreatorDnaComponent } from './components/creator-dna.component';
-import { AiCreditsComponent } from './components/ai-credits.component';
 import { ConnectedAccountsComponent } from './components/connected-accounts.component';
 import { RecentActivityComponent } from './components/recent-activity.component';
-
-const CREDITS_QUOTA = 500;
-const COST_PER_PROJECT = 18; // script 2 + voiceover 4 + generation 12
-const COST_PER_CLIP = 6;
 
 /**
  * Creator Profile: the creator command center. Identity header, live stats,
@@ -46,7 +40,6 @@ const COST_PER_CLIP = 6;
     CreatorStatsComponent,
     MyContentComponent,
     CreatorDnaComponent,
-    AiCreditsComponent,
     ConnectedAccountsComponent,
     RecentActivityComponent,
   ],
@@ -79,7 +72,7 @@ const COST_PER_CLIP = 6;
             <h1 class="mt-2 font-medium tracking-[-0.02em] leading-none text-[clamp(2rem,4.5vw,3.2rem)]">Profile.</h1>
           </div>
           <div class="flex items-center gap-2">
-            <a routerLink="/settings" class="text-[13px] font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] underline underline-offset-4">Settings</a>
+            <a routerLink="settings" class="text-[13px] font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] underline underline-offset-4">Settings</a>
             <button
               type="button"
               (click)="signOut()"
@@ -133,13 +126,6 @@ const COST_PER_CLIP = 6;
               [isDefault]="isDefaultDna"
               (dnaChange)="onDnaChange($event)"
               (useDna)="onUseDna()"
-            />
-            <app-ai-credits
-              [stats]="stats"
-              [usage]="creditUsage"
-              [resetsIn]="creditsResetDays"
-              (buy)="notify('Credit purchase is coming soon. Your current quota still applies.', 'info')"
-              (upgrade)="notify('Subscription upgrades are coming soon.', 'info')"
             />
             <app-connected-accounts [connections]="social" (toggle)="onToggleSocial($event)" />
             <app-recent-activity [items]="activity" [loading]="isLoading" />
@@ -195,8 +181,6 @@ export class ProfileComponent implements OnInit {
   isDefaultDna = true;
   social: SocialConnection[] = [];
   activity: ActivityItem[] = [];
-  creditUsage: CreditUsage[] = [];
-  creditsResetDays = 12;
   toast: { message: string; kind: 'info' | 'success' | 'error' } | null = null;
 
   private projectsCache: Project[] = [];
@@ -209,7 +193,6 @@ export class ProfileComponent implements OnInit {
     this.isDefaultDna = this.store.isDefaultDNA(this.dna);
     this.profile = this.store.loadProfile();
     this.activity = this.store.loadActivity();
-    this.creditsResetDays = this.daysUntilReset();
     this.reload();
   }
 
@@ -261,7 +244,7 @@ export class ProfileComponent implements OnInit {
   }
 
   onUseDna(): void {
-    this.notify(`Generating with your DNA: ${this.dna.niche} · ${this.dna.tone} · ${this.dna.format}.`, 'info');
+    this.notify('Creator DNA saved - it steers the prompts for future generations.', 'info');
     this.router.navigate(['/projects/new']);
   }
 
@@ -270,7 +253,7 @@ export class ProfileComponent implements OnInit {
     this.activity = this.store.loadActivity();
     const conn = this.social.find((c) => c.platform === platform);
     this.notify(
-      conn?.connected ? `${this.platformLabel(platform)} connected as ${conn?.handle}.` : `${this.platformLabel(platform)} disconnected.`,
+      conn?.connected ? `${this.platformLabel(platform)} linked on this device.` : `${this.platformLabel(platform)} disconnected.`,
       conn?.connected ? 'success' : 'info',
     );
   }
@@ -509,26 +492,15 @@ export class ProfileComponent implements OnInit {
     const published = this.store.loadPublished().length;
     const favorites = this.store.loadFavorites().length;
     const videosCreated = this.projectsCache.length;
-    const creditsUsed = videosCreated * COST_PER_PROJECT + totalClips * COST_PER_CLIP;
     this.stats = {
       videosCreated,
       shortsGenerated,
       published,
       favorites,
-      creditsUsed,
-      creditsQuota: CREDITS_QUOTA,
-      minutesSaved: videosCreated * 8 + totalClips * 3,
+      creditsUsed: 0,
+      creditsQuota: 0,
+      minutesSaved: 0,
     };
-    const usage: CreditUsage[] = [];
-    if (videosCreated > 0) {
-      usage.push({ label: `Video Generation × ${videosCreated}`, cost: videosCreated * 12, when: 'This cycle' });
-      usage.push({ label: `Voiceover × ${videosCreated}`, cost: videosCreated * 4, when: 'This cycle' });
-      usage.push({ label: `AI Script × ${videosCreated}`, cost: videosCreated * 2, when: 'This cycle' });
-    }
-    if (totalClips > 0) {
-      usage.push({ label: `Shorts Clips × ${totalClips}`, cost: totalClips * COST_PER_CLIP, when: 'This cycle' });
-    }
-    this.creditUsage = usage;
   }
 
   private rebuildActivity(): void {
@@ -597,12 +569,6 @@ export class ProfileComponent implements OnInit {
     const m = Math.floor(seconds / 60);
     const s = Math.round(seconds % 60);
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
-  }
-
-  private daysUntilReset(): number {
-    const now = new Date();
-    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    return Math.max(1, Math.ceil((next.getTime() - now.getTime()) / 86400000));
   }
 
   private platformLabel(p: SocialPlatform): string {

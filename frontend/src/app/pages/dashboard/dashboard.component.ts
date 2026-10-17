@@ -66,7 +66,28 @@ import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
           </div>
         }
 
-        <!-- Summary cards -->
+        @if (isLoading && !loadError) {
+          <div class="mt-8 flex flex-col gap-4">
+            <div class="skeleton h-[24px] w-[18%]"></div>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              @for (i of [1, 2, 3, 4]; track i) {
+                <div class="rounded-[20px] bg-white border border-black/[0.07] p-5">
+                  <div class="skeleton h-[44px] mb-2"></div>
+                  <div class="skeleton h-[14px] w-[35%]"></div>
+                </div>
+              }
+            </div>
+            <section class="mt-6 rounded-[20px] bg-white border border-black/[0.07] p-5">
+              <h2 class="skeleton h-[26px] w-[40%]"></h2>
+              <div class="skeleton h-[16px] w-[60%] mt-2"></div>
+              <div class="skeleton h-[14px] w-[100%] mt-3"></div>
+              <div class="skeleton h-[14px] w-[100%] mt-2"></div>
+            </section>
+          </div>
+        }
+
+        @if (!isLoading) {
+          <!-- Summary cards -->
         <div class="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-6">
             <div class="flex items-start justify-between">
@@ -190,6 +211,8 @@ import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
           }
         </section>
 
+        }
+
         <footer class="mt-10 pt-6 border-t border-black/[0.07] flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-[#6B6560]">
           <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
           <span class="flex gap-5">
@@ -215,6 +238,7 @@ export class DashboardComponent implements OnInit {
   inProgressCount = 0;
   failedCount = 0;
   loadError = false;
+  isLoading = true;
 
   ngOnInit(): void {
     this.reload();
@@ -222,6 +246,7 @@ export class DashboardComponent implements OnInit {
 
   reload(): void {
     this.loadError = false;
+    this.isLoading = true;
     this.projectService.getProjects().subscribe({
       next: (projects) => {
         this.projects = projects;
@@ -234,9 +259,11 @@ export class DashboardComponent implements OnInit {
         this.recentProjects = [...projects]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, 5);
+        this.isLoading = false;
       },
       error: () => {
         this.loadError = true;
+        this.isLoading = false;
       },
     });
     this.shortsService.listJobs().subscribe({
@@ -244,8 +271,11 @@ export class DashboardComponent implements OnInit {
         this.recentShorts = [...jobs]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, 5);
+        this.isLoading = false;
       },
-      error: () => {},
+      error: () => {
+        this.isLoading = false;
+      },
     });
   }
 
