@@ -15,14 +15,9 @@ import {
   imports: [FormsModule, LucideDynamicIcon],
   template: `
     <section class="glass-card spotlight-card relative overflow-hidden p-5 md:p-7" aria-label="Creator DNA">
-      <div
-        class="pointer-events-none absolute -bottom-24 -left-24 h-56 w-56 rounded-full opacity-15 blur-3xl"
-        style="background: radial-gradient(circle, hsl(var(--primary)), transparent 70%)"
-        aria-hidden="true"
-      ></div>
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-lg font-semibold flex items-center gap-2">
-          <svg lucideIcon="sparkles" [size]="19" class="text-[hsl(var(--primary))]" aria-hidden="true"></svg>
+          <svg lucideIcon="settings" [size]="19" class="text-[hsl(var(--primary))]" aria-hidden="true"></svg>
           Creator DNA
         </h2>
         @if (isDefault()) {
@@ -82,7 +77,7 @@ import {
         >
           <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold flex items-center gap-2">
-              <svg lucideIcon="sparkles" [size]="18" class="text-[hsl(var(--primary))]" aria-hidden="true"></svg>
+              <svg lucideIcon="settings" [size]="18" class="text-[hsl(var(--primary))]" aria-hidden="true"></svg>
               Customize Creator DNA
             </h2>
             <button

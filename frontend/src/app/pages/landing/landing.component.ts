@@ -17,7 +17,7 @@ import { HeroSceneComponent } from './hero-scene.component';
     .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(0.23,1,0.32,1), transform .8s cubic-bezier(0.23,1,0.32,1); }
     .reveal.is-visible { opacity: 1; transform: none; }
     .card-lift { transition: transform .35s cubic-bezier(0.23,1,0.32,1), box-shadow .35s; }
-    .card-lift:hover { transform: translateY(-6px); }
+    .card-lift:hover { transform: translateY(-6px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
     .card-lift:active { transform: translateY(-1px) scale(.99); }
     .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
     .btn-primary:hover { transform: translateY(-1px); }
@@ -148,14 +148,14 @@ import { HeroSceneComponent } from './hero-scene.component';
                 <span class="serif block text-[26px] leading-tight">AI Shorts generator</span>
                 <span class="mt-1.5 block max-w-[44ch] text-[14.5px] leading-relaxed text-white/70">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions.</span>
               </span>
-              <span class="shrink-0 text-[20px]" aria-hidden="true">→</span>
+              <span class="shrink-0 text-[20px]" aria-hidden="true"></span>
             </a>
             <a routerLink="/tools/add-watermark" class="reveal card-lift flex items-center justify-between gap-6 rounded-[20px] bg-[#1E3A2A] p-6 md:p-7 text-[#EDE8DB]">
               <span>
                 <span class="serif block text-[26px] leading-tight">Watermark tool</span>
                 <span class="mt-1.5 block max-w-[44ch] text-[14.5px] leading-relaxed text-[#EDE8DB]/80">Add draggable text watermarks to JPG, PNG and WebP images. It runs in your browser and nothing is uploaded.</span>
               </span>
-              <span class="shrink-0 text-[20px]" aria-hidden="true">→</span>
+              <span class="shrink-0 text-[20px]" aria-hidden="true"></span>
             </a>
           </div>
         </section>
@@ -194,7 +194,7 @@ import { HeroSceneComponent } from './hero-scene.component';
                     <span class="serif block text-[26px] md:text-[30px] leading-tight">{{ u.title }}</span>
                     <span class="mt-1 block max-w-[56ch] text-[15px] text-[#6B6560]">{{ u.text }}</span>
                   </span>
-                  <span class="shrink-0 text-[14px] font-semibold text-[#A8481F]"><span class="hidden sm:inline">{{ u.cta }} </span><span aria-hidden="true">→</span></span>
+                  <span class="shrink-0 text-[14px] font-semibold text-[#A8481F]"><span class="hidden sm:inline">{{ u.cta }}</span></span>
                 </a>
               </li>
             }
@@ -210,7 +210,7 @@ import { HeroSceneComponent } from './hero-scene.component';
             <p class="serif text-center leading-none tracking-[-0.03em] text-[clamp(3.5rem,14vw,11rem)] text-[#F4EFE6]/95 select-none">INDIFFERENT</p>
             <div class="mt-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-[14px]">
               <div>
-                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Product</p>
+                <p class="text-white/60 text-[12px] uppercase tracking-[0.06em] mb-3">Product</p>
                 <ul class="text-white/75">
                   <li><a href="#process" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">How it works</a></li>
                   <li><a routerLink="/blog" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Journal</a></li>
@@ -220,7 +220,7 @@ import { HeroSceneComponent } from './hero-scene.component';
                 </ul>
               </div>
               <div>
-                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Studio</p>
+                <p class="text-white/60 text-[12px] uppercase tracking-[0.06em] mb-3">Studio</p>
                 <ul class="text-white/75">
                   <li><a routerLink="/about" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">About</a></li>
                   <li><a routerLink="/contact" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Contact</a></li>
@@ -228,14 +228,14 @@ import { HeroSceneComponent } from './hero-scene.component';
                 </ul>
               </div>
               <div>
-                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Legal</p>
+                <p class="text-white/60 text-[12px] uppercase tracking-[0.06em] mb-3">Legal</p>
                 <ul class="text-white/75">
                   <li><a routerLink="/privacy" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Privacy</a></li>
                   <li><a routerLink="/terms" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Terms</a></li>
                 </ul>
               </div>
               <div>
-                <p class="text-white/60 text-[12px] uppercase tracking-[0.18em] mb-3">Start</p>
+                <p class="text-white/60 text-[12px] uppercase tracking-[0.06em] mb-3">Start</p>
                 <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#BC5227] text-white px-6 py-3 font-semibold text-[14px]">Start creating →</a>
                 <p class="mt-4 text-white/60 text-[13px]">TXT in. MP4 out.</p>
               </div>

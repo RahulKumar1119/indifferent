@@ -50,7 +50,7 @@ import { setPageSeo } from '../../shared/seo';
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-16 md:pb-20">
         <div class="absolute inset-0" style="background: radial-gradient(ellipse at 25% 15%, rgba(217,108,61,0.20), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.93));"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
-          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-white/15 text-white/70">
+          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-white/15 text-white/70">
             <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Correspondence
           </p>
           <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(2.8rem,7vw,5.2rem)] text-balance">Write to the studio.</h1>
@@ -61,19 +61,19 @@ import { setPageSeo } from '../../shared/seo';
       <main class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-16 md:py-24">
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
           <div class="lg:col-span-3 rounded-[20px] bg-white border border-black/[0.07] p-8 md:p-10">
-            <p class="text-[11.5px] uppercase tracking-[0.2em] text-[#6B6560]">Bugs · Features · Questions</p>
+            <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Bugs · Features · Questions</p>
             <h2 class="serif mt-2 text-[32px] leading-tight">GitHub issues</h2>
             <p class="mt-3 text-[15px] text-[#6B6560] leading-relaxed">The fastest route. Report a bug, request a feature, or ask a question where the work happens.</p>
             <a href="https://github.com/RahulKumar1119/indifferent/issues" target="_blank" rel="noopener" class="btn-primary mt-6 inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white px-7 py-3.5 font-semibold text-[14.5px]">Open an issue →</a>
           </div>
           <div class="lg:col-span-2 flex flex-col gap-5">
             <div class="rounded-[20px] bg-white border border-black/[0.07] p-8 flex-1">
-              <p class="text-[11.5px] uppercase tracking-[0.2em] text-[#6B6560]">Email</p>
+              <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Email</p>
               <h2 class="serif mt-2 text-[28px]">General inquiries</h2>
               <a href="mailto:support@indifferent.fun" class="mt-3 inline-flex items-center min-h-[44px] text-[16px] font-semibold underline underline-offset-8 decoration-[#1A1714]/25 hover:decoration-[#1A1714] transition">support&#64;indifferent.fun</a>
             </div>
             <div class="rounded-[20px] bg-[#1E3A2A] text-[#EDE8DB] p-8 flex-1">
-              <p class="text-[11.5px] uppercase tracking-[0.2em] text-white/60">Response time</p>
+              <p class="text-[11.5px] uppercase tracking-[0.08em] text-white/60">Response time</p>
               <p class="serif mt-2 text-[28px] leading-tight">Within 24–48 hours.</p>
               <p class="mt-2 text-[13.5px] text-white/65">Usually faster on weekdays.</p>
             </div>

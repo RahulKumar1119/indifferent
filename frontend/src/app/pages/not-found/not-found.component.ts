@@ -8,7 +8,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
   imports: [RouterLink, LucideDynamicIcon],
   template: `
     <div class="min-h-screen flex flex-col items-center justify-center px-6">
-      <h1 class="text-8xl sm:text-9xl font-extrabold shimmer-text">
+      <h1 class="text-8xl sm:text-9xl font-extrabold text-[hsl(var(--primary))]">
         404
       </h1>
       <h2 class="mt-4 text-2xl sm:text-3xl font-semibold">

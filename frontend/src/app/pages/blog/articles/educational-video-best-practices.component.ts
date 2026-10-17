@@ -27,7 +27,7 @@ import { setCanonical } from '../../../shared/seo';
     <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
       <div class="max-w-3xl mx-auto px-4 pt-20 pb-6">
         <a routerLink="/blog" class="text-[13px] text-[#6B6560] hover:text-[#1A1714]">&larr; Back to Blog</a>
-        <p class="mt-6 text-[11.5px] uppercase tracking-[0.22em] text-[#6B6560]">Guide · Educational video</p>
+        <p class="mt-6 text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Guide · Educational video</p>
         <h1 class="serif mt-3 font-medium tracking-[-0.02em] leading-[1.05] text-[clamp(2rem,5vw,3rem)]">Best Practices for Educational Video Content</h1>
         <p class="mt-3 text-[13px] text-[#6B6560]">Published January 10, 2025 · 7 min read</p>
       </div>

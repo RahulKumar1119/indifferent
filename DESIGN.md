@@ -108,3 +108,7 @@ Per-page work decides what to change. A count is not a verdict.
 2. Keep, change or drop the indigo and purple tokens.
 3. Light only, or light and dark.
 4. Radius, shadow and icon set are not decided yet. Each choice needs a written reason (R-31) before it is used.
+
+### Icon set reason (R-31 / R-04)
+
+Icons are Lucide throughout (≈300 references). Reason: a single, consistent icon family keeps the studio from reading like a collage of competing glyph styles, and Lucide's line-weight is neutral enough not to fight the editorial type. Exceptions are deliberate and rare: the generic `sparkles`/`zap` "AI" glyphs were removed because they carry no meaning beyond "AI" and read as default slop (R-04). Where an icon has a concrete referent (clapperboard = film, scissors = cut, settings = preferences, star = favorite) it is used; where it does not, text carries the label alone. No new icon family may be added without updating this reason.

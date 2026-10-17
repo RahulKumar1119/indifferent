@@ -28,12 +28,6 @@ import { CreatorProfile } from '../models/creator-profile.model';
       class="glass-card spotlight-card relative overflow-hidden p-6 md:p-8"
       aria-label="Creator profile header"
     >
-      <div
-        class="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full opacity-20 blur-3xl"
-        style="background: radial-gradient(circle, hsl(var(--primary)), transparent 70%)"
-        aria-hidden="true"
-      ></div>
-
       @if (loading()) {
         <div class="flex items-center gap-6">
           <div class="skeleton h-20 w-20 md:h-24 md:w-24 rounded-full shrink-0"></div>

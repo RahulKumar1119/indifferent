@@ -53,7 +53,7 @@ import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
       <main class="max-w-7xl mx-auto px-5 md:px-8 py-10 md:py-14">
         <div class="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p class="text-[11.5px] uppercase tracking-[0.2em] text-[#6B6560]">Studio · Overview</p>
+            <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Studio · Overview</p>
             <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">Dashboard.</h1>
           </div>
           <p class="text-[13.5px] text-[#6B6560]">{{ totalProjects }} {{ totalProjects === 1 ? 'film' : 'films' }} in the cutting room</p>
@@ -135,7 +135,7 @@ import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
         <section class="mt-6 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
           <div class="flex items-center justify-between mb-2">
             <h2 class="serif text-[26px]">Recent activity</h2>
-            <a routerLink="/projects" class="text-[13.5px] font-semibold underline underline-offset-8 decoration-black/25 hover:decoration-black transition">All projects →</a>
+            <a routerLink="/projects" class="text-[13.5px] font-semibold underline underline-offset-8 decoration-black/25 hover:decoration-black transition">All projects</a>
           </div>
           @if (recentProjects.length === 0) {
             <div class="py-12 text-center">
@@ -175,7 +175,7 @@ import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
         <section class="mt-6 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
           <div class="flex items-center justify-between mb-2">
             <h2 class="serif text-[26px]">Recent shorts</h2>
-            <a routerLink="/shorts/history" class="text-[13.5px] font-semibold underline underline-offset-8 decoration-black/25 hover:decoration-black transition">All shorts →</a>
+            <a routerLink="/shorts/history" class="text-[13.5px] font-semibold underline underline-offset-8 decoration-black/25 hover:decoration-black transition">All shorts</a>
           </div>
           @if (recentShorts.length === 0) {
             <p class="py-6 text-center text-[14px] text-[#6B6560]">

@@ -39,7 +39,7 @@ interface DocSection {
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-14">
         <div class="absolute inset-0" style="background: radial-gradient(ellipse at 30% 10%, rgba(217,108,61,0.18), transparent 55%), linear-gradient(to bottom, #141310, #0F0E0B);"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
-          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-white/15 text-white/70">Legal · Privacy</p>
+          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-white/15 text-white/70">Legal · Privacy</p>
           <h1 class="serif mt-5 font-medium leading-[0.95] text-[clamp(2.6rem,6vw,4.6rem)]">Privacy Policy.</h1>
           <p class="mt-4 text-white/60">Last updated: January 2025</p>
         </div>
@@ -48,7 +48,7 @@ interface DocSection {
       <main class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-14 md:py-20 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
         <aside class="hidden lg:block">
           <nav class="sticky top-24 rounded-[20px] bg-white border border-black/[0.07] p-6">
-            <p class="text-[11px] uppercase tracking-[0.2em] text-[#6B6560] mb-4">Contents</p>
+            <p class="text-[11px] uppercase tracking-[0.08em] text-[#6B6560] mb-4">Contents</p>
             <ol class="space-y-2.5 text-[13.5px]">
               @for (s of sections; track s.id) {
                 <li><a [href]="'#' + s.id" class="text-[#3E3A33] hover:text-[#1E3A2A] transition-colors"><span class="serif italic text-[#1E3A2A] mr-2">{{ s.n }}</span>{{ s.title }}</a></li>
