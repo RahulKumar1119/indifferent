@@ -77,7 +77,7 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
         </div>
         <div class="glass-card p-3 text-center">
           <svg lucideIcon="scissors" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
-          <p class="mt-1.5 text-xs font-semibold">3 × 9:16 clips</p>
+          <p class="mt-1.5 text-xs font-semibold">Up to 3 clips</p>
           <p class="text-[11px] text-[hsl(var(--muted-foreground))]">1080×1920, captioned</p>
         </div>
       </div>
@@ -165,7 +165,7 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
                 Replace
               </button>
             </div>
-            <span class="shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center" aria-label="File ready">
+            <span class="shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center" aria-hidden="true">
               <svg lucideIcon="check" [size]="18" class="text-white"></svg>
             </span>
           </div>

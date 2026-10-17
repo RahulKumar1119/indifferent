@@ -183,7 +183,7 @@ interface UseCaseLink {
       <section id="how" class="py-16 px-4 scroll-mt-24 bg-[#0F0E0B] text-[#F4EFE6]">
         <div class="max-w-6xl mx-auto">
           <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-white/50">How it works</p>
-          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Streamline your video workflow.<br><span class="font-light italic text-white/70">Simple to use, built for speed.</span></h2>
+          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Turn long videos into shorts.<br><span class="font-light italic text-white/70">Simple to use, built for speed.</span></h2>
           <div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 1</p>
@@ -320,7 +320,7 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
 
   features: Feature[] = [
     { icon: 'captions', title: 'Smart captions that keep people watching', text: 'Word-timed captions burned into every clip in short 4-word lines, styled for readability without sound.' },
-    { icon: 'scissors', title: 'Magic ranking finds the best moments', text: 'AI scores every segment for engagement and keeps the top 3. You publish, not scrub timelines.' },
+    { icon: 'scissors', title: 'Engagement ranking finds the best moments', text: 'AI scores every segment for engagement and keeps the top 3. You publish, not scrub timelines.' },
     { icon: 'focus', title: 'Subject tracking follows the speaker', text: 'Face detection pans the 9:16 window onto the speaker instead of blindly cropping the middle.' },
     { icon: 'frame', title: 'Blur-fill fit never cuts content', text: 'Cartoons, text cards and screen recordings scale to fit over a blurred background. Nothing gets chopped.' },
     { icon: 'gauge', title: 'Shorts-spec output, every time', text: '1080×1920, H.264 + AAC, 30fps, 48kHz, a standard format for YouTube Shorts, Reels and TikTok.' },

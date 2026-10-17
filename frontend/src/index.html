@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Indifferent: AI-Powered Video Generation</title>
+  <title>Indifferent: Turn TXT quiz files into narrated videos</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Convert your TXT quiz files into narrated MP4 videos. Each question is read aloud by an AI voice, then its answer is revealed and read aloud. Upload, choose a voice, and download.">
@@ -81,23 +81,5 @@
 <body>
   <app-root></app-root>
   <noscript>Please enable JavaScript to continue using this application.</noscript>
-  <script>
-    // Unregister any existing service worker and clear its caches
-    // (the app no longer uses a service worker)
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function (registrations) {
-        for (var registration of registrations) {
-          registration.unregister();
-        }
-      });
-      if (window.caches && caches.keys) {
-        caches.keys().then(function (names) {
-          for (var name of names) {
-            caches.delete(name);
-          }
-        });
-      }
-    }
-  </script>
 </body>
 </html>

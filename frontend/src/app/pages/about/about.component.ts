@@ -63,7 +63,7 @@ import { setPageSeo } from '../../shared/seo';
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div>
             <h2 class="serif font-medium tracking-[-0.02em] text-[clamp(2rem,4vw,3rem)] leading-[1.02]">Our mission</h2>
-            <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it effortless to convert your multiple-choice quiz files into engaging, YouTube-ready video content. Whether you're an educator, content creator, or training professional, our platform automates the entire production: from parsing your questions to generating a narrated video that reads each question aloud and then reveals the answer.</p>
+            <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it simple to convert your multiple-choice quiz files into engaging, YouTube-ready video content.</p>
             <a routerLink="/login" class="btn-primary mt-6 inline-flex items-center gap-3 rounded-full bg-[#1A1714] text-white pl-6 pr-2 py-2 font-semibold text-[14.5px]">Start creating <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">→</span></a>
           </div>
 
