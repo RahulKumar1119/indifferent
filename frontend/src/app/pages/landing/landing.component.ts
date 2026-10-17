@@ -100,7 +100,7 @@ import { HeroSceneComponent } from './hero-scene.component';
               <a routerLink="/about" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">About the studio</a>
             </app-nav-mobile-menu>
             <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-11 pl-5 pr-5 sm:pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
-              Start creating
+              Get started
               <span class="hidden sm:flex w-7 h-7 rounded-full bg-[#1A1714] text-white items-center justify-center text-sm leading-none" aria-hidden="true">↗</span>
             </a>
           </div>
@@ -125,10 +125,11 @@ import { HeroSceneComponent } from './hero-scene.component';
                 <span class="w-9 h-9 rounded-full bg-[#141310] text-white flex items-center justify-center">→</span>
               </a>
               <a href="#process" class="inline-flex items-center min-h-[44px] text-[15px] text-white/80 underline underline-offset-8 decoration-white/30 hover:decoration-white transition">See how it works</a>
+              <a href="#process" class="inline-flex items-center min-h-[44px] text-[15px] text-white/80 underline underline-offset-8 decoration-white/30 hover:decoration-white transition">See how it works</a>
             </div>
             <dl class="mt-10 flex flex-wrap gap-x-8 gap-y-4 text-[13px] text-white/60">
-              <div><dd class="serif text-2xl text-white">5</dd><dd>AI narrator voices</dd></div>
-              <div class="border-l border-white/10 pl-8"><dd class="serif text-2xl text-white">1080p</dd><dd>MP4 export</dd></div>
+              <div><dt class="text-[13px] text-white/60">AI narrator voices</dt><dd class="serif text-2xl text-white">5</dd></div>
+              <div class="border-l border-white/10 pl-8"><dt class="text-[13px] text-white/60">MP4 export</dt><dd class="serif text-2xl text-white">1080p</dd></div>
             </dl>
           </div>
 
@@ -236,7 +237,7 @@ import { HeroSceneComponent } from './hero-scene.component';
               </div>
               <div>
                 <p class="text-white/60 text-[12px] uppercase tracking-[0.06em] mb-3">Start</p>
-                <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#BC5227] text-white px-6 py-3 font-semibold text-[14px]">Start creating →</a>
+                <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#BC5227] text-white px-6 py-3 font-semibold text-[14px]">Start creating</a>
                 <p class="mt-4 text-white/60 text-[13px]">TXT in. MP4 out.</p>
               </div>
             </div>

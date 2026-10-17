@@ -1044,8 +1044,8 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
       const detail = err instanceof Error ? err.message : String(err);
       this.exportState = 'error';
       this.exportError = detail
-        ? `Processing failed (${detail.slice(0, 140)}). Try a smaller file or use server mode.`
-        : 'Processing failed. Try a smaller file or use server mode.';
+        ? `Processing failed (${detail.slice(0, 140)}). Try a smaller file.`
+        : 'Processing failed. Try a smaller file.';
     } finally {
       // Always release WASM MEMFS files, even when the run throws — failed
       // exports of large videos would otherwise leak hundreds of MB.

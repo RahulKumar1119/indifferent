@@ -55,8 +55,8 @@ export class CreatorStatsComponent {
     return [
       { label: 'Videos', value: String(s.videosCreated), hint: 'Quiz films created', icon: 'clapperboard', color: '', tint: 'hsl(var(--primary) / 0.1)' },
       { label: 'Shorts', value: String(s.shortsGenerated), hint: 'AI clips generated', icon: 'scissors', color: '', tint: 'hsl(var(--primary) / 0.1)' },
-      { label: 'Published', value: String(s.published), hint: 'Marked published', icon: 'circle-check', color: '#1E7A4C', tint: 'rgba(30,122,76,0.12)' },
-      { label: 'Favorites', value: String(s.favorites), hint: 'Saved to favorites', icon: 'star', color: '#B8860B', tint: 'rgba(184,134,11,0.12)' },
+      { label: 'Published', value: String(s.published), hint: 'Marked published', icon: 'circle-check', color: '', tint: 'hsl(var(--primary) / 0.1)' },
+      { label: 'Favorites', value: String(s.favorites), hint: 'Saved to favorites', icon: 'star', color: '', tint: 'hsl(var(--primary) / 0.1)' },
     ];
   }
 }

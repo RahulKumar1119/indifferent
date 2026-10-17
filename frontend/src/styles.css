@@ -135,33 +135,6 @@ html, body {
   transform: translateY(-2px);
 }
 
-/* Moving border effect */
-.moving-border {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius);
-}
-
-.moving-border::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  background: conic-gradient(from var(--angle, 0deg), transparent 70%, hsl(var(--primary)) 100%);
-  animation: rotate-border 4s linear infinite;
-  z-index: -1;
-}
-
-@keyframes rotate-border {
-  to { --angle: 360deg; }
-}
-
-@property --angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-
 /* Spotlight hover effect */
 .spotlight-card {
   position: relative;

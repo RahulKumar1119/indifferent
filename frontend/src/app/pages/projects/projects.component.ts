@@ -102,7 +102,6 @@ import { Project, ProjectStatus } from '../../shared/models/project.model';
                 (click)="navigateToProject(project)"
                 (keydown.enter)="navigateToProject(project)"
                 tabindex="0"
-                role="row"
               >
                 <div class="sm:col-span-4 font-medium truncate text-[15px]">{{ project.name }}</div>
                 <div class="sm:col-span-3 text-[13.5px] text-[#6B6560]">{{ project.template | titlecase }}</div>

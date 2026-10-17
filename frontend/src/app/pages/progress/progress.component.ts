@@ -87,7 +87,7 @@ interface PipelineStep {
           </div>
           <div class="h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden">
             <div
-              class="h-full rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-purple-400 transition-all duration-500"
+              class="h-full rounded-full bg-[hsl(var(--primary))] transition-all duration-500"
               [style.width.%]="progress.percentage"
             ></div>
           </div>
@@ -117,7 +117,7 @@ interface PipelineStep {
             Something went wrong while processing your video. Please try again.
           </p>
           <button class="glow-btn mt-4" (click)="goToProject()">
-            Back to Project
+            Retry upload
           </button>
         </div>
       }

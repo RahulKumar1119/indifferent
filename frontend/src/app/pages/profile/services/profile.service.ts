@@ -95,7 +95,7 @@ export class ProfileService {
     };
     if (!local.username && merged.name) merged.username = toUsername(merged.name, merged.email);
     if (!merged.bio) {
-      merged.bio = 'Creating AI-powered Shorts with Indifferent';
+      merged.bio = 'Creating shorts with Indifferent';
     }
     return merged;
   }
