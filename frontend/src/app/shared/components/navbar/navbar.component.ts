@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { ThemeService } from '../../../core/services/theme.service';
 
-/** Slim app navbar for the Shorts pages: brand + section links. Theme lives in the app shell. */
+/** Slim app navbar for the Shorts pages: brand, section links, theme toggle. */
 @Component({
   selector: 'app-navbar',
   standalone: true,
@@ -20,9 +21,23 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <a routerLink="/profile" class="sm:hidden w-9 h-9 rounded-lg hover:bg-white/5 inline-flex items-center justify-center" aria-label="Profile">
             <svg lucideIcon="user" [size]="17"></svg>
           </a>
+          <button
+            class="btn-interactive ml-1 w-9 h-9 rounded-lg border border-[hsl(var(--border))] inline-flex items-center justify-center"
+            (click)="theme.toggleTheme()"
+            [attr.aria-label]="theme.currentTheme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+            [title]="theme.currentTheme() === 'dark' ? 'Light mode' : 'Dark mode'"
+          >
+            @if (theme.currentTheme() === 'dark') {
+              <svg lucideIcon="sun" [size]="17"></svg>
+            } @else {
+              <svg lucideIcon="moon" [size]="17"></svg>
+            }
+          </button>
         </nav>
       </div>
     </header>
   `,
 })
-export class NavbarComponent {}
+export class NavbarComponent {
+  readonly theme = inject(ThemeService);
+}
