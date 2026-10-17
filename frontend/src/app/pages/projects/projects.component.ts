@@ -51,7 +51,7 @@ import { Project, ProjectStatus } from '../../shared/models/project.model';
       <main class="max-w-7xl mx-auto px-5 md:px-8 py-10 md:py-14">
         <div class="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p class="text-[11.5px] uppercase tracking-[0.2em] text-[#6B6560]">Studio · Library</p>
+            <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Studio · Library</p>
             <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">Projects.</h1>
           </div>
           <p class="text-[13.5px] text-[#6B6560]">{{ projects.length }} {{ projects.length === 1 ? 'film' : 'films' }} in the cutting room</p>

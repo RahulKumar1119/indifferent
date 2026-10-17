@@ -50,7 +50,7 @@ import { setPageSeo } from '../../shared/seo';
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-16 md:pb-20">
         <div class="absolute inset-0" style="background: radial-gradient(ellipse at 75% 15%, rgba(217,108,61,0.20), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.93));"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
-          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-white/15 text-white/70">
+          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-white/15 text-white/70">
             <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> The Studio
           </p>
           <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(2.8rem,7vw,5.2rem)] max-w-[16ch] text-balance">The studio behind the video.</h1>

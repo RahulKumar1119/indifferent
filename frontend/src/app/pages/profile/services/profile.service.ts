@@ -147,11 +147,11 @@ export class ProfileService {
         handle: '',
         connectedAt: new Date().toISOString(),
       };
-      this.logActivity(
-        'share-2',
-        `Linked ${platform === 'youtube' ? 'YouTube' : platform === 'instagram' ? 'Instagram' : 'TikTok'} on this device`,
-        'OAuth integration coming soon',
-      );
+    this.logActivity(
+      'settings',
+      `Linked ${platform === 'youtube' ? 'YouTube' : platform === 'instagram' ? 'Instagram' : 'TikTok'} on this device`,
+      'OAuth integration coming soon',
+    );
       return entry;
     });
     this.write(LS_SOCIAL, next);

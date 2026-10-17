@@ -71,7 +71,7 @@ interface Post {
         <div class="absolute inset-0" style="background: radial-gradient(ellipse at 20% 15%, rgba(217,108,61,0.20), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.93));"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-10 items-end">
           <div>
-            <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-white/15 text-white/70">
+            <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-white/15 text-white/70">
               <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Journal &amp; Notes
             </p>
             <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(3rem,8vw,5.6rem)] text-balance">
@@ -120,7 +120,7 @@ interface Post {
                 class="reveal card-lift group grid grid-cols-1 lg:grid-cols-2 overflow-hidden rounded-[20px] bg-white border border-black/[0.07]">
 
                 <div class="p-8 md:p-12 flex flex-col justify-center">
-                  <p class="text-[12px] uppercase tracking-[0.2em] text-[#6B6560]">{{ filteredPosts[0].date }} · {{ filteredPosts[0].read }}</p>
+                  <p class="text-[12px] uppercase tracking-[0.08em] text-[#6B6560]">{{ filteredPosts[0].date }} · {{ filteredPosts[0].read }}</p>
                   <h2 class="serif mt-3 font-medium leading-[1.02] tracking-[-0.01em] text-[clamp(1.8rem,3.5vw,2.8rem)]">{{ filteredPosts[0].title }}</h2>
                   <p class="mt-4 text-[15.5px] text-[#6B6560] leading-relaxed">{{ filteredPosts[0].excerpt }}</p>
                   <span class="mt-6 inline-flex w-max items-center gap-2 rounded-full bg-[#1A1714] text-white px-6 py-3 text-[14px] font-semibold">Read essay <span aria-hidden="true">→</span></span>
@@ -134,7 +134,7 @@ interface Post {
                 <a [routerLink]="p.route" class="reveal card-lift group rounded-[20px] overflow-hidden bg-white border border-black/[0.07] flex flex-col">
 
                   <div class="p-6 md:p-7 flex flex-col flex-1">
-                    <p class="text-[12px] uppercase tracking-[0.18em] text-[#6B6560]">{{ p.date }} · {{ p.read }}</p>
+                    <p class="text-[12px] uppercase tracking-[0.06em] text-[#6B6560]">{{ p.date }} · {{ p.read }}</p>
                     <h3 class="serif mt-2 text-[26px] leading-[1.05]">{{ p.title }}</h3>
                     <p class="mt-2 text-[14.5px] text-[#6B6560] leading-relaxed flex-1">{{ p.excerpt }}</p>
                     <span class="mt-4 text-[14px] font-semibold underline underline-offset-8 decoration-[#1A1714]/25 group-hover:decoration-[#1A1714] transition">Read essay →</span>
@@ -147,7 +147,7 @@ interface Post {
           <!-- Format strip -->
           <div class="reveal mt-10 rounded-[20px] p-8 md:p-10 bg-[#1E3A2A] text-[#EDE8DB] flex flex-col md:flex-row md:items-center gap-6 justify-between">
             <div>
-              <p class="text-[12px] uppercase tracking-[0.2em] text-white/60">New to the format?</p>
+              <p class="text-[12px] uppercase tracking-[0.08em] text-white/60">New to the format?</p>
               <p class="serif mt-2 text-[28px] leading-tight">Format your TXT file once.<br>Render forever.</p>
             </div>
             <a routerLink="/blog/quiz-file-format-guide" class="btn-primary inline-flex w-max items-center gap-2 rounded-full bg-[#E8E0D2] text-[#141310] px-7 py-3.5 font-semibold text-[14.5px]">Open format guide →</a>

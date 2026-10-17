@@ -23,7 +23,7 @@ interface Tool {
   styles: [`
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
     .card-lift { transition: transform .35s cubic-bezier(0.23,1,0.32,1), box-shadow .35s; }
-    .card-lift:hover { transform: translateY(-6px); }
+    .card-lift:hover { transform: translateY(-6px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
     @media (prefers-reduced-motion: reduce) {
       .card-lift { transition: none; }
     }
@@ -31,7 +31,7 @@ interface Tool {
   template: `
     <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
       <main class="max-w-5xl mx-auto px-4 pt-24 pb-16">
-        <p class="text-center text-[11.5px] uppercase tracking-[0.22em] text-[#6B6560]">Free tools</p>
+        <p class="text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Free tools</p>
         <h1 class="mt-3 text-center font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2rem,5vw,3.2rem)]">
           Tools that do <span class="font-light italic">the boring work.</span>
         </h1>
@@ -45,7 +45,9 @@ interface Tool {
               <span class="inline-flex w-11 h-11 items-center justify-center rounded-xl bg-[#D96C3D]/12 text-[#A8481F]">
                 <svg lucideIcon="{{ tool.icon }}" [size]="22"></svg>
               </span>
-              <span class="mt-4 text-[11px] uppercase tracking-[0.18em] text-[#6B6560]">{{ tool.badge }}</span>
+              @if (tool.badge !== 'AI pipeline') {
+                <span class="mt-4 text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">{{ tool.badge }}</span>
+              }
               <h2 class="mt-1 font-semibold text-[18px]">{{ tool.title }}</h2>
               <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560]">{{ tool.text }}</p>
               <ul class="mt-3 space-y-1.5 text-[13px] text-[#6B6560]">

@@ -32,10 +32,6 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
     .dropzone-active {
       border-style: solid;
       border-color: rgb(99 102 241); /* indigo-500 */
-      box-shadow: 0 0 30px rgba(99, 102, 241, 0.25);
-    }
-    .dropzone-active::before {
-      border: 2px dashed rgba(99, 102, 241, 0.5);
     }
   `],
   template: `
@@ -203,10 +199,10 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
             </span>
           </div>
           <div class="h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden">
-            <div
-              class="h-full rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-purple-400 transition-all duration-300"
-              [style.width.%]="uploadProgress"
-            ></div>
+              <div
+                class="h-full rounded-full bg-[hsl(var(--primary))] transition-all duration-300"
+                [style.width.%]="uploadProgress"
+              ></div>
           </div>
         </div>
       }

@@ -129,7 +129,7 @@ export type VideoCardAction =
             </button>
             @if (menuOpen) {
               <div
-                class="absolute right-0 bottom-11 z-20 w-44 overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-2xl py-1"
+                class="absolute right-0 bottom-11 z-20 w-44 overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-md py-1"
                 role="menu"
               >
                 @for (item of menuItems(); track item.action) {

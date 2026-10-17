@@ -24,7 +24,6 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
       <div
         class="relative glass-card p-10 text-center transition-all cursor-pointer"
         [class.!border-[hsl(var(--primary))]]="isDragOver"
-        [class.!shadow-[0_0_30px_rgba(120,60,255,0.2)]]="isDragOver"
         [class.!border-green-500]="selectedFile && !error"
         (dragover)="onDragOver($event)"
         (dragleave)="onDragLeave($event)"
@@ -108,10 +107,10 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
             <span>{{ uploadProgress }}%</span>
           </div>
           <div class="h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden">
-            <div
-              class="h-full rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-purple-400 transition-all duration-300"
-              [style.width.%]="uploadProgress"
-            ></div>
+              <div
+                class="h-full rounded-full bg-[hsl(var(--primary))] transition-all duration-300"
+                [style.width.%]="uploadProgress"
+              ></div>
           </div>
         </div>
       }

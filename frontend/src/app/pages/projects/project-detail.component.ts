@@ -23,7 +23,7 @@ import { ShortsJob, ShortsService } from '../shorts/shorts.service';
             <p class="text-sm text-red-600">{{ error }}</p>
           </div>
         } @else if (project) {
-          <p class="mt-4 text-[11.5px] uppercase tracking-[0.22em] text-[#6B6560]">Project · {{ project.status }}</p>
+          <p class="mt-4 text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Project · {{ project.status }}</p>
           <h1 class="mt-2 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(1.8rem,4vw,2.8rem)]">{{ project.name }}</h1>
 
           <!-- Quiz film -->

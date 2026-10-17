@@ -44,7 +44,7 @@ import { RecentActivityComponent } from './components/recent-activity.component'
     RecentActivityComponent,
   ],
   template: `
-    <div class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] antialiased min-h-[100dvh]">
+  <div class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] antialiased min-h-[100dvh]">
       <div class="aurora-bg" aria-hidden="true"></div>
 
       <!-- App header -->
@@ -68,7 +68,7 @@ import { RecentActivityComponent } from './components/recent-activity.component'
       <main class="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p class="text-[11.5px] uppercase tracking-[0.2em] text-[hsl(var(--muted-foreground))]">Creator · Command Center</p>
+            <p class="text-[11.5px] uppercase tracking-[0.08em] text-[hsl(var(--muted-foreground))]">Creator · Command Center</p>
             <h1 class="mt-2 font-medium tracking-[-0.02em] leading-none text-[clamp(2rem,4.5vw,3.2rem)]">Profile.</h1>
           </div>
           <div class="flex items-center gap-2">
@@ -153,7 +153,7 @@ import { RecentActivityComponent } from './components/recent-activity.component'
             [class]="toast.kind === 'error' ? 'bg-red-500/15 text-red-400' : toast.kind === 'success' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))]'"
             aria-hidden="true"
           >
-            <svg lucideIcon="{{ toast.kind === 'error' ? 'x' : toast.kind === 'success' ? 'check' : 'sparkles' }}" [size]="16"></svg>
+            <svg lucideIcon="{{ toast.kind === 'error' ? 'x' : toast.kind === 'success' ? 'check' : 'info' }}" [size]="16"></svg>
           </span>
           <p class="text-[13.5px] leading-snug pt-1">{{ toast.message }}</p>
         </div>

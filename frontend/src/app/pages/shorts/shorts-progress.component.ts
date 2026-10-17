@@ -116,7 +116,7 @@ const STAGES: Stage[] = [
               @if (stageState(i) === 'active') {
                 <div class="relative mt-2 h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden">
                   <div
-                    class="stage-bar h-full rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-purple-400"
+                    class="stage-bar h-full rounded-full bg-[hsl(var(--primary))]"
                     [style.width.%]="stagePercent(i)"
                   ></div>
                   <div class="absolute inset-0 flex items-end justify-center gap-[3px] pb-[3px] opacity-40" aria-hidden="true">

@@ -39,9 +39,6 @@ import { setPageSeo } from '../../shared/seo';
         </div>
 
         <div class="relative z-10">
-          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-white/15 text-white/70">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Studio access
-          </p>
           <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(2.6rem,4.5vw,4.2rem)] text-balance">
             Enter the<br><em class="font-light italic">cutting room.</em>
           </h1>
@@ -65,7 +62,7 @@ import { setPageSeo } from '../../shared/seo';
 
           <div class="rounded-[20px] p-2 bg-black/[0.04] border border-black/10">
             <div class="rounded-[calc(20px-0.5rem)] bg-white border border-black/[0.06] p-8 md:p-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-              <p class="text-[11.5px] uppercase tracking-[0.2em] text-[#6B6560]">Welcome back</p>
+              <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Welcome back</p>
               <h2 class="serif mt-2 font-medium text-[clamp(2rem,4vw,2.8rem)] leading-[1.0]">Sign in to<br>your studio.</h2>
               <p class="mt-3 text-[14.5px] text-[#6B6560] leading-relaxed">One click with Google. No passwords, no credit card.</p>
 

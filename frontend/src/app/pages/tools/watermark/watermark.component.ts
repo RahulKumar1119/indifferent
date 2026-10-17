@@ -107,7 +107,7 @@ interface FfmpegEngine {
       <!-- Compact light hero -->
       <section class="pt-28 pb-10 border-b border-black/[0.07]">
         <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10">
-          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-black/15 text-[#6B6560]">
+          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-black/15 text-[#6B6560]">
             <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Finishing · Tool
           </p>
           <h1 class="serif mt-4 font-medium leading-[0.95] text-[clamp(2.4rem,5vw,3.8rem)]">Brand it.</h1>

@@ -59,7 +59,7 @@ interface UseCaseLink {
         <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
           <a routerLink="/shorts-maker" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
             <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-            <span class="hidden sm:inline text-[11px] uppercase tracking-[0.18em] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Shorts</span>
+            <span class="hidden sm:inline text-[11px] uppercase tracking-[0.06em] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Shorts</span>
           </a>
           <div class="hidden md:flex items-center gap-6 text-[13.5px] text-white/70">
             <app-nav-menu label="Product" [width]="340">
@@ -147,7 +147,6 @@ interface UseCaseLink {
                 </div>
               </div>
               <div class="text-left text-white flex-1">
-                <p class="text-[11px] uppercase tracking-[0.22em] text-white/50">AI pipeline</p>
                 <p class="mt-2 text-[15px] leading-relaxed text-white/80">Transcribe → rank the most engaging moments → track the speaker → burn captions → publish.</p>
                 <div class="mt-4 flex flex-wrap gap-2 text-[11.5px]">
                   <span class="rounded-full border border-white/15 px-3 py-1 text-white/70">Face tracking</span>
@@ -164,7 +163,7 @@ interface UseCaseLink {
       <!-- Features -->
       <section id="features" class="py-16 px-4 scroll-mt-24">
         <div class="max-w-6xl mx-auto">
-          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.22em] text-[#6B6560]">Features</p>
+          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Features</p>
           <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)] leading-tight">The new way to edit videos.<br><span class="font-light italic">Edit faster than ever before.</span></h2>
           <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             @for (f of features; track f.title) {
@@ -183,21 +182,21 @@ interface UseCaseLink {
       <!-- How it works -->
       <section id="how" class="py-16 px-4 scroll-mt-24 bg-[#0F0E0B] text-[#F4EFE6]">
         <div class="max-w-6xl mx-auto">
-          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.22em] text-white/50">How it works</p>
+          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-white/50">How it works</p>
           <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Streamline your video workflow.<br><span class="font-light italic text-white/70">Simple to use, built for speed.</span></h2>
           <div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
-              <p class="text-[12px] font-semibold tracking-[0.18em] text-[#D96C3D]">STEP 1</p>
+              <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 1</p>
               <h3 class="mt-2 font-semibold text-[17px]">Upload a video or audio file</h3>
               <p class="mt-2 text-[14px] leading-relaxed text-white/60">MP4, MOV, MP3 or WAV up to 10 minutes. Podcasts, interviews, or phone footage. All formats work.</p>
             </div>
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
-              <p class="text-[12px] font-semibold tracking-[0.18em] text-[#D96C3D]">STEP 2</p>
+              <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 2</p>
               <h3 class="mt-2 font-semibold text-[17px]">Let AI edit for you</h3>
               <p class="mt-2 text-[14px] leading-relaxed text-white/60">AI transcribes, ranks the most engaging moments, tracks the speaker, and burns in short caption lines automatically.</p>
             </div>
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
-              <p class="text-[12px] font-semibold tracking-[0.18em] text-[#D96C3D]">STEP 3</p>
+              <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 3</p>
               <h3 class="mt-2 font-semibold text-[17px]">Preview and download</h3>
               <p class="mt-2 text-[14px] leading-relaxed text-white/60">Ranked clips land in your gallery with previews. Download full-HD 9:16 MP4s, ready for Shorts, Reels and TikTok.</p>
             </div>
@@ -211,14 +210,14 @@ interface UseCaseLink {
       <!-- Use cases -->
       <section id="use-cases" class="py-16 px-4 scroll-mt-24">
         <div class="max-w-6xl mx-auto">
-          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.22em] text-[#6B6560]">Use cases</p>
+          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Use cases</p>
           <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Grow with high-performing <span class="font-light italic">short-form content.</span></h2>
           <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             @for (u of useCases; track u.slug) {
               <a [routerLink]="['/use-cases', u.slug]" class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6 block hover:border-black/25">
                 <h3 class="font-semibold text-[16.5px]">{{ u.title }}</h3>
                 <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560]">{{ u.text }}</p>
-                <span class="mt-3 inline-block text-[13.5px] font-semibold text-[#BC5227]">Learn more →</span>
+                <span class="mt-3 inline-block text-[13.5px] font-semibold text-[#BC5227]">Learn more</span>
               </a>
             }
           </div>
@@ -236,7 +235,7 @@ interface UseCaseLink {
       <!-- FAQ -->
       <section id="faq" class="py-16 px-4 scroll-mt-24 bg-white border-y border-black/10">
         <div class="max-w-3xl mx-auto">
-          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.22em] text-[#6B6560]">FAQ</p>
+          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">FAQ</p>
           <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Do you have <span class="font-light italic">any questions?</span></h2>
           <div class="mt-8 space-y-3">
             @for (f of faqs; track f.q) {

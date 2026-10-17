@@ -53,7 +53,7 @@ let nextId = 0;
         (click)="onPanelClick($event)"
       >
         <div
-          class="rounded-2xl border border-white/10 bg-[#17150F] shadow-[0_20px_60px_rgba(0,0,0,0.5)] p-2"
+          class="rounded-2xl border border-white/10 bg-[#17150F] shadow-lg p-2"
           [style.width.px]="width()"
         >
           <ng-content></ng-content>

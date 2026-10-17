@@ -19,7 +19,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       <main class="max-w-4xl mx-auto px-4 pt-10 pb-16">
         <div class="flex items-center justify-between gap-4">
           <div>
-            <p class="text-[11.5px] uppercase tracking-[0.22em] text-[hsl(var(--muted-foreground))]">Studio · Shorts</p>
+            <p class="text-[11.5px] uppercase tracking-[0.1em] text-[hsl(var(--muted-foreground))]">Studio · Shorts</p>
             <h1 class="mt-2 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(1.8rem,4vw,2.6rem)]">Your shorts.</h1>
           </div>
           <a routerLink="/shorts" class="btn-interactive shrink-0 px-4 py-2 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] text-[13.5px] font-medium">+ New</a>
