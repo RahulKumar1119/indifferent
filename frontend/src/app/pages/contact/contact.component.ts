@@ -48,7 +48,6 @@ import { setPageSeo } from '../../shared/seo';
       </header>
 
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-16 md:pb-20">
-        <img src="https://picsum.photos/seed/indifferent-contact-hero/1800/900" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover opacity-30">
         <div class="absolute inset-0" style="background: radial-gradient(ellipse at 25% 15%, rgba(217,108,61,0.20), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.93));"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
           <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-white/15 text-white/70">

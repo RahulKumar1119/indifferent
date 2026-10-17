@@ -43,5 +43,7 @@ export class ThemeService {
     } else {
       root.classList.remove('dark');
     }
+    root.setAttribute('data-theme', theme);
+    root.style.colorScheme = theme;
   }
 }

@@ -126,6 +126,7 @@ import { CreatorProfile } from '../models/creator-profile.model';
         role="dialog"
         aria-modal="true"
         aria-label="Edit profile"
+        (keydown.escape)="closeEditDialog()"
       >
         <div class="absolute inset-0 bg-black/60" (click)="closeEditDialog()" aria-hidden="true"></div>
         <div
@@ -209,6 +210,7 @@ import { CreatorProfile } from '../models/creator-profile.model';
         role="dialog"
         aria-modal="true"
         aria-label="Change avatar"
+        (keydown.escape)="closeAvatarDialog()"
       >
         <div class="absolute inset-0 bg-black/60" (click)="closeAvatarDialog()" aria-hidden="true"></div>
         <div

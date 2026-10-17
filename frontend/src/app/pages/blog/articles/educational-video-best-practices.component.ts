@@ -38,7 +38,7 @@ import { setCanonical } from '../../../shared/seo';
         <h2>Why Video is Effective for Learning</h2>
         <p>Studies in cognitive science demonstrate that humans process visual information significantly faster than text alone. When you combine visual elements with audio narration, you engage multiple cognitive channels simultaneously, which strengthens memory formation and improves long-term retention. This dual-coding theory explains why well-designed educational videos consistently outperform text-based materials in learning outcomes.</p>
         <p>Video content also supports different learning styles. Visual learners benefit from diagrams, animations, and on-screen text. Auditory learners absorb information through narration and sound cues. Kinesthetic learners engage through interactive elements like quizzes embedded within the video. By combining these modalities, video reaches a broader range of learners than any single format could achieve alone.</p>
-        <p>Retention rates tell a compelling story: learners typically remember only ten percent of information they read, but retain up to sixty-five percent of information presented through video after three days. This improvement occurs because video creates stronger emotional connections and provides contextual cues that aid recall.</p>
+        <p>Retention rates tell a compelling story: learners typically remember only a fraction of what they read, but retain far more of what they see and hear in video. Video creates stronger emotional connections and provides contextual cues that aid recall.</p>
 
         <h2>Structuring Educational Content</h2>
         <h3>Introduction</h3>

@@ -48,7 +48,6 @@ import { setPageSeo } from '../../shared/seo';
       </header>
 
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-16 md:pb-20">
-        <img src="https://picsum.photos/seed/indifferent-about-hero/1800/900" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover opacity-30">
         <div class="absolute inset-0" style="background: radial-gradient(ellipse at 75% 15%, rgba(217,108,61,0.20), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.93));"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
           <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.22em] border border-white/15 text-white/70">
@@ -67,9 +66,7 @@ import { setPageSeo } from '../../shared/seo';
             <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it effortless to convert your multiple-choice quiz files into engaging, YouTube-ready video content. Whether you're an educator, content creator, or training professional, our platform automates the entire production: from parsing your questions to generating a narrated video that reads each question aloud and then reveals the answer.</p>
             <a routerLink="/login" class="btn-primary mt-6 inline-flex items-center gap-3 rounded-full bg-[#1A1714] text-white pl-6 pr-2 py-2 font-semibold text-[14.5px]">Start creating <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">→</span></a>
           </div>
-          <div class="rounded-[20px] overflow-hidden border border-black/10">
-            <img src="https://picsum.photos/seed/indifferent-about-mission/900/700" alt="Studio desk with quiz production notes" loading="lazy" class="w-full h-[320px] lg:h-[400px] object-cover">
-          </div>
+
         </section>
 
         <!-- How it works -->

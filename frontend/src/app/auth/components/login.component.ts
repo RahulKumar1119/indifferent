@@ -30,8 +30,6 @@ import { setPageSeo } from '../../shared/seo';
 
       <!-- Left panel · dark studio -->
       <div class="hidden lg:flex lg:w-[52%] relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] p-12 flex-col justify-between">
-        <img src="https://picsum.photos/seed/indifferent-login-studio/1200/1400" alt="" aria-hidden="true"
-          class="absolute inset-0 w-full h-full object-cover opacity-30">
         <div class="absolute inset-0" style="background: radial-gradient(ellipse at 80% 10%, rgba(217,108,61,0.22), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.94));"></div>
 
         <div class="relative z-10">
@@ -50,25 +48,6 @@ import { setPageSeo } from '../../shared/seo';
           <p class="mt-5 text-[16px] leading-relaxed text-white/70 max-w-[44ch]">
             Sign in to upload TXT files and render narrated quiz films.
           </p>
-
-          <!-- Mini render preview -->
-          <div class="mt-8 rounded-[20px] p-2 bg-white/[0.06] border border-white/10 backdrop-blur-sm max-w-md">
-            <div class="rounded-[calc(20px-0.5rem)] overflow-hidden bg-[#17150F] border border-white/10">
-              <div class="relative aspect-video">
-                <img src="https://picsum.photos/seed/indifferent-login-frame/640/360" alt="Preview of a generated quiz video" class="absolute inset-0 w-full h-full object-cover">
-                <div class="absolute inset-0 flex flex-col items-center justify-center p-5 text-center" style="background: linear-gradient(to bottom, rgba(15,14,11,0.25), rgba(15,14,11,0.72));">
-                  <p class="text-[10px] uppercase tracking-[0.25em] text-white/60">Question 12 / 20</p>
-                  <p class="serif text-xl mt-1">Which planet is the Red Planet?</p>
-                  <div class="grid grid-cols-2 gap-1.5 mt-4 w-full max-w-[280px] text-[11.5px]">
-                    <span class="rounded-md bg-white/10 border border-white/20 px-2 py-1.5">Venus</span>
-                    <span class="rounded-md bg-[#BC5227] text-white px-2 py-1.5 font-semibold">Mars</span>
-                    <span class="rounded-md bg-white/10 border border-white/20 px-2 py-1.5">Jupiter</span>
-                    <span class="rounded-md bg-white/10 border border-white/20 px-2 py-1.5">Saturn</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
         </div>
 
@@ -122,12 +101,12 @@ import { setPageSeo } from '../../shared/seo';
               <form (ngSubmit)="submitPasswordForm()" class="space-y-3">
                 @if (isSignupMode) {
                   <input [(ngModel)]="name" name="name" type="text" placeholder="Your name" autocomplete="name"
-                    class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus:outline-none focus:border-black/40" />
+                    class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/90 focus-visible:border-[hsl(var(--primary))]" />
                 }
                 <input [(ngModel)]="email" name="email" type="email" required placeholder="Email address" autocomplete="email"
-                  class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus:outline-none focus:border-black/40" />
+                  class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/90 focus-visible:border-[hsl(var(--primary))]" />
                 <input [(ngModel)]="password" name="password" type="password" required minlength="8" placeholder="Password (8+ characters)" autocomplete="{{ isSignupMode ? 'new-password' : 'current-password' }}"
-                  class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus:outline-none focus:border-black/40" />
+                  class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/90 focus-visible:border-[hsl(var(--primary))]" />
                 <button type="submit" [disabled]="submitting"
                   class="btn-primary w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#1A1714] text-white font-semibold text-[14.5px] hover:bg-[#2A2620] disabled:opacity-60">
                   @if (submitting) {

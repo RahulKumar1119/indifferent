@@ -518,7 +518,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   showShare = false;
   copiedLink = false;
   readonly shareUrl = 'https://indifferent.fun/tools/add-watermark';
-  readonly shareText = 'I just branded my content with the Indifferent Watermark Tool — free, in-browser, private.';
+  readonly shareText = 'I just branded my content with the Indifferent Watermark Tool: free, in-browser, private.';
 
   isDragOver = false;
   downloadUrl = '';

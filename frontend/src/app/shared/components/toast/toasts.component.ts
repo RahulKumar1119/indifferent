@@ -1,7 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideDynamicIcon } from '@lucide/angular';
-import { ToastService } from './toast.service';
+import { ToastService, Toast } from './toast.service';
 
 /** Fixed top-right toast stack. Mount once per page. */
 @Component({
@@ -16,6 +16,14 @@ import { ToastService } from './toast.service';
           (click)="toasts.dismiss(toast.id)"
           role="status"
         >
+          <button
+            type="button"
+            (click)="toasts.dismiss(toast.id)"
+            class="shrink-0 rounded-[6px] p-1 text-[hsl(var(--muted-foreground))] hover:bg-white/5"
+            aria-label="Dismiss notification"
+          >
+            <svg lucideIcon="x" [size]="14"></svg>
+          </button>
           @if (toast.kind === 'success') {
             <svg lucideIcon="check" [size]="16" class="text-green-400 shrink-0 mt-0.5"></svg>
           } @else if (toast.kind === 'error') {
@@ -32,4 +40,18 @@ import { ToastService } from './toast.service';
 export class ToastsComponent {
   protected readonly toasts = inject(ToastService);
   protected readonly toasts$ = this.toasts.toasts;
+  protected current: Toast[] = [];
+
+  constructor() {
+    this.toasts.toasts.subscribe((t) => {
+      this.current = t;
+    });
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.current.length) {
+      this.toasts.dismiss(this.current[this.current.length - 1].id);
+    }
+  }
 }

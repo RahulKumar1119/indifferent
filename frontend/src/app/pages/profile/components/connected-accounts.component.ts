@@ -35,7 +35,7 @@ import { SOCIAL_PLATFORMS, SocialConnection, SocialPlatform } from '../services/
             <span class="flex-1 min-w-0">
               <span class="block font-medium text-[14.5px]">{{ platform.label }}</span>
               @if (conn?.connected) {
-                <span class="block text-[12.5px] text-emerald-500 font-medium">✓ Connected · {{ conn?.handle }}</span>
+                <span class="block text-[12.5px] text-emerald-500 font-medium">✓ Connected</span>
               } @else {
                 <span class="block text-[12.5px] text-[hsl(var(--muted-foreground))]">○ Not connected</span>
               }
