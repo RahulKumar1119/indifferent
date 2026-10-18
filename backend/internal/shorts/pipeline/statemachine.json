@@ -43,7 +43,7 @@
     },
     "WaitForTranscription": {
       "Type": "Wait",
-      "Seconds": 15,
+      "Seconds": 5,
       "Next": "CheckTranscription"
     },
     "CheckTranscription": {
