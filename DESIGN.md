@@ -56,7 +56,8 @@ Conflicts to resolve (Owner decision):
 
 - The token --color-primary #6366f1 (indigo) and the theme-color #7c3aed (purple) are not part of the palette above. Indigo on paper is 4.18:1 and fails as small text. Both read as the default AI palette (R-01).
 - The "Aurora gradient background" in styles.css, and 40 gradient uses across the frontend, each need a written reason or removal (R-01).
-- The slides the renderer produces (and the landing page now shows) use a purple accent, #7C3AED, and plain white pages. That is not the palette above, and the renderer ignores the template name, so all six template names look the same. Decide whether the renderer should adopt this palette and whether the six templates should be real.
+- The slides the renderer produces for the Classic template (and the landing page shows) use a purple accent, #7C3AED, and plain white pages. That is not the palette above. Classic is frozen at these colors so existing projects render the same (golden images in backend/internal/slidegen/testdata/golden). Decide whether Classic should move to the brand terracotta; doing so changes every existing Classic project's look on its next render.
+- The renderer now honors the template name (issue #102): Modern, Education, Dark, Minimal and Neon are real palettes in backend/internal/slidegen/theme.go, palette only, with the same layout and fonts. Their palettes are proposals pending owner approval. All five pass 4.5:1 text contrast in a test. Classic's answer slide does not (wrong options 3.36:1, correct green 3.30:1), pinned in TestClassicKnownContrastShortfalls until the Classic decision above is made.
 
 ## Typography
 

@@ -1,5 +1,26 @@
 export type Template = 'classic' | 'modern' | 'education' | 'dark' | 'minimal' | 'neon';
 
+export interface TemplateOption {
+  value: Template;
+  label: string;
+  /** Plain-words description of the palette; also the preview image's alt text. */
+  look: string;
+}
+
+/**
+ * Every template the renderer draws differently (backend TestNoTwoThemesRenderTheSame).
+ * Preview images live in public/templates/<value>.webp and come from
+ * scripts/generate-template-previews.sh. If a palette changes, change `look` too.
+ */
+export const TEMPLATE_OPTIONS: readonly TemplateOption[] = [
+  { value: 'classic', label: 'Classic', look: 'white slides with a purple accent' },
+  { value: 'modern', label: 'Modern', look: 'light slate slides with a blue accent' },
+  { value: 'education', label: 'Education', look: 'cream paper with navy text and a red accent' },
+  { value: 'dark', label: 'Dark', look: 'near-black slides with a violet accent' },
+  { value: 'minimal', label: 'Minimal', look: 'off-white slides with black text and no accent color' },
+  { value: 'neon', label: 'Neon', look: 'deep indigo-black slides with magenta and green highlights' },
+];
+
 export type Voice = 'Joanna' | 'Matthew' | 'Amy' | 'Brian' | 'Aditi';
 
 export type ProjectStatus =

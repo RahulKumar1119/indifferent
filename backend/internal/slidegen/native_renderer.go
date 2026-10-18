@@ -59,24 +59,32 @@ func NewNativeRenderer() *NativeRenderer {
 }
 
 // RenderTemplate renders a slide as a PNG using Go's native image library.
+//
+// templateName is "{theme}/{file}", for example "modern/answer-reveal.html".
+// The theme part picks the palette (ThemeFor; unknown names render as
+// Classic). The file part picks the slide: a name containing "answer" is the
+// answer reveal, anything else with question data is the question slide.
 func (r *NativeRenderer) RenderTemplate(templateName string, data interface{}) ([]byte, error) {
 	img := image.NewRGBA(image.Rect(0, 0, slideWidth, slideHeight))
 
-	// White background
-	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
-	draw.Draw(img, img.Bounds(), &image.Uniform{C: white}, image.Point{}, draw.Src)
+	themeName, file := splitTemplateName(templateName)
+	theme := ThemeFor(themeName)
 
 	switch d := data.(type) {
 	case QuestionSlideData:
-		if strings.Contains(templateName, "answer") {
-			r.drawAnswerRevealSlide(img, d)
+		if strings.Contains(file, "answer") {
+			fillBackground(img, theme.AnswerBG)
+			r.drawAnswerRevealSlide(img, theme, d)
 		} else {
-			r.drawQuestionSlide(img, d)
+			fillBackground(img, theme.QuestionBG)
+			r.drawQuestionSlide(img, theme, d)
 		}
 	case CountdownSlideData:
-		r.drawCountdownSlide(img, d)
+		fillBackground(img, theme.CountdownBG)
+		r.drawCountdownSlide(img, theme, d)
 	case OutroSlideData:
-		r.drawOutroSlide(img, d)
+		fillBackground(img, theme.OutroBG)
+		r.drawOutroSlide(img, theme, d)
 	default:
 		return nil, fmt.Errorf("unsupported slide data type: %T", data)
 	}
@@ -89,12 +97,17 @@ func (r *NativeRenderer) RenderTemplate(templateName string, data interface{}) (
 	return buf.Bytes(), nil
 }
 
-func (r *NativeRenderer) drawQuestionSlide(img *image.RGBA, data QuestionSlideData) {
-	darkText := color.RGBA{R: 30, G: 30, B: 30, A: 255}
-	accent := color.RGBA{R: 124, G: 58, B: 237, A: 255}  // Purple
-	grayText := color.RGBA{R: 80, G: 80, B: 80, A: 255}
+// fillBackground paints the whole slide one colour.
+func fillBackground(img *image.RGBA, c color.RGBA) {
+	draw.Draw(img, img.Bounds(), &image.Uniform{C: c}, image.Point{}, draw.Src)
+}
 
-	// Draw purple accent bar at top
+func (r *NativeRenderer) drawQuestionSlide(img *image.RGBA, t Theme, data QuestionSlideData) {
+	darkText := t.Text
+	accent := t.Accent
+	grayText := t.Option
+
+	// Draw accent bar at top
 	accentBar := image.Rect(0, 0, slideWidth, 8)
 	draw.Draw(img, accentBar, &image.Uniform{C: accent}, image.Point{}, draw.Src)
 
@@ -129,13 +142,13 @@ func (r *NativeRenderer) drawQuestionSlide(img *image.RGBA, data QuestionSlideDa
 	}
 }
 
-func (r *NativeRenderer) drawAnswerRevealSlide(img *image.RGBA, data QuestionSlideData) {
-	darkText := color.RGBA{R: 30, G: 30, B: 30, A: 255}
-	accent := color.RGBA{R: 124, G: 58, B: 237, A: 255}
-	green := color.RGBA{R: 22, G: 163, B: 74, A: 255}      // Green for correct
-	grayText := color.RGBA{R: 140, G: 140, B: 140, A: 255}
+func (r *NativeRenderer) drawAnswerRevealSlide(img *image.RGBA, t Theme, data QuestionSlideData) {
+	darkText := t.Text
+	accent := t.Accent
+	green := t.Correct
+	grayText := t.OptionWrong
 
-	// Purple accent bar
+	// Accent bar
 	accentBar := image.Rect(0, 0, slideWidth, 8)
 	draw.Draw(img, accentBar, &image.Uniform{C: accent}, image.Point{}, draw.Src)
 
@@ -185,13 +198,9 @@ func isCorrectIndex(idx int, correctIndices []int) bool {
 	return false
 }
 
-func (r *NativeRenderer) drawCountdownSlide(img *image.RGBA, data CountdownSlideData) {
-	accent := color.RGBA{R: 124, G: 58, B: 237, A: 255}
-	grayText := color.RGBA{R: 100, G: 100, B: 100, A: 255}
-
-	// Light gray background for countdown
-	lightBg := color.RGBA{R: 245, G: 245, B: 250, A: 255}
-	draw.Draw(img, img.Bounds(), &image.Uniform{C: lightBg}, image.Point{}, draw.Src)
+func (r *NativeRenderer) drawCountdownSlide(img *image.RGBA, t Theme, data CountdownSlideData) {
+	accent := t.Accent
+	grayText := t.Subtle
 
 	// Draw large countdown number centered
 	numStr := fmt.Sprintf("%d", data.Seconds)
@@ -201,14 +210,10 @@ func (r *NativeRenderer) drawCountdownSlide(img *image.RGBA, data CountdownSlide
 	r.drawTextWithFace(img, "seconds remaining", 800, 720, grayText, r.regularFace)
 }
 
-func (r *NativeRenderer) drawOutroSlide(img *image.RGBA, data OutroSlideData) {
-	accent := color.RGBA{R: 124, G: 58, B: 237, A: 255}
-	darkText := color.RGBA{R: 30, G: 30, B: 30, A: 255}
-	grayText := color.RGBA{R: 100, G: 100, B: 100, A: 255}
-
-	// Light purple background
-	lightBg := color.RGBA{R: 250, G: 245, B: 255, A: 255}
-	draw.Draw(img, img.Bounds(), &image.Uniform{C: lightBg}, image.Point{}, draw.Src)
+func (r *NativeRenderer) drawOutroSlide(img *image.RGBA, t Theme, data OutroSlideData) {
+	accent := t.Accent
+	darkText := t.Text
+	grayText := t.Subtle
 
 	r.drawTextWithFace(img, data.ChannelName, 700, 420, accent, r.largeFace)
 	r.drawTextWithFace(img, "Thanks for watching!", 720, 560, darkText, r.boldFace)

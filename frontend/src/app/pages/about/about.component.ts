@@ -3,6 +3,7 @@ import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { setPageSeo } from '../../shared/seo';
+import { TEMPLATE_OPTIONS } from '../../shared/models';
 
 @Component({
   selector: 'app-about',
@@ -79,7 +80,7 @@ import { setPageSeo } from '../../shared/seo';
             </li>
             <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-t border-black/10">
               <span class="serif italic text-[26px] text-[#BC5227] leading-none">02</span>
-              <div><h3 class="font-semibold">Choose template &amp; voice</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">A visual theme for your slides and one of 5 professional AI voices powered by Amazon Polly.</p></div>
+              <div><h3 class="font-semibold">Choose template &amp; voice</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">One of six slide color schemes and one of 5 professional AI voices powered by Amazon Polly.</p></div>
             </li>
             <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-t border-black/10">
               <span class="serif italic text-[26px] text-[#BC5227] leading-none">03</span>
@@ -117,8 +118,19 @@ import { setPageSeo } from '../../shared/seo';
 
         <!-- Templates -->
         <section class="mt-16">
-          <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">One template today, more on the way</h2>
-          <p class="mt-4 max-w-[60ch] text-[16px] leading-relaxed text-[#3E3A33]">Every video uses the Classic template: a clean white page with a purple accent. The other templates (Modern, Education, Dark, Minimal and Neon) appear in the project form marked "Soon" and are not available yet.</p>
+          <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">Six templates, six color schemes</h2>
+          <p class="mt-4 max-w-[60ch] text-[16px] leading-relaxed text-[#3E3A33]">A template sets the colors of your slides: the background, the text, the accent and the highlight on the correct answer. Layout, fonts and timing are the same in all six. Every image below is a question slide drawn by the same renderer that makes your video.</p>
+          <ul class="mt-8 grid grid-cols-2 lg:grid-cols-3 gap-4">
+            @for (t of templates; track t.value) {
+              <li class="rounded-[12px] overflow-hidden bg-white border border-black/[0.07]">
+                <img [src]="'/templates/' + t.value + '.webp'" [alt]="t.label + ' template: ' + t.look" width="480" height="270" loading="lazy" class="block w-full h-auto border-b border-black/10" />
+                <div class="px-4 py-3">
+                  <h3 class="font-semibold text-[14.5px]">{{ t.label }}</h3>
+                  <p class="mt-0.5 text-[13px] text-[#6B6560]">{{ t.look }}</p>
+                </div>
+              </li>
+            }
+          </ul>
         </section>
 
         <!-- Voices -->
@@ -193,6 +205,7 @@ export class AboutComponent implements OnInit {
   }
 
   currentYear = new Date().getFullYear();
+  readonly templates = TEMPLATE_OPTIONS;
   voices = [
     { name: 'Joanna', desc: 'US English, female, clear and professional', initials: 'JO' },
     { name: 'Matthew', desc: 'US English, male, warm and authoritative', initials: 'MA' },

@@ -5,13 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { MatStepperModule } from '@angular/material/stepper';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ApiService } from '../../core';
-import { Project, CreateProjectRequest, CreateProjectResponse, Template, Voice } from '../../shared';
-
-interface TemplateOption {
-  value: Template;
-  label: string;
-  enabled: boolean;
-}
+import { Project, CreateProjectRequest, CreateProjectResponse, TEMPLATE_OPTIONS, Voice } from '../../shared';
 
 @Component({
   selector: 'app-create-project',
@@ -52,7 +46,7 @@ interface TemplateOption {
       <main class="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14">
         <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Studio · Configure</p>
         <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">New project.</h1>
-        <p class="mt-3 text-[15px] text-[#6B6560]">Name it, pick a theme and a voice. Optionally attach a watermark and a shorts source in the same project.</p>
+        <p class="mt-3 text-[15px] text-[#6B6560]">Name it, pick a template and a voice. Optionally attach a watermark and a shorts source in the same project.</p>
 
         <div class="mt-8 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
           <mat-stepper linear #stepper class="bg-transparent">
@@ -79,35 +73,40 @@ interface TemplateOption {
                 </div>
 
                 <!-- Template Selector -->
-                <div>
-                  <label class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-3">Template</label>
+                <fieldset>
+                  <legend class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1">Template</legend>
+                  <p class="mb-3 text-[12.5px] text-[#6B6560]">Each image is a real question slide drawn by the renderer. Layout and fonts are the same in every template; colors change.</p>
                   <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     @for (tpl of templates; track tpl.value) {
-                      <div
-                        class="pick relative rounded-[12px] p-4 cursor-pointer border-2"
-                        [class.border-[#BC5227]]="projectForm.get('template')?.value === tpl.value && tpl.enabled"
-                        [class.bg-[#BC5227]/[.06]]="projectForm.get('template')?.value === tpl.value && tpl.enabled"
-                        [class.border-black/10]="projectForm.get('template')?.value !== tpl.value || !tpl.enabled"
-                        [class.opacity-50]="!tpl.enabled"
-                        [class.pointer-events-none]="!tpl.enabled"
-                        (click)="tpl.enabled && selectTemplate(tpl.value)"
-                        (keydown.enter)="tpl.enabled && selectTemplate(tpl.value)"
-                        [attr.tabindex]="tpl.enabled ? 0 : -1"
-                        [attr.role]="'radio'"
-                        [attr.aria-checked]="projectForm.get('template')?.value === tpl.value"
-                        [attr.aria-disabled]="!tpl.enabled"
-                      >
-                        <div class="text-sm font-medium">{{ tpl.label }}</div>
-                        @if (projectForm.get('template')?.value === tpl.value && tpl.enabled) {
-                          <svg lucideIcon="check" [size]="14" class="absolute top-2 right-2 text-[#BC5227]"></svg>
-                        }
-                        @if (!tpl.enabled) {
-                          <span class="absolute top-1.5 right-1.5 text-[11px] font-medium bg-black/[0.06] text-[#6B6560] px-1.5 py-0.5 rounded-full">Soon</span>
-                        }
-                      </div>
+                      <label class="pick relative block cursor-pointer">
+                        <input
+                          type="radio"
+                          name="template"
+                          formControlName="template"
+                          [value]="tpl.value"
+                          [attr.value]="tpl.value"
+                          class="peer sr-only"
+                        />
+                        <span class="block overflow-hidden rounded-[12px] border-2 !border-black/10 bg-white peer-checked:!border-[#BC5227] peer-checked:bg-[#BC5227]/[.06] peer-focus-visible:ring-2 peer-focus-visible:ring-[#BC5227]/50 peer-focus-visible:ring-offset-2">
+                          <img
+                            [src]="'/templates/' + tpl.value + '.webp'"
+                            [alt]="tpl.label + ' template: ' + tpl.look"
+                            width="480"
+                            height="270"
+                            loading="lazy"
+                            class="block w-full h-auto border-b !border-black/10"
+                          />
+                          <span class="flex items-center justify-between gap-2 px-3 py-2">
+                            <span class="text-sm font-medium">{{ tpl.label }}</span>
+                            @if (projectForm.get('template')?.value === tpl.value) {
+                              <svg lucideIcon="check" [size]="14" class="text-[#BC5227]" aria-hidden="true"></svg>
+                            }
+                          </span>
+                        </span>
+                      </label>
                     }
                   </div>
-                </div>
+                </fieldset>
 
                 <!-- Voice Selector -->
                 <div>
@@ -247,14 +246,7 @@ export class CreateProjectComponent {
   shortsError = '';
   shortsProbing = false;
 
-  templates: TemplateOption[] = [
-    { value: 'classic', label: 'Classic', enabled: true },
-    { value: 'modern', label: 'Modern', enabled: false },
-    { value: 'education', label: 'Education', enabled: false },
-    { value: 'dark', label: 'Dark', enabled: false },
-    { value: 'minimal', label: 'Minimal', enabled: false },
-    { value: 'neon', label: 'Neon', enabled: false },
-  ];
+  readonly templates = TEMPLATE_OPTIONS;
 
   voices: Voice[] = ['Joanna', 'Matthew', 'Amy', 'Brian', 'Aditi'];
 
@@ -272,10 +264,6 @@ export class CreateProjectComponent {
       channelName: ['', Validators.maxLength(60)],
       includeShorts: [false],
     });
-  }
-
-  selectTemplate(template: Template): void {
-    this.projectForm.patchValue({ template });
   }
 
   selectVoice(voice: Voice): void {
