@@ -60,7 +60,9 @@ func lookupCopy(kind, outcome string, hasName bool) (copyFor, bool) {
 			heading: "Your video did not finish",
 			intro:   "Something went wrong while making your video, so it was not completed. Open the project to try again.",
 			button:  "Open the project",
-			path:    "/projects/%s",
+			// The progress page is the one that reports "Processing Failed"
+			// and offers the retry; the project page has no failed state.
+			path: "/projects/%s/progress",
 		}
 		if hasName {
 			c.subject = "Your video %s could not be finished"

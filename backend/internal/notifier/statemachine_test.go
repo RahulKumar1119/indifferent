@@ -227,3 +227,69 @@ func assertAllReachable(t *testing.T, m machine) {
 		}
 	}
 }
+
+// MarkFailed reads $.error. A route into it that does not set $.error makes
+// MarkFailed itself fail with States.Runtime: the job is never marked failed
+// and, because the notify state comes after it, never emailed. Catch rules
+// set it through ResultPath; Choice branches cannot, so they must go through
+// a Pass state that does.
+func TestEveryRouteIntoMarkFailedCarriesAnError(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  func(t *testing.T) []byte
+	}{
+		{"quiz deployed by setup.sh", quizSetupDefinition},
+		{"quiz reference file", func(t *testing.T) []byte { return readFile(t, "../pipeline/statemachine.json") }},
+		{"shorts deployed by setup-shorts.sh", func(t *testing.T) []byte { return readFile(t, "../shorts/pipeline/statemachine.json") }},
+	}
+	asList := func(v any) []map[string]any {
+		var out []map[string]any
+		if list, ok := v.([]any); ok {
+			for _, item := range list {
+				out = append(out, item.(map[string]any))
+			}
+		}
+		return out
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := loadMachine(t, tc.raw(t))
+			routes := 0
+			for name, s := range m.States {
+				if name == "MarkFailed" {
+					continue
+				}
+				for _, c := range asList(s["Catch"]) {
+					if c["Next"] != "MarkFailed" {
+						continue
+					}
+					routes++
+					if c["ResultPath"] != "$.error" {
+						t.Errorf("%s: Catch into MarkFailed must set ResultPath $.error, has %v", name, c["ResultPath"])
+					}
+				}
+				for _, c := range asList(s["Choices"]) {
+					if c["Next"] == "MarkFailed" {
+						routes++
+						t.Errorf("%s: a Choice branch goes straight to MarkFailed with no $.error; route it through a Pass state that sets $.error", name)
+					}
+				}
+				if s["Default"] == "MarkFailed" {
+					routes++
+					t.Errorf("%s: Default goes straight to MarkFailed with no $.error; route it through a Pass state that sets $.error", name)
+				}
+				if s["Next"] == "MarkFailed" {
+					routes++
+					result, _ := s["Result"].(map[string]any)
+					if s["Type"] != "Pass" || s["ResultPath"] != "$.error" || result["Error"] == nil || result["Cause"] == nil {
+						t.Errorf("%s: Next MarkFailed must be a Pass state with ResultPath $.error and a Result holding Error and Cause", name)
+					}
+				}
+			}
+			if routes == 0 {
+				t.Fatal("found no route into MarkFailed; the test is not looking at the right thing")
+			}
+		})
+	}
+}

@@ -77,8 +77,8 @@ func TestRenderEveryKindAndOutcome(t *testing.T) {
 	}{
 		{KindQuiz, OutcomeCompleted, "Week 3", `Your video "Week 3" is ready`, testBase + "/projects/p1/preview"},
 		{KindQuiz, OutcomeCompleted, "", "Your video is ready", testBase + "/projects/p1/preview"},
-		{KindQuiz, OutcomeFailed, "Week 3", `Your video "Week 3" could not be finished`, testBase + "/projects/p1"},
-		{KindQuiz, OutcomeFailed, "", "Your video could not be finished", testBase + "/projects/p1"},
+		{KindQuiz, OutcomeFailed, "Week 3", `Your video "Week 3" could not be finished`, testBase + "/projects/p1/progress"},
+		{KindQuiz, OutcomeFailed, "", "Your video could not be finished", testBase + "/projects/p1/progress"},
 		{KindShorts, OutcomeCompleted, "", "Your Shorts clips are ready", testBase + "/shorts/p1/clips"},
 		{KindShorts, OutcomeFailed, "", "Your Shorts job could not be finished", testBase + "/shorts/p1/progress"},
 	}
