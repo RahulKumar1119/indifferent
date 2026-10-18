@@ -28,8 +28,8 @@ export class ApiService {
     return this.http.post<T>(`${this.baseUrl}${path}`, body, { withCredentials });
   }
 
-  put<T>(path: string, body: unknown = {}, withCredentials = true): Observable<T> {
-    return this.http.put<T>(`${this.baseUrl}${path}`, body, { withCredentials });
+  put<T>(path: string, body: unknown = {}, withCredentials = true, context?: HttpContext): Observable<T> {
+    return this.http.put<T>(`${this.baseUrl}${path}`, body, { withCredentials, context });
   }
 
   /** PUT to an absolute URL (e.g. S3 presigned URL): no cookies/auth headers. */

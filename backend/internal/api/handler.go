@@ -49,6 +49,7 @@ type DynamoDBAPI interface {
 	GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
 	Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
+	UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
 }
 
 // SFNClient defines the Step Functions operations needed by the API handler.
@@ -106,6 +107,10 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleLogout(ctx, req)
 	case req.HTTPMethod == "GET" && req.Path == "/auth/me":
 		return h.handleWithAuth(ctx, req, h.handleGetMe)
+	case req.HTTPMethod == "GET" && req.Path == "/settings/notifications":
+		return h.handleWithAuth(ctx, req, h.handleGetNotificationSettings)
+	case req.HTTPMethod == "PUT" && req.Path == "/settings/notifications":
+		return h.handleWithAuth(ctx, req, h.handleUpdateNotificationSettings)
 	case req.HTTPMethod == "GET" && req.Path == "/projects":
 		return h.handleWithAuth(ctx, req, h.handleListProjects)
 	case req.HTTPMethod == "POST" && req.Path == "/projects":

@@ -365,12 +365,38 @@ STATE_MACHINE=$(cat << EOF
       "Type": "Task",
       "Resource": "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-statusupdater",
       "Parameters": {"projectId.$":"$.projectId","userId.$":"$.userId","status":"completed","videoKey.$":"$.rendererOutput.videoKey","thumbnailKey.$":"$.rendererOutput.thumbnailKey"},
-      "End": true
+      "ResultPath": null,
+      "Next": "NotifyCompleted"
     },
     "MarkFailed": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-statusupdater",
       "Parameters": {"projectId.$":"$.projectId","userId.$":"$.userId","status":"failed","error.$":"$.error"},
+      "ResultPath": null,
+      "Next": "NotifyFailed"
+    },
+    "NotifyCompleted": {
+      "Type": "Task",
+      "Comment": "Best-effort email. Any failure here continues to NotifyEnd; the job outcome is already recorded.",
+      "Resource": "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-notifier",
+      "Parameters": {"kind":"quiz","outcome":"completed","userId.$":"$.userId","projectId.$":"$.projectId","executionId.$":"\$\$.Execution.Id"},
+      "ResultPath": null,
+      "Retry": [{"ErrorEquals":["Throttled"],"IntervalSeconds":10,"MaxAttempts":4,"BackoffRate":2}],
+      "Catch": [{"ErrorEquals":["States.ALL"],"ResultPath":"$.notifyError","Next":"NotifyEnd"}],
+      "End": true
+    },
+    "NotifyFailed": {
+      "Type": "Task",
+      "Comment": "Best-effort email. Any failure here continues to NotifyEnd; the job outcome is already recorded.",
+      "Resource": "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-notifier",
+      "Parameters": {"kind":"quiz","outcome":"failed","userId.$":"$.userId","projectId.$":"$.projectId","executionId.$":"\$\$.Execution.Id"},
+      "ResultPath": null,
+      "Retry": [{"ErrorEquals":["Throttled"],"IntervalSeconds":10,"MaxAttempts":4,"BackoffRate":2}],
+      "Catch": [{"ErrorEquals":["States.ALL"],"ResultPath":"$.notifyError","Next":"NotifyEnd"}],
+      "End": true
+    },
+    "NotifyEnd": {
+      "Type": "Pass",
       "End": true
     }
   }
