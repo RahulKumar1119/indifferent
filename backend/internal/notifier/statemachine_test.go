@@ -293,3 +293,39 @@ func TestEveryRouteIntoMarkFailedCarriesAnError(t *testing.T) {
 		})
 	}
 }
+
+// The transcription poll loop (Wait -> Check -> Choice -> Wait) checks every
+// shortsPollSeconds. A shorter wait means a finished transcription is noticed
+// sooner (on average half the interval) at the price of a few more cheap state
+// transitions per job; see issue #137. The loop shape must not change.
+const shortsPollSeconds = 5
+
+func TestShortsTranscriptionPollLoop(t *testing.T) {
+	m := loadMachine(t, readFile(t, "../shorts/pipeline/statemachine.json"))
+
+	wait := m.States["WaitForTranscription"]
+	if wait == nil || wait["Type"] != "Wait" {
+		t.Fatalf("WaitForTranscription must be a Wait state, got %v", wait)
+	}
+	if wait["Seconds"] != float64(shortsPollSeconds) {
+		t.Errorf("WaitForTranscription.Seconds = %v, want %d", wait["Seconds"], shortsPollSeconds)
+	}
+	if wait["Next"] != "CheckTranscription" {
+		t.Errorf("WaitForTranscription.Next = %v, want CheckTranscription", wait["Next"])
+	}
+	if m.States["CheckTranscription"]["Next"] != "TranscriptionDone?" {
+		t.Errorf("CheckTranscription must lead to the TranscriptionDone? choice")
+	}
+
+	// IN_PROGRESS must still loop back to the wait.
+	looped := false
+	for _, c := range m.States["TranscriptionDone?"]["Choices"].([]any) {
+		choice := c.(map[string]any)
+		if choice["StringEquals"] == "IN_PROGRESS" && choice["Next"] == "WaitForTranscription" {
+			looped = true
+		}
+	}
+	if !looped {
+		t.Error("TranscriptionDone? must send IN_PROGRESS back to WaitForTranscription")
+	}
+}

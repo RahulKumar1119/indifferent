@@ -310,11 +310,20 @@ aws logs create-log-group \
 
 echo "=== Registering shorts-render task definition ==="
 
+# Task size. The clip encode is CPU-bound (a blur-fill clip ran at 0.67x
+# realtime on 1 vCPU), so renders get 2 vCPU. Fargate pairs 2 vCPU with 4-16 GB.
+# Each clip task counts against the Fargate Spot vCPU quota (30 at the time of
+# writing), so 3 clips at 2 vCPU use 6 per job. See issue #137. To change just
+# the size on the live task definition without re-running this script, use
+# deploy/set-shorts-render-size.sh.
+SHORTS_RENDER_CPU="${SHORTS_RENDER_CPU:-2048}"
+SHORTS_RENDER_MEMORY="${SHORTS_RENDER_MEMORY:-4096}"
+
 aws ecs register-task-definition \
   --family ${PROJECT}-shorts-render \
   --requires-compatibilities FARGATE \
   --network-mode awsvpc \
-  --cpu 1024 --memory 4096 \
+  --cpu "${SHORTS_RENDER_CPU}" --memory "${SHORTS_RENDER_MEMORY}" \
   --execution-role-arn arn:aws:iam::${ACCOUNT_ID}:role/${PROJECT}-shorts-task-exec-role \
   --task-role-arn arn:aws:iam::${ACCOUNT_ID}:role/${PROJECT}-shorts-task-role \
   --container-definitions "[{\"name\":\"shorts-render\",\"image\":\"${SHORTS_RENDER_IMAGE}\",\"essential\":true,\"environment\":[{\"name\":\"S3_BUCKET\",\"value\":\"${PROJECT}-assets\"},{\"name\":\"DYNAMODB_TABLE\",\"value\":\"${PROJECT}-projects\"}],\"logConfiguration\":{\"logDriver\":\"awslogs\",\"options\":{\"awslogs-group\":\"/ecs/${PROJECT}-shorts-render\",\"awslogs-region\":\"${REGION}\",\"awslogs-stream-prefix\":\"render\"}}}]" \

@@ -41,7 +41,15 @@ const cropCaptionFilter = "crop=w=ih*9/16:h=ih:x=(iw-ih*9/16)/2:y=0,scale=1080:1
 // burned-in text, cartoons, and screen recordings stay fully visible. Used
 // for segments where no subject face is found (where a center-crop would
 // blindly slice content). gblur needs no external library.
-const fitFillFilter = "split=2[blur][main];[blur]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=40[bg];[main]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=30"
+//
+// The background is blurred at a quarter of the output size (270x480, sigma 10)
+// and then scaled up to 1080x1920. A Gaussian blur this strong keeps no fine
+// detail, so blurring a full-size copy (sigma 40) spent most of the filter's
+// time on pixels that were about to be smoothed away. Sigma 10 at quarter size
+// is the same blur radius as sigma 40 at full size. Measured on the same input
+// this encodes about 40 to 50% faster with SSIM 0.9975 against the old output
+// (issue #137).
+const fitFillFilter = "split=2[blur][main];[blur]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,gblur=sigma=10,scale=1080:1920[bg];[main]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=30"
 
 // RenderInput is the full input for rendering one ranked clip.
 type RenderInput struct {
@@ -480,15 +488,28 @@ func (r *Renderer) defaultExtractFrames(src string, start, end float64) ([][]byt
 // transcript → generate captions → FFmpeg crop+burn → upload the clip. It
 // returns the S3 key of the rendered clip. When the clip already exists it is
 // a no-op that returns the existing key. (Requirements 4.1, 4.5, 4.6, 5.5)
+//
+// Every call writes one "render_timing {json}" log line with the time spent in
+// each phase and the reframe mode (see timing.go).
 func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
+	tm := newRenderTimer(in)
+	key, err := r.render(ctx, in, tm)
+	tm.emit(err)
+	return key, err
+}
+
+func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) (string, error) {
 	key := ClipKey(in.UserID, in.JobID, in.Clip.ClipID)
 
 	// Idempotent resume: skip everything if the clip is already present.
+	done := tm.start(phaseCheckExists)
 	exists, err := r.alreadyRendered(ctx, key)
 	if err != nil {
 		return "", fmt.Errorf("failed to check for existing clip %s: %w", key, err)
 	}
+	done()
 	if exists {
+		tm.skipped = true
 		return key, nil
 	}
 
@@ -504,6 +525,7 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	}
 
 	// Download the source media.
+	done = tm.start(phaseDownloadSource)
 	srcData, err := r.Storage.GetObject(ctx, r.Bucket, in.SourceKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to download source %s: %w", in.SourceKey, err)
@@ -512,6 +534,8 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	if err := os.WriteFile(srcPath, srcData, 0o644); err != nil {
 		return "", fmt.Errorf("failed to write source: %w", err)
 	}
+	tm.sourceBytes = len(srcData)
+	done()
 
 	// Subject-aware reframing for landscape sources: track the dominant
 	// face and pan the 9:16 window onto it; scale faceless content to fit
@@ -521,6 +545,7 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	cropX, fit := "", false
 
 	// Download and parse the transcript.
+	done = tm.start(phaseDownloadTranscript)
 	transcriptData, err := r.Storage.GetObject(ctx, r.Bucket, in.TranscriptKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to download transcript %s: %w", in.TranscriptKey, err)
@@ -529,6 +554,7 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse transcript: %w", err)
 	}
+	done()
 
 	// Filter words to the segment and build captions relative to the clip
 	// start. Segments with no words (silence, out-of-window ranks) skip
@@ -537,6 +563,7 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	// Karaoke styles build ASS (word sweep); all others build SRT.
 	// A saved user edit overrides the trim window; edited words replace the
 	// transcript slice (timings preserved as stored).
+	done = tm.start(phaseCaptions)
 	clipStart, clipEnd := in.ClipStart, in.ClipEnd
 	words := filterWords(transcript.Words, clipStart, clipEnd)
 	if in.Edit != nil && in.Edit.End > in.Edit.Start && in.Edit.Start >= 0 {
@@ -563,10 +590,14 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 			return "", fmt.Errorf("failed to write captions: %w", err)
 		}
 	}
+	done()
 
+	done = tm.start(phaseReframe)
 	if !in.AudioOnly {
 		cropX, fit = r.smartReframe(ctx, srcPath, clipStart, clipEnd)
 	}
+	tm.mode = reframeMode(in.AudioOnly, cropX, fit)
+	done()
 
 	// Render with FFmpeg, streaming -progress so the job record reflects the
 	// live encode percent (clamped at 99; completion is marked downstream).
@@ -577,6 +608,8 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 		runProgress = defaultRunCommandProgress
 	}
 	duration := clipEnd - clipStart
+	tm.clipSeconds = duration
+	done = tm.start(phaseEncode)
 	var runErr error
 	if duration > 0 {
 		runErr = runProgress("ffmpeg", args, duration, func(pct int) {
@@ -588,9 +621,11 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 	if runErr != nil {
 		return "", fmt.Errorf("ffmpeg render failed: %w", runErr)
 	}
+	done()
 
 	// Optional brand logo overlay (top-right). Fail-soft: branding must
 	// never block an otherwise finished clip.
+	done = tm.start(phaseBranding)
 	if r.FetchLogo != nil {
 		if logoData, err := r.FetchLogo(ctx); err != nil {
 			log.Printf("branding skipped: %v", err)
@@ -609,14 +644,19 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 		}
 	}
 
+	done()
+
 	// Upload the result.
+	done = tm.start(phaseUpload)
 	clipData, err := os.ReadFile(outPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read rendered clip: %w", err)
 	}
+	tm.outputBytes = len(clipData)
 	if err := r.Storage.PutObject(ctx, r.Bucket, key, clipData, "video/mp4"); err != nil {
 		return "", fmt.Errorf("failed to upload clip %s: %w", key, err)
 	}
+	done()
 
 	return key, nil
 }
