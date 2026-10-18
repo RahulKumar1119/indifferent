@@ -85,7 +85,7 @@
         {
           "Variable": "$.transcribeStatus.state",
           "StringEquals": "FAILED",
-          "Next": "MarkFailed"
+          "Next": "TranscriptionFailedError"
         },
         {
           "Variable": "$.transcribeStatus.state",
@@ -93,7 +93,27 @@
           "Next": "UpdateStatus_Ranking"
         }
       ],
-      "Default": "MarkFailed"
+      "Default": "TranscriptionStatusUnknownError"
+    },
+    "TranscriptionFailedError": {
+      "Type": "Pass",
+      "Comment": "MarkFailed reads $.error; a Choice branch cannot set it, so this does.",
+      "Result": {
+        "Error": "TranscriptionFailed",
+        "Cause": "Transcription failed."
+      },
+      "ResultPath": "$.error",
+      "Next": "MarkFailed"
+    },
+    "TranscriptionStatusUnknownError": {
+      "Type": "Pass",
+      "Comment": "MarkFailed reads $.error; a Choice default cannot set it, so this does.",
+      "Result": {
+        "Error": "TranscriptionStatusUnknown",
+        "Cause": "Transcription returned an unexpected status."
+      },
+      "ResultPath": "$.error",
+      "Next": "MarkFailed"
     },
     "UpdateStatus_Ranking": {
       "Type": "Task",
@@ -144,7 +164,17 @@
           "Next": "UpdateStatus_Rendering"
         }
       ],
-      "Default": "MarkFailed"
+      "Default": "NoSegmentsError"
+    },
+    "NoSegmentsError": {
+      "Type": "Pass",
+      "Comment": "MarkFailed reads $.error; a Choice default cannot set it, so this does.",
+      "Result": {
+        "Error": "NoSegments",
+        "Cause": "No segments were found to turn into clips."
+      },
+      "ResultPath": "$.error",
+      "Next": "MarkFailed"
     },
     "UpdateStatus_Rendering": {
       "Type": "Task",
