@@ -87,8 +87,8 @@ import { LucideDynamicIcon } from '@lucide/angular';
         <div class="glass-card p-6">
           <div class="flex items-center gap-3">
             <svg lucideIcon="settings" [size]="20" class="text-[hsl(var(--muted-foreground))]"></svg>
-            <a href="mailto:support@indifferent.app" class="text-[hsl(var(--primary))] hover:underline">
-              support&#64;indifferent.app
+            <a href="mailto:support@indifferent.fun" class="text-[hsl(var(--primary))] hover:underline">
+              support&#64;indifferent.fun
             </a>
           </div>
         </div>

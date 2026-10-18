@@ -107,7 +107,7 @@ export class PrivacyComponent implements OnInit {
     { id: 'collect', n: '01', title: 'Information We Collect', items: ['Account information (email, name via Google OAuth)', 'Uploaded quiz files (.txt)', 'Generated video content', 'Usage data (pages visited, features used)'] },
     { id: 'use', n: '02', title: 'How We Use It', items: ['To provide the video generation service', 'To improve our platform', 'To communicate service updates', 'To provide technical support'] },
     { id: 'storage', n: '03', title: 'Data Storage & Security', items: ['Files stored securely on AWS S3', 'Data encrypted in transit and at rest', 'We do not sell your personal information', 'You can request data deletion at any time'] },
-    { id: 'third-party', n: '04', title: 'Third-Party Services', items: ['AWS (hosting, storage, compute)', 'Google (authentication)', 'Amazon Polly (text-to-speech)'] },
+    { id: 'third-party', n: '04', title: 'Third-Party Services', items: ['AWS (hosting, storage, compute)', 'Google (authentication)', 'Amazon Polly (text-to-speech)', 'ImprovMX (forwarding of emails sent to our support address)'] },
     { id: 'rights', n: '05', title: 'Your Rights', items: ['Access your personal data', 'Request data deletion', 'Export your content', 'Opt out of communications'] },
     { id: 'cookies', n: '06', title: 'Cookies', body: 'We use essential cookies for authentication and session management only.' },
     { id: 'changes', n: '07', title: 'Changes to This Policy', body: 'We may update this policy periodically. Changes will be posted on this page.' },
