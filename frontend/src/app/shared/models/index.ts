@@ -1,5 +1,6 @@
 export type {
   Template,
+  TemplateOption,
   Voice,
   ProjectStatus,
   Project,
@@ -9,6 +10,7 @@ export type {
   WatermarkSettings,
   Branding,
 } from './project.model';
+export { TEMPLATE_OPTIONS } from './project.model';
 
 export type { AuthTokens } from './auth.model';
 

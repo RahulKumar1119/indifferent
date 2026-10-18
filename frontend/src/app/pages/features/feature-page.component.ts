@@ -74,12 +74,12 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
     bullets: [
       'Plain-text question format: no special authoring tools',
       '5 AI narration voices to choose from',
-      'Classic template today; more templates are marked "Soon" in the project form',
+      'Six templates (Classic, Modern, Education, Dark, Minimal, Neon) that change the slide colors, with previews in the project form',
       'A question slide followed by an answer slide, both narrated',
     ],
     steps: [
       { title: 'Upload TXT', text: 'Your questions in a simple text format.' },
-      { title: 'Pick template + voice', text: 'Choose a visual style and one of 5 AI voices.' },
+      { title: 'Pick template + voice', text: 'Choose a slide color scheme and one of 5 AI voices.' },
       { title: 'Render + download', text: 'The pipeline narrates, times and renders your MP4.' },
     ],
     cta: 'Create a quiz video',

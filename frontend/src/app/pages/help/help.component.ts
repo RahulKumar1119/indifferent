@@ -44,8 +44,9 @@ import { LucideDynamicIcon } from '@lucide/angular';
               <mat-panel-title>What templates are available?</mat-panel-title>
             </mat-expansion-panel-header>
             <p class="text-[hsl(var(--muted-foreground))]">
-              Currently we offer the Classic template, which provides a clean quiz-show style layout.
-              More templates are coming soon.
+              Six: Classic, Modern, Education, Dark, Minimal and Neon. A template sets the colors of your slides,
+              meaning the background, the text, the accent and the highlight on the correct answer. Layout, fonts and
+              timing are the same in all of them. The project form shows a preview of each one.
             </p>
           </mat-expansion-panel>
 

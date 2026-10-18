@@ -1,5 +1,6 @@
 export type {
   Template,
+  TemplateOption,
   Voice,
   ProjectStatus,
   Project,
@@ -11,3 +12,4 @@ export type {
   AuthTokens,
   UserProfile,
 } from './models';
+export { TEMPLATE_OPTIONS } from './models';
