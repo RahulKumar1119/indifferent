@@ -330,6 +330,7 @@ SHORTS_RENDER_TASKDEF_ARN="arn:aws:ecs:${REGION}:${ACCOUNT_ID}:task-definition/$
 STATUS_UPDATER_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-statusupdater"
 TRANSCRIBE_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-shorts-transcribe"
 RANK_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-shorts-rank"
+NOTIFIER_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-notifier"
 SFN_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${PROJECT}-sfn-role"
 
 # Substitute all ${...} placeholders in the state machine definition.
@@ -342,6 +343,7 @@ DEFINITION=$(sed \
   -e "s|\${StatusUpdaterShortsArn}|${STATUS_UPDATER_ARN}|g" \
   -e "s|\${ShortsTranscribeLambdaArn}|${TRANSCRIBE_ARN}|g" \
   -e "s|\${ShortsRankLambdaArn}|${RANK_ARN}|g" \
+  -e "s|\${NotifierArn}|${NOTIFIER_ARN}|g" \
   -e "s|\${EcsClusterArn}|${ECS_CLUSTER_ARN}|g" \
   -e "s|\${ShortsRenderTaskDefArn}|${SHORTS_RENDER_TASKDEF_ARN}|g" \
   -e "s|\[\"\${SubnetIds}\"\]|${SUBNET_JSON}|g" \
