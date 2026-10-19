@@ -48,7 +48,7 @@ import { HeroSceneComponent } from './hero-scene.component';
               </a>
               <a routerLink="/features/watermark" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                 <span class="block text-white text-[13.5px] font-medium">Watermark tool</span>
-                <span class="block text-white/60 text-[12px] mt-0.5">Draggable text watermarks on JPG, PNG, WebP with size, opacity, color and rotation. Free, private, 100% in-browser with full-resolution PNG export.</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Draggable text and logo watermarks on images and video. Free, private, 100% in-browser.</span>
               </a>
               <a routerLink="/features/ai-shorts" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
                 <span class="block text-white text-[13.5px] font-medium">AI Shorts generator</span>
@@ -154,7 +154,7 @@ import { HeroSceneComponent } from './hero-scene.component';
             <a routerLink="/tools/add-watermark" class="reveal card-lift flex items-center justify-between gap-6 rounded-[20px] bg-[#1E3A2A] p-6 md:p-7 text-[#EDE8DB]">
               <span>
                 <span class="serif block text-[26px] leading-tight">Watermark tool</span>
-                <span class="mt-1.5 block max-w-[44ch] text-[14.5px] leading-relaxed text-[#EDE8DB]/80">Add draggable text watermarks to JPG, PNG and WebP images. It runs in your browser and nothing is uploaded.</span>
+                <span class="mt-1.5 block max-w-[44ch] text-[14.5px] leading-relaxed text-[#EDE8DB]/80">Add draggable text or logo watermarks to images and video. It runs in your browser and nothing is uploaded.</span>
               </span>
               <span class="shrink-0 text-[20px]" aria-hidden="true"></span>
             </a>
