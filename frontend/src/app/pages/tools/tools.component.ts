@@ -36,7 +36,7 @@ interface Tool {
           Tools that do <span class="font-light italic">the boring work.</span>
         </h1>
         <p class="mt-4 text-center text-[15.5px] text-[#6B6560] max-w-[56ch] mx-auto leading-relaxed">
-          Free utilities for video creators. The watermark tool runs entirely in your browser. Nothing uploads anywhere.
+          Free utilities for video creators. The watermark tool handles images and video and runs entirely in your browser. Nothing uploads anywhere.
         </p>
 
         <div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -90,8 +90,8 @@ export class ToolsComponent implements OnInit {
       icon: 'stamp',
       badge: 'In-browser · Free forever',
       title: 'Watermark Tool',
-      text: 'Stamp images with draggable text watermarks. Files never leave your device.',
-      points: ['JPG, PNG, WebP up to 20MB', 'Size, opacity, color, rotation', 'Full-resolution PNG export'],
+      text: 'Stamp images and video with draggable text or a logo. Files never leave your device.',
+      points: ['JPG, PNG, WebP, MP4, WebM', 'Size, opacity, color, rotation', 'Full-resolution PNG and video export'],
       infoLink: '/features/watermark',
       ctaLink: '/tools/add-watermark',
       ctaLabel: 'Open tool',
@@ -120,7 +120,7 @@ export class ToolsComponent implements OnInit {
 
   ngOnInit(): void {
     const url = 'https://indifferent.fun/tools';
-    const description = 'Free creator tools: in-browser image watermarking, TXT-to-quiz-video AI pipeline, and AI shorts generation.';
+    const description = 'Free creator tools: in-browser image and video watermarking, TXT-to-quiz-video AI pipeline, and AI shorts generation.';
     this.title.setTitle('Free Creator Tools | Indifferent');
     this.meta.updateTag({ name: 'description', content: description });
     this.meta.updateTag({ property: 'og:title', content: 'Free Creator Tools | Indifferent' });

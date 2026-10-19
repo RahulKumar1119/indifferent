@@ -47,23 +47,23 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
   watermark: {
     slug: 'watermark',
     title: 'Free Watermark Tool',
-    hook: 'Add draggable text watermarks to images: free, private, in-browser.',
+    hook: 'Add draggable text and logo watermarks to images and video: free, private, in-browser.',
     description:
-      'Open any JPG, PNG or WebP image and stamp it with a text watermark you can drag, resize, recolor and rotate. Everything runs locally in your browser: your images are never uploaded anywhere.',
+      'Open any JPG, PNG or WebP image, or an MP4, WebM or MOV video, and stamp it with a text watermark or your own logo that you can drag, resize, recolor and rotate. Everything runs locally in your browser: your files are never uploaded anywhere.',
     bullets: [
       'Draggable positioning with size, opacity, color and rotation controls',
-      'JPG, PNG and WebP input with full-resolution PNG export',
-      '100% private: files never leave your device',
-      'No account needed to use the tool',
+      'Text or logo watermark, with 10 font choices',
+      'Image and video support: JPG, PNG, WebP, MP4, WebM, MOV',
+      'Full-resolution PNG export, and video rendered locally with FFmpeg as MP4',
     ],
     steps: [
-      { title: 'Open an image', text: 'Drop a JPG, PNG or WebP file into the tool.' },
-      { title: 'Style the mark', text: 'Type your text, then drag, resize and tune opacity, color and rotation.' },
-      { title: 'Export', text: 'Download the watermarked image at full resolution as PNG.' },
+      { title: 'Open a file', text: 'Drop in an image or a video. It is read from your disk, never uploaded.' },
+      { title: 'Style the mark', text: 'Type your text or upload a logo, then drag, resize and tune opacity, color and rotation.' },
+      { title: 'Export', text: 'Download the watermarked image at full resolution as PNG, or the video rendered on your own machine.' },
     ],
-    cta: 'Watermark an image now',
+    cta: 'Watermark an image or video now',
     ctaLink: '/tools/add-watermark',
-    specs: ['JPG · PNG · WebP', 'Full-resolution export', 'In-browser only', 'Free forever'],
+    specs: ['JPG · PNG · WebP', 'Opens MP4 · WebM · MOV', 'Full-resolution export', 'In-browser only'],
   },
   'txt-to-video-quiz': {
     slug: 'txt-to-video-quiz',

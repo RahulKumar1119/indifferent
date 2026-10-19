@@ -73,8 +73,12 @@ interface FfmpegEngine {
     }
     input[type="range"] { accent-color: #BC5227; }
     .drag-surface { touch-action: none; }
+    details.faq summary::-webkit-details-marker { display: none; }
+    details.faq[open] .faq-chevron { transform: rotate(180deg); }
+    .faq-chevron { transition: transform .25s; }
     @media (prefers-reduced-motion: reduce) {
       .btn-primary { transition: none; }
+      .faq-chevron { transition: none; }
     }
   `],
   template: `
@@ -108,10 +112,55 @@ interface FfmpegEngine {
       <section class="pt-28 pb-10 border-b border-black/[0.07]">
         <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10">
           <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-black/15 text-[#6B6560]">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Finishing · Tool
+            <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Free tool
           </p>
-          <h1 class="serif mt-4 font-medium leading-[0.95] text-[clamp(2.4rem,5vw,3.8rem)]">Brand it.</h1>
-          <p class="mt-3 text-[#6B6560] max-w-[56ch] leading-relaxed">Add text or logo watermarks to images and videos. Free, private, processed in your browser. Nothing uploads anywhere.</p>
+          <h1 class="serif mt-4 font-medium leading-[0.95] text-[clamp(2.4rem,5vw,3.8rem)]">Watermark images and video.</h1>
+          <p class="mt-3 text-[#6B6560] max-w-[56ch] leading-relaxed">Add a text or logo watermark to JPG, PNG, WebP, MP4, WebM or MOV. Free, private, processed in your browser. Nothing uploads anywhere.</p>
+        </div>
+      </section>
+
+      <!-- How it works: what the tool does, before the upload -->
+      <section class="border-b border-black/[0.07] bg-[#F3EEE3]">
+        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 md:py-16">
+          <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-10 items-center">
+            <div>
+              <h2 class="serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)] leading-tight">Three steps, nothing leaves your device.</h2>
+              <ol class="mt-6">
+                <li class="grid grid-cols-[40px_1fr] gap-4 py-4 border-t border-black/10">
+                  <span class="serif italic text-[24px] text-[#BC5227] leading-none">01</span>
+                  <div>
+                    <h3 class="font-semibold text-[16px]">Open a file</h3>
+                    <p class="mt-1 text-[14.5px] text-[#6B6560] leading-relaxed">Drop in an image or a video. It is read by your browser, not sent to a server.</p>
+                  </div>
+                </li>
+                <li class="grid grid-cols-[40px_1fr] gap-4 py-4 border-t border-black/10">
+                  <span class="serif italic text-[24px] text-[#BC5227] leading-none">02</span>
+                  <div>
+                    <h3 class="font-semibold text-[16px]">Place the mark</h3>
+                    <p class="mt-1 text-[14.5px] text-[#6B6560] leading-relaxed">Drag the watermark anywhere on the preview. Set the text, font, size, opacity, color and rotation, or use a logo image.</p>
+                  </div>
+                </li>
+                <li class="grid grid-cols-[40px_1fr] gap-4 py-4 border-t border-black/[0.15]">
+                  <span class="serif italic text-[24px] text-[#BC5227] leading-none">03</span>
+                  <div>
+                    <h3 class="font-semibold text-[16px]">Download it</h3>
+                    <p class="mt-1 text-[14.5px] text-[#6B6560] leading-relaxed">Images export at full resolution as PNG or JPEG. Video is rendered locally with FFmpeg and exported as MP4.</p>
+                  </div>
+                </li>
+              </ol>
+              <p class="mt-5 text-[13.5px] text-[#6B6560]">No account, no upload, no queue. The page works with the network off once loaded.</p>
+            </div>
+            <div class="rounded-[20px] overflow-hidden border border-black/10 bg-white">
+              <img
+                src="/screenshots/watermark-tool.png"
+                alt="The Indifferent watermark tool: image preview on the left with position, opacity, size and color controls on the right"
+                class="w-full h-auto"
+                loading="lazy"
+                width="1160"
+                height="600"
+              />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -132,7 +181,8 @@ interface FfmpegEngine {
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
             <h2 class="serif text-[30px] leading-tight">Drop your file here</h2>
-            <p class="mt-2 text-[14px] text-[#6B6560]">or click to browse · JPG, PNG, WebP, MP4</p>
+            <p class="mt-2 text-[14px] text-[#6B6560]">or click to browse · JPG, PNG, WebP, MP4, WebM, MOV</p>
+            <p class="mt-1 text-[13px] text-[#6B6560]">Once it loads you can drag the watermark anywhere on the preview.</p>
             @if (fileError) {
               <p class="mt-3 text-[13.5px] font-medium text-red-600" role="alert">{{ fileError }}</p>
             }
@@ -205,18 +255,18 @@ interface FfmpegEngine {
 
               @if (showShare) {
                 <div class="mt-4 rounded-2xl border border-black/10 bg-[#1E3A2A] text-[#EDE8DB] p-5">
-                  <p class="serif text-[20px]">Share your work</p>
-                  <p class="mt-1 text-[13px] text-white/70">Your watermarked file is ready. Show it off.</p>
+                  <p class="serif text-[20px]">Share this tool</p>
+                  <p class="mt-1 text-[13px] text-white/70">Your file stayed on your device, so there is nothing to link to. Send the tool instead.</p>
                   <div class="mt-3 flex flex-wrap gap-2">
                     <a [href]="xShareHref" target="_blank" rel="noopener"
-                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">Post to X</a>
+                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">Share on X</a>
                     <a [href]="facebookShareHref" target="_blank" rel="noopener"
                       class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">Facebook</a>
                     <a [href]="whatsappShareHref" target="_blank" rel="noopener"
                       class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">WhatsApp</a>
                     <button type="button" (click)="copyShareLink()"
                       class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">
-                      {{ copiedLink ? 'Copied!' : 'Copy link' }}
+                      {{ copiedLink ? 'Copied!' : 'Copy tool link' }}
                     </button>
                   </div>
                 </div>
@@ -342,8 +392,8 @@ interface FfmpegEngine {
               <div class="rounded-2xl border border-amber-500/40 bg-amber-500/[0.07] p-4" role="alert">
                 <p class="text-[13.5px] font-semibold">Large file (over 500&nbsp;MB)</p>
                 <p class="mt-1 text-[12.5px] text-[#6B6560] leading-relaxed">
-                  Server-side processing isn't available in this version, so exports run
-                  entirely in your browser and need roughly 2&nbsp;GB of free memory.
+                  This file is over 500&nbsp;MB. Rendering happens on your own machine, so it needs roughly
+                  2&nbsp;GB of free memory and a browser tab that stays open until it finishes.
                   You can try anyway, or pick a smaller file.
                 </p>
                 <div class="mt-3 flex flex-col gap-2">
@@ -385,6 +435,7 @@ interface FfmpegEngine {
                 <div>
                   <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Format</span>
                   <div class="rounded-[12px] border border-black/15 px-4 min-h-[44px] flex items-center text-[14px] font-semibold">MP4 · H.264 + AAC</div>
+                  <p class="mt-1.5 text-[12px] text-[#6B6560]">Video always exports as MP4, whatever you uploaded.</p>
                 </div>
                 <button class="btn-primary w-full rounded-full bg-[#1A1714] text-white py-3.5 font-semibold text-[14.5px] disabled:opacity-40 disabled:cursor-not-allowed"
                   (click)="exportVideo()" [disabled]="!videoReady || exportBusy() || (sizeGate && !sizeGateDismissed)">
@@ -405,6 +456,11 @@ interface FfmpegEngine {
                   </div>
                 }
                 <p class="text-[12px] text-[#6B6560] leading-relaxed">Rendered fully in your browser. Nothing uploads anywhere.</p>
+                @if (!engineReady) {
+                  <p class="mt-1.5 text-[12px] text-[#6B6560] leading-relaxed">
+                    The first export downloads a processing engine (about 30&nbsp;MB) and caches it for later exports.
+                  </p>
+                }
               }
               <button class="w-full rounded-full border border-black/15 py-3 text-[13.5px] font-semibold text-[#3E3A33] hover:border-black/40 transition-colors" (click)="reset()">Reset</button>
             </div>
@@ -421,6 +477,25 @@ interface FfmpegEngine {
           style="display: none;"
         />
       </main>
+
+      <!-- FAQ -->
+      <section id="faq" class="border-t border-black/[0.07] bg-white">
+        <div class="w-[min(900px,100%)] mx-auto px-5 md:px-10 py-14 md:py-20">
+          <p class="text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">FAQ</p>
+          <h2 class="serif mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.7rem,3.2vw,2.6rem)]">Before you <em class="font-light">watermark.</em></h2>
+          <div class="mt-8 space-y-3">
+            @for (f of faqs; track f.q) {
+              <details class="faq rounded-[16px] border border-black/10 bg-[#FAF7F2] px-5 py-4">
+                <summary class="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold text-[15px]">
+                  {{ f.q }}
+                  <svg class="shrink-0 text-[#6B6560] faq-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <p class="mt-3 text-[14px] leading-relaxed text-[#6B6560]">{{ f.a }}</p>
+              </details>
+            }
+          </div>
+        </div>
+      </section>
 
       <section class="border-t border-black/[0.07]">
         <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-10 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-[#6B6560]">
@@ -443,9 +518,42 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     setPageSeo(this.document, {
       title: 'Add Text & Logo Watermarks to Images and Videos | Indifferent.fun',
       description:
-        'Add text or logo watermarks to JPG, PNG, WebP, and MP4 files. Customize your watermark and export your media with Indifferent.fun.',
+        'Add text or logo watermarks to JPG, PNG, WebP, MP4, WebM and MOV files. Free, private, processed in your browser. Nothing uploads anywhere.',
       canonical: 'https://indifferent.fun/tools/add-watermark',
     });
+    this.addJsonLd({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Indifferent Watermark Tool',
+      url: 'https://indifferent.fun/tools/add-watermark',
+      applicationCategory: 'MultimediaApplication',
+      operatingSystem: 'Web',
+      description:
+        'Add text or logo watermarks to images and video in your browser. Nothing is uploaded.',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'Free, no account' },
+      featureList: [
+        'Text and logo watermarks',
+        'Image and video support',
+        'Runs entirely in the browser',
+        'Full-resolution PNG export',
+      ],
+    });
+    this.addJsonLd({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: this.faqs.map((f) => ({
+        '@type': 'Question',
+        name: f.q,
+        acceptedAnswer: { '@type': 'Answer', text: f.a },
+      })),
+    });
+  }
+
+  private addJsonLd(schema: Record<string, unknown>): void {
+    const script = this.document.createElement('script');
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify(schema);
+    this.document.head.appendChild(script);
   }
 
   @ViewChild('previewCanvas') previewCanvas!: ElementRef<HTMLCanvasElement>;
@@ -453,6 +561,17 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('fxLayer') fxLayer?: ElementRef<HTMLDivElement>;
 
   currentYear = new Date().getFullYear();
+
+  faqs: { q: string; a: string }[] = [
+    { q: 'Does my file get uploaded?', a: 'No. Images are drawn on a canvas in your browser and videos are rendered with FFmpeg compiled to WebAssembly, running in the same tab. The file is read from your disk and never sent anywhere, so there is no copy of it on a server.' },
+    { q: 'Do I need an account?', a: 'No. The tool has no login, no signup and no quota. Open the page, use it, close the tab.' },
+    { q: 'Which formats can I open?', a: 'JPG, PNG and WebP for images. MP4, WebM and MOV for video. Video is always exported as MP4 with H.264 and AAC audio, whatever format you uploaded.' },
+    { q: 'How large a file can I use?', a: 'Images are limited only by your device memory. Video is practical up to a few hundred megabytes, roughly the 500 MB the tool warns about, and a large file needs about 2 GB of free memory to render.' },
+    { q: 'Will the video export be lossy?', a: 'The video is re-encoded to H.264 with AAC audio. That is a fresh encode, so a little quality is lost compared with the source, which is normal for any re-encode.' },
+    { q: 'Which browsers does it work in?', a: 'Any current Chrome, Edge, Firefox or Safari. The video path needs WebAssembly, which all of them support.' },
+    { q: 'Can I use a logo instead of text?', a: 'Yes. Upload a PNG with transparency for the cleanest result. JPG and WebP work too, but any background they carry will be baked into the mark.' },
+    { q: 'Why does the first video export take longer?', a: 'It downloads a processing engine of about 30 MB the first time, then caches it in your browser. Later exports start straight away.' },
+  ];
 
   file: File | null = null;
   fileType: 'image' | 'video' | null = null;
@@ -509,6 +628,8 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   private progressTimer: number | null = null;
   private engine: FfmpegEngine | null = null;
   private engineLoading: Promise<void> | null = null;
+  /** True once the processing engine has been fetched and cached. */
+  engineReady = false;
   private ffApi: FfmpegFactory | null = null;
 
   // Image export format + large-file gate + share panel.
@@ -518,7 +639,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   showShare = false;
   copiedLink = false;
   readonly shareUrl = 'https://indifferent.fun/tools/add-watermark';
-  readonly shareText = 'I just branded my content with the Indifferent Watermark Tool: free, in-browser, private.';
+  readonly shareText = 'Watermark images and video in your browser, free and private. Indifferent Watermark Tool.';
 
   isDragOver = false;
   downloadUrl = '';
@@ -906,6 +1027,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
         await ff.load();
         this.ffApi = api;
         this.engine = ff;
+        this.engineReady = true;
       })().catch((err) => {
         this.engineLoading = null;
         throw err;
