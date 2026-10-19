@@ -109,7 +109,7 @@ interface UseCaseLink {
               <a href="#faq" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">FAQ</a>
             </app-nav-mobile-menu>
             <a routerLink="/login" class="hidden sm:inline-flex items-center h-11 px-4 rounded-full text-[13.5px] text-white/80 hover:text-white transition-colors">Login</a>
-            <a routerLink="/shorts" class="btn-primary inline-flex items-center h-11 px-4 rounded-full bg-[#BC5227] hover:bg-[#A8481F] text-white text-[13.5px] font-semibold">Try for free</a>
+            <a routerLink="/shorts" class="btn-primary inline-flex items-center h-11 px-4 rounded-full bg-[#BC5227] hover:bg-[#A8481F] text-white text-[13.5px] font-semibold">Upload a clip</a>
           </div>
         </nav>
       </header>
@@ -122,40 +122,69 @@ interface UseCaseLink {
           </h1>
           <p class="reveal mt-5 text-[16.5px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
             Upload a video or audio file.
-            AI transcribes it, finds the best moments, and renders ranked 9:16 clips
+            AI transcribes it, scores every segment, and renders up to 3 ranked 9:16 clips
             with burned-in captions.
           </p>
           <div class="reveal mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a routerLink="/shorts" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Get Started Now</a>
-            <a routerLink="/login" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full border border-black/15 hover:bg-black/5 transition-colors font-semibold text-[15px]">Try for free</a>
+            <a routerLink="/shorts" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Upload a video</a>
+            <a href="#how" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full border border-black/15 hover:bg-black/5 transition-colors font-semibold text-[15px]">See how it works</a>
           </div>
           <div class="reveal mt-6 flex flex-col items-center gap-2">
-            <p class="text-[13px] text-[#6B6560]">Free during beta · No credit card · 1080×1920 full-HD · H.264 + AAC · 30fps</p>
+            <p class="text-[13px] text-[#6B6560]">MP4, MOV, MP3 or WAV · 10 minutes max · 500 MB max</p>
+            <p class="text-[13px] text-[#6B6560]">
+              Free during beta, no credit card.
+              <a routerLink="/terms" class="underline underline-offset-4 hover:text-[#1A1714]">Beta terms</a>
+            </p>
           </div>
 
-          <!-- Product visual: CSS phone mock -->
-          <div class="reveal mt-12 mx-auto w-[min(880px,100%)] rounded-[20px] border border-black/10 bg-white p-3 shadow-[0_30px_80px_rgba(20,15,10,0.12)]">
-            <div class="rounded-[12px] bg-[#0F0E0B] px-4 py-3 md:px-8 md:py-6 flex flex-col md:flex-row items-center gap-6">
-              <div class="relative w-[150px] md:w-[170px] shrink-0 rounded-[18px] border border-white/15 overflow-hidden bg-black" style="aspect-ratio: 9 / 16;">
-                <div class="absolute inset-0" style="background: linear-gradient(160deg, #2A2620 0%, #0F0E0B 60%, #1A1714 100%);"></div>
-                <span class="absolute top-2 left-2 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-[#BC5227] text-white">Rank #1</span>
-                <div class="absolute bottom-8 left-2 right-2 text-center">
-                  <span class="inline-block text-white text-[11px] font-semibold px-1" style="text-shadow: 0 1px 3px #000, 0 0 6px #000;">never miss the moment</span>
-                </div>
-                <div class="absolute bottom-2 left-2 right-2 h-1 rounded-full bg-white/15 overflow-hidden">
-                  <div class="h-full w-2/3 rounded-full bg-[#D96C3D]"></div>
-                </div>
-              </div>
-              <div class="text-left text-white flex-1">
-                <p class="mt-2 text-[15px] leading-relaxed text-white/80">Transcribe → rank the most engaging moments → track the speaker → burn captions → publish.</p>
-                <div class="mt-4 flex flex-wrap gap-2 text-[11.5px]">
-                  <span class="rounded-full border border-white/15 px-3 py-1 text-white/70">Face tracking</span>
-                  <span class="rounded-full border border-white/15 px-3 py-1 text-white/70">Blur-fill fit</span>
-                  <span class="rounded-full border border-white/15 px-3 py-1 text-white/70">Word captions</span>
-                  <span class="rounded-full border border-white/15 px-3 py-1 text-white/70">MP4 · AAC</span>
+          <!-- Product proof: the real upload screen plus the real caption presets -->
+          <div class="reveal mt-12 mx-auto w-[min(880px,100%)]">
+            <div class="rounded-[20px] border border-black/10 bg-white p-3">
+              <div class="rounded-[12px] bg-[#0F0E0B] px-4 py-5 md:px-8 md:py-6 flex flex-col md:flex-row items-center gap-6">
+                <!-- Real upload screen -->
+                <img
+                  src="/screenshots/shorts-hero-still.png"
+                  alt="The Indifferent AI Shorts upload screen showing the file format and duration limits"
+                  class="w-full md:w-[300px] shrink-0 rounded-[10px] border border-white/15"
+                  loading="lazy"
+                  width="480"
+                  height="350"
+                />
+                <div class="text-left text-white flex-1">
+                  <p class="text-[11px] uppercase tracking-[0.06em] text-white/50">The upload screen</p>
+                  <p class="mt-2 text-[15px] leading-relaxed text-white/80">
+                    Drop a file and the limits are stated up front: MP4, MOV, MP3 or WAV, 10 minutes, 500 MB.
+                  </p>
+                  <p class="mt-4 text-[11px] uppercase tracking-[0.06em] text-white/50">Pipeline</p>
+                  <p class="mt-2 text-[15px] leading-relaxed text-white/80">Transcribe, score every segment, track the speaker, burn captions, publish.</p>
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- What you get: the caption styles the product actually renders -->
+          <div class="reveal mt-8 mx-auto w-[min(880px,100%)]">
+            <p class="text-center text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">Caption styles you can pick</p>
+            <p class="mt-2 text-center text-[15px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
+              Every clip is captioned word by word from the transcript. These are the four presets in the editor.
+            </p>
+            <div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              @for (p of captionPreviews; track p.id) {
+                <figure class="m-0">
+                  <div class="relative w-full rounded-[12px] border border-black/10 bg-[#0F0E0B] overflow-hidden" style="aspect-ratio: 9 / 16;">
+                    <div class="absolute inset-0" style="background: linear-gradient(160deg, #2A2620 0%, #0F0E0B 60%, #1A1714 100%);"></div>
+                    <div class="absolute inset-x-0 bottom-3 px-2 text-center">
+                      <span [style.color]="p.color" [style.font-size]="p.fontSize" [style.font-weight]="p.weight" [style.text-shadow]="p.shadow" [style.background]="p.background" [style.padding]="p.padding" [style.border-radius]="p.radius">{{ p.sample }}</span>
+                    </div>
+                  </div>
+                  <figcaption class="mt-2 text-center">
+                    <span class="block text-[13px] font-semibold">{{ p.label }}</span>
+                    <span class="block text-[11.5px] text-[#6B6560]">{{ p.blurb }}</span>
+                  </figcaption>
+                </figure>
+              }
+            </div>
+            <p class="mt-3 text-center text-[11.5px] text-[#6B6560]">Frames show the caption style over a still. The speaker tracking and blur-fill fit are applied when your clip renders.</p>
           </div>
         </div>
       </section>
@@ -164,7 +193,7 @@ interface UseCaseLink {
       <section id="features" class="py-16 px-4 scroll-mt-24">
         <div class="max-w-6xl mx-auto">
           <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Features</p>
-          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)] leading-tight">The new way to edit videos.<br><span class="font-light italic">Edit faster than ever before.</span></h2>
+          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)] leading-tight">What the pipeline <span class="font-light italic">does to your file.</span><br><span class="font-light italic">Five things it handles for you.</span></h2>
           <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             @for (f of features; track f.title) {
               <div class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6">
@@ -202,7 +231,7 @@ interface UseCaseLink {
             </div>
           </div>
           <div class="reveal mt-8 text-center">
-            <a routerLink="/shorts" class="btn-primary inline-block px-7 py-3.5 rounded-full bg-[#BC5227] hover:bg-[#A8481F] text-white font-semibold text-[15px]">Get started free</a>
+            <a routerLink="/shorts" class="btn-primary inline-block px-7 py-3.5 rounded-full bg-[#BC5227] hover:bg-[#A8481F] text-white font-semibold text-[15px]">Upload your first video</a>
           </div>
         </div>
       </section>
@@ -211,7 +240,7 @@ interface UseCaseLink {
       <section id="use-cases" class="py-16 px-4 scroll-mt-24">
         <div class="max-w-6xl mx-auto">
           <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Use cases</p>
-          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Grow with high-performing <span class="font-light italic">short-form content.</span></h2>
+          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Six ways to use <span class="font-light italic">ranked clips.</span></h2>
           <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             @for (u of useCases; track u.slug) {
               <a [routerLink]="['/use-cases', u.slug]" class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6 block hover:border-black/25">
@@ -227,7 +256,7 @@ interface UseCaseLink {
       <!-- Stats band -->
       <section class="px-4 pb-4">
         <div class="reveal max-w-6xl mx-auto rounded-[20px] bg-[#1A1714] text-white px-6 py-12 md:py-14 grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
-          <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">3</p><p class="mt-1 text-[13.5px] text-white/60">ranked clips per upload</p></div>
+          <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">Up to 3</p><p class="mt-1 text-[13.5px] text-white/60">ranked clips per upload</p></div>
           <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">1080×1920</p><p class="mt-1 text-[13.5px] text-white/60">full-HD vertical export</p></div>
         </div>
       </section>
@@ -236,7 +265,7 @@ interface UseCaseLink {
       <section id="faq" class="py-16 px-4 scroll-mt-24 bg-white border-y border-black/10">
         <div class="max-w-3xl mx-auto">
           <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">FAQ</p>
-          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Do you have <span class="font-light italic">any questions?</span></h2>
+          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Before you <span class="font-light italic">upload.</span></h2>
           <div class="mt-8 space-y-3">
             @for (f of faqs; track f.q) {
               <details class="faq reveal group rounded-[16px] border border-black/10 bg-[#FAF7F2] px-5 py-4">
@@ -255,7 +284,7 @@ interface UseCaseLink {
       <section class="py-20 px-4 text-center">
         <h2 class="reveal font-medium tracking-[-0.02em] text-[clamp(2rem,4.5vw,3.4rem)] leading-tight">Start creating shorts<br><span class="font-light italic">from your long videos.</span></h2>
         <div class="reveal mt-8">
-          <a routerLink="/shorts" class="btn-primary inline-block px-8 py-4 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Get started free</a>
+          <a routerLink="/shorts" class="btn-primary inline-block px-8 py-4 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Turn your next video into shorts</a>
         </div>
       </section>
 
@@ -317,22 +346,93 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
 
   currentYear = new Date().getFullYear();
 
+  /**
+   * The four caption presets the shorts editor actually renders, with the
+   * styling the product applies to each. Kept in step with the editor
+   * presets so the page shows the real output style, not a mock-up.
+   */
+  captionPreviews: {
+    id: string;
+    label: string;
+    blurb: string;
+    sample: string;
+    color: string;
+    fontSize: string;
+    weight: string;
+    shadow: string;
+    background: string;
+    padding: string;
+    radius: string;
+  }[] = [
+    {
+      id: 'minimal',
+      label: 'Minimal',
+      blurb: 'Small, subtle, no box',
+      sample: 'sample caption',
+      color: '#FFFFFF',
+      fontSize: '13px',
+      weight: '500',
+      shadow: '0 1px 3px rgba(0,0,0,0.8)',
+      background: 'transparent',
+      padding: '0',
+      radius: '0',
+    },
+    {
+      id: 'bold',
+      label: 'Bold',
+      blurb: 'Large white on dark box',
+      sample: 'Sample caption',
+      color: '#FFFFFF',
+      fontSize: '19px',
+      weight: '800',
+      shadow: 'none',
+      background: 'rgba(0,0,0,0.55)',
+      padding: '2px 8px',
+      radius: '6px',
+    },
+    {
+      id: 'karaoke',
+      label: 'Karaoke Highlight',
+      blurb: 'Word-by-word sweep',
+      sample: 'Sample',
+      color: '#FFD60A',
+      fontSize: '18px',
+      weight: '800',
+      shadow: '0 2px 4px rgba(0,0,0,0.9)',
+      background: 'transparent',
+      padding: '0',
+      radius: '0',
+    },
+    {
+      id: 'clean',
+      label: 'Clean Subtitles',
+      blurb: 'Classic outlined text',
+      sample: 'Sample caption',
+      color: '#FFFFFF',
+      fontSize: '16px',
+      weight: '600',
+      shadow: '-1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000',
+      background: 'transparent',
+      padding: '0',
+      radius: '0',
+    },
+  ];
+
 
   features: Feature[] = [
-    { icon: 'captions', title: 'Smart captions that keep people watching', text: 'Word-timed captions burned into every clip in short 4-word lines, styled for readability without sound.' },
-    { icon: 'scissors', title: 'Engagement ranking finds the best moments', text: 'AI scores every segment for engagement and keeps the top 3. You publish, not scrub timelines.' },
+    { icon: 'scissors', title: 'Segments are scored, not guessed', text: 'Every segment is scored for engagement signals, and the highest scoring ones are kept, up to 3. You publish, not scrub timelines.' },
     { icon: 'focus', title: 'Subject tracking follows the speaker', text: 'Face detection pans the 9:16 window onto the speaker instead of blindly cropping the middle.' },
     { icon: 'frame', title: 'Blur-fill fit never cuts content', text: 'Cartoons, text cards and screen recordings scale to fit over a blurred background. Nothing gets chopped.' },
     { icon: 'gauge', title: 'Shorts-spec output, every time', text: '1080×1920, H.264 + AAC, 30fps, 48kHz, a standard format for YouTube Shorts, Reels and TikTok.' },
-    { icon: 'zap', title: 'One-click pipeline', text: 'Transcribe → rank → render on auto-scaling infra. Upload, wait minutes, download ranked clips.' },
+    { icon: 'download', title: 'Upload, wait, download', text: 'Transcribe, score, render, then download the clips one by one or as a zip.' },
   ];
 
   useCases: UseCase[] = [
     { slug: 'content-creators', title: 'Content Creators', text: 'Repurpose podcasts, interviews and videos into ranked vertical shorts.' },
-    { slug: 'marketing-teams', title: 'Marketing Teams', text: 'Create high-performing shorts that drive business growth.' },
+    { slug: 'marketing-teams', title: 'Marketing Teams', text: 'Turn webinars and launches into a batch of vertical clips without adding editing headcount.' },
     { slug: 'agencies', title: 'Agencies', text: 'Produce on-brand client content with consistent quality, fast.' },
-    { slug: 'coaches', title: 'Coaches', text: 'Turn long lessons and calls into authority-building clips.' },
-    { slug: 'media-companies', title: 'Media Companies', text: 'Turn long-form content into high-performing shorts at scale.' },
+    { slug: 'coaches', title: 'Coaches', text: 'Turn long lessons and calls into clips you can post the same day.' },
+    { slug: 'media-companies', title: 'Media Companies', text: 'Turn long-form content into vertical clips at volume.' },
     { slug: 'educators', title: 'Educators', text: 'Clip the key explanation from every lecture, automatically.' },
   ];
 
@@ -346,12 +446,19 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
   ];
 
   faqs: Faq[] = [
-    { q: 'How do I create a short?', a: 'Upload a video or audio file and the AI transcribes it, detects highlights, adds captions and formats ranked clips for short-form platforms, ready in minutes.' },
+    { q: 'How do I create a short?', a: 'Upload a video or audio file. It gets transcribed, every segment is scored, the highest scoring ones are captioned and rendered as ranked 9:16 clips, ready in minutes.' },
     { q: 'Can I turn a long video into multiple shorts?', a: 'Yes. Every upload produces up to 3 ranked clips from the most engaging moments, each downloadable as its own 9:16 MP4.' },
     { q: 'Are captions added automatically?', a: 'Yes. Word-level timestamps become short burned-in caption lines styled for readability without sound.' },
     { q: 'What formats and quality do I get?', a: 'MP4 with H.264 video and AAC audio at 1080×1920 and 30fps, a standard format for YouTube Shorts, Instagram Reels and TikTok.' },
     { q: 'What if my video has no people in it?', a: 'Segments without a visible subject render in blur-fill fit: the whole frame stays visible over a blurred background, so text and diagrams are never cut.' },
-    { q: 'Which files can I upload?', a: 'MP4, MOV, MP3 and WAV up to 10 minutes long.' },
+    { q: 'Which files can I upload?', a: 'MP4, MOV, MP3 and WAV up to 10 minutes long and 500 MB.' },
+    { q: 'How are the best moments picked?', a: 'Your file is transcribed, then every segment is scored for engagement signals such as speech density and how much the speaker moves. The highest scoring segments are kept, up to 3, and rendered in score order. Nothing is picked at random, and you can see the score of each clip in the gallery.' },
+    { q: 'What happens if no segment scores well?', a: 'You still get clips. If the source is mostly silence or a static frame, the top segments will not be compelling, and the tool cannot fix that. Trim the file to the interesting part and try again.' },
+    { q: 'Is my source file uploaded and kept?', a: 'Your file is uploaded so it can be transcribed and rendered. It is used to produce your clips and is not kept as a copy you can browse later. Download your clips before you delete the job.' },
+    { q: 'How long does processing take?', a: 'Most files up to 10 minutes finish in a few minutes. The progress page shows the live stage you are on, and you can leave the page open while it works.' },
+    { q: 'Can I change the caption style after the clip is made?', a: 'Yes. The gallery has a caption panel with the four presets, plus size, color and position controls. Saving a new style re-renders the clips so the change shows up in the exported MP4.' },
+    { q: 'Where are the clips stored, and what are they called?', a: 'Each job keeps its clips in the Shorts gallery, named by rank so the first clip is always your strongest. You can download them one by one or grab the selected ones as a zip.' },
+    { q: 'Can I publish straight to TikTok or Reels?', a: 'Not yet. You download the 9:16 MP4s and upload them to the platform yourself. The clips are exported at 1080x1920, 30fps, H.264 with AAC, which is the format Shorts and Reels expect.' },
   ];
 
   ngOnInit(): void {
