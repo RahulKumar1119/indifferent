@@ -176,7 +176,7 @@ interface Post {
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-20 pb-10">
           <h2 class="reveal serif font-medium text-center leading-[1.0] text-[clamp(2rem,5vw,3.6rem)] max-w-[22ch] mx-auto text-balance">Get the next essay first.</h2>
           @if (newsletterSubscribed) {
-            <div class="reveal mt-8 mx-auto max-w-[520px] rounded-[20px] p-4 bg-white/[0.06] border border-white/10 backdrop-blur flex items-center gap-3">
+            <div class="reveal is-visible mt-8 mx-auto max-w-[520px] rounded-[20px] p-4 bg-white/[0.06] border border-white/10 backdrop-blur flex items-center gap-3">
               <svg lucideIcon="circle-check" size="16" class="text-emerald-400 shrink-0"></svg>
               <p class="text-[14px] text-[#F4EFE6]">Thanks. Newsletter signup is coming soon - we will not share your address.</p>
             </div>

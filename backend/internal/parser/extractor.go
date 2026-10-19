@@ -4,6 +4,7 @@ package parser
 import (
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/rahul/indifferent/backend/internal/models"
 )
@@ -25,6 +26,11 @@ var (
 	correctPrefixRe = regexp.MustCompile(`^\*\s*`)
 	correctSuffixRe = regexp.MustCompile(`\s*\*$`)
 	correctAnnotRe  = regexp.MustCompile(`(?i)\s*\(correct\)\s*$`)
+
+	// Explicit answer line: "Answer: B", "Answer: B, D", "Answer: B and D".
+	// The payload is restricted to option letters and separators so a free
+	// text answer ("Answer: London") is not mistaken for a label.
+	answerLineRe = regexp.MustCompile(`(?i)^answer\s*:\s*([a-f](?:\s*(?:,|and\b|&|/)?\s*[a-f])*)\s*$`)
 )
 
 // ExtractQuestions parses the content string according to the given format type
@@ -85,6 +91,14 @@ func extractNumbered(content string) []models.Question {
 			continue
 		}
 
+		// Explicit answer line: "Answer: B"
+		if m := answerLineRe.FindStringSubmatch(trimmed); m != nil {
+			if currentQuestion != nil {
+				currentQuestion.markCorrect(parseAnswerLabels(m[1]))
+			}
+			continue
+		}
+
 		// Otherwise, it's a continuation line for the current question text
 		if currentQuestion != nil && !currentQuestion.hasOptions() {
 			currentQuestion.textLines = append(currentQuestion.textLines, trimmed)
@@ -137,6 +151,14 @@ func extractBulleted(content string) []models.Question {
 			continue
 		}
 
+		// Explicit answer line: "Answer: B"
+		if m := answerLineRe.FindStringSubmatch(trimmed); m != nil {
+			if currentQuestion != nil {
+				currentQuestion.markCorrect(parseAnswerLabels(m[1]))
+			}
+			continue
+		}
+
 		// If we're in options mode but hit a non-option, non-blank line,
 		// finalize current question and start a new one
 		if inOptions && currentQuestion != nil {
@@ -177,6 +199,15 @@ func extractTabbed(content string) []models.Question {
 
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		// Explicit answer line: "Answer: B". Checked before the indent
+		// test so an indented answer line is still read as an answer.
+		if m := answerLineRe.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+			if currentQuestion != nil {
+				currentQuestion.markCorrect(parseAnswerLabels(m[1]))
+			}
 			continue
 		}
 
@@ -238,6 +269,8 @@ func extractTabbed(content string) []models.Question {
 type questionBuilder struct {
 	textLines []string
 	options   []optionEntry
+	// answerLabels holds labels from an explicit "Answer: X" line.
+	answerLabels []string
 }
 
 type optionEntry struct {
@@ -258,6 +291,45 @@ func (qb *questionBuilder) optionCount() int {
 	return len(qb.options)
 }
 
+// markCorrect flags the options whose label matches one of the given labels.
+// The labels are remembered so an answer line that appears before the options
+// still applies when the question is built.
+func (qb *questionBuilder) markCorrect(labels []string) {
+	if len(labels) == 0 {
+		return
+	}
+	qb.answerLabels = append(qb.answerLabels, labels...)
+	for i := range qb.options {
+		for _, l := range labels {
+			if qb.options[i].label == l {
+				qb.options[i].correct = true
+			}
+		}
+	}
+}
+
+// parseAnswerLabels extracts option labels from an answer line payload such as
+// "B", "B, D", "B and D" or "BD".
+func parseAnswerLabels(payload string) []string {
+	fields := strings.FieldsFunc(payload, func(r rune) bool {
+		return r == ',' || r == '&' || r == '/' || r == ' ' || r == '\t'
+	})
+	var labels []string
+	for _, f := range fields {
+		// "and" is a separator word, not a label.
+		if len(f) > 1 && strings.EqualFold(f, "and") {
+			continue
+		}
+		for _, r := range f {
+			u := unicode.ToUpper(r)
+			if u >= 'A' && u <= 'F' {
+				labels = append(labels, string(u))
+			}
+		}
+	}
+	return labels
+}
+
 func (qb *questionBuilder) build(index int) models.Question {
 	q := models.Question{
 		Index:          index,
@@ -265,6 +337,15 @@ func (qb *questionBuilder) build(index int) models.Question {
 		Options:        make([]models.Option, len(qb.options)),
 		CorrectIndex:   -1, // default: no correct answer marked
 		CorrectIndices: []int{},
+	}
+
+	// An answer line that arrived before the options still applies here.
+	for i := range qb.options {
+		for _, l := range qb.answerLabels {
+			if qb.options[i].label == l {
+				qb.options[i].correct = true
+			}
+		}
 	}
 
 	for i, opt := range qb.options {
