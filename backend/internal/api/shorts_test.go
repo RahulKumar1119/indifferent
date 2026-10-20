@@ -572,8 +572,9 @@ func TestDeleteShorts_Success(t *testing.T) {
 			t.Errorf("must not delete keys outside the job prefixes, got %v", s3.deletedKeys)
 		}
 	}
-	if len(p.deleted) != 1 || p.deleted[0] != "SHORTS#job1" {
-		t.Errorf("expected DB delete of SHORTS#job1, got %v", p.deleted)
+	// The job record goes first, then its thumbnail record (issue #77).
+	if len(p.deleted) != 2 || p.deleted[0] != "SHORTS#job1" || p.deleted[1] != "THUMBS#job1" {
+		t.Errorf("expected DB deletes of SHORTS#job1 and THUMBS#job1, got %v", p.deleted)
 	}
 	if p.stops != 0 {
 		t.Errorf("completed job must not stop an execution, got %d stops", p.stops)
@@ -622,7 +623,7 @@ func TestDeleteShorts_ListFailureFallsBackToTrackedKeys(t *testing.T) {
 			t.Errorf("expected fallback delete of %q, got %v", want, s3.deletedKeys)
 		}
 	}
-	if len(p.deleted) != 1 {
+	if len(p.deleted) != 2 {
 		t.Error("expected record delete on fallback path")
 	}
 }
@@ -692,7 +693,7 @@ func TestDeleteShorts_RetryAfterFailure(t *testing.T) {
 	if resp.StatusCode != 204 {
 		t.Fatalf("got status %d, want 204 (body: %s)", resp.StatusCode, resp.Body)
 	}
-	if len(p.deleted) != 1 {
+	if len(p.deleted) != 2 {
 		t.Error("expected record delete on retry")
 	}
 }

@@ -22,6 +22,9 @@ type StorageClient interface {
 type Downloader interface {
 	GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error)
 	GenerateDownloadURL(ctx context.Context, bucket, key string, expiration time.Duration) (string, error)
+	// GenerateAttachmentURL is like GenerateDownloadURL but makes the browser
+	// save the file under filename rather than display it.
+	GenerateAttachmentURL(ctx context.Context, bucket, key, filename string, expiration time.Duration) (string, error)
 	ObjectStatus(ctx context.Context, bucket, key string) (ObjectStatus, error)
 	RestoreObject(ctx context.Context, bucket, key string) error
 	DeleteObjects(ctx context.Context, bucket string, keys []string) error

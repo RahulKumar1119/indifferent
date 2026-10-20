@@ -77,6 +77,13 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
           }
           <button
             class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium inline-flex items-center gap-1.5"
+            (click)="goToThumbnails()"
+          >
+            <svg lucideIcon="sparkles" [size]="15"></svg>
+            AI thumbnails
+          </button>
+          <button
+            class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium inline-flex items-center gap-1.5"
             (click)="toggleStylePanel()"
             [attr.aria-expanded]="styleOpen"
             aria-label="Caption styles"
@@ -1284,6 +1291,10 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     const mins = Math.floor(total / 60);
     const secs = total % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  goToThumbnails(): void {
+    this.router.navigate(['/shorts', this.jobId, 'thumbnails']);
   }
 
   goToUpload(): void {

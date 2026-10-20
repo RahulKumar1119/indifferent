@@ -1,0 +1,131 @@
+{
+  "Comment": "AI thumbnails (issue #77): run the thumbnails Fargate task for one Shorts job. The task records its own result or failure on the job; this machine only launches it and covers the case where the task dies without recording anything.",
+  "StartAt": "GenerateOnSpot",
+  "States": {
+    "GenerateOnSpot": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "TimeoutSeconds": 900,
+      "Parameters": {
+        "Cluster": "${EcsClusterArn}",
+        "TaskDefinition": "${ThumbnailsTaskDefArn}",
+        "CapacityProviderStrategy": [
+          { "CapacityProvider": "FARGATE_SPOT", "Weight": 1 }
+        ],
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ["${SubnetIds}"],
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": ["${SecurityGroupId}"]
+          }
+        },
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "thumbnails",
+              "Environment": [
+                { "Name": "JOB_ID", "Value.$": "$.jobId" },
+                { "Name": "USER_ID", "Value.$": "$.userId" },
+                { "Name": "SOURCE_KEY", "Value.$": "$.sourceKey" },
+                { "Name": "TRANSCRIPT_KEY", "Value.$": "$.transcriptKey" },
+                { "Name": "SOURCE_DURATION", "Value.$": "States.Format('{}', $.sourceDuration)" }
+              ]
+            }
+          ]
+        }
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.spotError",
+          "Next": "GenerateOnDemand"
+        }
+      ],
+      "End": true
+    },
+    "GenerateOnDemand": {
+      "Type": "Task",
+      "Comment": "Spot capacity was reclaimed or unavailable: try once on regular Fargate.",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "TimeoutSeconds": 900,
+      "Parameters": {
+        "Cluster": "${EcsClusterArn}",
+        "TaskDefinition": "${ThumbnailsTaskDefArn}",
+        "CapacityProviderStrategy": [
+          { "CapacityProvider": "FARGATE", "Weight": 1 }
+        ],
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ["${SubnetIds}"],
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": ["${SecurityGroupId}"]
+          }
+        },
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "thumbnails",
+              "Environment": [
+                { "Name": "JOB_ID", "Value.$": "$.jobId" },
+                { "Name": "USER_ID", "Value.$": "$.userId" },
+                { "Name": "SOURCE_KEY", "Value.$": "$.sourceKey" },
+                { "Name": "TRANSCRIPT_KEY", "Value.$": "$.transcriptKey" },
+                { "Name": "SOURCE_DURATION", "Value.$": "States.Format('{}', $.sourceDuration)" }
+              ]
+            }
+          ]
+        }
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "End": true
+    },
+    "MarkFailed": {
+      "Type": "Task",
+      "Comment": "Only touches a record still queued or running, so a failure the task already recorded (with its own error code) is left as it is.",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${DynamoTable}",
+        "Key": {
+          "PK": { "S.$": "States.Format('USER#{}', $.userId)" },
+          "SK": { "S.$": "States.Format('THUMBS#{}', $.jobId)" }
+        },
+        "UpdateExpression": "SET #status = :failed, #errorCode = :code, #error = :msg, #updatedAt = :now REMOVE #stage",
+        "ConditionExpression": "attribute_exists(PK) AND #status IN (:queued, :running)",
+        "ExpressionAttributeNames": {
+          "#status": "status",
+          "#errorCode": "errorCode",
+          "#error": "error",
+          "#updatedAt": "updatedAt",
+          "#stage": "stage"
+        },
+        "ExpressionAttributeValues": {
+          ":failed": { "S": "failed" },
+          ":queued": { "S": "queued" },
+          ":running": { "S": "running" },
+          ":code": { "S": "TASK_FAILED" },
+          ":msg": { "S": "Thumbnail generation stopped unexpectedly. Please try again." },
+          ":now": { "S.$": "$$.State.EnteredTime" }
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": ["DynamoDB.ConditionalCheckFailedException"],
+          "Next": "AlreadyRecorded"
+        }
+      ],
+      "End": true
+    },
+    "AlreadyRecorded": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}

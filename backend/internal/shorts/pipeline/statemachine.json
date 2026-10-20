@@ -90,7 +90,7 @@
         {
           "Variable": "$.transcribeStatus.state",
           "StringEquals": "COMPLETED",
-          "Next": "UpdateStatus_Ranking"
+          "Next": "ThumbnailsForVideo?"
         }
       ],
       "Default": "TranscriptionStatusUnknownError"
@@ -114,6 +114,47 @@
       },
       "ResultPath": "$.error",
       "Next": "MarkFailed"
+    },
+    "ThumbnailsForVideo?": {
+      "Type": "Choice",
+      "Comment": "Thumbnails need a picture, so audio uploads skip them (issue #77).",
+      "Choices": [
+        {
+          "Or": [
+            { "Variable": "$.sourceKey", "StringMatches": "*.mp4" },
+            { "Variable": "$.sourceKey", "StringMatches": "*.MP4" },
+            { "Variable": "$.sourceKey", "StringMatches": "*.mov" },
+            { "Variable": "$.sourceKey", "StringMatches": "*.MOV" }
+          ],
+          "Next": "StartThumbnails"
+        }
+      ],
+      "Default": "UpdateStatus_Ranking"
+    },
+    "StartThumbnails": {
+      "Type": "Task",
+      "Comment": "Fire and forget: starts AI thumbnail generation alongside the pipeline. Any failure here carries on to ranking, because thumbnails must never affect the clips. The fixed execution name makes this run once per job.",
+      "Resource": "arn:aws:states:::states:startExecution",
+      "Parameters": {
+        "StateMachineArn": "${ThumbnailsStateMachineArn}",
+        "Name.$": "States.Format('thumbnails-{}-auto', $.jobId)",
+        "Input": {
+          "jobId.$": "$.jobId",
+          "userId.$": "$.userId",
+          "sourceKey.$": "$.sourceKey",
+          "transcriptKey.$": "$.transcribeStatus.transcriptKey",
+          "sourceDuration.$": "$.sourceDuration"
+        }
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.thumbnailsError",
+          "Next": "UpdateStatus_Ranking"
+        }
+      ],
+      "Next": "UpdateStatus_Ranking"
     },
     "UpdateStatus_Ranking": {
       "Type": "Task",

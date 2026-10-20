@@ -341,6 +341,9 @@ TRANSCRIBE_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-short
 RANK_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-shorts-rank"
 NOTIFIER_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-notifier"
 SFN_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${PROJECT}-sfn-role"
+# The pipeline starts AI thumbnail generation (issue #77) with a fire-and-forget
+# step that continues on any error, so this ARN may not exist yet. Create it
+# with deploy/setup-thumbnails.sh.
 
 # Substitute all ${...} placeholders in the state machine definition.
 # The statemachine.json holds the subnet list as the single-element JSON array
@@ -357,6 +360,7 @@ DEFINITION=$(sed \
   -e "s|\${ShortsRenderTaskDefArn}|${SHORTS_RENDER_TASKDEF_ARN}|g" \
   -e "s|\[\"\${SubnetIds}\"\]|${SUBNET_JSON}|g" \
   -e "s|\${SecurityGroupId}|${SECURITY_GROUP_ID}|g" \
+  -e "s|\${ThumbnailsStateMachineArn}|arn:aws:states:${REGION}:${ACCOUNT_ID}:stateMachine:${PROJECT}-thumbnails|g" \
   ../backend/internal/shorts/pipeline/statemachine.json)
 
 echo "$DEFINITION" > /tmp/shorts-statemachine.json

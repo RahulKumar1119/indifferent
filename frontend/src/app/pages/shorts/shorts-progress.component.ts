@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { Subscription, interval } from 'rxjs';
 import { startWith, switchMap } from 'rxjs/operators';
@@ -28,7 +28,7 @@ const STAGES: Stage[] = [
 @Component({
   selector: 'app-shorts-progress',
   standalone: true,
-  imports: [CommonModule, LucideDynamicIcon, NavbarComponent, ToastsComponent],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent],
   styles: [`
     @keyframes eq-bounce {
       0%, 100% { transform: scaleY(0.3); }
@@ -147,6 +147,13 @@ const STAGES: Stage[] = [
         }
       </div>
 
+      <!-- AI thumbnails start by themselves after transcription for video uploads -->
+      @if (isVideo && (status === 'ranking' || status === 'rendering')) {
+        <p class="mb-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
+          We're also making thumbnail suggestions for your video.
+          <a [routerLink]="['/shorts', jobId, 'thumbnails']" class="font-medium text-[hsl(var(--primary))] underline underline-offset-4">See AI thumbnails</a>
+        </p>
+      }
       <!-- Completion Message -->
       @if (status === 'completed') {
         <div class="text-center glass-card p-8 !border-green-500/30">
@@ -189,8 +196,10 @@ const STAGES: Stage[] = [
 export class ShortsProgressComponent implements OnInit, OnDestroy {
   private pollSub: Subscription | null = null;
   private redirectTimeout: ReturnType<typeof setTimeout> | null = null;
-  private jobId = '';
+  jobId = '';
   private furthest = 0;
+  /** Video uploads get AI thumbnails; audio uploads have nothing to take them from. */
+  isVideo = false;
 
   status: ShortsStatus | null = null;
   progress = 0;
@@ -323,8 +332,9 @@ export class ShortsProgressComponent implements OnInit, OnDestroy {
     });
   }
 
-  private onStatus(job: { status: ShortsStatus; error?: string; errorCode?: string; sourceDuration: number; progress?: number }): void {
+  private onStatus(job: { status: ShortsStatus; error?: string; errorCode?: string; sourceDuration: number; progress?: number; fileType?: string }): void {
     const prevOrder = this.stageOrder();
+    this.isVideo = ['mp4', 'mov'].includes((job.fileType ?? '').toLowerCase());
     this.status = job.status;
     this.errorMessage = job.error ?? '';
     this.errorCode = job.errorCode ?? '';
