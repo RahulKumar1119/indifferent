@@ -58,6 +58,7 @@ Each stage has retry policies (2 retries, exponential backoff). On failure at an
 - 5 AI voice options (Joanna, Matthew, Amy, Brian, Aditi) via Amazon Polly
 - AI Shorts: transcription (Transcribe), engagement ranking (Bedrock Kimi K3), subject-tracked 9:16 rendering (Fargate Spot)
 - Shorts dashboard history + per-job gallery with previews and downloads
+- AI thumbnails for uploaded videos: frames are extracted with FFmpeg, filtered and scored (sharpness, lighting, contrast, faces and objects via Rekognition), a Bedrock vision model reads the best frames plus the transcript for a headline, and three different designs (face, subject, creative) are drawn with the app's own text renderer in 16:9 or 9:16. Preview, choose, download or regenerate from `/shorts/:id/thumbnails`. Needs `deploy/setup-thumbnails.sh`.
 - Glacier-aware downloads: archived videos trigger a restore flow (202 + retry) instead of broken links
 - White-background slides with readable fonts
 - Answer reveal with green highlighting + narration
@@ -117,6 +118,7 @@ Mark correct answers with `*` suffix. Multiple `*` markers are supported for mul
 | Transcription | Amazon Transcribe | Word-level timestamps for Shorts |
 | Ranking | Amazon Bedrock (Moonshot Kimi K3) | Shorts engagement scoring |
 | Faces | Amazon Rekognition DetectFaces | Subject-tracked reframing |
+| Thumbnails | Rekognition (faces, objects) + Bedrock vision (Claude Haiku 4.5 by default, `THUMBNAIL_MODEL`) | AI thumbnail suggestions |
 | Video | FFmpeg (static binary) | MP4 composition |
 | Slides | Go native image rendering | 1920×1080 PNG generation |
 | Orchestration | Step Functions | Pipeline state machine |
@@ -138,7 +140,8 @@ Mark correct answers with `*` suffix. Multiple `*` markers are supported for mul
 │   │   ├── statusupdater/       # DynamoDB status updates
 │   │   ├── shortstranscribe/    # Shorts transcription worker
 │   │   ├── shortsrank/          # Shorts ranking worker
-│   │   └── shortsrender/        # Shorts Fargate render task
+│   │   ├── shortsrender/        # Shorts Fargate render task
+│   │   └── thumbnails/          # AI thumbnails Fargate task
 │   ├── internal/
 │   │   ├── api/                 # API handler + routing
 │   │   ├── auth/                # Google OAuth + password + JWT
@@ -149,6 +152,7 @@ Mark correct answers with `*` suffix. Multiple `*` markers are supported for mul
 │   │   ├── renderer/            # FFmpeg compositor + handler
 │   │   ├── shorts/              # Transcribe/rank/render pipeline
 │   │   ├── slidegen/            # Native image renderer + handler
+│   │   ├── thumbnail/           # AI thumbnails: extract, score, analyze, plan, render
 │   │   └── storage/             # S3 client (incl. Glacier restore)
 │   └── templates/classic/       # HTML slide templates (legacy)
 ├── frontend/                    # Angular 20 SPA
@@ -233,6 +237,10 @@ bash deploy/deploy-lambda.sh <function-name>
 | GET | /shorts/:id | Yes | Get shorts job status |
 | GET | /shorts/:id/clips | Yes | List rendered clips |
 | GET | /shorts/:id/clips/:clipId/url | Yes | Presigned clip URL (202 while Glacier restoring) |
+| GET | /shorts/:id/thumbnails | Yes | AI thumbnail status, progress stage and the three suggestions |
+| POST | /shorts/:id/thumbnails | Yes | Generate or regenerate (`{style?, format?}`); 202, or 409 while one is running |
+| POST | /shorts/:id/thumbnails/select | Yes | Save the chosen thumbnail with the video (`{id}`) |
+| GET | /shorts/:id/thumbnails/:thumbId/download | Yes | Link that saves the JPEG |
 
 ## Video Output
 

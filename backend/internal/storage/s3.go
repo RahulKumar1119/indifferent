@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -390,6 +392,52 @@ func (c *S3Client) GenerateDownloadURL(ctx context.Context, bucket, key string, 
 	request, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
+	}, s3.WithPresignExpires(expiration))
+	if err != nil {
+		return "", err
+	}
+	return request.URL, nil
+}
+
+// DownloadToFile streams an object to a local file without holding it in
+// memory, for large sources such as uploaded videos.
+func (c *S3Client) DownloadToFile(ctx context.Context, bucket, key, path string) error {
+	out, err := c.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return err
+	}
+	defer out.Body.Close()
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(f, out.Body); err != nil {
+		f.Close()
+		_ = os.Remove(path)
+		return err
+	}
+	return f.Close()
+}
+
+// GenerateAttachmentURL creates a presigned GET URL that makes the browser
+// save the file under filename instead of showing it. The name is reduced to
+// safe characters because it goes into a response header.
+func (c *S3Client) GenerateAttachmentURL(ctx context.Context, bucket, key, filename string, expiration time.Duration) (string, error) {
+	safe := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '.', r == '-', r == '_':
+			return r
+		}
+		return '_'
+	}, filename)
+	presignClient := s3.NewPresignClient(c.client)
+	request, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket:                     aws.String(bucket),
+		Key:                        aws.String(key),
+		ResponseContentDisposition: aws.String(fmt.Sprintf(`attachment; filename="%s"`, safe)),
 	}, s3.WithPresignExpires(expiration))
 	if err != nil {
 		return "", err

@@ -37,6 +37,10 @@ func (s *stubDownloader) GenerateDownloadURL(ctx context.Context, bucket, key st
 	return "https://downloads.example/" + key, nil
 }
 
+func (s *stubDownloader) GenerateAttachmentURL(ctx context.Context, bucket, key, filename string, expiration time.Duration) (string, error) {
+	return "https://downloads.example/" + key + "?filename=" + filename, nil
+}
+
 func (s *stubDownloader) ObjectStatus(ctx context.Context, bucket, key string) (storage.ObjectStatus, error) {
 	if s.statusErr != nil {
 		return storage.ObjectStatus{}, s.statusErr

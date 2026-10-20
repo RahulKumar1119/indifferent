@@ -114,6 +114,24 @@ func TestGenerateDownloadURL_CustomExpiration(t *testing.T) {
 	}
 }
 
+func TestGenerateAttachmentURL(t *testing.T) {
+	c := newTestClient(t)
+	url, err := c.GenerateAttachmentURL(context.Background(), "test-bucket", "shorts/u/j/thumbnails/g1/thumbnail-01.jpg", "my thumb\"; evil=1.jpg", time.Hour)
+	if err != nil {
+		t.Fatalf("GenerateAttachmentURL returned error: %v", err)
+	}
+	if !contains(url, "response-content-disposition=attachment") {
+		t.Errorf("expected an attachment disposition in the URL, got: %s", url)
+	}
+	// The filename goes into a response header, so only safe characters may survive.
+	if contains(url, "evil=1") && contains(url, "%22%3B") {
+		t.Errorf("filename was not sanitised: %s", url)
+	}
+	if !contains(url, "my_thumb___evil_1.jpg") {
+		t.Errorf("expected the sanitised filename in the URL, got: %s", url)
+	}
+}
+
 // contains checks if substr is present in s.
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))

@@ -75,6 +75,12 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'shorts/:id/thumbnails',
+    loadComponent: () =>
+      import('./pages/thumbnails/thumbnail-generator.component').then((m) => m.ThumbnailGeneratorComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: 'shorts/:id/clips',
     loadComponent: () =>
       import('./pages/shorts/shorts-gallery.component').then((m) => m.ShortsGalleryComponent),

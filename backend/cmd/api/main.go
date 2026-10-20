@@ -29,6 +29,8 @@ func main() {
 	s3Bucket := os.Getenv("S3_BUCKET")
 	stateMachineARN := os.Getenv("STATE_MACHINE_ARN")
 	shortsStateMachineARN := os.Getenv("SHORTS_STATE_MACHINE_ARN")
+	// Optional: without it the thumbnail endpoints answer 503.
+	thumbnailStateMachineARN := os.Getenv("THUMBNAIL_STATE_MACHINE_ARN")
 	usersTable := os.Getenv("USERS_TABLE")
 	sessionTable := os.Getenv("SESSION_TABLE")
 
@@ -91,6 +93,8 @@ func main() {
 		Bucket:                s3Bucket,
 		StateMachineARN:       stateMachineARN,
 		ShortsStateMachineARN: shortsStateMachineARN,
+
+		ThumbnailStateMachineARN: thumbnailStateMachineARN,
 	}
 
 	// Start Lambda

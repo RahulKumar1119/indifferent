@@ -726,7 +726,10 @@ func (h *APIHandler) removeShortsJob(ctx context.Context, userID, jobID string) 
 		return fmt.Errorf("delete record: %w", err)
 	}
 
-	// Best effort: drop dangling references from the user's projects.
+	// Best effort: drop the thumbnail record (its images are under the job's
+	// S3 prefix and were removed above) and dangling references from the
+	// user's projects.
+	h.removeThumbnails(ctx, userID, jobID)
 	h.unlinkShortsJob(ctx, userID, jobID)
 
 	// The bucket is versioned: plain deletes only hide objects, so purge all

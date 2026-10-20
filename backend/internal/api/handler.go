@@ -71,6 +71,9 @@ type APIHandler struct {
 	Bucket                string
 	StateMachineARN       string
 	ShortsStateMachineARN string
+	// ThumbnailStateMachineARN starts AI thumbnail generation. Empty disables
+	// the feature (the endpoints answer 503) so the API can deploy first.
+	ThumbnailStateMachineARN string
 }
 
 // corsHeaders returns the standard CORS headers for all responses.
@@ -137,6 +140,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleCreateShorts)
 	case req.HTTPMethod == "GET" && req.Path == "/shorts":
 		return h.handleWithAuth(ctx, req, h.handleListShortsJobs)
+	case isThumbnailPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handleThumbnails)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/start"):
 		return h.handleWithAuth(ctx, req, h.handleStartShorts)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/cancel"):
