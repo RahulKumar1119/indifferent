@@ -1,8 +1,16 @@
-# TXT2Video
+# TXT2Video (Indifferent)
 
-A SaaS studio for AI video creation: text quiz files (`.txt`) become narrated quiz videos, and long videos/audio become ranked 9:16 vertical shorts ready for YouTube, Shorts, Reels or any other platform.
+**TXT2Video** is the AI video studio behind [indifferent.fun](https://indifferent.fun). It turns plain text and long recordings into publish-ready video:
+
+- **Quiz films** — upload a `.txt` file of multiple-choice questions and get a narrated 1920×1080 MP4 with answer reveals, transitions and optional channel branding.
+- **AI Shorts** — upload a video or audio file up to 1 hour / 2 GB and get up to three ranked 1080×1920 clips with burned-in captions and face-aware framing.
+- **Watermark tool** — add a watermark to an image entirely in the browser; nothing is uploaded to a server.
+
+One account holds every quiz project and shorts job, with progress, previews, thumbnails and downloads in one place. Output is ready for YouTube, Shorts, Reels or any other platform.
 
 **Live:** https://indifferent.fun
+
+**Stack:** Angular 20 · Go 1.26 · AWS Step Functions · ECS Fargate · Amazon Polly · Transcribe · Bedrock
 
 ## Contents
 
