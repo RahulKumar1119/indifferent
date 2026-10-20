@@ -166,7 +166,7 @@ func (s *Service) storeTranscript(ctx context.Context, jobID, userID string) (st
 		return "", fmt.Errorf("no speech detected: the media has no transcribable words — try a file with clear speech, or check the file isn't corrupt")
 	}
 	if lastEnd := transcript.Words[len(transcript.Words)-1].End; lastEnd > shorts.MaxSourceDuration+60 {
-		return "", fmt.Errorf("media runs about %.0fs, over the %.0fs limit — please trim it under 10 minutes", lastEnd, shorts.MaxSourceDuration)
+		return "", fmt.Errorf("media runs about %.0fs, over the %.0f minute limit - please trim it under %d minutes", lastEnd, shorts.MaxSourceDuration/60, int(shorts.MaxSourceDuration/60))
 	}
 
 	data, err := json.Marshal(transcript)

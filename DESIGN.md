@@ -9,7 +9,7 @@ Warning: agent-written direction tends toward default AI taste, which is the slo
 Indifferent (indifferent.fun) is a studio with two pipelines and one free tool, per the README:
 
 - Quiz films: a TXT file of multiple-choice questions becomes a narrated MP4.
-- AI Shorts Generator: a long video or audio file (up to 10 minutes) becomes ranked 9:16 clips with burned-in captions.
+- AI Shorts Generator: a long video or audio file (up to 1 hour) becomes ranked 9:16 clips with burned-in captions.
 - Watermark tool: free in-browser image watermarking. Nothing uploads.
 
 Audience (Owner to confirm): inferred only from the blog topics, which cover quiz videos for YouTube and educational video. Likely people who make quiz or educational videos, and creators who repurpose long videos. No visitor data was used.

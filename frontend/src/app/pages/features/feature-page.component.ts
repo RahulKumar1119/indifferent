@@ -28,7 +28,7 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
     title: 'AI Shorts Generator',
     hook: 'Turn long videos into ranked 9:16 vertical clips automatically.',
     description:
-      'Upload a video or audio file up to 10 minutes long. AI transcribes it with word-level timestamps, scores every moment for engagement, and renders the top 3 segments as full-HD vertical clips with burned-in captions.',
+      'Upload a video or audio file up to 1 hour long. AI transcribes it with word-level timestamps, scores every moment for engagement, and renders the top 3 segments as full-HD vertical clips with burned-in captions.',
     bullets: [
       'Word-timed captions in short lines readable without sound',
       'Engagement-ranked segments: the best moments, not random cuts',

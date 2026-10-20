@@ -159,6 +159,38 @@ func NewRenderer(store storage.StorageClient, bucket, workDir string) *Renderer 
 }
 
 // defaultRunCommand executes an FFmpeg command in the working directory.
+// sourceDownloader streams an object to a local file without holding it in
+// memory. The S3 client implements it; the fallback exists for storages that
+// cannot stream.
+type sourceDownloader interface {
+	DownloadToFile(ctx context.Context, bucket, key, path string) error
+}
+
+// downloadSource fetches the source media to path and returns its size in
+// bytes. It prefers the streaming path so a multi-GB source never sits in
+// memory.
+func (r *Renderer) downloadSource(ctx context.Context, key, path string) (int64, error) {
+	if d, ok := r.Storage.(sourceDownloader); ok {
+		if err := d.DownloadToFile(ctx, r.Bucket, key, path); err != nil {
+			return 0, err
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return 0, fmt.Errorf("failed to stat downloaded source: %w", err)
+		}
+		return info.Size(), nil
+	}
+
+	data, err := r.Storage.GetObject(ctx, r.Bucket, key)
+	if err != nil {
+		return 0, err
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return 0, fmt.Errorf("failed to write source: %w", err)
+	}
+	return int64(len(data)), nil
+}
+
 func (r *Renderer) defaultRunCommand(name string, args []string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = r.WorkDir
@@ -524,17 +556,17 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 		return "", err
 	}
 
-	// Download the source media.
+	// Download the source media. The source can be a multi-GB upload, so it
+	// is streamed straight to disk: buffering it in memory would exhaust the
+	// task's RAM, and three clips render in parallel, each pulling the
+	// whole file.
 	done = tm.start(phaseDownloadSource)
-	srcData, err := r.Storage.GetObject(ctx, r.Bucket, in.SourceKey)
+	srcPath := filepath.Join(r.WorkDir, "source"+safeExt(in.SourceKey))
+	srcBytes, err := r.downloadSource(ctx, in.SourceKey, srcPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to download source %s: %w", in.SourceKey, err)
 	}
-	srcPath := filepath.Join(r.WorkDir, "source"+safeExt(in.SourceKey))
-	if err := os.WriteFile(srcPath, srcData, 0o644); err != nil {
-		return "", fmt.Errorf("failed to write source: %w", err)
-	}
-	tm.sourceBytes = len(srcData)
+	tm.sourceBytes = int(srcBytes)
 	done()
 
 	// Subject-aware reframing for landscape sources: track the dominant

@@ -130,7 +130,7 @@ interface UseCaseLink {
             <a href="#how" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full border border-black/15 hover:bg-black/5 transition-colors font-semibold text-[15px]">See how it works</a>
           </div>
           <div class="reveal mt-6 flex flex-col items-center gap-2">
-            <p class="text-[13px] text-[#6B6560]">MP4, MOV, MP3 or WAV · 10 minutes max · 500 MB max</p>
+            <p class="text-[13px] text-[#6B6560]">MP4, MOV, MP3 or WAV · 1 hour max · 2 GB max</p>
             <p class="text-[13px] text-[#6B6560]">
               Free during beta, no credit card.
               <a routerLink="/terms" class="underline underline-offset-4 hover:text-[#1A1714]">Beta terms</a>
@@ -153,7 +153,7 @@ interface UseCaseLink {
                 <div class="text-left text-white flex-1">
                   <p class="text-[11px] uppercase tracking-[0.06em] text-white/50">The upload screen</p>
                   <p class="mt-2 text-[15px] leading-relaxed text-white/80">
-                    Drop a file and the limits are stated up front: MP4, MOV, MP3 or WAV, 10 minutes, 500 MB.
+                    Drop a file and the limits are stated up front: MP4, MOV, MP3 or WAV, 1 hour, 2 GB.
                   </p>
                   <p class="mt-4 text-[11px] uppercase tracking-[0.06em] text-white/50">Pipeline</p>
                   <p class="mt-2 text-[15px] leading-relaxed text-white/80">Transcribe, score every segment, track the speaker, burn captions, publish.</p>
@@ -217,7 +217,7 @@ interface UseCaseLink {
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 1</p>
               <h3 class="mt-2 font-semibold text-[17px]">Upload a video or audio file</h3>
-              <p class="mt-2 text-[14px] leading-relaxed text-white/60">MP4, MOV, MP3 or WAV up to 10 minutes. Podcasts, interviews, or phone footage. All formats work.</p>
+              <p class="mt-2 text-[14px] leading-relaxed text-white/60">MP4, MOV, MP3 or WAV up to 1 hour. Podcasts, interviews, or phone footage. All formats work.</p>
             </div>
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 2</p>
@@ -451,11 +451,11 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
     { q: 'Are captions added automatically?', a: 'Yes. Word-level timestamps become short burned-in caption lines styled for readability without sound.' },
     { q: 'What formats and quality do I get?', a: 'MP4 with H.264 video and AAC audio at 1080×1920 and 30fps, a standard format for YouTube Shorts, Instagram Reels and TikTok.' },
     { q: 'What if my video has no people in it?', a: 'Segments without a visible subject render in blur-fill fit: the whole frame stays visible over a blurred background, so text and diagrams are never cut.' },
-    { q: 'Which files can I upload?', a: 'MP4, MOV, MP3 and WAV up to 10 minutes long and 500 MB.' },
+    { q: 'Which files can I upload?', a: 'MP4, MOV, MP3 and WAV up to 1 hour long and 2 GB.' },
     { q: 'How are the best moments picked?', a: 'Your file is transcribed, then every segment is scored for engagement signals such as speech density and how much the speaker moves. The highest scoring segments are kept, up to 3, and rendered in score order. Nothing is picked at random, and you can see the score of each clip in the gallery.' },
     { q: 'What happens if no segment scores well?', a: 'You still get clips. If the source is mostly silence or a static frame, the top segments will not be compelling, and the tool cannot fix that. Trim the file to the interesting part and try again.' },
     { q: 'Is my source file uploaded and kept?', a: 'Your file is uploaded so it can be transcribed and rendered. It is used to produce your clips and is not kept as a copy you can browse later. Download your clips before you delete the job.' },
-    { q: 'How long does processing take?', a: 'Most files up to 10 minutes finish in a few minutes. The progress page shows the live stage you are on, and you can leave the page open while it works.' },
+    { q: 'How long does processing take?', a: 'Most files finish in a few minutes, and a one-hour file takes longer than a short one. The progress page shows the live stage you are on, so you can leave it open while it works.' },
     { q: 'Can I change the caption style after the clip is made?', a: 'Yes. The gallery has a caption panel with the four presets, plus size, color and position controls. Saving a new style re-renders the clips so the change shows up in the exported MP4.' },
     { q: 'Where are the clips stored, and what are they called?', a: 'Each job keeps its clips in the Shorts gallery, named by rank so the first clip is always your strongest. You can download them one by one or grab the selected ones as a zip.' },
     { q: 'Can I publish straight to TikTok or Reels?', a: 'Not yet. You download the 9:16 MP4s and upload them to the platform yourself. The clips are exported at 1080x1920, 30fps, H.264 with AAC, which is the format Shorts and Reels expect.' },

@@ -101,6 +101,7 @@ func (s *Service) Rank(ctx context.Context, transcript models.Transcript, source
 	}
 
 	raw := parseSegments(rawText)
+	raw = snapSegmentsToWords(raw, transcript.Words)
 
 	valid := validateSegments(raw, sourceDuration)
 	if len(valid) == 0 {
@@ -114,13 +115,40 @@ func (s *Service) Rank(ctx context.Context, transcript models.Transcript, source
 	return valid, nil
 }
 
-// buildPrompt renders the transcript as timestamped lines and fixes the output
-// contract and constraints (per the Bedrock Ranking Prompt Design).
+// promptBlockSeconds is the granularity at which the transcript is shown to
+// the model. One line per block instead of one per word keeps a one-hour
+// transcript inside the model's context: about 360 lines instead of 9000,
+// which is roughly an order of magnitude fewer input tokens. The model only
+// has to pick a moment, and the exact word timings are recovered afterwards
+// from the transcript.
+const promptBlockSeconds = 10.0
+
+// buildPrompt renders the transcript as timestamped blocks and fixes the
+// output contract and constraints (per the Bedrock Ranking Prompt Design).
 func buildPrompt(transcript models.Transcript, sourceDuration float64) string {
 	var lines strings.Builder
-	for _, w := range transcript.Words {
-		fmt.Fprintf(&lines, "%.2f | %s\n", w.Start, w.Text)
+	var blockWords []string
+	var blockStart, blockEnd float64
+
+	flush := func() {
+		if len(blockWords) == 0 {
+			return
+		}
+		fmt.Fprintf(&lines, "%.1f-%.1f | %s\n", blockStart, blockEnd, strings.Join(blockWords, " "))
+		blockWords = blockWords[:0]
 	}
+
+	for _, w := range transcript.Words {
+		if len(blockWords) > 0 && w.Start >= blockStart+promptBlockSeconds {
+			flush()
+		}
+		if len(blockWords) == 0 {
+			blockStart = w.Start
+		}
+		blockEnd = w.End
+		blockWords = append(blockWords, w.Text)
+	}
+	flush()
 
 	return fmt.Sprintf(`You are a short-form video editor. From the timestamped transcript below,
 identify the %d most engaging, self-contained "viral moment" segments.
@@ -129,19 +157,24 @@ Rules:
 - Each segment MUST be between %.0f and %.0f seconds long.
 - start and end are in seconds, measured from the beginning of the source.
 - 0 <= start < end <= %.2f.
+- The transcript is grouped into %.0f second blocks. Pick a start and end
+  anywhere inside the blocks you choose; they do not have to match the block
+  edges.
 - Prefer moments with a strong hook, emotional peak, or a complete thought.
 - Return at most %d segments, ordered from most to least engaging.
 - Respond with ONLY a JSON object matching the schema. No prose, no markdown.
 
 Schema: {"segments":[{"start":number,"end":number,"score":number,"hookText":string}]}
 
-Transcript (seconds | text):
+Transcript (blocks of %.0fs, start-end | text):
 %s`,
 		shorts.MaxClipCount,
 		shorts.MinClipDuration,
 		shorts.MaxClipDuration,
 		sourceDuration,
+		promptBlockSeconds,
 		shorts.MaxClipCount,
+		promptBlockSeconds,
 		lines.String(),
 	)
 }
@@ -346,4 +379,50 @@ func wordsInRange(words []models.Word, start, end float64) []models.Word {
 		}
 	}
 	return out
+}
+
+// snapSegmentsToWords moves every segment boundary onto a word boundary, so
+// a clip never starts or ends in the middle of a word. The model works from
+// block-level timestamps, so its numbers land between words; the caption
+// burn-in and the trim window both want word-aligned edges.
+//
+// Snapping can shift a segment by up to one word, which is enough to push a
+// segment that sat exactly on the duration limit out of bounds. When that
+// happens the original numbers are kept, because losing the segment is worse
+// than a boundary that lands mid-word.
+func snapSegmentsToWords(raw []rawSegment, words []models.Word) []rawSegment {
+	if len(words) == 0 {
+		return raw
+	}
+	out := make([]rawSegment, 0, len(raw))
+	for _, r := range raw {
+		original := r
+
+		if w := wordStartingAtOrBefore(words, r.Start); w != nil {
+			r.Start = w.Start
+		}
+		if w := wordStartingAtOrBefore(words, r.End); w != nil {
+			r.End = w.End
+		}
+		if d := r.End - r.Start; d < shorts.MinClipDuration || d > shorts.MaxClipDuration {
+			// Snapping broke the bounds: keep the model's own numbers.
+			r = original
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// wordStartingAtOrBefore returns the last word that starts at or before t,
+// or nil when every word starts later.
+func wordStartingAtOrBefore(words []models.Word, t float64) *models.Word {
+	var found *models.Word
+	for i := range words {
+		if words[i].Start <= t {
+			found = &words[i]
+			continue
+		}
+		break
+	}
+	return found
 }

@@ -9,7 +9,7 @@ A SaaS platform for AI video creation: text quiz files (.txt) become narrated vi
 Two pipelines, one studio:
 
 1. **Quiz films** — Upload a TXT file containing multiple-choice questions → choose a voice → get a professional MP4 video with narration, answer highlights, and smooth transitions.
-2. **AI Shorts Generator** — Upload a video/audio file (up to 10 min) → AI transcribes it with word-level timestamps, ranks the most engaging moments (Bedrock), and renders the top 3 segments as full-HD 9:16 clips with burned-in captions. Face tracking pans the crop onto the speaker; faceless segments use blur-fill fit so text and diagrams are never cut.
+2. **AI Shorts Generator** — Upload a video/audio file (up to 1 hour, 2 GB) → AI transcribes it with word-level timestamps, ranks the most engaging moments (Bedrock), and renders the top 3 segments as full-HD 9:16 clips with burned-in captions. Face tracking pans the crop onto the speaker; faceless segments use blur-fill fit so text and diagrams are never cut.
 3. **Watermark tool** — Free in-browser image watermarking (nothing uploads anywhere).
 
 Projects are unified: one project holds quiz config, linked shorts jobs, and watermark preferences, all visible on the project page across logins. A shorts history page lists every job newest-first.
