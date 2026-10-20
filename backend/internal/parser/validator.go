@@ -95,3 +95,20 @@ func ValidateQuestion(q models.Question) string {
 	}
 	return ""
 }
+
+// MissingAnswerReason reports a question that parsed cleanly but has no
+// correct answer marked. Such a question still renders, but with no answer
+// reveal, so the user is told instead of silently getting a broken film.
+// It returns an empty string when an answer is marked.
+func MissingAnswerReason(q models.Question) string {
+	if len(q.Options) == 0 {
+		return "" // already reported as "question has no options"
+	}
+	if len(q.CorrectIndices) > 0 {
+		return ""
+	}
+	if q.CorrectIndex >= 0 {
+		return ""
+	}
+	return "no answer marked, so this question has no answer reveal"
+}

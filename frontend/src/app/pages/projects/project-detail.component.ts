@@ -26,6 +26,26 @@ import { ShortsJob, ShortsService } from '../shorts/shorts.service';
           <p class="mt-4 text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Project · {{ project.status }}</p>
           <h1 class="mt-2 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(1.8rem,4vw,2.8rem)]">{{ project.name }}</h1>
 
+          <!-- Parse warnings: things that did not stop the render but did affect the result -->
+          @if (project.warnings && project.warnings.length > 0) {
+            <section class="mt-5 rounded-[20px] border border-amber-500/40 bg-amber-500/[0.07] p-5" role="alert" aria-labelledby="project-warnings-heading">
+              <h2 id="project-warnings-heading" class="font-semibold text-[15px] text-amber-900">
+                {{ project.warnings!.length === 1 ? 'One issue' : project.warnings!.length + ' issues' }} with your file
+              </h2>
+              <ul class="mt-2 space-y-1.5 text-[13.5px] text-amber-900/90">
+                @for (w of project.warnings; track w.line + '-' + w.reason) {
+                  <li class="flex gap-2">
+                    <span class="shrink-0 font-medium">Question {{ w.line }}:</span>
+                    <span>{{ w.reason }}.</span>
+                  </li>
+                }
+              </ul>
+              <a routerLink="/blog/quiz-file-format-guide" class="mt-3 inline-block text-[13px] font-semibold text-amber-900 underline underline-offset-4 hover:decoration-amber-900">
+                How to mark the answer
+              </a>
+            </section>
+          }
+
           <!-- Quiz film -->
           <section class="mt-8 rounded-[20px] border border-black/10 bg-white p-6">
             <div class="flex items-center justify-between">

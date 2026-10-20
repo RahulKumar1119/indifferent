@@ -7,9 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/parser"
 	"github.com/rahul/indifferent/backend/internal/storage"
@@ -65,6 +70,14 @@ func handleRequest(ctx context.Context, input models.ParserInput) (models.Parser
 				Reason: reason,
 			})
 		} else {
+			// A question with no marked answer still renders, but with no
+			// answer reveal. Warn the user instead of failing silently.
+			if missing := parser.MissingAnswerReason(q); missing != "" {
+				warnings = append(warnings, models.Warning{
+					Line:   q.Index + 1,
+					Reason: missing,
+				})
+			}
 			validQuestions = append(validQuestions, q)
 		}
 	}
@@ -72,6 +85,12 @@ func handleRequest(ctx context.Context, input models.ParserInput) (models.Parser
 	// Validate that at least one valid question exists
 	if err := parser.ValidateQuestions(validQuestions, warnings); err != nil {
 		return models.ParserOutput{}, fmt.Errorf("question validation failed: %w", err)
+	}
+
+	// Persist warnings on the project so the UI can show them. Best effort:
+	// a failure here must not fail the render.
+	if err := persistWarnings(ctx, input, warnings); err != nil {
+		log.Printf("persist warnings failed: %v", err)
 	}
 
 	// Serialize valid questions as JSON
@@ -93,4 +112,44 @@ func handleRequest(ctx context.Context, input models.ParserInput) (models.Parser
 		Format:    string(format),
 		Warnings:  warnings,
 	}, nil
+}
+
+// persistWarnings stores the parse warnings on the project record so the
+// project page can tell the user that a question has no answer reveal.
+// Warnings are advisory: if the table is not configured or the write fails,
+// the render continues.
+func persistWarnings(ctx context.Context, input models.ParserInput, warnings []models.Warning) error {
+	tableName := os.Getenv("DYNAMODB_TABLE")
+	if tableName == "" || len(warnings) == 0 {
+		return nil
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("load aws config: %w", err)
+	}
+	client := dynamodb.NewFromConfig(cfg)
+
+	encoded, err := json.Marshal(warnings)
+	if err != nil {
+		return fmt.Errorf("encode warnings: %w", err)
+	}
+
+	_, err = client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(tableName),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", input.UserID)},
+			"SK": &types.AttributeValueMemberS{Value: fmt.Sprintf("PROJECT#%s", input.ProjectID)},
+		},
+		// Only the warnings attribute is touched, so this cannot clobber the
+		// status the pipeline writes concurrently.
+		UpdateExpression: aws.String("SET warnings = :warnings"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":warnings": &types.AttributeValueMemberS{Value: string(encoded)},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("update project item: %w", err)
+	}
+	return nil
 }
