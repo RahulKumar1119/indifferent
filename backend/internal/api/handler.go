@@ -1216,6 +1216,11 @@ func projectToItem(p models.Project) map[string]dbtypes.AttributeValue {
 	if p.Error != "" {
 		item["error"] = &dbtypes.AttributeValueMemberS{Value: p.Error}
 	}
+	if len(p.Warnings) > 0 {
+		if b, err := json.Marshal(p.Warnings); err == nil {
+			item["warnings"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+		}
+	}
 	return item
 }
 
@@ -1278,6 +1283,12 @@ func itemToProject(item map[string]dbtypes.AttributeValue) models.Project {
 	}
 	if v, ok := item["completedAt"].(*dbtypes.AttributeValueMemberS); ok {
 		p.CompletedAt = v.Value
+	}
+	if v, ok := item["warnings"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		var w []models.Warning
+		if err := json.Unmarshal([]byte(v.Value), &w); err == nil {
+			p.Warnings = w
+		}
 	}
 	return p
 }

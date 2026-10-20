@@ -43,12 +43,21 @@ export interface Project {
   videoUrl?: string;
   thumbnailUrl?: string;
   error?: string;
+  /** Parse warnings, e.g. a question with no marked answer. */
+  warnings?: ProjectWarning[];
   /** Linked Shorts job IDs (unified project). */
   shortsJobIds?: string[];
   /** Saved watermark preferences (unified project). */
   watermark?: WatermarkSettings;
-  /** Custom branding burned into renders (unified project). */
+  /** Custom branding burned into renders. */
   branding?: Branding;
+}
+
+/** A non-fatal problem found while parsing the TXT file. */
+export interface ProjectWarning {
+  /** 1-based question number. */
+  line: number;
+  reason: string;
 }
 
 /** Project branding: uploaded logo overlay + channel handle. */

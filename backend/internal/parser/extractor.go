@@ -17,6 +17,11 @@ var (
 	// "A)", "B)", "a)", "b)", "A.", "B.", "a.", "b.", "A:", "B:"
 	optionRe = regexp.MustCompile(`^([A-Fa-f])[.):\s]\s*(.+)`)
 
+	// Option with a leading correct-answer asterisk: "*B. Paris", "*B) Paris".
+	// Checked before optionRe because a leading "*" is otherwise read as a
+	// bullet prefix and the option is lost.
+	markedOptionRe = regexp.MustCompile(`^\*\s*([A-Fa-f])[.):\s]\s*(.+)`)
+
 	// Bulleted option patterns: "•", "-", "*" as prefixes for options.
 	// Note: "*" at line start is a bullet unless it's a correct-answer marker mid-option.
 	bulletOptionRe = regexp.MustCompile(`^[•\-\*]\s+(.+)`)
@@ -25,6 +30,11 @@ var (
 	correctPrefixRe = regexp.MustCompile(`^\*\s*`)
 	correctSuffixRe = regexp.MustCompile(`\s*\*$`)
 	correctAnnotRe  = regexp.MustCompile(`(?i)\s*\(correct\)\s*$`)
+
+	// Explicit answer line: "Answer: B", "Answer: Jupiter", "Answer: B, D".
+	// The payload is free text: the numbered format uses the option letter,
+	// the bulleted and tabbed formats use the option text.
+	answerLineRe = regexp.MustCompile(`(?i)^answer\s*:\s*(.+)$`)
 )
 
 // ExtractQuestions parses the content string according to the given format type
@@ -70,6 +80,16 @@ func extractNumbered(content string) []models.Question {
 			continue
 		}
 
+		// Option with a leading correct-answer asterisk: "*B. Paris"
+		if m := markedOptionRe.FindStringSubmatch(trimmed); m != nil {
+			if currentQuestion != nil {
+				label := strings.ToUpper(m[1])
+				text, _ := checkCorrectMarkers(m[2])
+				currentQuestion.addOption(label, text, true)
+			}
+			continue
+		}
+
 		// Check if this line is an option
 		if m := optionRe.FindStringSubmatch(trimmed); m != nil {
 			if currentQuestion != nil {
@@ -81,6 +101,15 @@ func extractNumbered(content string) []models.Question {
 				text, correct = checkCorrectMarkers(text)
 
 				currentQuestion.addOption(label, text, correct)
+			}
+			continue
+		}
+
+		// Explicit answer line: "Answer: B" (numbered) or "Answer: Jupiter"
+		// (bulleted and tabbed, where the answer names the option text).
+		if m := answerLineRe.FindStringSubmatch(trimmed); m != nil {
+			if currentQuestion != nil {
+				currentQuestion.addAnswerPayload(m[1])
 			}
 			continue
 		}
@@ -137,6 +166,16 @@ func extractBulleted(content string) []models.Question {
 			continue
 		}
 
+		// Explicit answer line: "Answer: Jupiter" (the bulleted format names
+		// the answer by its text). Checked before the bullet and the
+		// finalize branch, since an answer line is neither.
+		if m := answerLineRe.FindStringSubmatch(trimmed); m != nil {
+			if currentQuestion != nil {
+				currentQuestion.addAnswerPayload(m[1])
+			}
+			continue
+		}
+
 		// If we're in options mode but hit a non-option, non-blank line,
 		// finalize current question and start a new one
 		if inOptions && currentQuestion != nil {
@@ -180,6 +219,16 @@ func extractTabbed(content string) []models.Question {
 			continue
 		}
 
+		// Explicit answer line: "Answer: Gold" (the tabbed format names the
+		// answer by its text). Checked before the indent test so an indented
+		// answer line is still read as an answer.
+		if m := answerLineRe.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+			if currentQuestion != nil {
+				currentQuestion.addAnswerPayload(m[1])
+			}
+			continue
+		}
+
 		// Check if line is tab-indented (option)
 		if strings.HasPrefix(line, "\t") || strings.HasPrefix(line, "    ") {
 			if currentQuestion == nil {
@@ -188,6 +237,14 @@ func extractTabbed(content string) []models.Question {
 
 			trimmed := strings.TrimSpace(line)
 			if trimmed == "" {
+				continue
+			}
+
+			// Option with a leading correct-answer asterisk: "*B. Paris"
+			if m := markedOptionRe.FindStringSubmatch(trimmed); m != nil {
+				label := strings.ToUpper(m[1])
+				text, _ := checkCorrectMarkers(m[2])
+				currentQuestion.addOption(label, text, true)
 				continue
 			}
 
@@ -238,6 +295,10 @@ func extractTabbed(content string) []models.Question {
 type questionBuilder struct {
 	textLines []string
 	options   []optionEntry
+	// answerPayloads holds raw "Answer:" payloads. They are resolved against
+	// the options when the question is built, because the answer line may
+	// appear before the options it refers to.
+	answerPayloads []string
 }
 
 type optionEntry struct {
@@ -258,6 +319,79 @@ func (qb *questionBuilder) optionCount() int {
 	return len(qb.options)
 }
 
+// addAnswerPayload records an explicit answer line payload. It is resolved
+// against the options later, in build.
+func (qb *questionBuilder) addAnswerPayload(payload string) {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return
+	}
+	qb.answerPayloads = append(qb.answerPayloads, payload)
+}
+
+// applyAnswerPayload marks the options an answer payload refers to. The
+// payload can name an option by its label ("B"), which the numbered format
+// uses, or by its text ("Jupiter"), which the bulleted and tabbed formats
+// use.
+func (qb *questionBuilder) applyAnswerPayload(payload string) {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return
+	}
+	// The whole payload may be a single option whose text contains spaces
+	// ("Salt and Pepper"), so try it whole before splitting on separators.
+	if qb.markCorrectMatch(payload) {
+		return
+	}
+	for _, part := range splitAnswerPayload(payload) {
+		qb.markCorrectMatch(part)
+	}
+}
+
+// markCorrectMatch marks the option whose label or text matches, ignoring
+// case. It reports whether an option was matched.
+func (qb *questionBuilder) markCorrectMatch(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	// Label match: a single letter A-F.
+	if len(s) == 1 {
+		upper := strings.ToUpper(s)
+		if upper[0] >= 'A' && upper[0] <= 'F' {
+			for i := range qb.options {
+				if qb.options[i].label == upper {
+					qb.options[i].correct = true
+					return true
+				}
+			}
+		}
+	}
+	// Text match: the full text of the option, case-insensitively.
+	for i := range qb.options {
+		if strings.EqualFold(strings.TrimSpace(qb.options[i].text), s) {
+			qb.options[i].correct = true
+			return true
+		}
+	}
+	return false
+}
+
+// splitAnswerPayload splits a multi-answer payload into its parts:
+// "B, D" -> ["B", "D"], "B and D" -> ["B", "D"].
+func splitAnswerPayload(payload string) []string {
+	replaced := strings.NewReplacer(",", " ", "&", " ", "/", " ").Replace(payload)
+	var parts []string
+	for _, p := range strings.Fields(replaced) {
+		// "and" is a separator word, not an answer.
+		if strings.EqualFold(p, "and") {
+			continue
+		}
+		parts = append(parts, p)
+	}
+	return parts
+}
+
 func (qb *questionBuilder) build(index int) models.Question {
 	q := models.Question{
 		Index:          index,
@@ -265,6 +399,12 @@ func (qb *questionBuilder) build(index int) models.Question {
 		Options:        make([]models.Option, len(qb.options)),
 		CorrectIndex:   -1, // default: no correct answer marked
 		CorrectIndices: []int{},
+	}
+
+	// Explicit "Answer:" lines are resolved here so they work whether they
+	// appear before or after the options they refer to.
+	for _, payload := range qb.answerPayloads {
+		qb.applyAnswerPayload(payload)
 	}
 
 	for i, opt := range qb.options {

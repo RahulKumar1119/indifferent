@@ -48,6 +48,16 @@ d) Madrid
 Answer: b</pre>
         <p>The parser recognizes numbers followed by periods, closing parentheses, or colons as question indicators. Answer options can use lowercase or uppercase letters followed by periods, parentheses, or colons. The correct answer line should begin with "Answer:" followed by the letter of the correct option.</p>
 
+        <h3>Marking the correct answer</h3>
+        <p>There are several ways to mark the answer, and you can use any one of them. The parser accepts all of these:</p>
+        <ul>
+          <li><strong>An answer line:</strong> <code>Answer: B</code>, or <code>Answer: B, D</code> when more than one option is correct. In the numbered format use the option letter. In the bulleted and tabbed formats use the full text of the option, for example <code>Answer: Jupiter</code>.</li>
+          <li><strong>An asterisk after the option:</strong> <code>b) Paris *</code></li>
+          <li><strong>An asterisk before the option:</strong> <code>*b) Paris</code>, in the numbered format</li>
+          <li><strong>A (correct) note:</strong> <code>b) Paris (correct)</code></li>
+        </ul>
+        <p>If a question has no marked answer, the video still renders, but that question gets no answer reveal, and the project page tells you which question it was. Nothing is silently dropped.</p>
+
         <h3>Bulleted Format</h3>
         <p>The bulleted format uses dash or asterisk characters to denote answer options. This style works well when you are converting content from note-taking applications or markdown documents:</p>
         <pre>What is the largest planet in our solar system?
@@ -71,10 +81,10 @@ Answer: Gold</pre>
         <h2>Common Formatting Mistakes</h2>
         <p>Understanding frequent errors will save you time and frustration when preparing your quiz files. Here are the most common issues and their solutions:</p>
         <p><strong>Inconsistent numbering:</strong> If you start with numbered questions, maintain that format throughout. Switching between numbered and bulleted formats mid-file can confuse the parser and produce unexpected results.</p>
-        <p><strong>Missing answer indicators:</strong> Every question must have a clearly marked correct answer. Without the "Answer:" line, the parser cannot determine which option is correct, and the generated video will not include proper answer reveals.</p>
+        <p><strong>Missing answer indicators:</strong> Every question should have a clearly marked correct answer. Without one, the parser cannot determine which option is correct, so that question renders with no answer reveal. The project page lists these as warnings so you can fix the file.</p>
         <p><strong>Extra blank lines:</strong> While one blank line between questions is fine and can improve readability, multiple consecutive blank lines may cause the parser to treat separate parts of the same question as different entries. Keep spacing consistent with single blank lines between question blocks.</p>
         <p><strong>Special characters in questions:</strong> Avoid using characters that might be interpreted as formatting markers. Specifically, do not start questions with dashes, asterisks, or tab characters unless you intend them to be parsed as answer options.</p>
-        <p><strong>Inconsistent answer format:</strong> If you use letter-based answers (a, b, c, d) for some questions but full-text answers for others, the parser may fail to match answers correctly. Choose one answer style and use it throughout your file.</p>
+        <p><strong>Inconsistent answer format:</strong> The parser reads a letter or the option text on the answer line, so both styles work. Keeping one style throughout your file is still simpler to check by eye.</p>
 
         <h2>Writing Effective Multiple-Choice Questions</h2>
         <p>Beyond formatting, the quality of your questions determines how engaging your video will be. Well-crafted questions keep viewers interested and encourage them to think critically about each answer option.</p>

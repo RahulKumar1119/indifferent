@@ -1,8 +1,9 @@
-import { Component, AfterViewInit, ElementRef, PLATFORM_ID, ViewChild, inject } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { Component, AfterViewInit, ElementRef, OnInit, PLATFORM_ID, ViewChild, inject } from '@angular/core';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
+import { setPageSeo } from '../../shared/seo';
 import { FlipbookComponent } from './flipbook.component';
 import { HeroSceneComponent } from './hero-scene.component';
 
@@ -22,6 +23,9 @@ import { HeroSceneComponent } from './hero-scene.component';
     .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
     .btn-primary:hover { transform: translateY(-1px); }
     .btn-primary:active { transform: translateY(1px) scale(.98); }
+    details.faq summary::-webkit-details-marker { display: none; }
+    details.faq[open] .faq-chevron { transform: rotate(180deg); }
+    .faq-chevron { transition: transform .25s; }
     .grain::before {
       content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .05;
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
@@ -29,6 +33,7 @@ import { HeroSceneComponent } from './hero-scene.component';
     @media (prefers-reduced-motion: reduce) {
       .reveal { opacity: 1; transform: none; transition: none; }
       .card-lift, .btn-primary { transition: none; }
+      .faq-chevron { transition: none; }
     }
   `],
   template: `
@@ -117,20 +122,31 @@ import { HeroSceneComponent } from './hero-scene.component';
               Turn a quiz text file into a <em class="font-light italic">narrated video.</em>
             </h1>
             <p #heroSubtitle class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[46ch]">
-              Upload a TXT file of multiple-choice questions, choose one of five AI voices, and download a 1080p MP4 where each question is read aloud and then answered.
+              Write your questions in a plain text file. Get back a 1080p MP4 where a voice reads each question aloud and then reveals the answer.
             </p>
             <div #heroCta class="mt-8 flex flex-wrap items-center gap-4">
               <a routerLink="/login" class="btn-primary inline-flex items-center gap-3 rounded-full bg-[#E8E0D2] text-[#141310] pl-7 pr-2 py-2 font-semibold">
-                Start creating
+                Turn my TXT into a video
                 <span class="w-9 h-9 rounded-full bg-[#141310] text-white flex items-center justify-center">→</span>
               </a>
-              <a href="#process" class="inline-flex items-center min-h-[44px] text-[15px] text-white/80 underline underline-offset-8 decoration-white/30 hover:decoration-white transition">See how it works</a>
-              <a href="#process" class="inline-flex items-center min-h-[44px] text-[15px] text-white/80 underline underline-offset-8 decoration-white/30 hover:decoration-white transition">See how it works</a>
+              <a href="#format" class="inline-flex items-center min-h-[44px] text-[15px] text-white/80 underline underline-offset-8 decoration-white/30 hover:decoration-white transition">See the file format</a>
             </div>
-            <dl class="mt-10 flex flex-wrap gap-x-8 gap-y-4 text-[13px] text-white/60">
-              <div><dt class="text-[13px] text-white/60">AI narrator voices</dt><dd class="serif text-2xl text-white">5</dd></div>
-              <div class="border-l border-white/10 pl-8"><dt class="text-[13px] text-white/60">MP4 export</dt><dd class="serif text-2xl text-white">1080p</dd></div>
+            <dl class="mt-8 flex flex-wrap gap-x-8 gap-y-4 text-[13px] text-white/60">
+              <div><dt class="text-[13px] text-white/60">Input</dt><dd class="serif text-2xl text-white">TXT</dd></div>
+              <div class="border-l border-white/10 pl-8"><dt class="text-[13px] text-white/60">Output</dt><dd class="serif text-2xl text-white">MP4</dd></div>
+              <div class="border-l border-white/10 pl-8"><dt class="text-[13px] text-white/60">Narration voices</dt><dd class="serif text-2xl text-white">5</dd></div>
+              <div class="border-l border-white/10 pl-8"><dt class="text-[13px] text-white/60">Max file size</dt><dd class="serif text-2xl text-white">5 MB</dd></div>
             </dl>
+            <p class="mt-6 text-[13.5px] text-white/60">
+              Free during beta, no credit card.
+              <a routerLink="/terms" class="underline underline-offset-4 hover:text-white">Beta terms</a>
+            </p>
+            <p class="mt-3 text-[13px] text-white/50">
+              Also in the studio:
+              <a routerLink="/shorts-maker" class="underline underline-offset-4 hover:text-white">AI Shorts generator</a>
+              and
+              <a routerLink="/tools/add-watermark" class="underline underline-offset-4 hover:text-white">watermark tool</a>
+            </p>
           </div>
 
           <div class="relative lg:justify-self-end w-full max-w-[540px]">
@@ -140,24 +156,93 @@ import { HeroSceneComponent } from './hero-scene.component';
       </section>
 
       <main class="bg-[#FAF7F2]">
+        <!-- FORMAT · what the input actually looks like, above the fold -->
+        <section id="format" class="scroll-mt-24 w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-14 md:pt-20">
+          <div class="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-10 items-center">
+            <div>
+              <h2 class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)] leading-tight">Your questions, in a plain text file.</h2>
+              <p class="reveal mt-4 text-[16px] leading-relaxed text-[#6B6560] max-w-[46ch]">
+                No special editor, no spreadsheet, no formatting to clean up. Number the questions, list the options, and mark the answer.
+                Numbering, bulleted options and tab-indented answers are all detected.
+              </p>
+              <p class="reveal mt-2 text-[14px] leading-relaxed text-[#6B6560] max-w-[46ch]">
+                The answer can be marked on its own line, or on the option itself with a trailing <span class="font-mono">*</span>.
+              </p>
+              <ul class="reveal mt-6 space-y-2 text-[14.5px] text-[#6B6560]">
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>Up to 5 MB, plain text only</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>Multiple correct answers supported</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>One question per slide, with an answer reveal</li>
+              </ul>
+              <a routerLink="/blog/quiz-file-format-guide" class="reveal mt-6 inline-flex items-center min-h-[44px] text-[14px] font-semibold text-[#A8481F] underline underline-offset-4">Read the format guide</a>
+            </div>
+            <div class="reveal rounded-[20px] border border-black/10 bg-[#1A1714] p-6 md:p-8">
+              <pre class="overflow-x-auto text-[13px] leading-[1.7] text-[#E8E0D2] font-mono"><code>1. What is the capital of France?
+A. London
+B. Paris
+C. Berlin
+D. Madrid
+Answer: B
+
+2. Which planet is known as the Red Planet?
+A. Venus
+B. Jupiter
+C. Mars
+D. Saturn
+Answer: C</code></pre>
+            </div>
+          </div>
+        </section>
+
         <!-- TOOLS · the rest of the studio -->
         <section aria-labelledby="tools-heading" class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-16 md:pt-20">
-          <h2 id="tools-heading" class="reveal text-[13px] font-medium text-[#6B6560]">Also in the studio</h2>
-          <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <a routerLink="/shorts-maker" class="reveal card-lift flex items-center justify-between gap-6 rounded-[20px] bg-[#1A1714] p-6 md:p-7 text-[#F4EFE6]">
-              <span>
-                <span class="serif block text-[26px] leading-tight">AI Shorts generator</span>
-                <span class="mt-1.5 block max-w-[44ch] text-[14.5px] leading-relaxed text-white/70">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions.</span>
-              </span>
-              <span class="shrink-0 text-[20px]" aria-hidden="true"></span>
-            </a>
-            <a routerLink="/tools/add-watermark" class="reveal card-lift flex items-center justify-between gap-6 rounded-[20px] bg-[#1E3A2A] p-6 md:p-7 text-[#EDE8DB]">
-              <span>
-                <span class="serif block text-[26px] leading-tight">Watermark tool</span>
-                <span class="mt-1.5 block max-w-[44ch] text-[14.5px] leading-relaxed text-[#EDE8DB]/80">Add draggable text or logo watermarks to images and video. It runs in your browser and nothing is uploaded.</span>
-              </span>
-              <span class="shrink-0 text-[20px]" aria-hidden="true"></span>
-            </a>
+          <h2 id="tools-heading" class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)]">Two more tools in the studio.</h2>
+          <p class="reveal mt-4 max-w-[62ch] text-[16px] leading-relaxed text-[#6B6560]">
+            The quiz renderer is one of three pipelines here. The other two work on footage you already have, and the second one never touches a server.
+          </p>
+          <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- AI Shorts -->
+            <article class="reveal rounded-[20px] bg-[#1A1714] text-[#F4EFE6] p-6 md:p-8 flex flex-col">
+              <p class="text-[11px] uppercase tracking-[0.06em] text-white/50">AI Shorts generator</p>
+              <h3 class="serif mt-2 text-[26px] leading-tight">A long video, cut into ranked vertical clips.</h3>
+              <p class="mt-3 text-[14.5px] leading-relaxed text-white/70">
+                Drop in a podcast, an interview or a lecture. It is transcribed word by word, every segment is
+                scored, and the best ones are rendered as 9:16 clips with captions burned in.
+              </p>
+              <ul class="mt-5 space-y-2.5 text-[14px] leading-relaxed text-white/75">
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Video or audio in: MP4, MOV, MP3, WAV, up to 10 minutes</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Up to 3 clips per upload, ranked by score</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Face tracking pans the frame onto the speaker</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Blur-fill keeps text cards and screen recordings whole</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Four caption presets, restyled after the fact</li>
+              </ul>
+              <dl class="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 gap-4 text-[13px]">
+                <div><dt class="text-white/50">Output</dt><dd class="mt-0.5 font-semibold">1080x1920 MP4</dd></div>
+                <div><dt class="text-white/50">Codec</dt><dd class="mt-0.5 font-semibold">H.264 + AAC, 30fps</dd></div>
+              </dl>
+              <a routerLink="/shorts-maker" class="btn-interactive mt-6 inline-flex items-center gap-2 self-start rounded-full bg-[#F4EFE6] text-[#141310] px-6 py-3 font-semibold text-[14px]">Open the Shorts generator</a>
+            </article>
+
+            <!-- Watermark -->
+            <article class="reveal rounded-[20px] bg-[#1E3A2A] text-[#EDE8DB] p-6 md:p-8 flex flex-col">
+              <p class="text-[11px] uppercase tracking-[0.06em] text-white/50">Watermark tool</p>
+              <h3 class="serif mt-2 text-[26px] leading-tight">Your mark on any image or video, in your browser.</h3>
+              <p class="mt-3 text-[14.5px] leading-relaxed text-[#EDE8DB]/80">
+                Stamp a text or logo watermark, drag it where you want it, and export. The file never
+                leaves your device, so there is no upload and no account.
+              </p>
+              <ul class="mt-5 space-y-2.5 text-[14px] leading-relaxed text-[#EDE8DB]/85">
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Text in 10 typefaces, or your own logo image</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Size, opacity, colour and rotation, all adjustable</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Original, 16:9, 9:16 or 1:1 framing</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Images out at full resolution as PNG or JPEG</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Video out as MP4, rendered on your own machine</li>
+              </ul>
+              <dl class="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 gap-4 text-[13px]">
+                <div><dt class="text-white/50">Accepts</dt><dd class="mt-0.5 font-semibold">JPG, PNG, WebP, MP4</dd></div>
+                <div><dt class="text-white/50">Uploads</dt><dd class="mt-0.5 font-semibold">Nothing, ever</dd></div>
+              </dl>
+              <a routerLink="/tools/add-watermark" class="btn-interactive mt-6 inline-flex items-center gap-2 self-start rounded-full bg-[#EDE8DB] text-[#1E3A2A] px-6 py-3 font-semibold text-[14px]">Open the watermark tool</a>
+            </article>
           </div>
         </section>
         <!-- PROCESS · how it works -->
@@ -203,11 +288,62 @@ import { HeroSceneComponent } from './hero-scene.component';
         </section>
       </main>
 
-      <!-- CLOSING dark block: manifesto + newsletter + footer -->
+      <!-- FAQ -->
+      <section id="faq" class="border-t border-black/[0.07] bg-white">
+        <div class="w-[min(900px,100%)] mx-auto px-5 md:px-10 py-16 md:py-24">
+          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">FAQ</p>
+          <h2 class="reveal mt-3 text-center serif font-medium tracking-[-0.02em] text-[clamp(1.7rem,3.2vw,2.6rem)]">Before you <em class="font-light">upload.</em></h2>
+          <div class="mt-8 space-y-3">
+            @for (f of faqs; track f.q) {
+              <details class="faq reveal rounded-[16px] border border-black/10 bg-[#FAF7F2] px-5 py-4">
+                <summary class="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold text-[15px]">
+                  {{ f.q }}
+                  <svg class="shrink-0 text-[#6B6560] faq-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <p class="mt-3 text-[14px] leading-relaxed text-[#6B6560]">{{ f.a }}</p>
+              </details>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- CLOSING dark block: trust + newsletter + footer -->
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6]">
         <div class="absolute inset-0" style="background: linear-gradient(to bottom, #0F0E0B, rgba(15,14,11,0.75) 45%, #0F0E0B);"></div>
-        <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-24 md:pt-32 pb-10">
-          <footer class="border-t border-white/10 pt-10">
+        <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-20 md:pt-28 pb-10">
+          <!-- Trust + newsletter -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+            <div>
+              <h2 class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)]">Get the next essay first.</h2>
+              <p class="reveal mt-3 text-[15px] leading-relaxed text-white/70 max-w-[46ch]">
+                Notes on pacing, narration and publishing quiz videos. No newsletter exists yet, so this only confirms your address was read.
+              </p>
+              @if (newsletterSubscribed) {
+                <p class="reveal is-visible mt-5 text-[14px] text-[#EDE8DB]">Thanks. Newsletter signup is coming soon, and we will not share your address.</p>
+              } @else {
+                <form (submit)="subscribeNewsletter($event)" class="reveal mt-5 max-w-[420px]">
+                  <label for="landing-newsletter-email" class="sr-only">Email address</label>
+                  <div class="rounded-[20px] p-2 bg-white/[0.06] border border-white/10 backdrop-blur flex flex-col sm:flex-row gap-2">
+                    <input id="landing-newsletter-email" type="email" required placeholder="you@studio.com"
+                      class="flex-1 rounded-[12px] bg-transparent px-5 h-12 text-[15px] placeholder:text-white/60 outline-none border border-transparent focus:border-white/40">
+                    <button type="submit" class="btn-primary rounded-full bg-[#E8E0D2] text-[#141310] px-7 h-12 font-semibold text-[14.5px]">Subscribe</button>
+                  </div>
+                </form>
+              }
+            </div>
+            <div>
+              <h2 class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)]">Who runs this.</h2>
+              <p class="reveal mt-3 text-[15px] leading-relaxed text-white/70 max-w-[46ch]">
+                Indifferent is built and maintained by one developer. It is in beta, free to use, and there is no sales team behind it.
+                If something breaks, you can reach the person who wrote it.
+              </p>
+              <p class="reveal mt-4 text-[15px]">
+                <a href="mailto:support@indifferent.fun" class="underline underline-offset-4 decoration-white/30 hover:decoration-white">support&#64;indifferent.fun</a>
+              </p>
+            </div>
+          </div>
+
+          <footer class="mt-16 border-t border-white/10 pt-10">
             <p class="serif text-center leading-none tracking-[-0.03em] text-[clamp(3.5rem,14vw,11rem)] text-[#F4EFE6]/95 select-none">INDIFFERENT</p>
             <div class="mt-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-[14px]">
               <div>
@@ -241,8 +377,9 @@ import { HeroSceneComponent } from './hero-scene.component';
                 <p class="mt-4 text-white/60 text-[13px]">TXT in. MP4 out.</p>
               </div>
             </div>
-            <div class="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-white/60">
+            <div class="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-3 text-[12.5px] text-white/60">
               <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
+              <a href="mailto:support@indifferent.fun" class="underline underline-offset-4 decoration-white/25 hover:decoration-white">support&#64;indifferent.fun</a>
             </div>
           </footer>
         </div>
@@ -250,8 +387,9 @@ import { HeroSceneComponent } from './hero-scene.component';
     </div>
   `,
 })
-export class LandingComponent implements AfterViewInit {
+export class LandingComponent implements OnInit, AfterViewInit {
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  private readonly document = inject(DOCUMENT);
 
   @ViewChild('heroTitle') heroTitle!: ElementRef;
   @ViewChild('heroSubtitle') heroSubtitle!: ElementRef;
@@ -259,6 +397,73 @@ export class LandingComponent implements AfterViewInit {
   @ViewChild('heroSection') heroSection!: ElementRef;
 
   currentYear = new Date().getFullYear();
+  newsletterSubscribed = false;
+
+  faqs: { q: string; a: string }[] = [
+    { q: 'What file do I need?', a: 'A plain text (.txt) file containing your multiple-choice questions. Number each question, list the options, and mark the answer. Numbered, bulleted and tab-indented formats are all detected, so you do not have to clean up your formatting first.' },
+    { q: 'How large can the file be?', a: 'Up to 5 MB, which is enough for several hundred questions. The video length follows from how many questions you write.' },
+    { q: 'Which voices can I use?', a: 'Five, all real Amazon Polly voices: Joanna (US English, clear and professional), Matthew (US English, warm and authoritative), Amy (British English, polished), Brian (British English, natural) and Aditi (Indian English, approachable).' },
+    { q: 'How long does rendering take?', a: 'A short quiz renders in a couple of minutes. The project page shows the live stage, so you can leave it open and come back.' },
+    { q: 'Is it free?', a: 'Yes, during the beta. No credit card, no quota to track, no paid tier to upgrade to yet. The beta terms say what that means.' },
+    { q: 'Is my question file uploaded?', a: 'Yes, the text file has to reach the server to be parsed and narrated, and it is stored with your project so you can re-render it. The privacy page explains exactly what is kept and for how long. The watermark tool is the opposite: it never uploads anything.' },
+    { q: 'Can I use the video commercially?', a: 'The narration and slides are generated for you, so what you can do with the result depends on the questions you wrote and on your account terms. The terms page covers this in full.' },
+    { q: 'What happens to my file afterwards?', a: 'Your project and its text file stay in your account so you can re-render with a different voice or template, and you can delete them at any time from the project page.' },
+  ];
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'Indifferent: Turn a TXT Quiz File into a Narrated Video',
+      description:
+        'Write your quiz questions in a plain text file and get back a 1080p MP4 where a voice reads each question aloud and reveals the answer. Free during beta, no credit card.',
+      canonical: 'https://indifferent.fun/',
+    });
+    this.addJsonLd({
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: 'Indifferent: Turn a TXT Quiz File into a Narrated Video',
+      url: 'https://indifferent.fun/',
+      description:
+        'Write your quiz questions in a plain text file and get back a 1080p MP4 where a voice reads each question aloud and reveals the answer.',
+    });
+    this.addJsonLd({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Indifferent Quiz Video Generator',
+      url: 'https://indifferent.fun/',
+      applicationCategory: 'MultimediaApplication',
+      operatingSystem: 'Web',
+      description:
+        'Turns a plain text file of multiple-choice questions into a narrated 1080p MP4 quiz video.',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'Free during beta' },
+      featureList: [
+        'TXT quiz file input',
+        '5 narration voices',
+        '1080p MP4 output',
+        'Question and answer slides',
+      ],
+    });
+    this.addJsonLd({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: this.faqs.map((f) => ({
+        '@type': 'Question',
+        name: f.q,
+        acceptedAnswer: { '@type': 'Answer', text: f.a },
+      })),
+    });
+  }
+
+  private addJsonLd(schema: Record<string, unknown>): void {
+    const script = this.document.createElement('script');
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify(schema);
+    this.document.head.appendChild(script);
+  }
+
+  subscribeNewsletter(event: Event): void {
+    event.preventDefault();
+    this.newsletterSubscribed = true;
+  }
 
   steps = [
     {
@@ -280,7 +485,7 @@ export class LandingComponent implements AfterViewInit {
   useCases = [
     { title: 'YouTube quiz shows', text: 'Faceless quiz channels: upload a file, publish the video.', href: '/blog/quiz-videos-youtube', cta: 'Read the guide' },
     { title: 'Lesson recaps', text: 'Turn revision questions into a video students can replay.', href: '/blog/educational-video-best-practices', cta: 'Read the guide' },
-    { title: 'Trivia nights', text: 'Run a round straight from a text file of questions.', href: '/features/txt-to-video-quiz', cta: 'See the feature' },
+    { title: 'Trivia nights', text: 'Run a round straight from a text file of questions.', href: '/blog/quiz-file-format-guide', cta: 'See the format' },
     { title: 'Staff training', text: 'Check understanding with multiple-choice questions.', href: '/features/txt-to-video-quiz', cta: 'See the feature' },
   ];
 
