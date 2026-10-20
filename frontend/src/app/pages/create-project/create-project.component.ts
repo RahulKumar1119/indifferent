@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -6,6 +6,7 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ApiService } from '../../core';
 import { Project, CreateProjectRequest, CreateProjectResponse, TEMPLATE_OPTIONS, Voice } from '../../shared';
+import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from '../shorts/shorts.service';
 
 @Component({
   selector: 'app-create-project',
@@ -172,7 +173,7 @@ import { Project, CreateProjectRequest, CreateProjectResponse, TEMPLATE_OPTIONS,
                         <label class="block cursor-pointer rounded-[12px] border-2 border-dashed border-black/15 px-4 py-6 text-center hover:border-black/30 transition-colors">
                           <input type="file" accept=".mp4,.mov,.mp3,.wav" class="hidden" (change)="onShortsFileSelected($event)" />
                           <span class="text-[14px] font-medium">Choose video or audio</span>
-                          <span class="block mt-1 text-[12px] text-[#6B6560]">MP4, MOV, MP3, WAV: max 10 min</span>
+                          <span class="block mt-1 text-[12px] text-[#6B6560]">MP4, MOV, MP3, WAV: max {{ shortsLimits.maxDurationMinutes }} min</span>
                         </label>
                       } @else {
                         <div class="flex items-center justify-between gap-3 text-[14px]">
@@ -234,7 +235,7 @@ import { Project, CreateProjectRequest, CreateProjectResponse, TEMPLATE_OPTIONS,
     </div>
   `,
 })
-export class CreateProjectComponent {
+export class CreateProjectComponent implements OnInit {
   currentYear = new Date().getFullYear();
   projectForm: FormGroup;
   isSubmitting = false;
@@ -245,6 +246,8 @@ export class CreateProjectComponent {
   shortsDuration = 0;
   shortsError = '';
   shortsProbing = false;
+  /** The limits the pipeline enforces, read from GET /shorts/limits. */
+  shortsLimits: ShortsLimits = DEFAULT_SHORTS_LIMITS;
 
   readonly templates = TEMPLATE_OPTIONS;
 
@@ -254,15 +257,29 @@ export class CreateProjectComponent {
     private readonly fb: FormBuilder,
     private readonly api: ApiService,
     private readonly router: Router,
+    private readonly shorts: ShortsService,
   ) {
     this.projectForm = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(100)]],
       template: ['classic', Validators.required],
       voice: ['Joanna', Validators.required],
-      watermarkText: ['', Validators.maxLength(100)],
+      watermarkText: ['', [Validators.maxLength(100)]],
       watermarkOpacity: [0.8],
-      channelName: ['', Validators.maxLength(60)],
+      channelName: ['', [Validators.maxLength(60)]],
       includeShorts: [false],
+    });
+  }
+
+  ngOnInit(): void {
+    // The enforced limits come from the API so the copy and the validation
+    // can never drift from what the backend applies.
+    this.shorts.getLimits().subscribe({
+      next: (limits) => {
+        if (limits && limits.maxDurationSeconds > 0 && limits.maxUploadBytes > 0) {
+          this.shortsLimits = limits;
+        }
+      },
+      error: () => {},
     });
   }
 
@@ -313,8 +330,8 @@ export class CreateProjectComponent {
     media.onloadedmetadata = () => {
       const duration = media.duration;
       cleanup();
-      if (!isFinite(duration) || duration <= 0 || duration > 600) {
-        this.shortsError = 'Could not use this file (bad duration or over 10 minutes).';
+      if (!isFinite(duration) || duration <= 0 || duration > this.shortsLimits.maxDurationSeconds) {
+        this.shortsError = `Could not use this file (bad duration or over ${this.shortsLimits.maxDurationMinutes} minutes).`;
         this.shortsFile = null;
         return;
       }

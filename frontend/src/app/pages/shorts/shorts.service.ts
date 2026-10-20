@@ -111,6 +111,37 @@ export interface CreateShortsResponse {
 }
 
 /**
+ * The source limits the Shorts pipeline enforces. Read from GET /shorts/limits
+ * so the numbers shown in the UI can never drift from the ones the API
+ * applies.
+ */
+export interface ShortsLimits {
+  maxDurationSeconds: number;
+  maxDurationMinutes: number;
+  maxUploadBytes: number;
+  maxUploadMb: number;
+  maxClipCount: number;
+  minClipSeconds: number;
+  maxClipSeconds: number;
+  acceptedFileTypes: string[];
+}
+
+/**
+ * Fallback limits, used only until GET /shorts/limits answers. They match the
+ * backend constants; the API response replaces them as soon as it arrives.
+ */
+export const DEFAULT_SHORTS_LIMITS: ShortsLimits = {
+  maxDurationSeconds: 3600,
+  maxDurationMinutes: 60,
+  maxUploadBytes: 2 * 1024 * 1024 * 1024,
+  maxUploadMb: 2048,
+  maxClipCount: 3,
+  minClipSeconds: 30,
+  maxClipSeconds: 90,
+  acceptedFileTypes: ['mp3', 'mp4', 'mov', 'wav'],
+};
+
+/**
  * Client for the Shorts_API routes. Calls flow through ApiService so JWT auth
  * (cookie credentials) is applied, except presigned S3 uploads which use the
  * absolute-URL passthrough.
@@ -118,6 +149,11 @@ export interface CreateShortsResponse {
 @Injectable({ providedIn: 'root' })
 export class ShortsService {
   constructor(private readonly api: ApiService) {}
+
+  /** GET /shorts/limits: the source limits the pipeline enforces. */
+  getLimits(): Observable<ShortsLimits> {
+    return this.api.get<ShortsLimits>('/shorts/limits');
+  }
 
   /** POST /shorts: create a job and get a presigned upload URL. */
   createJob(fileType: string, duration: number): Observable<CreateShortsResponse> {

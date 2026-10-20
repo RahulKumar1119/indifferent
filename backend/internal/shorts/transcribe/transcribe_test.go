@@ -222,7 +222,7 @@ func TestPoll_OverlongTranscriptFailsActionably(t *testing.T) {
 	// was wrong: fail with the limit instead of rendering blindly.
 	client := &mockTranscribeClient{statuses: []types.TranscriptionJobStatus{types.TranscriptionJobStatusCompleted}}
 	store := newMockStorage()
-	store.objects[rawOutputKey("user1", "job1")] = []byte(`{"results":{"transcripts":[{"transcript":"hi"}],"items":[{"type":"pronunciation","start_time":"0.0","end_time":"700.0","alternatives":[{"content":"hi"}]}]}}`)
+	store.objects[rawOutputKey("user1", "job1")] = []byte(`{"results":{"transcripts":[{"transcript":"hi"}],"items":[{"type":"pronunciation","start_time":"0.0","end_time":"4000.0","alternatives":[{"content":"hi"}]}]}}`)
 	svc := NewService(client, store, "my-bucket", "us-east-1")
 
 	_, err := svc.Poll(context.Background(), "job1", "user1", "shorts-job1")

@@ -183,7 +183,7 @@ const STAGES: Stage[] = [
               </button>
             } @else {
               <p class="w-full text-[13px] text-[hsl(var(--muted-foreground))]">
-                This file can't be processed as-is. Try a different file with clear speech under 10 minutes.
+                This file can't be processed as-is. Try a different file with clear speech, under an hour long.
               </p>
             }
             <button class="glow-btn" (click)="goToUpload()">Start Over</button>
@@ -365,12 +365,17 @@ export class ShortsProgressComponent implements OnInit, OnDestroy {
     return status === 'completed' ? 100 : 0;
   }
 
+  // The ETA has to stay believable for a long source. Transcribing scales
+  // with the file but runs well under real time; rendering depends on the
+  // clips (3 of at most 90s), not on the source length, so it must not grow
+  // with it. Both are capped, and the caps need recalibrating from real
+  // one-hour runs before they are quoted as measured numbers.
   private buildEta(status: ShortsStatus): string {
     let seconds: number;
     if (status === 'transcribing') {
-      seconds = Math.max(30, this.durationSeconds * 1.0 + 30);
+      seconds = Math.min(15 * 60, Math.max(30, this.durationSeconds * 1.0 + 30));
     } else if (status === 'rendering') {
-      seconds = Math.max(30, this.durationSeconds * 0.6);
+      seconds = Math.min(5 * 60, Math.max(30, this.durationSeconds * 0.6));
     } else {
       return '';
     }

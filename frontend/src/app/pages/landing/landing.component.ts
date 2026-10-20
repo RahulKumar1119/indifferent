@@ -209,7 +209,7 @@ Answer: C</code></pre>
                 scored, and the best ones are rendered as 9:16 clips with captions burned in.
               </p>
               <ul class="mt-5 space-y-2.5 text-[14px] leading-relaxed text-white/75">
-                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Video or audio in: MP4, MOV, MP3, WAV, up to 10 minutes</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Video or audio in: MP4, MOV, MP3, WAV, up to 1 hour</li>
                 <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Up to 3 clips per upload, ranked by score</li>
                 <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Face tracking pans the frame onto the speaker</li>
                 <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Blur-fill keeps text cards and screen recordings whole</li>

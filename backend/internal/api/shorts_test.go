@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/rahul/indifferent/backend/internal/auth"
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/shorts"
 	"github.com/rahul/indifferent/backend/internal/storage"
 )
 
@@ -45,8 +46,10 @@ func TestValidateCreateShorts(t *testing.T) {
 		{"empty type", CreateShortsRequest{FileType: "", Duration: 60}, true},
 		{"zero duration", CreateShortsRequest{FileType: "mp4", Duration: 0}, true},
 		{"negative duration", CreateShortsRequest{FileType: "mp4", Duration: -5}, true},
-		{"duration over max", CreateShortsRequest{FileType: "mp4", Duration: 601}, true},
-		{"duration at max", CreateShortsRequest{FileType: "mp4", Duration: 600}, false},
+		{"duration over max", CreateShortsRequest{FileType: "mp4", Duration: 3601}, true},
+		{"duration at max", CreateShortsRequest{FileType: "mp4", Duration: 3600}, false},
+		{"duration one over max", CreateShortsRequest{FileType: "mp4", Duration: shorts.MaxSourceDuration + 1}, true},
+		{"duration exactly at max", CreateShortsRequest{FileType: "mp4", Duration: shorts.MaxSourceDuration}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -72,7 +75,8 @@ func TestCreateShorts_ValidationResponse(t *testing.T) {
 	}{
 		{"invalid body", "", 400, "INVALID_BODY"},
 		{"unsupported type", `{"fileType":"avi","duration":60}`, 400, "VALIDATION_ERROR"},
-		{"over duration", `{"fileType":"mp4","duration":700}`, 400, "VALIDATION_ERROR"},
+		{"over duration", `{"fileType":"mp4","duration":3601}`, 400, "VALIDATION_ERROR"},
+		{"at duration limit", `{"fileType":"mp4","duration":3600}`, 201, ""},
 		{"valid", `{"fileType":"mp4","duration":60}`, 201, ""},
 	}
 	for _, tt := range tests {
@@ -755,9 +759,17 @@ func TestStartShorts_VerifiesUpload(t *testing.T) {
 	})
 
 	t.Run("oversize upload rejected", func(t *testing.T) {
-		status, body := start(storage.ObjectMeta{Found: true, Size: 600 << 20, ContentType: "video/mp4"})
+		// One byte over the 2 GB cap.
+		status, body := start(storage.ObjectMeta{Found: true, Size: shorts.MaxUploadBytes + 1, ContentType: "video/mp4"})
 		if status != 400 || !strings.Contains(body, "UPLOAD_TOO_LARGE") {
 			t.Errorf("got %d %s, want 400 UPLOAD_TOO_LARGE", status, body)
+		}
+	})
+
+	t.Run("upload at the size cap accepted", func(t *testing.T) {
+		status, body := start(storage.ObjectMeta{Found: true, Size: shorts.MaxUploadBytes, ContentType: "video/mp4"})
+		if status != 200 {
+			t.Errorf("got %d %s, want 200", status, body)
 		}
 	})
 

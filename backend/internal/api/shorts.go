@@ -46,6 +46,42 @@ var validShortsFileTypes = map[string]string{
 	"wav": "audio/wav",
 }
 
+// ShortsLimits is the single source of truth for the source limits the
+// pipeline enforces. The client reads it from GET /shorts/limits so the
+// limits shown in the UI can never drift from the ones the API applies.
+type ShortsLimits struct {
+	MaxDurationSeconds float64 `json:"maxDurationSeconds"`
+	MaxDurationMinutes int      `json:"maxDurationMinutes"`
+	MaxUploadBytes     int64    `json:"maxUploadBytes"`
+	MaxUploadMB        int64    `json:"maxUploadMb"`
+	MaxClipCount       int      `json:"maxClipCount"`
+	MinClipSeconds     float64  `json:"minClipSeconds"`
+	MaxClipSeconds     float64  `json:"maxClipSeconds"`
+	AcceptedFileTypes  []string `json:"acceptedFileTypes"`
+}
+
+// handleGetShortsLimits returns the source limits for the AI Shorts pipeline.
+// It is public: it exposes no user data, and the marketing and upload pages
+// both need the same numbers.
+func (h *APIHandler) handleGetShortsLimits(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	types := make([]string, 0, len(validShortsFileTypes))
+	for ext := range validShortsFileTypes {
+		types = append(types, ext)
+	}
+	sort.Strings(types)
+
+	return jsonResponse(http.StatusOK, ShortsLimits{
+		MaxDurationSeconds: shorts.MaxSourceDuration,
+		MaxDurationMinutes: int(shorts.MaxSourceDuration / 60),
+		MaxUploadBytes:     shorts.MaxUploadBytes,
+		MaxUploadMB:        shorts.MaxUploadBytes / (1024 * 1024),
+		MaxClipCount:       shorts.MaxClipCount,
+		MinClipSeconds:     shorts.MinClipDuration,
+		MaxClipSeconds:     shorts.MaxClipDuration,
+		AcceptedFileTypes:  types,
+	}), nil
+}
+
 // validateCreateShorts enforces file-type and duration limits before any job
 // is created (Requirements 1.3, 1.4, 9.1, 9.3).
 func validateCreateShorts(req *CreateShortsRequest) error {
@@ -57,7 +93,7 @@ func validateCreateShorts(req *CreateShortsRequest) error {
 		return fmt.Errorf("duration must be greater than zero")
 	}
 	if req.Duration > shorts.MaxSourceDuration {
-		return fmt.Errorf("source duration %.0fs exceeds maximum of %.0fs", req.Duration, shorts.MaxSourceDuration)
+		return fmt.Errorf("source duration %.0fs exceeds maximum of %.0f minutes", req.Duration, shorts.MaxSourceDuration/60)
 	}
 	return nil
 }
@@ -302,8 +338,9 @@ func (h *APIHandler) verifyShortsUpload(ctx context.Context, job *models.ShortsJ
 	}
 	if meta.Size > shorts.MaxUploadBytes {
 		return &uploadProblem{
-			code:    "UPLOAD_TOO_LARGE",
-			message: fmt.Sprintf("Uploaded file is %.0f MB; maximum is %d MB. Please use a smaller file.", float64(meta.Size)/1024/1024, shorts.MaxUploadBytes/1024/1024),
+			code: "UPLOAD_TOO_LARGE",
+			message: fmt.Sprintf("Uploaded file is %.0f MB; the maximum is %d MB. Pick a smaller file, or compress the source first.",
+				float64(meta.Size)/1024/1024, shorts.MaxUploadBytes/1024/1024),
 		}
 	}
 	if want, ok := validShortsFileTypes[strings.ToLower(strings.TrimSpace(job.FileType))]; ok && meta.ContentType != "" {

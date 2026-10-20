@@ -2,12 +2,10 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
-import { ShortsService } from './shorts.service';
+import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 
-const MAX_DURATION_SECONDS = 600; // 10 minutes (Requirement 9.1)
-const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB
 const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
 const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
 
@@ -72,7 +70,7 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
         </div>
         <div class="glass-card p-3 text-center">
           <svg lucideIcon="clock" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
-          <p class="mt-1.5 text-xs font-semibold">Max 10 min</p>
+          <p class="mt-1.5 text-xs font-semibold">Max {{ limits.maxDurationMinutes }} min</p>
           <p class="text-[11px] text-[hsl(var(--muted-foreground))]">per upload</p>
         </div>
         <div class="glass-card p-3 text-center">
@@ -91,7 +89,7 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
         (keydown.enter)="fileInput.click()"
         tabindex="0"
         role="button"
-        aria-label="Drop zone for media file upload. Accepts MP4, MOV, MP3, WAV up to 10 minutes and 500 MB."
+        aria-label="Drop zone for media file upload. Accepts MP4, MOV, MP3, WAV up to {{ limits.maxDurationMinutes }} minutes and {{ limits.maxUploadMb }} MB."
       >
         <input
           #fileInput
@@ -108,7 +106,7 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
               <svg lucideIcon="upload" [size]="36" class="text-[hsl(var(--primary))]" [class.animate-pulse]="isDragOver"></svg>
             </div>
             <p class="text-xl font-medium">{{ isDragOver ? 'Drop it. We take it from here' : 'Drag & drop anywhere on this page' }}</p>
-            <p class="text-sm font-medium text-[hsl(var(--foreground))]">MP4, MOV, MP3, WAV · Max 10 min · Max 500 MB</p>
+            <p class="text-sm font-medium text-[hsl(var(--foreground))]">MP4, MOV, MP3, WAV · Max {{ limits.maxDurationMinutes }} min · Max {{ limits.maxUploadMb }} MB</p>
             <p class="text-sm text-[hsl(var(--muted-foreground))]">or</p>
             <button
               class="px-6 py-3 rounded-lg bg-[hsl(var(--primary))] text-white hover:opacity-90 transition-opacity text-sm font-semibold min-h-[48px] min-w-[200px]"
@@ -259,6 +257,8 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   previewUrl: string | null = null;
   dragFileName = '';
   dragPreviewUrl: string | null = null;
+  /** The limits the pipeline enforces, read from GET /shorts/limits. */
+  limits: ShortsLimits = DEFAULT_SHORTS_LIMITS;
 
   private xhr: XMLHttpRequest | null = null;
   private lastJobId: string | null = null;
@@ -277,6 +277,20 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     window.addEventListener('dragover', this.preventWindowDrop);
     window.addEventListener('drop', this.preventWindowDrop);
+    this.loadLimits();
+  }
+
+  /** Read the enforced limits from the API. The local defaults stay in place
+   * if the request fails, so the page still validates against real numbers. */
+  private loadLimits(): void {
+    this.shorts.getLimits().subscribe({
+      next: (limits) => {
+        if (limits && limits.maxDurationSeconds > 0 && limits.maxUploadBytes > 0) {
+          this.limits = limits;
+        }
+      },
+      error: () => {},
+    });
   }
 
   ngOnDestroy(): void {
@@ -430,8 +444,8 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      this.error = 'File is too large. Maximum size is 500 MB.';
+    if (file.size > this.limits.maxUploadBytes) {
+      this.error = `File is too large (${this.formatFileSize(file.size)}). Maximum size is ${this.limits.maxUploadMb} MB.`;
       this.selectedFile = file;
       return;
     }
@@ -464,8 +478,8 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
         this.error = 'Could not read media duration. Please try a different file.';
         return;
       }
-      if (duration > MAX_DURATION_SECONDS) {
-        this.error = `File is too long (${this.formatDuration(duration)}). Maximum length is 10 minutes.`;
+      if (duration > this.limits.maxDurationSeconds) {
+        this.error = `File is too long (${this.formatDuration(duration)}). Maximum length is ${this.limits.maxDurationMinutes} minutes.`;
         return;
       }
       this.durationSeconds = duration;

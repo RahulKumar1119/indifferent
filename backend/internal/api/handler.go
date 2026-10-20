@@ -140,6 +140,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleCreateShorts)
 	case req.HTTPMethod == "GET" && req.Path == "/shorts":
 		return h.handleWithAuth(ctx, req, h.handleListShortsJobs)
+	case req.HTTPMethod == "GET" && req.Path == "/shorts/limits":
+		return h.handleGetShortsLimits(ctx, req)
 	case isThumbnailPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleThumbnails)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/start"):

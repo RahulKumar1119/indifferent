@@ -23,6 +23,7 @@ import (
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/rekognition"
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/shorts"
 	"github.com/rahul/indifferent/backend/internal/shorts/render"
 	"github.com/rahul/indifferent/backend/internal/storage"
 )
@@ -78,8 +79,11 @@ func run(ctx context.Context) error {
 	if start < 0 || end <= start {
 		return fmt.Errorf("invalid clip window: require 0 <= start < end, got start=%v end=%v", start, end)
 	}
-	if end-start > 600 {
-		return fmt.Errorf("invalid clip window: %.0fs exceeds the 600s source cap", end-start)
+	// A clip window can never be longer than the source it comes from. This
+	// is a poison-input guard, not the clip duration limit (that is
+	// shorts.MaxClipDuration, 90s).
+	if end-start > shorts.MaxSourceDuration {
+		return fmt.Errorf("invalid clip window: %.0fs exceeds the %.0f minute source cap", end-start, shorts.MaxSourceDuration/60)
 	}
 	// CLIP_RANK is optional metadata; default 0 when unset or unparsable.
 	rank, _ := strconv.Atoi(os.Getenv("CLIP_RANK"))
