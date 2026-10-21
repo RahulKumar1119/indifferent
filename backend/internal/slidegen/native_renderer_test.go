@@ -2,6 +2,8 @@ package slidegen
 
 import (
 	"bytes"
+	"image"
+	"image/color"
 	"image/png"
 	"testing"
 
@@ -201,4 +203,53 @@ func TestIsCorrectIndex(t *testing.T) {
 			t.Errorf("isCorrectIndex(%d, %v) = %v, want %v", tt.idx, tt.indices, got, tt.want)
 		}
 	}
+}
+
+func TestLongContentStaysOnCanvas(t *testing.T) {
+	longOption := "A deliberately long answer option that reaches one hundred characters and still needs to wrap cleanly inside a card without clipping"
+	data := QuestionSlideData{
+		QuestionNumber: 12,
+		TotalQuestions: 12,
+		QuestionText:   "A company stores audit logs that must never be modified or deleted for seven years, and auditors need to read them quickly when asked. Which design satisfies both requirements without changing the retention period?",
+		Options: []models.Option{
+			{Label: "A", Text: longOption},
+			{Label: "B", Text: "Keep the logs on an encrypted volume and snapshot it nightly for seven years"},
+			{Label: "C", Text: "Email the logs to the audit team every morning"},
+			{Label: "D", Text: "Store the logs in a database table and restrict write access"},
+		},
+		CorrectIndex:   0,
+		CorrectIndices: []int{0},
+	}
+
+	for _, name := range ThemeNames() {
+		t.Run(name, func(t *testing.T) {
+			for _, slide := range []struct {
+				file string
+				bg   color.RGBA
+			}{
+				{"question.html", ThemeFor(name).QuestionBG},
+				{"answer-reveal.html", ThemeFor(name).AnswerBG},
+			} {
+				img := renderImage(t, name, slide.file, data)
+				if x, y, ok := inkInFrame(img, slide.bg, 12); ok {
+					t.Errorf("%s: content reaches the canvas edge at (%d,%d)", slide.file, x, y)
+				}
+			}
+		})
+	}
+}
+
+func inkInFrame(img *image.RGBA, bg color.RGBA, frame int) (int, int, bool) {
+	b := img.Bounds()
+	for y := frame; y < b.Max.Y; y++ {
+		for x := 0; x < b.Max.X; x++ {
+			if x >= frame && x < b.Max.X-frame && y < b.Max.Y-frame {
+				continue
+			}
+			if img.RGBAAt(x, y) != bg {
+				return x, y, true
+			}
+		}
+	}
+	return 0, 0, false
 }

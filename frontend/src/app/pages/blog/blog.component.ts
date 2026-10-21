@@ -213,7 +213,7 @@ export class BlogComponent implements OnInit, AfterViewInit {
     setPageSeo(this.document, {
       title: 'Journal: Essays & Notes | Indifferent',
       description:
-        'The Indifferent journal: guides on quiz videos, AI narration, video templates, and getting the most out of AI video creation.',
+        'The Indifferent journal: guides on quiz videos, AI narration, video designs, and getting the most out of AI video creation.',
       canonical: 'https://indifferent.fun/blog',
     });
   }

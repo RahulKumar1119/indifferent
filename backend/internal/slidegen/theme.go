@@ -9,16 +9,26 @@ import (
 	"strings"
 )
 
-// Theme is the palette behind a template name: every colour the native
-// renderer draws with. A project's template name (classic, modern, ...) is
-// resolved to a Theme once per slide, so question, answer, countdown and outro
-// slides of one project always match.
-//
-// Themes are palette-only on purpose (issue #102, phase 1). Layout, type sizes
-// and the built-in fonts are shared, which keeps slide generation as fast as
-// before and the Lambda package the same size.
+// DesignLayout is the geometry behind a template name: whether options sit in
+// cards, how round those cards are, and the type scale. The palette and the
+// layout are chosen together by the design id (issue #104).
+type DesignLayout struct {
+	Cards         bool
+	CardRadius    int
+	QuestionSize  float64
+	OptionSize    float64
+	HeaderSize    float64
+	LabelSize     float64
+	QuestionMaxPx float64
+}
+
+// Theme is the palette and layout behind a template name: every colour and
+// measurement the native renderer draws with. A project's template name
+// (classic, modern, ...) is resolved to a Theme once per slide, so question,
+// answer, countdown and outro slides of one project always match.
 type Theme struct {
-	Name string
+	Name   string
+	Layout DesignLayout
 
 	// Slide backgrounds. The answer slide is tinted differently from the
 	// question slide so the reveal reads as a change, not a repeat.
@@ -51,11 +61,13 @@ func mustHex(s string) color.RGBA {
 // themes is the registry. Keys are exactly the template names the API accepts
 // (validTemplates in internal/api); a test keeps the two in step.
 var themes = map[string]Theme{
-	// classic is frozen: it must render pixel for pixel as it did before
-	// themes existed (golden images in testdata/golden). Its answer slide
-	// predates the 4.5:1 contrast rule; see TestClassicKnownContrastShortfalls.
+	// classic keeps its colours; issue #104 gives every design the new base
+	// layout. Golden images in testdata/golden are regenerated alongside it.
+	// Its answer slide still predates the 4.5:1 contrast rule; see
+	// TestClassicKnownContrastShortfalls.
 	"classic": {
 		Name:        "classic",
+		Layout:      DesignLayout{Cards: true, CardRadius: 20, QuestionSize: 64, OptionSize: 44, HeaderSize: 30, LabelSize: 30, QuestionMaxPx: 1560},
 		QuestionBG:  mustHex("#FFFFFF"),
 		AnswerBG:    mustHex("#FFFFFF"),
 		CountdownBG: mustHex("#F5F5FA"),
@@ -70,6 +82,7 @@ var themes = map[string]Theme{
 	// modern: cool slate with a deep sky-blue accent.
 	"modern": {
 		Name:        "modern",
+		Layout:      DesignLayout{Cards: true, CardRadius: 28, QuestionSize: 72, OptionSize: 48, HeaderSize: 30, LabelSize: 32, QuestionMaxPx: 1560},
 		QuestionBG:  mustHex("#F8FAFC"),
 		AnswerBG:    mustHex("#EAF3FF"),
 		CountdownBG: mustHex("#E2E8F0"),
@@ -84,6 +97,7 @@ var themes = map[string]Theme{
 	// education: warm cream paper, navy ink, a red pencil accent.
 	"education": {
 		Name:        "education",
+		Layout:      DesignLayout{Cards: true, CardRadius: 16, QuestionSize: 68, OptionSize: 46, HeaderSize: 30, LabelSize: 30, QuestionMaxPx: 1560},
 		QuestionBG:  mustHex("#FFF9E8"),
 		AnswerBG:    mustHex("#FFF1CC"),
 		CountdownBG: mustHex("#FDEFC8"),
@@ -98,6 +112,7 @@ var themes = map[string]Theme{
 	// dark: near-black with a soft violet accent.
 	"dark": {
 		Name:        "dark",
+		Layout:      DesignLayout{Cards: true, CardRadius: 24, QuestionSize: 68, OptionSize: 46, HeaderSize: 30, LabelSize: 30, QuestionMaxPx: 1560},
 		QuestionBG:  mustHex("#0F1115"),
 		AnswerBG:    mustHex("#151A24"),
 		CountdownBG: mustHex("#1A1F2B"),
@@ -112,6 +127,7 @@ var themes = map[string]Theme{
 	// minimal: off-white and black, no colour except the answer green.
 	"minimal": {
 		Name:        "minimal",
+		Layout:      DesignLayout{Cards: false, CardRadius: 0, QuestionSize: 84, OptionSize: 52, HeaderSize: 28, LabelSize: 34, QuestionMaxPx: 1500},
 		QuestionBG:  mustHex("#FAFAFA"),
 		AnswerBG:    mustHex("#F0F0F0"),
 		CountdownBG: mustHex("#F0F0F0"),
@@ -126,6 +142,7 @@ var themes = map[string]Theme{
 	// neon: deep indigo-black with magenta and green highlights.
 	"neon": {
 		Name:        "neon",
+		Layout:      DesignLayout{Cards: true, CardRadius: 24, QuestionSize: 68, OptionSize: 46, HeaderSize: 30, LabelSize: 30, QuestionMaxPx: 1560},
 		QuestionBG:  mustHex("#0A0A14"),
 		AnswerBG:    mustHex("#130A26"),
 		CountdownBG: mustHex("#0A0A14"),
@@ -137,6 +154,74 @@ var themes = map[string]Theme{
 		Accent:      mustHex("#FF3DCB"),
 		Correct:     mustHex("#39FF88"),
 	},
+}
+
+// layout returns the design measurements with safe defaults, so a theme
+// written before a field existed still renders sensibly.
+func (t Theme) layout() DesignLayout {
+	l := t.Layout
+	if l.CardRadius == 0 && l.Cards {
+		l.CardRadius = 20
+	}
+	if l.QuestionSize == 0 {
+		l.QuestionSize = 64
+	}
+	if l.OptionSize == 0 {
+		l.OptionSize = 44
+	}
+	if l.HeaderSize == 0 {
+		l.HeaderSize = 30
+	}
+	if l.LabelSize == 0 {
+		l.LabelSize = 30
+	}
+	if l.QuestionMaxPx == 0 {
+		l.QuestionMaxPx = 1560
+	}
+	return l
+}
+
+// cardBG is the fill behind an option card. It is the slide background with a
+// hint of the accent, so each design feels like one system without needing a
+// second full palette.
+func (t Theme) cardBG() color.RGBA {
+	if !t.layout().Cards {
+		return t.QuestionBG
+	}
+	return blend(t.QuestionBG, t.Accent, 0.08)
+}
+
+// answerCardBG and correctCardBG are the answer-slide equivalents.
+func (t Theme) answerCardBG() color.RGBA {
+	if !t.layout().Cards {
+		return t.AnswerBG
+	}
+	return blend(t.AnswerBG, t.Text, 0.05)
+}
+
+func (t Theme) correctCardBG() color.RGBA {
+	if !t.layout().Cards {
+		return t.AnswerBG
+	}
+	return blend(t.AnswerBG, t.Correct, 0.05)
+}
+
+// cardBorder is decoration only: it separates a card from the slide without
+// carrying text, so it is not part of the contrast contract.
+func (t Theme) cardBorder() color.RGBA {
+	if !t.layout().Cards {
+		return t.QuestionBG
+	}
+	return blend(t.QuestionBG, t.Text, 0.16)
+}
+
+// blend mixes fg into bg. amount is clamped to [0, 1].
+func blend(bg, fg color.RGBA, amount float64) color.RGBA {
+	amount = math.Max(0, math.Min(1, amount))
+	mix := func(a, b uint8) uint8 {
+		return uint8(math.Round(float64(a)*(1-amount) + float64(b)*amount))
+	}
+	return color.RGBA{R: mix(bg.R, fg.R), G: mix(bg.G, fg.G), B: mix(bg.B, fg.B), A: 255}
 }
 
 // ThemeFor returns the theme for a template name. An unknown or empty name
@@ -186,15 +271,13 @@ const (
 // draws, so the contrast test cannot miss one. It mirrors the draw functions:
 // change one, change the other.
 func (t Theme) contrastPairs() []contrastPair {
-	return []contrastPair{
+	pairs := []contrastPair{
 		{"question: header", t.Accent, t.QuestionBG, textContrast},
 		{"question: question text", t.Text, t.QuestionBG, textContrast},
 		{"question: options", t.Option, t.QuestionBG, textContrast},
 		{"question: top bar", t.Accent, t.QuestionBG, graphicContrast},
 		{"answer: header", t.Accent, t.AnswerBG, textContrast},
 		{"answer: question text", t.Text, t.AnswerBG, textContrast},
-		{"answer: wrong options", t.OptionWrong, t.AnswerBG, textContrast},
-		{"answer: correct option", t.Correct, t.AnswerBG, textContrast},
 		{"answer: top bar", t.Accent, t.AnswerBG, graphicContrast},
 		{"countdown: number", t.Accent, t.CountdownBG, textContrast},
 		{"countdown: label", t.Subtle, t.CountdownBG, textContrast},
@@ -202,6 +285,19 @@ func (t Theme) contrastPairs() []contrastPair {
 		{"outro: thanks line", t.Text, t.OutroBG, textContrast},
 		{"outro: subtitle", t.Subtle, t.OutroBG, textContrast},
 	}
+	if t.layout().Cards {
+		pairs = append(pairs,
+			contrastPair{"question: options on cards", t.Option, t.cardBG(), textContrast},
+			contrastPair{"answer: wrong options on cards", t.OptionWrong, t.answerCardBG(), textContrast},
+			contrastPair{"answer: correct option on card", t.Correct, t.correctCardBG(), textContrast},
+		)
+	} else {
+		pairs = append(pairs,
+			contrastPair{"answer: wrong options", t.OptionWrong, t.AnswerBG, textContrast},
+			contrastPair{"answer: correct option", t.Correct, t.AnswerBG, textContrast},
+		)
+	}
+	return pairs
 }
 
 // contrastRatio is the WCAG 2.x contrast ratio of two opaque colours.

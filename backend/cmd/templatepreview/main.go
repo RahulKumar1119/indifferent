@@ -1,13 +1,13 @@
 // Command templatepreview renders a sample question slide and answer slide for
-// every template with the real production renderer (slidegen.NativeRenderer).
+// every slide design with the real production renderer (slidegen.NativeRenderer).
 //
-// The images feed the template picker in the project form and the templates
+// The images feed the design picker in the project form and the designs
 // section of the site, so what people see is exactly what their video will
 // look like. Nothing here is mocked or redrawn.
 //
 //	go run ./cmd/templatepreview -out /tmp/previews
 //
-// It writes <template>-question.png and <template>-answer.png at the full
+// It writes <design>-question.png and <design>-answer.png at the full
 // 1920x1080 slide size. scripts/generate-template-previews.sh turns the
 // question slides into the small WebP files the frontend serves.
 package main

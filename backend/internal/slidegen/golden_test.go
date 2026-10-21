@@ -13,12 +13,12 @@ import (
 	"github.com/rahul/indifferent/backend/internal/models"
 )
 
-// The Classic template must render exactly as it did before themes existed
-// (issue #102: "existing projects using classic render exactly as before").
-// testdata/golden/classic-*.png were produced by the renderer as it was before
-// any theme code was added. Pixels are compared, not PNG bytes, so a change in
-// Go's PNG encoder cannot fail the test. A deliberate change to Classic's look
-// must replace these files in the same commit.
+// Classic keep its palette across design refactors, but issue #104 deliberately
+// gave every design the new base layout (centred question, option cards, drawn
+// check mark). testdata/golden/classic-*.png were regenerated for that change.
+// Pixels are compared, not PNG bytes, so a change in Go's PNG encoder cannot
+// fail the test. Any further change to Classic's look must replace these files
+// in the same commit and be called out in the PR.
 
 func goldenQuestion() QuestionSlideData {
 	return QuestionSlideData{
@@ -77,7 +77,7 @@ func samePixels(a, b image.Image) (bool, string) {
 	return true, ""
 }
 
-func TestClassicRendersExactlyAsBeforeThemes(t *testing.T) {
+func TestClassicGolden(t *testing.T) {
 	r := NewNativeRenderer()
 	for name, slide := range goldenSlides() {
 		t.Run(name, func(t *testing.T) {
@@ -89,8 +89,14 @@ func TestClassicRendersExactlyAsBeforeThemes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if os.Getenv("UPDATE_GOLDEN") == "1" {
+				if err := os.WriteFile(filepath.Join("testdata", "golden", "classic-"+name+".png"), got, 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
 			if ok, why := samePixels(decodePNG(t, golden), decodePNG(t, got)); !ok {
-				t.Fatalf("Classic %s slide no longer matches the pre-themes golden image: %s", name, why)
+				t.Fatalf("Classic %s slide no longer matches the golden image: %s", name, why)
 			}
 		})
 	}

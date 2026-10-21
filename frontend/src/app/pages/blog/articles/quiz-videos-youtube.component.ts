@@ -178,7 +178,7 @@ import { setPageSeo } from '../../../shared/seo';
         <h3>2. Choosing the Right Format</h3>
         <p>Structure your quiz with clear visual formatting. Each question should appear on screen long enough for viewers to read and consider their answer. A countdown timer adds excitement and urgency, typically giving viewers between five and fifteen seconds depending on question complexity. After the timer expires, reveal the correct answer with a distinct visual cue so viewers immediately know if they got it right.</p>
 
-        <h3>3. Selecting Templates and Visual Style</h3>
+        <h3>3. Selecting a Design and Visual Style</h3>
         <p>Your video's visual presentation matters more than you might think. Choose a visual style that matches your content's tone and your target audience's expectations. Educational content benefits from clean, professional designs with high contrast and readable fonts. Entertainment-focused quizzes can use bolder colors and more dynamic animations to create energy and excitement.</p>
 
         <h2>Maximizing Viewer Engagement</h2>
@@ -201,7 +201,7 @@ import { setPageSeo } from '../../../shared/seo';
         <p>The automated pipeline handles everything: building a question slide and an answer slide for each question, generating AI narration for both, and rendering the final video in HD quality. What would normally take hours of editing work is completed in just a few minutes.</p>
 
         <h2>Examples of Successful Quiz Channels</h2>
-        <p>Looking at successful quiz channels reveals common patterns worth emulating. The most popular creators maintain consistent upload schedules, typically publishing two to four quiz videos per week. They develop a recognizable visual brand through consistent template usage and intro sequences. Many diversify across multiple topics while maintaining a core focus area that defines their channel identity.</p>
+        <p>Looking at successful quiz channels reveals common patterns worth emulating. The most popular creators maintain consistent upload schedules, typically publishing two to four quiz videos per week. They develop a recognizable visual brand through consistent design usage and intro sequences. Many diversify across multiple topics while maintaining a core focus area that defines their channel identity.</p>
         <p>Successful creators also engage with their communities by responding to comments, creating quizzes based on viewer suggestions, and building anticipation for upcoming content. This community engagement creates a loyal viewer base that returns for each new upload and actively promotes the channel to others.</p>
         <p>The quiz video format is accessible to creators at all levels because the content itself, interesting questions with satisfying answers, is what drives engagement, not expensive equipment or advanced editing skills. With tools like Indifferent handling the technical production, you can focus entirely on crafting great questions and building your audience.</p>
       </div>

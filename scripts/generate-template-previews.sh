@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Regenerates the template preview images the project form shows.
+# Regenerates the design preview images the project form shows.
 #
 # Each image is a question slide drawn by the same renderer that makes real
 # videos (backend/cmd/templatepreview), scaled down to a small WebP. Run it
-# whenever a theme palette changes, then commit the files it writes:
+# whenever a design changes, then commit the files it writes:
 #
 #   frontend/public/templates/<name>.webp
 #
