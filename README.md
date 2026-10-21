@@ -117,7 +117,7 @@ flowchart TB
 |---|---|---|
 | `api` | Lambda (Go) | REST routing, JWT auth, OAuth/password login, project and shorts CRUD, presigned upload/download URLs, starting Step Functions executions |
 | `parser` | Lambda (Go) | Detects the TXT format and extracts questions, options and correct answers into structured JSON in S3 |
-| `slidegen` | Lambda (Go, 1024 MB) | Renders question and answer slides as 1920×1080 PNGs using the selected template |
+| `slidegen` | Lambda (Go, 1024 MB) | Renders question and answer slides as 1920×1080 PNGs using the selected design (palette, type scale and layout) |
 | `narrator` | Lambda (Go) | Synthesizes question and answer narration with Amazon Polly, one MP3 per slide |
 | `renderer` | Lambda container + FFmpeg | Composites slides and audio into the final MP4 and writes a thumbnail |
 | `statusupdater` | Lambda (Go) | Persists pipeline status transitions and output keys in DynamoDB |
@@ -126,7 +126,7 @@ flowchart TB
 | `shorts-rank` | Lambda (Go) | Asks a Bedrock model for the most engaging moments and validates the returned segments |
 | `shorts-render` | ECS Fargate / Fargate Spot | Reframes, captions and renders one 9:16 clip per task |
 | `thumbnails` | ECS Fargate / Fargate Spot | Extracts frames, scores them, calls Rekognition and Bedrock, and draws three thumbnail concepts |
-| `templatepreview` | Go tool | Generates preview images for the slide templates used by the landing page and API |
+| `templatepreview` | Go tool | Generates preview images for the slide designs used by the landing page and API |
 
 Each processing stage (ParseTXT, GenerateSlides, Narrate, Render) retries twice with exponential backoff (`IntervalSeconds` 3–10, `BackoffRate` 2.0). Every stage catches `States.ALL` and routes to `MarkFailed`; notification states catch their own errors so an email failure cannot change the job outcome.
 
@@ -159,7 +159,7 @@ flowchart LR
 **Stages**
 
 1. **ParseTXT** — auto-detects numbered, bulleted or tabbed input; extracts questions, options and all correct answers; records skipped lines as warnings.
-2. **GenerateSlides** — renders a question slide and an answer-reveal slide per question as 1920×1080 PNGs. Templates: `classic`, `modern`, `education`, `dark`, `minimal`, `neon`.
+2. **GenerateSlides** — renders a question slide and an answer-reveal slide per question as 1920×1080 PNGs. Designs: `classic`, `modern`, `education`, `dark`, `minimal`, `neon`.
 3. **Narrate** — reads the question, options and answer with Amazon Polly. Supported voices: Joanna, Matthew, Amy, Brian, Aditi.
 4. **Render** — builds the MP4 with FFmpeg: H.264 video at 30 fps, AAC audio at 128 kbps, 1920×1080, with logo/branding overlays when configured.
 5. **MarkCompleted** — stores `videoKey` and `thumbnailKey` on the project and sets status `completed`.
@@ -277,7 +277,7 @@ DynamoDB is single-table per concern, with composite `PK`/`SK` keys:
 | `indifferent-fun-users` | User profile | `USER#<userId>` | `PROFILE` | Email, display name, password hash, notification preferences |
 | `indifferent-fun-users` | Email lookup | `EMAIL#<email>` | `PROFILE` | Unique email index used at signup/login |
 | `indifferent-fun-sessions` | Refresh session | `SESSION#<tokenHash>` | `SESSION` | User ID, token family, `rotated` flag, `expiresAt` TTL |
-| `indifferent-fun-projects` | Quiz project | `USER#<userId>` | `PROJECT#<projectId>` | Template, voice, status, S3 keys, branding, watermark, linked shorts job IDs |
+| `indifferent-fun-projects` | Quiz project | `USER#<userId>` | `PROJECT#<projectId>` | Design, voice, status, S3 keys, branding, watermark, linked shorts job IDs |
 | `indifferent-fun-projects` | Shorts job | `USER#<userId>` | `SHORTS#<jobId>` | Source metadata, status, progress, transcript key, ranked segments, clips, caption style, edits |
 | `indifferent-fun-projects` | Thumbnail set | `USER#<userId>` | `THUMBS#<jobId>` | Generation, stage, progress, three suggestions, selection |
 
@@ -300,7 +300,7 @@ Objects under 128 KB never transition to Glacier (S3 minimum billable size). The
 - Upload TXT quiz files with multiple-choice questions
 - Multiple correct answers per question (e.g. "Select TWO")
 - 5 Amazon Polly voices (Joanna, Matthew, Amy, Brian, Aditi)
-- 6 slide templates (`classic`, `modern`, `education`, `dark`, `minimal`, `neon`)
+- 6 slide designs (`classic`, `modern`, `education`, `dark`, `minimal`, `neon`), each with its own palette, type scale and layout
 - Real-time pipeline progress, video preview and download
 - AI Shorts: transcription, Bedrock engagement ranking, subject-tracked 9:16 rendering on Fargate Spot
 - Caption presets (`bold`, `minimal`, `karaoke`, `clean`), editable clip boundaries and caption text
@@ -485,7 +485,7 @@ go test ./...
 
 The frontend expects the API base URL from its environment configuration. The deployed API lives on the custom domain behind API Gateway; adjust the environment file for local pointing.
 
-### Regenerating template previews
+### Regenerating design previews
 
 ```bash
 bash scripts/generate-template-previews.sh
@@ -588,9 +588,9 @@ All `/projects`, `/settings` and `/shorts` routes require `Authorization: Bearer
 | Method | Path | Description |
 |---|---|---|
 | GET | `/projects` | List the user's projects |
-| POST | `/projects` | Create a project (template, voice, optional watermark and linked shorts job) |
+| POST | `/projects` | Create a project (design, voice, optional watermark and linked shorts job) |
 | GET | `/projects/:id` | Get a project |
-| PUT | `/projects/:id` | Update name, template, voice, branding or watermark |
+| PUT | `/projects/:id` | Update name, design, voice, branding or watermark |
 | DELETE | `/projects/:id` | Delete a project and its assets |
 | POST | `/projects/:id/upload` | Get a presigned URL for the TXT file |
 | POST | `/projects/:id/logo` | Get a presigned URL for a PNG logo |
@@ -640,7 +640,7 @@ npm test                  # Karma + Jasmine
 npm run build             # production build
 ```
 
-The backend uses property-based tests (`pgregory.net/rapid`) for parser, ranking validation, caption timing and rendering invariants, plus golden-image tests for the slide templates. CodeQL runs on pushes and pull requests to `main` and on a weekly schedule.
+The backend uses property-based tests (`pgregory.net/rapid`) for parser, ranking validation, caption timing and rendering invariants, plus golden-image tests for the slide designs. CodeQL runs on pushes and pull requests to `main` and on a weekly schedule.
 
 ## Security notes
 

@@ -41,12 +41,12 @@ import { LucideDynamicIcon } from '@lucide/angular';
 
           <mat-expansion-panel>
             <mat-expansion-panel-header>
-              <mat-panel-title>What templates are available?</mat-panel-title>
+              <mat-panel-title>What designs are available?</mat-panel-title>
             </mat-expansion-panel-header>
             <p class="text-[hsl(var(--muted-foreground))]">
-              Six: Classic, Modern, Education, Dark, Minimal and Neon. A template sets the colors of your slides,
-              meaning the background, the text, the accent and the highlight on the correct answer. Layout, fonts and
-              timing are the same in all of them. The project form shows a preview of each one.
+              Six: Classic, Modern, Education, Dark, Minimal and Neon. A design sets the colours, type scale and
+              layout of your slides, including the background, answer cards and the highlight on the correct answer.
+              The project form shows a real preview of each one.
             </p>
           </mat-expansion-panel>
 
@@ -72,7 +72,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
           <ol class="list-decimal space-y-3 pl-5 text-[hsl(var(--muted-foreground))]">
             <li>Create a new project from the dashboard</li>
             <li>Upload a TXT file containing your quiz questions</li>
-            <li>Select a template and voice for your video</li>
+            <li>Select a design and voice for your video</li>
             <li>Click "Generate" and wait for processing to complete</li>
             <li>Download your finished quiz video</li>
           </ol>

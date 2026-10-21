@@ -52,7 +52,7 @@ const HERO_STILL = '/screenshots/shorts-hero-still.png';
             class="picker-card card-lift rounded-[20px] border border-black/10 bg-white p-0 overflow-hidden flex flex-col hover:border-black/25 transition-colors">
             <img
               src="/screenshots/quiz-create.png"
-              alt="Quiz project creation form with template picker"
+              alt="Quiz project creation form with design picker"
               class="w-full h-44 object-cover object-top"
               loading="lazy"
             />

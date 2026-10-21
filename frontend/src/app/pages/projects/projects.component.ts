@@ -90,7 +90,7 @@ import { Project, ProjectStatus } from '../../shared/models/project.model';
             <!-- Table Header -->
             <div class="hidden sm:grid grid-cols-12 gap-4 px-6 py-3.5 border-b border-black/[0.07] text-[11.5px] font-semibold uppercase tracking-[0.12em] text-[#6B6560]">
               <div class="col-span-4">Name</div>
-              <div class="col-span-3">Template</div>
+              <div class="col-span-3">Design</div>
               <div class="col-span-3">Status</div>
               <div class="col-span-2">Created</div>
             </div>

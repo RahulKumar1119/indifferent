@@ -47,7 +47,7 @@ import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from '../shorts/sh
       <main class="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14">
         <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Studio · Configure</p>
         <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">New project.</h1>
-        <p class="mt-3 text-[15px] text-[#6B6560]">Name it, pick a template and a voice. Optionally attach a watermark and a shorts source in the same project.</p>
+        <p class="mt-3 text-[15px] text-[#6B6560]">Name it, pick a design and a voice. Optionally attach a watermark and a shorts source in the same project.</p>
 
         <div class="mt-8 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
           <mat-stepper linear #stepper class="bg-transparent">
@@ -73,13 +73,13 @@ import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from '../shorts/sh
                   </div>
                 </div>
 
-                <!-- Template Selector -->
-                <fieldset>
-                  <legend class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1">Template</legend>
-                  <p class="mb-3 text-[12.5px] text-[#6B6560]">Each image is a real question slide drawn by the renderer. Layout and fonts are the same in every template; colors change.</p>
+                <!-- Design Selector -->
+                <fieldset aria-describedby="design-help">
+                  <legend class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1">Design</legend>
+                  <p id="design-help" class="mb-3 text-[12.5px] text-[#6B6560]">Each image is a real question slide drawn by the renderer. Every design combines colours, a type scale and a layout in its own way.</p>
                   <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     @for (tpl of templates; track tpl.value) {
-                      <label class="pick relative block cursor-pointer">
+                      <label class="pick relative block cursor-pointer min-h-[44px]">
                         <input
                           type="radio"
                           name="template"
@@ -91,18 +91,20 @@ import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from '../shorts/sh
                         <span class="block overflow-hidden rounded-[12px] border-2 !border-black/10 bg-white peer-checked:!border-[#BC5227] peer-checked:bg-[#BC5227]/[.06] peer-focus-visible:ring-2 peer-focus-visible:ring-[#BC5227]/50 peer-focus-visible:ring-offset-2">
                           <img
                             [src]="'/templates/' + tpl.value + '.webp'"
-                            [alt]="tpl.label + ' template: ' + tpl.look"
+                            [alt]="tpl.label + ' design preview: ' + tpl.look"
                             width="480"
                             height="270"
                             loading="lazy"
                             class="block w-full h-auto border-b !border-black/10"
                           />
-                          <span class="flex items-center justify-between gap-2 px-3 py-2">
-                            <span class="text-sm font-medium">{{ tpl.label }}</span>
-                            @if (projectForm.get('template')?.value === tpl.value) {
-                              <svg lucideIcon="check" [size]="14" class="text-[#BC5227]" aria-hidden="true"></svg>
-                            }
-                          </span>
+                          <span class="block px-3 pt-2 text-sm font-medium">{{ tpl.label }}</span>
+                          <span class="block px-3 pb-2 text-[11.5px] leading-snug text-[#6B6560]">{{ tpl.look }}</span>
+                          @if (projectForm.get('template')?.value === tpl.value) {
+                            <span class="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-[#BC5227] px-2 py-1 text-[10px] font-semibold text-white">
+                              <svg lucideIcon="check" [size]="11" aria-hidden="true"></svg>
+                              Selected
+                            </span>
+                          }
                         </span>
                       </label>
                     }

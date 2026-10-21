@@ -166,8 +166,8 @@ func TestThemesMeetContrast(t *testing.T) {
 func TestClassicKnownContrastShortfalls(t *testing.T) {
 	th := ThemeFor("classic")
 	shortfalls := map[string]bool{
-		"answer: wrong options":  true,
-		"answer: correct option": true,
+		"answer: wrong options on cards": true,
+		"answer: correct option on card": true,
 	}
 	for _, p := range th.contrastPairs() {
 		got := contrastRatio(p.fg, p.bg)
@@ -273,37 +273,59 @@ func TestNoTwoThemesRenderTheSame(t *testing.T) {
 	}
 }
 
-// The question text, options and layout are shared, so only colour changes:
-// the same set of pixels is "ink" in every theme.
-func TestThemesShareLayout(t *testing.T) {
-	ink := func(img *image.RGBA, bg color.RGBA) int {
-		n := 0
-		for y := 0; y < img.Bounds().Dy(); y++ {
-			for x := 0; x < img.Bounds().Dx(); x++ {
-				if img.RGBAAt(x, y) != bg {
-					n++
-				}
-			}
+// Every design must stay readable at video resolution: the issue sets a floor
+// for question and option type, and the base layout assumes room for a header.
+func TestEveryDesignHasReadableTypeScale(t *testing.T) {
+	for _, name := range ThemeNames() {
+		l := ThemeFor(name).layout()
+		if l.QuestionSize < 64 {
+			t.Errorf("%s: question size %.0f, want at least 64", name, l.QuestionSize)
 		}
-		return n
+		if l.OptionSize < 44 {
+			t.Errorf("%s: option size %.0f, want at least 44", name, l.OptionSize)
+		}
+		if l.HeaderSize < 24 {
+			t.Errorf("%s: header size %.0f, want at least 24", name, l.HeaderSize)
+		}
+		if l.QuestionMaxPx < 1200 {
+			t.Errorf("%s: question width %.0f, want at least 1200", name, l.QuestionMaxPx)
+		}
 	}
-	var want int
-	for i, name := range ThemeNames() {
-		img := renderImage(t, name, "question.html", themedQuestion())
-		got := ink(img, ThemeFor(name).QuestionBG)
-		if i == 0 {
-			want = got
+}
+
+// Only the minimal design drops cards; every other design must say so
+// explicitly, otherwise an empty Layout would silently render the base card
+// layout with zero-valued sizes.
+func TestDesignsDeclareALayout(t *testing.T) {
+	for _, name := range ThemeNames() {
+		l := ThemeFor(name).Layout
+		if !l.Cards && name != "minimal" {
+			t.Errorf("%s: cards disabled, only minimal may do that", name)
+		}
+		if l.Cards && l.CardRadius < 8 {
+			t.Errorf("%s: card radius %d, want at least 8", name, l.CardRadius)
+		}
+	}
+}
+
+// Card designs must actually draw the card fills the palette promises; a
+// regression to text-on-background would still pass the colour-only tests.
+func TestCardDesignsDrawTheirCards(t *testing.T) {
+	for _, name := range ThemeNames() {
+		th := ThemeFor(name)
+		if !th.layout().Cards {
 			continue
 		}
-		// Anti-aliasing blends differ with colour, so allow a small tolerance
-		// rather than demanding an identical count.
-		diff := got - want
-		if diff < 0 {
-			diff = -diff
-		}
-		if float64(diff) > 0.03*float64(want) {
-			t.Errorf("%s: %d non-background pixels vs %d in the first theme; layout should be shared", name, got, want)
-		}
+		t.Run(name, func(t *testing.T) {
+			q := renderImage(t, name, "question.html", themedQuestion())
+			if n := countPixels(q, th.cardBG()); n < 10000 {
+				t.Errorf("question slide has only %d pixels in the card colour %v", n, th.cardBG())
+			}
+			a := renderImage(t, name, "answer-reveal.html", themedQuestion())
+			if n := countPixels(a, th.correctCardBG()); n < 10000 {
+				t.Errorf("answer slide has only %d pixels in the correct-card colour %v", n, th.correctCardBG())
+			}
+		})
 	}
 }
 

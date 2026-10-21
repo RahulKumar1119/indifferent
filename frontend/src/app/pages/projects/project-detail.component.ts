@@ -53,7 +53,7 @@ import { ShortsJob, ShortsService } from '../shorts/shorts.service';
               <span class="text-[12px] uppercase tracking-[0.14em] text-[#6B6560]">{{ project.status }}</span>
             </div>
             <dl class="mt-3 grid grid-cols-2 gap-2 text-[13.5px]">
-              <div><dt class="text-[#6B6560]">Template</dt><dd class="font-medium capitalize">{{ project.template }}</dd></div>
+              <div><dt class="text-[#6B6560]">Design</dt><dd class="font-medium capitalize">{{ project.template }}</dd></div>
               <div><dt class="text-[#6B6560]">Voice</dt><dd class="font-medium">{{ project.voice }}</dd></div>
             </dl>
             <div class="mt-4 flex flex-wrap gap-2">

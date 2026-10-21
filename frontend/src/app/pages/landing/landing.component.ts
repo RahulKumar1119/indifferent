@@ -407,7 +407,7 @@ export class LandingComponent implements OnInit, AfterViewInit {
     { q: 'Is it free?', a: 'Yes, during the beta. No credit card, no quota to track, no paid tier to upgrade to yet. The beta terms say what that means.' },
     { q: 'Is my question file uploaded?', a: 'Yes, the text file has to reach the server to be parsed and narrated, and it is stored with your project so you can re-render it. The privacy page explains exactly what is kept and for how long. The watermark tool is the opposite: it never uploads anything.' },
     { q: 'Can I use the video commercially?', a: 'The narration and slides are generated for you, so what you can do with the result depends on the questions you wrote and on your account terms. The terms page covers this in full.' },
-    { q: 'What happens to my file afterwards?', a: 'Your project and its text file stay in your account so you can re-render with a different voice or template, and you can delete them at any time from the project page.' },
+    { q: 'What happens to my file afterwards?', a: 'Your project and its text file stay in your account so you can re-render with a different voice or design, and you can delete them at any time from the project page.' },
   ];
 
   ngOnInit(): void {

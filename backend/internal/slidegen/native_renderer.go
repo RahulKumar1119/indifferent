@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
+	"math"
 	"strings"
 
 	"golang.org/x/image/font"
@@ -14,56 +15,78 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
+	"golang.org/x/image/vector"
 )
 
 const (
 	slideWidth  = 1920
 	slideHeight = 1080
+
+	marginX       = 110
+	contentTop    = 140
+	contentBottom = 1000
+	cardGap       = 26
+	cardPadding   = 30
 )
 
 // NativeRenderer renders slides using Go's image package — no browser needed.
 type NativeRenderer struct {
-	regularFace font.Face
-	boldFace    font.Face
-	largeFace   font.Face
+	regular *opentype.Font
+	bold    *opentype.Font
+	faces   map[faceKey]font.Face
+}
+
+type faceKey struct {
+	size int
+	bold bool
 }
 
 // NewNativeRenderer creates a NativeRenderer instance with properly sized fonts.
 func NewNativeRenderer() *NativeRenderer {
-	r := &NativeRenderer{}
+	regularFont, err := opentype.Parse(goregular.TTF)
+	if err != nil {
+		panic(fmt.Sprintf("slidegen: parse regular font: %v", err))
+	}
+	boldFont, err := opentype.Parse(gobold.TTF)
+	if err != nil {
+		panic(fmt.Sprintf("slidegen: parse bold font: %v", err))
+	}
+	return &NativeRenderer{
+		regular: regularFont,
+		bold:    boldFont,
+		faces:   make(map[faceKey]font.Face),
+	}
+}
 
-	// Parse regular font
-	regularFont, _ := opentype.Parse(goregular.TTF)
-	r.regularFace, _ = opentype.NewFace(regularFont, &opentype.FaceOptions{
-		Size:    28,
+// face returns a cached face at size pixels. The slide size is fixed, so a
+// handful of sizes covers every slide.
+func (r *NativeRenderer) face(size float64, bold bool) font.Face {
+	key := faceKey{size: int(math.Round(size)), bold: bold}
+	if f, ok := r.faces[key]; ok {
+		return f
+	}
+	src := r.regular
+	if bold {
+		src = r.bold
+	}
+	f, err := opentype.NewFace(src, &opentype.FaceOptions{
+		Size:    float64(key.size),
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
-
-	// Parse bold font
-	boldFont, _ := opentype.Parse(gobold.TTF)
-	r.boldFace, _ = opentype.NewFace(boldFont, &opentype.FaceOptions{
-		Size:    36,
-		DPI:     72,
-		Hinting: font.HintingFull,
-	})
-
-	// Large font for countdown numbers
-	r.largeFace, _ = opentype.NewFace(boldFont, &opentype.FaceOptions{
-		Size:    200,
-		DPI:     72,
-		Hinting: font.HintingFull,
-	})
-
-	return r
+	if err != nil {
+		panic(fmt.Sprintf("slidegen: create font face: %v", err))
+	}
+	r.faces[key] = f
+	return f
 }
 
 // RenderTemplate renders a slide as a PNG using Go's native image library.
 //
 // templateName is "{theme}/{file}", for example "modern/answer-reveal.html".
-// The theme part picks the palette (ThemeFor; unknown names render as
-// Classic). The file part picks the slide: a name containing "answer" is the
-// answer reveal, anything else with question data is the question slide.
+// The theme part picks the palette and layout (ThemeFor; unknown names render
+// as Classic). The file part picks the slide: a name containing "answer" is
+// the answer reveal, anything else with question data is the question slide.
 func (r *NativeRenderer) RenderTemplate(templateName string, data interface{}) ([]byte, error) {
 	img := image.NewRGBA(image.Rect(0, 0, slideWidth, slideHeight))
 
@@ -74,10 +97,10 @@ func (r *NativeRenderer) RenderTemplate(templateName string, data interface{}) (
 	case QuestionSlideData:
 		if strings.Contains(file, "answer") {
 			fillBackground(img, theme.AnswerBG)
-			r.drawAnswerRevealSlide(img, theme, d)
+			r.drawQuestionAndOptions(img, theme, d, true)
 		} else {
 			fillBackground(img, theme.QuestionBG)
-			r.drawQuestionSlide(img, theme, d)
+			r.drawQuestionAndOptions(img, theme, d, false)
 		}
 	case CountdownSlideData:
 		fillBackground(img, theme.CountdownBG)
@@ -102,90 +125,193 @@ func fillBackground(img *image.RGBA, c color.RGBA) {
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: c}, image.Point{}, draw.Src)
 }
 
-func (r *NativeRenderer) drawQuestionSlide(img *image.RGBA, t Theme, data QuestionSlideData) {
-	darkText := t.Text
-	accent := t.Accent
-	grayText := t.Option
+// drawQuestionAndOptions draws the shared base layout for question and answer
+// slides: a centred header, a centred question, then a 2×2 option grid (1×N
+// when there is a single option). Designs differ in palette, type scale and
+// whether options sit in cards (issue #104).
+func (r *NativeRenderer) drawQuestionAndOptions(img *image.RGBA, t Theme, data QuestionSlideData, answer bool) {
+	l := t.layout()
 
-	// Draw accent bar at top
-	accentBar := image.Rect(0, 0, slideWidth, 8)
-	draw.Draw(img, accentBar, &image.Uniform{C: accent}, image.Point{}, draw.Src)
+	draw.Draw(img, image.Rect(0, 0, slideWidth, 8), &image.Uniform{C: t.Accent}, image.Point{}, draw.Src)
 
-	// Header - "Question X of Y"
 	header := fmt.Sprintf("Question %d of %d", data.QuestionNumber, data.TotalQuestions)
-	r.drawTextWithFace(img, header, 100, 80, accent, r.boldFace)
+	if answer {
+		header += " — Answer"
+	}
+	headerFace := r.face(l.HeaderSize, true)
+	r.drawCenteredText(img, header, slideWidth/2, 82, t.Accent, headerFace)
 
-	// Question text (wrapped)
-	lines := wrapText(data.QuestionText, 60)
-	y := 160
-	for _, line := range lines {
-		r.drawTextWithFace(img, line, 100, y, darkText, r.boldFace)
-		y += 50
+	cols, rows := 2, (len(data.Options)+1)/2
+	if len(data.Options) == 1 {
+		cols, rows = 1, 1
+	}
+	gridWidth := slideWidth - 2*marginX
+	cardWidth := (gridWidth - cardGap*(cols-1)) / cols
+	minGridHeight := 96
+	if rows > 1 {
+		minGridHeight = rows*96 + cardGap*(rows-1)
 	}
 
-	// Options
-	y += 40
-	for _, opt := range data.Options {
-		prefix := fmt.Sprintf("%s)  ", opt.Label)
-		// Wrap option text at 75 chars (accounting for the label prefix)
-		optLines := wrapText(opt.Text, 75)
-		for i, line := range optLines {
-			if i == 0 {
-				r.drawTextWithFace(img, prefix+line, 140, y, grayText, r.regularFace)
-			} else {
-				// Indent continuation lines
-				r.drawTextWithFace(img, "     "+line, 140, y, grayText, r.regularFace)
-			}
-			y += 38
+	questionSize := l.QuestionSize
+	questionTop := contentTop
+	var questionLines []string
+	var questionFace font.Face
+	for {
+		questionFace = r.face(questionSize, true)
+		questionLines = r.wrapText(questionFace, data.QuestionText, int(l.QuestionMaxPx))
+		lineHeight := int(questionSize * 1.28)
+		optionsTop := questionTop + len(questionLines)*lineHeight + 48
+		if optionsTop+minGridHeight <= contentBottom || questionSize <= 40 {
+			break
 		}
-		y += 15 // Extra spacing between options
+		questionSize -= 2
+	}
+
+	lineHeight := int(questionSize * 1.28)
+	questionHeight := len(questionLines) * lineHeight
+	optionsTop := questionTop + questionHeight + 48
+	if optionsTop > contentBottom-minGridHeight {
+		optionsTop = contentBottom - minGridHeight
+	}
+
+	baseline := questionTop + questionFace.Metrics().Ascent.Ceil()
+	for _, line := range questionLines {
+		r.drawCenteredText(img, line, slideWidth/2, baseline, t.Text, questionFace)
+		baseline += lineHeight
+	}
+
+	if len(data.Options) == 0 {
+		return
+	}
+
+	if !l.Cards {
+		ruleY := optionsTop - 22
+		ruleColor := blend(t.QuestionBG, t.Text, 0.32)
+		if answer {
+			ruleColor = blend(t.AnswerBG, t.Text, 0.32)
+		}
+		draw.Draw(img, image.Rect(marginX, ruleY, slideWidth-marginX, ruleY+2), &image.Uniform{C: ruleColor}, image.Point{}, draw.Src)
+	}
+
+	available := contentBottom - optionsTop
+	cardHeight := (available - cardGap*(rows-1)) / rows
+	if cardHeight > 260 {
+		cardHeight = 260
+	}
+	if cardHeight < 88 {
+		cardHeight = 88
+	}
+	gridHeight := rows*cardHeight + cardGap*(rows-1)
+	gridTop := optionsTop
+	if gridHeight < available {
+		gridTop = optionsTop + (available-gridHeight)/2
+	}
+
+	optionSize := l.OptionSize
+	labelSize := l.LabelSize
+	var optionFace, labelFace font.Face
+	var lines [][]string
+	for {
+		optionFace = r.face(optionSize, false)
+		labelFace = r.face(labelSize, true)
+		lineHeight = int(optionSize * 1.28)
+		maxHeight := 0
+		lines = make([][]string, len(data.Options))
+		for i, opt := range data.Options {
+			labelWidth := font.MeasureString(labelFace, opt.Label).Ceil()
+			reserve := 0
+			if answer && isCorrectIndex(i, data.CorrectIndices) {
+				reserve = 58
+			}
+			textWidth := cardWidth - 2*cardPadding - labelWidth - 18 - reserve
+			lines[i] = r.wrapText(optionFace, opt.Text, textWidth)
+			if h := len(lines[i]) * lineHeight; h > maxHeight {
+				maxHeight = h
+			}
+		}
+		if maxHeight+20 <= cardHeight || optionSize <= 30 {
+			break
+		}
+		optionSize -= 2
+		if labelSize > 24 {
+			labelSize--
+		}
+	}
+
+	for i, opt := range data.Options {
+		col, row := i%cols, i/cols
+		x := marginX + col*(cardWidth+cardGap)
+		y := gridTop + row*(cardHeight+cardGap)
+		rect := image.Rect(x, y, x+cardWidth, y+cardHeight)
+
+		correct := answer && isCorrectIndex(i, data.CorrectIndices)
+		fill := t.cardBG()
+		border := t.cardBorder()
+		textColor := t.Option
+		labelColor := t.Accent
+		if answer {
+			fill = t.answerCardBG()
+			textColor = t.OptionWrong
+			labelColor = t.OptionWrong
+			if correct {
+				fill = t.correctCardBG()
+				border = blend(fill, t.Correct, 0.55)
+				textColor = t.Correct
+				labelColor = t.Correct
+			}
+		}
+
+		if l.Cards {
+			fillRoundedRect(img, rect, l.CardRadius, border)
+			inner := rect.Inset(2)
+			fillRoundedRect(img, inner, l.CardRadius-2, fill)
+		}
+
+		labelWidth := font.MeasureString(labelFace, opt.Label).Ceil()
+		textLeft := rect.Min.X + cardPadding + labelWidth + 18
+		lineHeight = int(optionSize * 1.28)
+		blockHeight := len(lines[i]) * lineHeight
+		firstBaseline := rect.Min.Y + (cardHeight-blockHeight)/2 + optionFace.Metrics().Ascent.Ceil()
+
+		r.drawText(img, opt.Label, rect.Min.X+cardPadding, firstBaseline, labelColor, labelFace)
+		for j, line := range lines[i] {
+			r.drawText(img, line, textLeft, firstBaseline+j*lineHeight, textColor, optionFace)
+		}
+		if correct {
+			drawCheck(img, rect.Max.X-cardPadding-24, rect.Min.Y+cardHeight/2, t.Correct)
+		}
 	}
 }
 
-func (r *NativeRenderer) drawAnswerRevealSlide(img *image.RGBA, t Theme, data QuestionSlideData) {
-	darkText := t.Text
-	accent := t.Accent
-	green := t.Correct
-	grayText := t.OptionWrong
+func (r *NativeRenderer) drawCountdownSlide(img *image.RGBA, t Theme, data CountdownSlideData) {
+	numberFace := r.face(280, true)
+	labelFace := r.face(40, false)
 
-	// Accent bar
-	accentBar := image.Rect(0, 0, slideWidth, 8)
-	draw.Draw(img, accentBar, &image.Uniform{C: accent}, image.Point{}, draw.Src)
+	number := fmt.Sprintf("%d", data.Seconds)
+	numberBaseline := 600
+	r.drawCenteredText(img, number, slideWidth/2, numberBaseline, t.Accent, numberFace)
+	r.drawCenteredText(img, "seconds remaining", slideWidth/2, numberBaseline+130, t.Subtle, labelFace)
+}
 
-	// Header
-	header := fmt.Sprintf("Question %d of %d — Answer", data.QuestionNumber, data.TotalQuestions)
-	r.drawTextWithFace(img, header, 100, 80, accent, r.boldFace)
+func (r *NativeRenderer) drawOutroSlide(img *image.RGBA, t Theme, data OutroSlideData) {
+	channelFace := r.face(96, true)
+	thanksFace := r.face(56, true)
+	subtitleFace := r.face(32, false)
 
-	// Question text
-	lines := wrapText(data.QuestionText, 60)
-	y := 160
-	for _, line := range lines {
-		r.drawTextWithFace(img, line, 100, y, darkText, r.boldFace)
-		y += 50
+	channelLines := r.wrapText(channelFace, data.ChannelName, 1500)
+	lineHeight := 115
+	top := 380
+	if len(channelLines) > 1 {
+		top = 320
+	}
+	baseline := top + channelFace.Metrics().Ascent.Ceil()
+	for _, line := range channelLines {
+		r.drawCenteredText(img, line, slideWidth/2, baseline, t.Accent, channelFace)
+		baseline += lineHeight
 	}
 
-	// Options with correct answer(s) highlighted
-	y += 40
-	for i, opt := range data.Options {
-		prefix := fmt.Sprintf("%s)  ", opt.Label)
-		optColor := grayText
-		suffix := ""
-		if isCorrectIndex(i, data.CorrectIndices) {
-			optColor = green
-			suffix = "  ✓ Correct"
-		}
-		// Wrap option text
-		optLines := wrapText(opt.Text+suffix, 75)
-		for j, line := range optLines {
-			if j == 0 {
-				r.drawTextWithFace(img, prefix+line, 140, y, optColor, r.regularFace)
-			} else {
-				r.drawTextWithFace(img, "     "+line, 140, y, optColor, r.regularFace)
-			}
-			y += 38
-		}
-		y += 15
-	}
+	r.drawCenteredText(img, "Thanks for watching!", slideWidth/2, baseline+70, t.Text, thanksFace)
+	r.drawCenteredText(img, "Subscribe & Like for more quiz videos", slideWidth/2, baseline+140, t.Subtle, subtitleFace)
 }
 
 // isCorrectIndex checks whether idx is in the correctIndices slice.
@@ -198,61 +324,139 @@ func isCorrectIndex(idx int, correctIndices []int) bool {
 	return false
 }
 
-func (r *NativeRenderer) drawCountdownSlide(img *image.RGBA, t Theme, data CountdownSlideData) {
-	accent := t.Accent
-	grayText := t.Subtle
-
-	// Draw large countdown number centered
-	numStr := fmt.Sprintf("%d", data.Seconds)
-	r.drawTextWithFace(img, numStr, 880, 600, accent, r.largeFace)
-
-	// Label below
-	r.drawTextWithFace(img, "seconds remaining", 800, 720, grayText, r.regularFace)
-}
-
-func (r *NativeRenderer) drawOutroSlide(img *image.RGBA, t Theme, data OutroSlideData) {
-	accent := t.Accent
-	darkText := t.Text
-	grayText := t.Subtle
-
-	r.drawTextWithFace(img, data.ChannelName, 700, 420, accent, r.largeFace)
-	r.drawTextWithFace(img, "Thanks for watching!", 720, 560, darkText, r.boldFace)
-	r.drawTextWithFace(img, "Subscribe & Like for more quiz videos", 640, 640, grayText, r.regularFace)
-}
-
-func (r *NativeRenderer) drawTextWithFace(img *image.RGBA, text string, x, y int, col color.Color, face font.Face) {
-	point := fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y)}
+func (r *NativeRenderer) drawText(img *image.RGBA, text string, x, y int, col color.Color, face font.Face) {
+	if text == "" {
+		return
+	}
 	d := &font.Drawer{
 		Dst:  img,
 		Src:  image.NewUniform(col),
 		Face: face,
-		Dot:  point,
+		Dot:  fixed.Point26_6{X: fixed.I(x), Y: fixed.I(y)},
 	}
 	d.DrawString(text)
 }
 
-// wrapText splits text into lines of at most maxWidth characters.
-func wrapText(text string, maxWidth int) []string {
-	words := strings.Fields(text)
-	var lines []string
-	var current string
+func (r *NativeRenderer) drawCenteredText(img *image.RGBA, text string, centerX, y int, col color.Color, face font.Face) {
+	width := font.MeasureString(face, text).Ceil()
+	r.drawText(img, text, centerX-width/2, y, col, face)
+}
 
+// wrapText splits text into lines no wider than maxWidth pixels for the given
+// face. It breaks an over-long word by rune rather than letting it run off the
+// slide.
+func (r *NativeRenderer) wrapText(face font.Face, text string, maxWidth int) []string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return nil
+	}
+	if maxWidth < 1 {
+		maxWidth = 1
+	}
+
+	var lines []string
+	current := ""
 	for _, word := range words {
-		if len(current)+len(word)+1 > maxWidth {
+		if font.MeasureString(face, word).Ceil() > maxWidth {
 			if current != "" {
 				lines = append(lines, current)
+				current = ""
 			}
-			current = word
+			lines = append(lines, splitWord(face, word, maxWidth)...)
+			continue
+		}
+		candidate := word
+		if current != "" {
+			candidate = current + " " + word
+		}
+		if font.MeasureString(face, candidate).Ceil() <= maxWidth {
+			current = candidate
 		} else {
-			if current == "" {
-				current = word
-			} else {
-				current += " " + word
-			}
+			lines = append(lines, current)
+			current = word
 		}
 	}
 	if current != "" {
 		lines = append(lines, current)
 	}
 	return lines
+}
+
+func splitWord(face font.Face, word string, maxWidth int) []string {
+	var lines []string
+	current := ""
+	for _, ch := range word {
+		candidate := current + string(ch)
+		if font.MeasureString(face, candidate).Ceil() <= maxWidth || current == "" {
+			current = candidate
+			continue
+		}
+		lines = append(lines, current)
+		current = string(ch)
+	}
+	if current != "" {
+		lines = append(lines, current)
+	}
+	return lines
+}
+
+// fillRoundedRect fills a rounded rectangle using an anti-aliased rasterizer.
+func fillRoundedRect(img *image.RGBA, rect image.Rectangle, radius int, c color.RGBA) {
+	if rect.Dx() <= 0 || rect.Dy() <= 0 {
+		return
+	}
+	if radius <= 0 {
+		draw.Draw(img, rect, &image.Uniform{C: c}, image.Point{}, draw.Src)
+		return
+	}
+
+	width, height := rect.Dx(), rect.Dy()
+	corner := float32(math.Min(float64(radius), math.Min(float64(width)/2, float64(height)/2)))
+	rast := vector.NewRasterizer(width, height)
+	x0, y0 := float32(0), float32(0)
+	x1, y1 := float32(width), float32(height)
+
+	rast.MoveTo(x0+corner, y0)
+	rast.LineTo(x1-corner, y0)
+	rast.QuadTo(x1, y0, x1, y0+corner)
+	rast.LineTo(x1, y1-corner)
+	rast.QuadTo(x1, y1, x1-corner, y1)
+	rast.LineTo(x0+corner, y1)
+	rast.QuadTo(x0, y1, x0, y1-corner)
+	rast.LineTo(x0, y0+corner)
+	rast.QuadTo(x0, y0, x0+corner, y0)
+	rast.ClosePath()
+
+	rast.Draw(img, rect, image.NewUniform(c), image.Point{})
+}
+
+// drawCheck draws a check mark with round strokes, so the answer reveal does
+// not depend on a font glyph being present.
+func drawCheck(img *image.RGBA, cx, cy int, c color.RGBA) {
+	drawThickLine(img, cx-16, cy, cx-4, cy+12, 5, c)
+	drawThickLine(img, cx-4, cy+12, cx+18, cy-15, 5, c)
+}
+
+func drawThickLine(img *image.RGBA, x0, y0, x1, y1, radius int, c color.RGBA) {
+	steps := int(math.Max(math.Abs(float64(x1-x0)), math.Abs(float64(y1-y0))))
+	if steps == 0 {
+		drawDisc(img, x0, y0, radius, c)
+		return
+	}
+	for i := 0; i <= steps; i++ {
+		t := float64(i) / float64(steps)
+		x := int(math.Round(float64(x0) + t*float64(x1-x0)))
+		y := int(math.Round(float64(y0) + t*float64(y1-y0)))
+		drawDisc(img, x, y, radius, c)
+	}
+}
+
+func drawDisc(img *image.RGBA, cx, cy, radius int, c color.RGBA) {
+	for y := -radius; y <= radius; y++ {
+		for x := -radius; x <= radius; x++ {
+			if x*x+y*y <= radius*radius {
+				img.SetRGBA(cx+x, cy+y, c)
+			}
+		}
+	}
 }

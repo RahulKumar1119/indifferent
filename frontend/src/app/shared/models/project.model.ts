@@ -3,22 +3,23 @@ export type Template = 'classic' | 'modern' | 'education' | 'dark' | 'minimal' |
 export interface TemplateOption {
   value: Template;
   label: string;
-  /** Plain-words description of the palette; also the preview image's alt text. */
+  /** Plain-words description of the palette and layout; also the preview alt text. */
   look: string;
 }
 
 /**
- * Every template the renderer draws differently (backend TestNoTwoThemesRenderTheSame).
- * Preview images live in public/templates/<value>.webp and come from
- * scripts/generate-template-previews.sh. If a palette changes, change `look` too.
+ * Every design the renderer draws differently (backend TestNoTwoThemesRenderTheSame).
+ * A design is a palette, type scale and layout together (issue #104). Preview
+ * images live in public/templates/<value>.webp and come from
+ * scripts/generate-template-previews.sh. If a design changes, change `look` too.
  */
 export const TEMPLATE_OPTIONS: readonly TemplateOption[] = [
-  { value: 'classic', label: 'Classic', look: 'white slides with a purple accent' },
-  { value: 'modern', label: 'Modern', look: 'light slate slides with a blue accent' },
-  { value: 'education', label: 'Education', look: 'cream paper with navy text and a red accent' },
-  { value: 'dark', label: 'Dark', look: 'near-black slides with a violet accent' },
-  { value: 'minimal', label: 'Minimal', look: 'off-white slides with black text and no accent color' },
-  { value: 'neon', label: 'Neon', look: 'deep indigo-black slides with magenta and green highlights' },
+  { value: 'classic', label: 'Classic', look: 'White slides, purple accent and rounded 2×2 answer cards' },
+  { value: 'modern', label: 'Modern', look: 'Cool slate slides, bold type and blue-tinted cards' },
+  { value: 'education', label: 'Education', look: 'Cream paper, navy ink and a terracotta accent' },
+  { value: 'dark', label: 'Dark', look: 'Near-black slides, high-contrast text and green answers' },
+  { value: 'minimal', label: 'Minimal', look: 'Extra-large black type, no cards and a thin rule' },
+  { value: 'neon', label: 'Neon', look: 'Deep navy slides with vivid magenta and green highlights' },
 ];
 
 export type Voice = 'Joanna' | 'Matthew' | 'Amy' | 'Brian' | 'Aditi';
