@@ -23,6 +23,6 @@ mkdir -p "$out"
 for png in "$tmp"/*-question.png; do
   name="$(basename "$png" -question.png)"
   ffmpeg -v error -y -i "$png" -vf scale=480:270:flags=lanczos \
-    -c:v libwebp -quality 82 "$out/$name.webp"
+    -c:v libwebp -lossless 1 "$out/$name.webp"
   echo "wrote frontend/public/templates/$name.webp ($(wc -c <"$out/$name.webp") bytes)"
 done

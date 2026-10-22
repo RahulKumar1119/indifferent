@@ -35,6 +35,7 @@ describe('AuthCallbackComponent', () => {
     router = TestBed.inject(Router);
     authService = TestBed.inject(AuthService);
     spyOn(router, 'navigate');
+    spyOn(router, 'navigateByUrl');
 
     const fixture = TestBed.createComponent(AuthCallbackComponent);
     fixture.detectChanges();
@@ -54,7 +55,7 @@ describe('AuthCallbackComponent', () => {
     req.flush({ accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 });
   });
 
-  it('should call authService.setTokens and navigate to /dashboard on success', () => {
+  it('should call authService.setTokens and navigate to the post-login destination on success', () => {
     const fixture = createComponent({ code: 'test-auth-code' });
     spyOn(authService, 'setTokens');
 
@@ -63,7 +64,7 @@ describe('AuthCallbackComponent', () => {
     req.flush(mockTokens);
 
     expect(authService.setTokens).toHaveBeenCalledWith(mockTokens);
-    expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/new');
   });
 
   it('should navigate to /login with error param on API error', () => {

@@ -491,6 +491,8 @@ The frontend expects the API base URL from its environment configuration. The de
 bash scripts/generate-template-previews.sh
 ```
 
+The generated WebPs are committed because the frontend build has no Go toolchain. `go test ./cmd/templatepreview` fails when a committed preview no longer matches the renderer, and the failure points back to this script.
+
 ## Configuration
 
 Secrets are never checked in. Start from [`deploy/.env.example`](deploy/.env.example):
@@ -588,13 +590,14 @@ All `/projects`, `/settings` and `/shorts` routes require `Authorization: Bearer
 | Method | Path | Description |
 |---|---|---|
 | GET | `/projects` | List the user's projects |
-| POST | `/projects` | Create a project (design, voice, optional watermark and linked shorts job) |
+| POST | `/projects` | Create a project (design, design options, voice, optional watermark and linked shorts job) |
 | GET | `/projects/:id` | Get a project |
 | PUT | `/projects/:id` | Update name, design, voice, branding or watermark |
 | DELETE | `/projects/:id` | Delete a project and its assets |
 | POST | `/projects/:id/upload` | Get a presigned URL for the TXT file |
 | POST | `/projects/:id/logo` | Get a presigned URL for a PNG logo |
 | GET | `/projects/:id/logo` | Get a presigned logo URL |
+| POST | `/projects/:id/slide-preview` | Render the project's first question as a PNG (10/min; body may override design, options or question) |
 | POST | `/projects/:id/start` | Start the quiz pipeline |
 | GET | `/projects/:id/status` | Pipeline status and progress |
 | GET | `/projects/:id/download` | Signed video/thumbnail URL; `202` while a Glacier restore is pending |

@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"strings"
 	"testing"
 
 	"github.com/rahul/indifferent/backend/internal/models"
@@ -205,12 +206,18 @@ func TestIsCorrectIndex(t *testing.T) {
 	}
 }
 
-func TestLongContentStaysOnCanvas(t *testing.T) {
-	longOption := "A deliberately long answer option that reaches one hundred characters and still needs to wrap cleanly inside a card without clipping"
-	data := QuestionSlideData{
+func maxLengthPreviewData() QuestionSlideData {
+	longOption := "A deliberately long answer option that reaches exactly one hundred characters before it wraps"
+	if len(longOption) < 100 {
+		longOption += strings.Repeat(" x", 100-len(longOption))
+	}
+	longOption = longOption[:100]
+	question := strings.Repeat("Which design satisfies the retention requirement without changing it? ", 8)
+	question = question[:500]
+	return QuestionSlideData{
 		QuestionNumber: 12,
 		TotalQuestions: 12,
-		QuestionText:   "A company stores audit logs that must never be modified or deleted for seven years, and auditors need to read them quickly when asked. Which design satisfies both requirements without changing the retention period?",
+		QuestionText:   question,
 		Options: []models.Option{
 			{Label: "A", Text: longOption},
 			{Label: "B", Text: "Keep the logs on an encrypted volume and snapshot it nightly for seven years"},
@@ -220,22 +227,58 @@ func TestLongContentStaysOnCanvas(t *testing.T) {
 		CorrectIndex:   0,
 		CorrectIndices: []int{0},
 	}
+}
+
+func TestLongContentStaysOnCanvas(t *testing.T) {
+	data := maxLengthPreviewData()
+	if len(data.QuestionText) != 500 {
+		t.Fatalf("question length = %d, want 500", len(data.QuestionText))
+	}
+	if len(data.Options[0].Text) != 100 {
+		t.Fatalf("option length = %d, want 100", len(data.Options[0].Text))
+	}
 
 	for _, name := range ThemeNames() {
-		t.Run(name, func(t *testing.T) {
-			for _, slide := range []struct {
-				file string
-				bg   color.RGBA
-			}{
-				{"question.html", ThemeFor(name).QuestionBG},
-				{"answer-reveal.html", ThemeFor(name).AnswerBG},
-			} {
-				img := renderImage(t, name, slide.file, data)
-				if x, y, ok := inkInFrame(img, slide.bg, 12); ok {
-					t.Errorf("%s: content reaches the canvas edge at (%d,%d)", slide.file, x, y)
+		for _, size := range []string{"s", "m", "l"} {
+			t.Run(name+"/"+size, func(t *testing.T) {
+				data.DesignOptions.TextSize = size
+				for _, slide := range []struct {
+					file string
+					bg   color.RGBA
+				}{
+					{"question.html", ThemeFor(name).QuestionBG},
+					{"answer-reveal.html", ThemeFor(name).AnswerBG},
+				} {
+					img := renderImage(t, name, slide.file, data)
+					if x, y, ok := inkInFrame(img, slide.bg, 12); ok {
+						t.Errorf("%s: content reaches the canvas edge at (%d,%d)", slide.file, x, y)
+					}
 				}
+			})
+		}
+	}
+}
+
+// The canvas-edge check cannot see a question that runs into the cards,
+// because the cards are painted over it. Assert the planned question block
+// ends above the option grid for the maximum accepted question length.
+func TestMaxLengthQuestionDoesNotOverlapOptions(t *testing.T) {
+	data := maxLengthPreviewData()
+	r := NewNativeRenderer()
+	for _, name := range ThemeNames() {
+		for _, size := range []string{"s", "m", "l"} {
+			data.DesignOptions.TextSize = size
+			l := ThemeFor(name).layout()
+			l.QuestionSize *= textScale(data.DesignOptions)
+			plan := r.planQuestion(l, data.QuestionText, 2*96+cardGap)
+			blockBottom := contentTop + len(plan.lines)*plan.lineHeight
+			if blockBottom > plan.optionsTop {
+				t.Errorf("%s/%s: question block ends at %d, options start at %d", name, size, blockBottom, plan.optionsTop)
 			}
-		})
+			if plan.optionsTop+2*96+cardGap > contentBottom {
+				t.Errorf("%s/%s: options grid ends at %d, canvas content limit %d", name, size, plan.optionsTop+2*96+cardGap, contentBottom)
+			}
+		}
 	}
 }
 

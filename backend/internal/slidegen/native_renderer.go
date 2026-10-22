@@ -8,6 +8,7 @@ import (
 	"image/draw"
 	"image/png"
 	"math"
+	"strconv"
 	"strings"
 
 	"golang.org/x/image/font"
@@ -95,6 +96,7 @@ func (r *NativeRenderer) RenderTemplate(templateName string, data interface{}) (
 
 	switch d := data.(type) {
 	case QuestionSlideData:
+		theme = themeForOptions(themeName, d.DesignOptions)
 		if strings.Contains(file, "answer") {
 			fillBackground(img, theme.AnswerBG)
 			r.drawQuestionAndOptions(img, theme, d, true)
@@ -103,9 +105,11 @@ func (r *NativeRenderer) RenderTemplate(templateName string, data interface{}) (
 			r.drawQuestionAndOptions(img, theme, d, false)
 		}
 	case CountdownSlideData:
+		theme = themeForOptions(themeName, d.DesignOptions)
 		fillBackground(img, theme.CountdownBG)
 		r.drawCountdownSlide(img, theme, d)
 	case OutroSlideData:
+		theme = themeForOptions(themeName, d.DesignOptions)
 		fillBackground(img, theme.OutroBG)
 		r.drawOutroSlide(img, theme, d)
 	default:
@@ -125,21 +129,64 @@ func fillBackground(img *image.RGBA, c color.RGBA) {
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: c}, image.Point{}, draw.Src)
 }
 
+// questionPlan is the question block geometry. It is split out so tests can
+// assert that an extreme question never collides with the option grid.
+type questionPlan struct {
+	face       font.Face
+	lines      []string
+	size       float64
+	lineHeight int
+	optionsTop int
+}
+
+func (r *NativeRenderer) planQuestion(l DesignLayout, text string, minGridHeight int) questionPlan {
+	size := l.QuestionSize
+	var face font.Face
+	var lines []string
+	for {
+		face = r.face(size, true)
+		lines = r.wrapText(face, text, int(l.QuestionMaxPx))
+		lineHeight := int(size * 1.28)
+		optionsTop := contentTop + len(lines)*lineHeight + 48
+		if optionsTop+minGridHeight <= contentBottom || size <= 24 {
+			if optionsTop > contentBottom-minGridHeight {
+				optionsTop = contentBottom - minGridHeight
+			}
+			return questionPlan{face: face, lines: lines, size: size, lineHeight: lineHeight, optionsTop: optionsTop}
+		}
+		size -= 2
+	}
+}
+
 // drawQuestionAndOptions draws the shared base layout for question and answer
 // slides: a centred header, a centred question, then a 2×2 option grid (1×N
 // when there is a single option). Designs differ in palette, type scale and
 // whether options sit in cards (issue #104).
 func (r *NativeRenderer) drawQuestionAndOptions(img *image.RGBA, t Theme, data QuestionSlideData, answer bool) {
 	l := t.layout()
+	scale := textScale(data.DesignOptions)
+	l.QuestionSize *= scale
+	l.OptionSize *= scale
+	l.HeaderSize *= scale
+	l.LabelSize *= scale
 
 	draw.Draw(img, image.Rect(0, 0, slideWidth, 8), &image.Uniform{C: t.Accent}, image.Point{}, draw.Src)
 
-	header := fmt.Sprintf("Question %d of %d", data.QuestionNumber, data.TotalQuestions)
-	if answer {
-		header += " — Answer"
+	header := ""
+	if data.DesignOptions.ShowNumbers() {
+		header = fmt.Sprintf("Question %d of %d", data.QuestionNumber, data.TotalQuestions)
 	}
-	headerFace := r.face(l.HeaderSize, true)
-	r.drawCenteredText(img, header, slideWidth/2, 82, t.Accent, headerFace)
+	if answer {
+		if header == "" {
+			header = "Answer"
+		} else {
+			header += " — Answer"
+		}
+	}
+	if header != "" {
+		headerFace := r.face(l.HeaderSize, true)
+		r.drawCenteredText(img, header, slideWidth/2, 82, t.Accent, headerFace)
+	}
 
 	cols, rows := 2, (len(data.Options)+1)/2
 	if len(data.Options) == 1 {
@@ -152,31 +199,13 @@ func (r *NativeRenderer) drawQuestionAndOptions(img *image.RGBA, t Theme, data Q
 		minGridHeight = rows*96 + cardGap*(rows-1)
 	}
 
-	questionSize := l.QuestionSize
-	questionTop := contentTop
-	var questionLines []string
-	var questionFace font.Face
-	for {
-		questionFace = r.face(questionSize, true)
-		questionLines = r.wrapText(questionFace, data.QuestionText, int(l.QuestionMaxPx))
-		lineHeight := int(questionSize * 1.28)
-		optionsTop := questionTop + len(questionLines)*lineHeight + 48
-		if optionsTop+minGridHeight <= contentBottom || questionSize <= 40 {
-			break
-		}
-		questionSize -= 2
-	}
+	plan := r.planQuestion(l, data.QuestionText, minGridHeight)
+	lineHeight := plan.lineHeight
+	optionsTop := plan.optionsTop
 
-	lineHeight := int(questionSize * 1.28)
-	questionHeight := len(questionLines) * lineHeight
-	optionsTop := questionTop + questionHeight + 48
-	if optionsTop > contentBottom-minGridHeight {
-		optionsTop = contentBottom - minGridHeight
-	}
-
-	baseline := questionTop + questionFace.Metrics().Ascent.Ceil()
-	for _, line := range questionLines {
-		r.drawCenteredText(img, line, slideWidth/2, baseline, t.Text, questionFace)
+	baseline := contentTop + plan.face.Metrics().Ascent.Ceil()
+	for _, line := range plan.lines {
+		r.drawCenteredText(img, line, slideWidth/2, baseline, t.Text, plan.face)
 		baseline += lineHeight
 	}
 
@@ -218,7 +247,8 @@ func (r *NativeRenderer) drawQuestionAndOptions(img *image.RGBA, t Theme, data Q
 		maxHeight := 0
 		lines = make([][]string, len(data.Options))
 		for i, opt := range data.Options {
-			labelWidth := font.MeasureString(labelFace, opt.Label).Ceil()
+			label := optionLabel(i, opt.Label, data.DesignOptions.AnswerLabels)
+			labelWidth := font.MeasureString(labelFace, label).Ceil()
 			reserve := 0
 			if answer && isCorrectIndex(i, data.CorrectIndices) {
 				reserve = 58
@@ -239,6 +269,7 @@ func (r *NativeRenderer) drawQuestionAndOptions(img *image.RGBA, t Theme, data Q
 	}
 
 	for i, opt := range data.Options {
+		label := optionLabel(i, opt.Label, data.DesignOptions.AnswerLabels)
 		col, row := i%cols, i/cols
 		x := marginX + col*(cardWidth+cardGap)
 		y := gridTop + row*(cardHeight+cardGap)
@@ -267,13 +298,13 @@ func (r *NativeRenderer) drawQuestionAndOptions(img *image.RGBA, t Theme, data Q
 			fillRoundedRect(img, inner, l.CardRadius-2, fill)
 		}
 
-		labelWidth := font.MeasureString(labelFace, opt.Label).Ceil()
+		labelWidth := font.MeasureString(labelFace, label).Ceil()
 		textLeft := rect.Min.X + cardPadding + labelWidth + 18
 		lineHeight = int(optionSize * 1.28)
 		blockHeight := len(lines[i]) * lineHeight
 		firstBaseline := rect.Min.Y + (cardHeight-blockHeight)/2 + optionFace.Metrics().Ascent.Ceil()
 
-		r.drawText(img, opt.Label, rect.Min.X+cardPadding, firstBaseline, labelColor, labelFace)
+		r.drawText(img, label, rect.Min.X+cardPadding, firstBaseline, labelColor, labelFace)
 		for j, line := range lines[i] {
 			r.drawText(img, line, textLeft, firstBaseline+j*lineHeight, textColor, optionFace)
 		}
@@ -315,6 +346,18 @@ func (r *NativeRenderer) drawOutroSlide(img *image.RGBA, t Theme, data OutroSlid
 }
 
 // isCorrectIndex checks whether idx is in the correctIndices slice.
+// optionLabel keeps the parsed letter labels or switches the whole project to
+// 1-based numbers, without changing which option is correct.
+func optionLabel(index int, label, style string) string {
+	if strings.EqualFold(style, "numbers") {
+		return strconv.Itoa(index + 1)
+	}
+	if label == "" {
+		return string(rune('A' + index))
+	}
+	return label
+}
+
 func isCorrectIndex(idx int, correctIndices []int) bool {
 	for _, ci := range correctIndices {
 		if ci == idx {

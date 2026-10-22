@@ -13,22 +13,8 @@ type SlideRendererInterface interface {
 	RenderTemplate(templateName string, data interface{}) ([]byte, error)
 }
 
-// QuestionSlideData holds the template data for a question or answer-reveal slide.
-type QuestionSlideData struct {
-	QuestionNumber int             `json:"questionNumber"`
-	TotalQuestions int             `json:"totalQuestions"`
-	QuestionText   string          `json:"questionText"`
-	Options        []models.Option `json:"options"`
-	CorrectIndex   int             `json:"correctIndex"`
-	CorrectIndices []int           `json:"correctIndices"`
-}
-
-// CountdownSlideData holds the template data for a countdown slide.
-type CountdownSlideData struct {
-	Seconds int `json:"seconds"`
-}
-
-// OutroSlideData holds the template data for the outro slide.
-type OutroSlideData struct {
-	ChannelName string `json:"channelName"`
-}
+// Slide renderer payloads live in models so the API can build a preview
+// request without importing this package's Playwright dependency.
+type QuestionSlideData = models.QuestionSlideData
+type CountdownSlideData = models.CountdownSlideData
+type OutroSlideData = models.OutroSlideData

@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/rahul/indifferent/backend/internal/models"
 )
 
 // DesignLayout is the geometry behind a template name: whether options sit in
@@ -61,10 +63,10 @@ func mustHex(s string) color.RGBA {
 // themes is the registry. Keys are exactly the template names the API accepts
 // (validTemplates in internal/api); a test keeps the two in step.
 var themes = map[string]Theme{
-	// classic keeps its colours; issue #104 gives every design the new base
-	// layout. Golden images in testdata/golden are regenerated alongside it.
-	// Its answer slide still predates the 4.5:1 contrast rule; see
-	// TestClassicKnownContrastShortfalls.
+	// classic keeps its recognizable purple palette; issue #104 gives every
+	// design the new base layout. The answer text colours were darkened just
+	// enough to clear 4.5:1 on the new tinted cards, and the golden images in
+	// testdata/golden carry that deliberate change.
 	"classic": {
 		Name:        "classic",
 		Layout:      DesignLayout{Cards: true, CardRadius: 20, QuestionSize: 64, OptionSize: 44, HeaderSize: 30, LabelSize: 30, QuestionMaxPx: 1560},
@@ -74,10 +76,10 @@ var themes = map[string]Theme{
 		OutroBG:     mustHex("#FAF5FF"),
 		Text:        mustHex("#1E1E1E"),
 		Option:      mustHex("#505050"),
-		OptionWrong: mustHex("#8C8C8C"),
+		OptionWrong: mustHex("#6F6F6F"),
 		Subtle:      mustHex("#646464"),
 		Accent:      mustHex("#7C3AED"),
-		Correct:     mustHex("#16A34A"),
+		Correct:     mustHex("#15803D"),
 	},
 	// modern: cool slate with a deep sky-blue accent.
 	"modern": {
@@ -234,6 +236,35 @@ func ThemeFor(name string) Theme {
 	return themes[DefaultTheme]
 }
 
+// themeForOptions applies a project's curated accent override. Invalid or
+// stale accents are ignored so a render never fails on stored data.
+func themeForOptions(name string, opts models.DesignOptions) Theme {
+	t := ThemeFor(name)
+	if opts.Accent == "" {
+		return t
+	}
+	for _, allowed := range models.AllowedAccents(t.Name) {
+		if strings.EqualFold(opts.Accent, allowed) {
+			t.Accent = mustHex(allowed)
+			return t
+		}
+	}
+	return t
+}
+
+// textScale maps S/M/L onto the design's published type scale. Empty (legacy
+// projects) renders at the design's base size; M is the new-project default.
+func textScale(opts models.DesignOptions) float64 {
+	switch strings.ToLower(strings.TrimSpace(opts.TextSize)) {
+	case "l":
+		return 1.16
+	case "m":
+		return 1.08
+	default:
+		return 1
+	}
+}
+
 // ThemeNames lists every template name that has a real theme, sorted.
 func ThemeNames() []string {
 	names := make([]string, 0, len(themes))
@@ -288,6 +319,7 @@ func (t Theme) contrastPairs() []contrastPair {
 	if t.layout().Cards {
 		pairs = append(pairs,
 			contrastPair{"question: options on cards", t.Option, t.cardBG(), textContrast},
+			contrastPair{"question: option labels on cards", t.Accent, t.cardBG(), textContrast},
 			contrastPair{"answer: wrong options on cards", t.OptionWrong, t.answerCardBG(), textContrast},
 			contrastPair{"answer: correct option on card", t.Correct, t.correctCardBG(), textContrast},
 		)

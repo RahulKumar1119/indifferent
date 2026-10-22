@@ -337,7 +337,7 @@ STATE_MACHINE=$(cat << EOF
     "GenerateSlides": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${PROJECT}-slidegen",
-      "Parameters": {"projectId.$":"$.projectId","jsonKey.$":"$.parserOutput.s3Key","template.$":"$.template"},
+      "Parameters": {"projectId.$":"$.projectId","jsonKey.$":"$.parserOutput.s3Key","template.$":"$.template","designOptions.$":"$.designOptions"},
       "ResultPath": "$.slideGenOutput",
       "Retry": [{"ErrorEquals":["States.TaskFailed"],"IntervalSeconds":5,"MaxAttempts":2,"BackoffRate":2}],
       "Catch": [{"ErrorEquals":["States.ALL"],"ResultPath":"$.error","Next":"MarkFailed"}],

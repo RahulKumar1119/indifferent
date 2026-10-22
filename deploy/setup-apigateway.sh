@@ -17,6 +17,7 @@ API_ID=$(aws apigateway create-rest-api \
   --name "$LAMBDA_FUNCTION" \
   --description "TXT-to-Video SaaS API" \
   --endpoint-configuration "types=REGIONAL" \
+  --binary-media-types "image/png" \
   --region $REGION \
   --query 'id' --output text)
 

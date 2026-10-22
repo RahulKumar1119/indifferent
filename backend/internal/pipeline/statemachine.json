@@ -54,7 +54,8 @@
       "Parameters": {
         "projectId.$": "$.projectId",
         "jsonKey.$": "$.parserOutput.s3Key",
-        "template.$": "$.template"
+        "template.$": "$.template",
+        "designOptions.$": "$.designOptions"
       },
       "ResultPath": "$.slideGenOutput",
       "Retry": [

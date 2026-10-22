@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { MatStepperModule } from '@angular/material/stepper';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ApiService } from '../../core';
-import { Project, CreateProjectRequest, CreateProjectResponse, TEMPLATE_OPTIONS, Voice } from '../../shared';
+import { Project, CreateProjectRequest, CreateProjectResponse, TEMPLATE_OPTIONS, DESIGN_ACCENTS, AccentOption, Template, Voice } from '../../shared';
 import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from '../shorts/shorts.service';
 
 @Component({
@@ -111,13 +111,70 @@ import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from '../shorts/sh
                   </div>
                 </fieldset>
 
+                <!-- Design options -->
+                <fieldset aria-describedby="design-options-help">
+                  <legend class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1">Design options</legend>
+                  <p id="design-options-help" class="mb-3 text-[12.5px] text-[#6B6560]">Applied to every question, answer, countdown and outro slide in this project.</p>
+                  <div formGroupName="designOptions" class="space-y-5 rounded-[12px] border border-black/10 bg-[#1A1714]/[.02] p-4">
+                    <div>
+                      <span class="block text-[12px] font-semibold text-[#3E3A33] mb-2">Text size</span>
+                      <div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Text size">
+                        @for (size of textSizes; track size.value) {
+                          <label class="relative block cursor-pointer min-h-[44px]">
+                            <input type="radio" name="textSize" formControlName="textSize" [value]="size.value" [attr.value]="size.value" class="peer sr-only" />
+                            <span class="flex min-h-[44px] flex-col items-center justify-center rounded-[10px] border-2 border-black/10 bg-white px-2 text-center peer-checked:border-[#BC5227] peer-checked:bg-[#BC5227]/[.06] peer-focus-visible:ring-2 peer-focus-visible:ring-[#BC5227]/50 peer-focus-visible:ring-offset-2">
+                              <span class="text-sm font-semibold">{{ size.label }}</span>
+                              <span class="text-[10.5px] text-[#6B6560]">{{ size.hint }}</span>
+                            </span>
+                          </label>
+                        }
+                      </div>
+                    </div>
+
+                    <div>
+                      <span class="block text-[12px] font-semibold text-[#3E3A33] mb-2">Accent</span>
+                      <div class="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Accent colour">
+                        @for (accent of accentOptions; track accent.value) {
+                          <label class="relative block cursor-pointer min-h-[44px]">
+                            <input type="radio" name="accent" formControlName="accent" [value]="accent.value" [attr.value]="accent.value" class="peer sr-only" />
+                            <span class="flex min-h-[44px] items-center gap-2 rounded-[10px] border-2 border-black/10 bg-white px-3 text-sm peer-checked:border-[#BC5227] peer-checked:bg-[#BC5227]/[.06] peer-focus-visible:ring-2 peer-focus-visible:ring-[#BC5227]/50 peer-focus-visible:ring-offset-2">
+                              <span class="h-4 w-4 shrink-0 rounded-full border border-black/15" [style.background-color]="accent.value" aria-hidden="true"></span>
+                              <span class="font-medium">{{ accent.label }}</span>
+                              @if (projectForm.get('designOptions.accent')?.value === accent.value) {
+                                <svg lucideIcon="check" [size]="13" class="ml-auto shrink-0 text-[#BC5227]" aria-hidden="true"></svg>
+                              }
+                            </span>
+                          </label>
+                        }
+                      </div>
+                    </div>
+
+                    <div>
+                      <span class="block text-[12px] font-semibold text-[#3E3A33] mb-2">Answer labels</span>
+                      <div class="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Answer labels">
+                        @for (style of labelStyles; track style.value) {
+                          <label class="relative block cursor-pointer min-h-[44px]">
+                            <input type="radio" name="answerLabels" formControlName="answerLabels" [value]="style.value" [attr.value]="style.value" class="peer sr-only" />
+                            <span class="flex min-h-[44px] items-center justify-center rounded-[10px] border-2 border-black/10 bg-white px-3 text-sm font-medium peer-checked:border-[#BC5227] peer-checked:bg-[#BC5227]/[.06] peer-focus-visible:ring-2 peer-focus-visible:ring-[#BC5227]/50 peer-focus-visible:ring-offset-2">{{ style.label }}</span>
+                          </label>
+                        }
+                      </div>
+                    </div>
+
+                    <label class="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-[10px] border border-black/10 bg-white px-3">
+                      <input type="checkbox" formControlName="showQuestionNumber" class="h-5 w-5 rounded border-black/30 accent-[#BC5227]" />
+                      <span class="text-sm font-medium">Show question number</span>
+                    </label>
+                  </div>
+                </fieldset>
+
                 <!-- Voice Selector -->
                 <div>
                   <label class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-3">Narration voice</label>
                   <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     @for (v of voices; track v) {
                       <div
-                        class="pick rounded-[12px] p-3 cursor-pointer border-2 text-center text-sm font-medium"
+                        class="pick rounded-[12px] p-3 cursor-pointer border-2 text-center text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BC5227]/50 focus-visible:ring-offset-2"
                         [class.border-[#BC5227]]="projectForm.get('voice')?.value === v"
                         [class.bg-[#BC5227]/[.06]]="projectForm.get('voice')?.value === v"
                         [class.border-black/10]="projectForm.get('voice')?.value !== v"
@@ -252,6 +309,15 @@ export class CreateProjectComponent implements OnInit {
   shortsLimits: ShortsLimits = DEFAULT_SHORTS_LIMITS;
 
   readonly templates = TEMPLATE_OPTIONS;
+  readonly textSizes: { value: 's' | 'm' | 'l'; label: string; hint: string }[] = [
+    { value: 's', label: 'S', hint: 'Base' },
+    { value: 'm', label: 'M', hint: 'Medium' },
+    { value: 'l', label: 'L', hint: 'Large' },
+  ];
+  readonly labelStyles: { value: 'letters' | 'numbers'; label: string }[] = [
+    { value: 'letters', label: 'A B C D' },
+    { value: 'numbers', label: '1 2 3 4' },
+  ];
 
   voices: Voice[] = ['Joanna', 'Matthew', 'Amy', 'Brian', 'Aditi'];
 
@@ -264,12 +330,27 @@ export class CreateProjectComponent implements OnInit {
     this.projectForm = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(100)]],
       template: ['classic', Validators.required],
+      designOptions: this.fb.group({
+        accent: [DESIGN_ACCENTS.classic[0].value],
+        textSize: ['m'],
+        showQuestionNumber: [true],
+        answerLabels: ['letters'],
+      }),
       voice: ['Joanna', Validators.required],
       watermarkText: ['', [Validators.maxLength(100)]],
       watermarkOpacity: [0.8],
       channelName: ['', [Validators.maxLength(60)]],
       includeShorts: [false],
     });
+
+    this.projectForm.get('template')?.valueChanges.subscribe((value: Template) => {
+      const accents = DESIGN_ACCENTS[value] ?? [];
+      this.projectForm.get('designOptions.accent')?.setValue(accents[0]?.value ?? '');
+    });
+  }
+
+  get accentOptions(): readonly AccentOption[] {
+    return DESIGN_ACCENTS[this.projectForm.get('template')?.value as Template] ?? [];
   }
 
   ngOnInit(): void {
@@ -359,6 +440,7 @@ export class CreateProjectComponent implements OnInit {
     const request: CreateProjectRequest = {
       name: this.projectForm.value.name,
       template: this.projectForm.value.template,
+      designOptions: this.projectForm.value.designOptions,
       voice: this.projectForm.value.voice,
     };
     const wmText = (this.projectForm.value.watermarkText || '').trim();

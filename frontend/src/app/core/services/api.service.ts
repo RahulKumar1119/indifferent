@@ -28,6 +28,14 @@ export class ApiService {
     return this.http.post<T>(`${this.baseUrl}${path}`, body, { withCredentials });
   }
 
+  /** POST for binary responses such as the rendered slide preview PNG. */
+  postBlob(path: string, body: unknown = {}): Observable<Blob> {
+    return this.http.post(`${this.baseUrl}${path}`, body, {
+      withCredentials: true,
+      responseType: 'blob',
+    });
+  }
+
   put<T>(path: string, body: unknown = {}, withCredentials = true, context?: HttpContext): Observable<T> {
     return this.http.put<T>(`${this.baseUrl}${path}`, body, { withCredentials, context });
   }
