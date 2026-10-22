@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -33,6 +33,7 @@ export class ApiService {
     return this.http.post(`${this.baseUrl}${path}`, body, {
       withCredentials: true,
       responseType: 'blob',
+      headers: new HttpHeaders({ Accept: 'image/png' }),
     });
   }
 
