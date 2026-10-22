@@ -60,12 +60,12 @@ type SFNClient interface {
 
 // APIHandler handles all API Gateway proxy requests.
 type APIHandler struct {
-	AuthService     auth.GoogleAuthService
-	JWTService      *auth.JWTService
-	PasswordAuth    *auth.PasswordAuthService
-	DB              DynamoDBAPI
-	S3              storage.Downloader
-	SFN             SFNClient
+	AuthService           auth.GoogleAuthService
+	JWTService            *auth.JWTService
+	PasswordAuth          *auth.PasswordAuthService
+	DB                    DynamoDBAPI
+	S3                    storage.Downloader
+	SFN                   SFNClient
 	TableName             string
 	UsersTable            string
 	Bucket                string
@@ -74,6 +74,13 @@ type APIHandler struct {
 	// ThumbnailStateMachineARN starts AI thumbnail generation. Empty disables
 	// the feature (the endpoints answer 503) so the API can deploy first.
 	ThumbnailStateMachineARN string
+
+	// PreviewRenderer and the preview limiter/cache back /slide-preview.
+	// Keeping the renderer as an interface makes the endpoint testable without
+	// pulling Playwright into the API binary.
+	PreviewRenderer SlidePreviewRenderer
+	PreviewLimiter  PreviewLimiter
+	PreviewCache    PreviewCache
 }
 
 // corsHeaders returns the standard CORS headers for all responses.
@@ -118,6 +125,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleListProjects)
 	case req.HTTPMethod == "POST" && req.Path == "/projects":
 		return h.handleWithAuth(ctx, req, h.handleCreateProject)
+	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/projects/") && strings.HasSuffix(req.Path, "/slide-preview"):
+		return h.handleWithAuth(ctx, req, h.handleSlidePreview)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/projects/") && strings.HasSuffix(req.Path, "/status"):
 		return h.handleWithAuth(ctx, req, h.handleGetProjectStatus)
 	case req.HTTPMethod == "GET" && strings.HasPrefix(req.Path, "/projects/") && strings.HasSuffix(req.Path, "/download"):
@@ -291,6 +300,7 @@ func isValidationError(err error) bool {
 	msg := err.Error()
 	return strings.HasPrefix(msg, "invalid email") || strings.HasPrefix(msg, "password must be")
 }
+
 // handleRefresh refreshes an access token using a refresh token.
 func (h *APIHandler) handleRefresh(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var body struct {
@@ -418,12 +428,13 @@ func (h *APIHandler) handleListProjects(ctx context.Context, req events.APIGatew
 // Watermark and Shorts are optional: a unified project may configure all
 // three tools in one call.
 type CreateProjectRequest struct {
-	Name      string                   `json:"name"`
-	Template  string                   `json:"template"`
-	Voice     string                   `json:"voice"`
-	Watermark *models.WatermarkSettings `json:"watermark,omitempty"`
-	Branding  *models.Branding          `json:"branding,omitempty"`
-	Shorts    *CreateProjectShortsRequest `json:"shorts,omitempty"`
+	Name          string                      `json:"name"`
+	Template      string                      `json:"template"`
+	DesignOptions models.DesignOptions        `json:"designOptions,omitempty"`
+	Voice         string                      `json:"voice"`
+	Watermark     *models.WatermarkSettings   `json:"watermark,omitempty"`
+	Branding      *models.Branding            `json:"branding,omitempty"`
+	Shorts        *CreateProjectShortsRequest `json:"shorts,omitempty"`
 }
 
 // CreateProjectShortsRequest asks project creation to also create a linked
@@ -467,16 +478,17 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	project := models.Project{
-		UserID:    claims.UserID,
-		ProjectID: projectID,
-		Name:      body.Name,
-		Template:  body.Template,
-		Voice:     body.Voice,
-		Watermark: body.Watermark,
-		Branding:  body.Branding,
-		Status:    "created",
-		CreatedAt: now,
-		UpdatedAt: now,
+		UserID:        claims.UserID,
+		ProjectID:     projectID,
+		Name:          body.Name,
+		Template:      body.Template,
+		DesignOptions: body.DesignOptions,
+		Voice:         body.Voice,
+		Watermark:     body.Watermark,
+		Branding:      body.Branding,
+		Status:        "created",
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	// Store project in DynamoDB
@@ -750,7 +762,7 @@ func (h *APIHandler) handleLogoUpload(ctx context.Context, req events.APIGateway
 
 // UpdateProjectRequest carries the mutable branding fields of a project.
 type UpdateProjectRequest struct {
-	ChannelName *string                  `json:"channelName,omitempty"`
+	ChannelName *string                   `json:"channelName,omitempty"`
 	Watermark   *models.WatermarkSettings `json:"watermark,omitempty"`
 }
 
@@ -859,13 +871,14 @@ func (h *APIHandler) handleStartPipeline(ctx context.Context, req events.APIGate
 	txtKey := fmt.Sprintf("uploads/%s/%s/input.txt", claims.UserID, projectID)
 
 	// Start Step Functions execution with the s3Key
-	sfnInput, _ := json.Marshal(map[string]string{
-		"projectId": projectID,
-		"userId":    claims.UserID,
-		"template":  project.Template,
-		"voice":     project.Voice,
-		"s3Key":     txtKey,
-		"logoKey":   projectLogoKey(project),
+	sfnInput, _ := json.Marshal(map[string]any{
+		"projectId":     projectID,
+		"userId":        claims.UserID,
+		"template":      project.Template,
+		"designOptions": project.DesignOptions,
+		"voice":         project.Voice,
+		"s3Key":         txtKey,
+		"logoKey":       projectLogoKey(project),
 	})
 
 	_, err = h.SFN.StartExecution(ctx, &sfn.StartExecutionInput{
@@ -1026,6 +1039,10 @@ func validateCreateProject(req *CreateProjectRequest) error {
 		return fmt.Errorf("invalid template: must be one of classic, modern, education, dark, minimal, neon")
 	}
 
+	if err := models.ValidateDesignOptions(req.Template, &req.DesignOptions); err != nil {
+		return err
+	}
+
 	if !validVoices[req.Voice] {
 		return fmt.Errorf("invalid voice: must be one of Joanna, Matthew, Amy, Brian, Aditi")
 	}
@@ -1090,6 +1107,7 @@ func isExecutionAlreadyExists(err error) bool {
 	var exists *sfntypes.ExecutionAlreadyExists
 	return errors.As(err, &exists)
 }
+
 // updateProjectFields reloads the project, applies mutate, and writes it back
 // only if untouched since the read (optimistic locking on updatedAt). A
 // concurrent status-worker write between read and write fails the condition
@@ -1193,6 +1211,11 @@ func projectToItem(p models.Project) map[string]dbtypes.AttributeValue {
 	if p.TxtKey != "" {
 		item["txtKey"] = &dbtypes.AttributeValueMemberS{Value: p.TxtKey}
 	}
+	if !p.DesignOptions.IsZero() {
+		if b, err := json.Marshal(p.DesignOptions); err == nil {
+			item["designOptions"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+		}
+	}
 	if p.JSONKey != "" {
 		item["jsonKey"] = &dbtypes.AttributeValueMemberS{Value: p.JSONKey}
 	}
@@ -1254,6 +1277,9 @@ func itemToProject(item map[string]dbtypes.AttributeValue) models.Project {
 	}
 	if v, ok := item["txtKey"].(*dbtypes.AttributeValueMemberS); ok {
 		p.TxtKey = v.Value
+	}
+	if v, ok := item["designOptions"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		_ = json.Unmarshal([]byte(v.Value), &p.DesignOptions)
 	}
 	if v, ok := item["jsonKey"].(*dbtypes.AttributeValueMemberS); ok {
 		p.JSONKey = v.Value

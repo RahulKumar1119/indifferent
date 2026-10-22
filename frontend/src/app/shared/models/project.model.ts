@@ -22,6 +22,49 @@ export const TEMPLATE_OPTIONS: readonly TemplateOption[] = [
   { value: 'neon', label: 'Neon', look: 'Deep navy slides with vivid magenta and green highlights' },
 ];
 
+export type TextSize = 's' | 'm' | 'l';
+export type AnswerLabels = 'letters' | 'numbers';
+
+/** Curated accents that the backend validates for each design. */
+export interface AccentOption {
+  value: string;
+  label: string;
+}
+
+export const DESIGN_ACCENTS: Readonly<Record<Template, readonly AccentOption[]>> = {
+  classic: [
+    { value: '#7C3AED', label: 'Purple' },
+    { value: '#92400E', label: 'Amber' },
+  ],
+  modern: [
+    { value: '#0369A1', label: 'Ocean' },
+    { value: '#9D174D', label: 'Berry' },
+  ],
+  education: [
+    { value: '#B3261E', label: 'Pencil red' },
+    { value: '#1E40AF', label: 'Ink blue' },
+  ],
+  dark: [
+    { value: '#A78BFA', label: 'Violet' },
+    { value: '#22D3EE', label: 'Cyan' },
+  ],
+  minimal: [
+    { value: '#111111', label: 'Black' },
+    { value: '#B3261E', label: 'Editorial red' },
+  ],
+  neon: [
+    { value: '#FF3DCB', label: 'Magenta' },
+    { value: '#22D3EE', label: 'Cyan' },
+  ],
+};
+
+export interface DesignOptions {
+  accent?: string;
+  textSize?: TextSize;
+  showQuestionNumber?: boolean;
+  answerLabels?: AnswerLabels;
+}
+
 export type Voice = 'Joanna' | 'Matthew' | 'Amy' | 'Brian' | 'Aditi';
 
 export type ProjectStatus =
@@ -37,6 +80,7 @@ export interface Project {
   id: string;
   name: string;
   template: Template;
+  designOptions?: DesignOptions;
   voice: Voice;
   status: ProjectStatus;
   createdAt: string;
@@ -88,6 +132,7 @@ export interface PipelineProgress {
 export interface CreateProjectRequest {
   name: string;
   template: Template;
+  designOptions?: DesignOptions;
   voice: Voice;
   watermark?: WatermarkSettings;
   branding?: Branding;

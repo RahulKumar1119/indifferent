@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/rahul/indifferent/backend/internal/api"
 	"github.com/rahul/indifferent/backend/internal/auth"
+	"github.com/rahul/indifferent/backend/internal/slidegen"
 	"github.com/rahul/indifferent/backend/internal/storage"
 )
 
@@ -82,12 +83,12 @@ func main() {
 
 	// Create API handler
 	handler := &api.APIHandler{
-		AuthService:     authService,
-		JWTService:      jwtService,
-		PasswordAuth:    auth.NewPasswordAuthService(dbClient, jwtService, usersTable, sessionTable),
-		DB:              dbClient,
-		S3:              s3Client,
-		SFN:             sfnClient,
+		AuthService:           authService,
+		JWTService:            jwtService,
+		PasswordAuth:          auth.NewPasswordAuthService(dbClient, jwtService, usersTable, sessionTable),
+		DB:                    dbClient,
+		S3:                    s3Client,
+		SFN:                   sfnClient,
 		TableName:             dynamoDBTable,
 		UsersTable:            usersTable,
 		Bucket:                s3Bucket,
@@ -95,6 +96,7 @@ func main() {
 		ShortsStateMachineARN: shortsStateMachineARN,
 
 		ThumbnailStateMachineARN: thumbnailStateMachineARN,
+		PreviewRenderer:          slidegen.NewNativeRenderer(),
 	}
 
 	// Start Lambda

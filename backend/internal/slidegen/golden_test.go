@@ -13,12 +13,13 @@ import (
 	"github.com/rahul/indifferent/backend/internal/models"
 )
 
-// Classic keep its palette across design refactors, but issue #104 deliberately
-// gave every design the new base layout (centred question, option cards, drawn
-// check mark). testdata/golden/classic-*.png were regenerated for that change.
-// Pixels are compared, not PNG bytes, so a change in Go's PNG encoder cannot
-// fail the test. Any further change to Classic's look must replace these files
-// in the same commit and be called out in the PR.
+// Classic keeps its purple identity across design refactors, but issue #104
+// deliberately gave every design the new base layout (centred question, option
+// cards, drawn check mark) and darkened its two answer-text colours to clear
+// 4.5:1 on the tinted cards. testdata/golden/classic-*.png were regenerated for
+// those changes. Pixels are compared, not PNG bytes, so a change in Go's PNG
+// encoder cannot fail the test. Any further change to Classic's look must
+// replace these files in the same commit and be called out in the PR.
 
 func goldenQuestion() QuestionSlideData {
 	return QuestionSlideData{

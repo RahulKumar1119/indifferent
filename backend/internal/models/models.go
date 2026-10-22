@@ -48,15 +48,16 @@ type Option struct {
 
 // SlideGenInput is the event for slide generation.
 type SlideGenInput struct {
-	ProjectID string `json:"projectId"`
-	JSONKey   string `json:"jsonKey"`   // S3 key for parsed JSON
-	Template  string `json:"template"` // "classic", "modern", etc.
+	ProjectID     string        `json:"projectId"`
+	JSONKey       string        `json:"jsonKey"`  // S3 key for parsed JSON
+	Template      string        `json:"template"` // "classic", "modern", etc.
+	DesignOptions DesignOptions `json:"designOptions,omitempty"`
 }
 
 // SlideGenOutput is the result of slide generation.
 type SlideGenOutput struct {
 	ProjectID string   `json:"projectId"`
-	SlideKeys []string `json:"slideKeys"` // S3 keys for PNG files
+	SlideKeys []string `json:"slideKeys"`        // S3 keys for PNG files
 	Failed    []int    `json:"failed,omitempty"` // indices of failed slides
 }
 
@@ -121,6 +122,7 @@ type Project struct {
 	ProjectID     string             `json:"id"`
 	Name          string             `json:"name"`
 	Template      string             `json:"template"`
+	DesignOptions DesignOptions      `json:"designOptions,omitempty"`
 	Voice         string             `json:"voice"`
 	Status        string             `json:"status"`
 	TxtKey        string             `json:"txtKey,omitempty"`
@@ -177,24 +179,24 @@ type ShortsJob struct {
 	Clips          []Clip          `json:"clips,omitempty"`
 	// Progress is 0-100 within the current stage (render tasks refine it via
 	// ffmpeg output; status transitions reset it to the stage baseline).
-	Progress       int             `json:"progress,omitempty"`
-	ProgressDetail string          `json:"progressDetail,omitempty"`
+	Progress       int    `json:"progress,omitempty"`
+	ProgressDetail string `json:"progressDetail,omitempty"`
 	// FailedStage records which stage was running when the job failed
 	// (transcribing|ranking|rendering); ErrorCode is a machine-readable
 	// failure class (VALIDATION_*|CANCELLED|RANKING_BACKEND|TRANSIENT_*|
 	// INFRASTRUCTURE) driving retry guidance. Both feed safe retries.
-	FailedStage    string          `json:"failedStage,omitempty"`
-	ErrorCode      string          `json:"errorCode,omitempty"`
+	FailedStage string `json:"failedStage,omitempty"`
+	ErrorCode   string `json:"errorCode,omitempty"`
 	// Caption is the reusable caption style chosen for this job's renders
 	// (preset + user overrides). Zero value renders the legacy bold look.
-	Caption        CaptionStyle    `json:"caption,omitempty"`
+	Caption CaptionStyle `json:"caption,omitempty"`
 	// ClipEdits maps clipId to the user's boundary/caption overrides,
 	// honored by renders and retries.
-	ClipEdits      map[string]ClipEdit `json:"clipEdits,omitempty"`
-	Error          string          `json:"error,omitempty"`
-	CreatedAt      string          `json:"createdAt"`
-	UpdatedAt      string          `json:"updatedAt"`
-	CompletedAt    string          `json:"completedAt,omitempty"`
+	ClipEdits   map[string]ClipEdit `json:"clipEdits,omitempty"`
+	Error       string              `json:"error,omitempty"`
+	CreatedAt   string              `json:"createdAt"`
+	UpdatedAt   string              `json:"updatedAt"`
+	CompletedAt string              `json:"completedAt,omitempty"`
 }
 
 // RankedSegment is a candidate viral moment with its rank and score.
@@ -304,6 +306,7 @@ func (e ClipEdit) Validate(sourceDuration float64) error {
 	}
 	return nil
 }
+
 type Transcript struct {
 	Text  string `json:"text"`
 	Words []Word `json:"words"`

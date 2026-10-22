@@ -39,6 +39,9 @@ func sample() slidegen.QuestionSlideData {
 		},
 		CorrectIndex:   1,
 		CorrectIndices: []int{1},
+		// Match a new project's defaults: medium type, letter labels and the
+		// question number shown. The picker must not promise a different size.
+		DesignOptions: models.DesignOptions{TextSize: "m", AnswerLabels: "letters"},
 	}
 }
 

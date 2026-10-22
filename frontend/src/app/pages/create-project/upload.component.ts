@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
@@ -99,6 +99,36 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
         </div>
       }
 
+      <!-- First question preview -->
+      @if (selectedFile) {
+        <div class="mt-6 glass-card p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">First question preview</p>
+              <p class="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">Uses this project's design and options. No render is started.</p>
+            </div>
+            <button
+              type="button"
+              class="min-h-[44px] px-4 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium disabled:opacity-50"
+              [disabled]="previewLoading || !fileText"
+              (click)="previewFirstQuestion()"
+            >
+              {{ previewLoading ? 'Rendering…' : 'Preview first question' }}
+            </button>
+          </div>
+          @if (previewError) {
+            <p class="mt-3 text-sm text-red-400">{{ previewError }}</p>
+          }
+          @if (previewUrl) {
+            <img
+              [src]="previewUrl"
+              alt="Preview of the first question rendered with this project's design"
+              class="mt-4 w-full rounded-lg border border-[hsl(var(--border))]"
+            />
+          }
+        </div>
+      }
+
       <!-- Upload Progress -->
       @if (uploadProgress >= 0) {
         <div class="mt-6">
@@ -146,10 +176,14 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     </div>
   `,
 })
-export class UploadComponent implements OnInit {
+export class UploadComponent implements OnInit, OnDestroy {
   projectId = '';
   selectedFile: File | null = null;
   filePreview = '';
+  fileText = '';
+  previewUrl = '';
+  previewLoading = false;
+  previewError = '';
   isDragOver = false;
   error = '';
   uploadError = '';
@@ -203,7 +237,32 @@ export class UploadComponent implements OnInit {
     event.stopPropagation();
     this.selectedFile = null;
     this.filePreview = '';
+    this.fileText = '';
+    this.previewError = '';
+    this.revokePreview();
     this.error = '';
+  }
+
+  ngOnDestroy(): void {
+    this.revokePreview();
+  }
+
+  previewFirstQuestion(): void {
+    if (!this.fileText || this.previewLoading) return;
+    this.previewLoading = true;
+    this.previewError = '';
+    this.revokePreview();
+
+    this.api.postBlob(`/projects/${this.projectId}/slide-preview`, { text: this.fileText }).subscribe({
+      next: (blob) => {
+        this.previewLoading = false;
+        this.previewUrl = URL.createObjectURL(blob);
+      },
+      error: () => {
+        this.previewLoading = false;
+        this.previewError = 'Could not render the first question. Check the file format and try again.';
+      },
+    });
   }
 
   formatFileSize(bytes: number): string {
@@ -234,6 +293,9 @@ export class UploadComponent implements OnInit {
   private handleFile(file: File): void {
     this.error = '';
     this.filePreview = '';
+    this.fileText = '';
+    this.previewError = '';
+    this.revokePreview();
     this.selectedFile = null;
 
     if (!file.name.toLowerCase().endsWith('.txt') && file.type !== 'text/plain') {
@@ -259,13 +321,21 @@ export class UploadComponent implements OnInit {
     const reader = new FileReader();
     reader.onload = () => {
       const content = reader.result as string;
+      this.fileText = content;
       const lines = content.split('\n').slice(0, 10);
       this.filePreview = lines.join('\n');
       if (content.split('\n').length > 10) {
         this.filePreview += '\n...';
       }
     };
-    reader.readAsText(file.slice(0, 2048));
+    reader.readAsText(file);
+  }
+
+  private revokePreview(): void {
+    if (this.previewUrl) {
+      URL.revokeObjectURL(this.previewUrl);
+      this.previewUrl = '';
+    }
   }
 
   private uploadToS3(signedUrl: string): void {

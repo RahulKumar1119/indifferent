@@ -141,47 +141,14 @@ func TestMustHexRejectsBadInput(t *testing.T) {
 
 // --- contrast ----------------------------------------------------------------
 
-// Every theme except Classic must clear the issue's 4.5:1 text rule on every
-// pair the renderer draws, so a new theme cannot ship unreadable.
+// Every design must clear the issue's 4.5:1 text rule on every pair the
+// renderer draws, so no design (including Classic) can ship unreadable.
 func TestThemesMeetContrast(t *testing.T) {
 	for _, name := range ThemeNames() {
-		if name == "classic" {
-			continue // frozen; see TestClassicKnownContrastShortfalls
-		}
 		th := ThemeFor(name)
 		for _, p := range th.contrastPairs() {
 			if got := contrastRatio(p.fg, p.bg); got < p.min {
 				t.Errorf("%s / %s: contrast %.2f:1, need %.1f:1", name, p.label, got, p.min)
-			}
-		}
-	}
-}
-
-// Classic must keep rendering exactly as it always has (golden images), which
-// includes two answer-slide colours that fall short of 4.5:1. They are pinned
-// here so the shortfall is visible, cannot get worse unnoticed, and is not
-// quietly "fixed" in a way that changes existing projects. Raising them is a
-// deliberate Classic redesign: update the goldens and these expectations
-// together.
-func TestClassicKnownContrastShortfalls(t *testing.T) {
-	th := ThemeFor("classic")
-	shortfalls := map[string]bool{
-		"answer: wrong options on cards": true,
-		"answer: correct option on card": true,
-	}
-	for _, p := range th.contrastPairs() {
-		got := contrastRatio(p.fg, p.bg)
-		switch {
-		case shortfalls[p.label]:
-			if got >= p.min {
-				t.Errorf("%s now passes (%.2f:1): remove it from the known shortfalls", p.label, got)
-			}
-			if got < 3.0 {
-				t.Errorf("%s fell to %.2f:1; Classic's shortfall must not get worse", p.label, got)
-			}
-		default:
-			if got < p.min {
-				t.Errorf("Classic %s: %.2f:1 is below %.1f:1 and is not a known shortfall", p.label, got, p.min)
 			}
 		}
 	}
