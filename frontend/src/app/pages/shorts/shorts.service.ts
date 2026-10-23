@@ -40,6 +40,8 @@ export interface ShortsJob {
   jobId: string;
   status: ShortsStatus;
   fileType: string;
+  /** Transcription selection: auto | en-US | en-IN | hi-IN. */
+  language?: string;
   sourceDuration: number;
   sourceKey: string;
   transcriptKey?: string;
@@ -97,6 +99,7 @@ export interface ShortsJobSummary {
   projectId?: string;
   status: ShortsStatus;
   fileType: string;
+  language?: string;
   sourceDuration: number;
   clipCount: number;
   createdAt: string;
@@ -115,6 +118,11 @@ export interface CreateShortsResponse {
  * so the numbers shown in the UI can never drift from the ones the API
  * applies.
  */
+export interface LanguageOption {
+  code: string;
+  label: string;
+}
+
 export interface ShortsLimits {
   maxDurationSeconds: number;
   maxDurationMinutes: number;
@@ -124,7 +132,17 @@ export interface ShortsLimits {
   minClipSeconds: number;
   maxClipSeconds: number;
   acceptedFileTypes: string[];
+  /** Transcription languages accepted by POST /shorts (backend is the source of truth). */
+  languages: LanguageOption[];
 }
+
+/** Fallback language choices until GET /shorts/limits answers. */
+export const DEFAULT_SHORTS_LANGUAGES: LanguageOption[] = [
+  { code: 'auto', label: 'Auto-detect' },
+  { code: 'en-US', label: 'English (US)' },
+  { code: 'en-IN', label: 'English (India)' },
+  { code: 'hi-IN', label: 'Hindi' },
+];
 
 /**
  * Fallback limits, used only until GET /shorts/limits answers. They match the
@@ -139,6 +157,7 @@ export const DEFAULT_SHORTS_LIMITS: ShortsLimits = {
   minClipSeconds: 30,
   maxClipSeconds: 90,
   acceptedFileTypes: ['mp3', 'mp4', 'mov', 'wav'],
+  languages: DEFAULT_SHORTS_LANGUAGES,
 };
 
 /**
@@ -156,8 +175,12 @@ export class ShortsService {
   }
 
   /** POST /shorts: create a job and get a presigned upload URL. */
-  createJob(fileType: string, duration: number): Observable<CreateShortsResponse> {
-    return this.api.post<CreateShortsResponse>('/shorts', { fileType, duration });
+  createJob(
+    fileType: string,
+    duration: number,
+    language = 'auto',
+  ): Observable<CreateShortsResponse> {
+    return this.api.post<CreateShortsResponse>('/shorts', { fileType, duration, language });
   }
 
   /** PUT the source media to the presigned S3 URL (no auth cookies). */

@@ -6,7 +6,13 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ApiService } from '../../core';
 import { Project, CreateProjectRequest, CreateProjectResponse, TEMPLATE_OPTIONS, DESIGN_ACCENTS, AccentOption, Template, Voice } from '../../shared';
-import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from '../shorts/shorts.service';
+import {
+  DEFAULT_SHORTS_LANGUAGES,
+  DEFAULT_SHORTS_LIMITS,
+  LanguageOption,
+  ShortsLimits,
+  ShortsService,
+} from '../shorts/shorts.service';
 
 @Component({
   selector: 'app-create-project',
@@ -246,6 +252,19 @@ import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from '../shorts/sh
                       @if (shortsError) {
                         <p class="mt-2 text-[13px] text-[#B3372F]">{{ shortsError }}</p>
                       }
+                      <label class="mt-4 block">
+                        <span class="block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#6B6560]">Transcript language</span>
+                        <select
+                          class="mt-1.5 w-full rounded-[10px] border border-black/15 bg-transparent px-3 py-2 text-[14px] min-h-[44px]"
+                          [value]="shortsLanguage"
+                          (change)="onShortsLanguageChange($event)"
+                          aria-label="Transcript language"
+                        >
+                          @for (lang of shortsLanguages; track lang.code) {
+                            <option [value]="lang.code">{{ lang.label }}</option>
+                          }
+                        </select>
+                      </label>
                     </div>
                   }
                 </div>
@@ -305,6 +324,7 @@ export class CreateProjectComponent implements OnInit {
   shortsDuration = 0;
   shortsError = '';
   shortsProbing = false;
+  shortsLanguage = 'auto';
   /** The limits the pipeline enforces, read from GET /shorts/limits. */
   shortsLimits: ShortsLimits = DEFAULT_SHORTS_LIMITS;
 
@@ -359,7 +379,11 @@ export class CreateProjectComponent implements OnInit {
     this.shorts.getLimits().subscribe({
       next: (limits) => {
         if (limits && limits.maxDurationSeconds > 0 && limits.maxUploadBytes > 0) {
-          this.shortsLimits = limits;
+          this.shortsLimits = {
+            ...DEFAULT_SHORTS_LIMITS,
+            ...limits,
+            languages: limits.languages?.length ? limits.languages : DEFAULT_SHORTS_LANGUAGES,
+          };
         }
       },
       error: () => {},
@@ -368,6 +392,14 @@ export class CreateProjectComponent implements OnInit {
 
   selectVoice(voice: Voice): void {
     this.projectForm.patchValue({ voice });
+  }
+
+  get shortsLanguages(): LanguageOption[] {
+    return this.shortsLimits.languages?.length ? this.shortsLimits.languages : DEFAULT_SHORTS_LANGUAGES;
+  }
+
+  onShortsLanguageChange(event: Event): void {
+    this.shortsLanguage = (event.target as HTMLSelectElement).value;
   }
 
   onShortsFileSelected(event: Event): void {
@@ -452,7 +484,11 @@ export class CreateProjectComponent implements OnInit {
       request.branding = { channelName: channel };
     }
     if (includeShorts && this.shortsFile) {
-      request.shorts = { fileType: this.shortsFileType, duration: this.shortsDuration };
+      request.shorts = {
+        fileType: this.shortsFileType,
+        duration: this.shortsDuration,
+        language: this.shortsLanguage,
+      };
     }
 
     this.api.post<CreateProjectResponse>('/projects', request).subscribe({

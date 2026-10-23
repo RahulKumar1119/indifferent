@@ -216,7 +216,7 @@ cat > /tmp/shorts-lambda-policy.json << 'EOF'
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["transcribe:StartTranscriptionJob", "transcribe:GetTranscriptionJob"],
+      "Action": ["transcribe:StartTranscriptionJob", "transcribe:GetTranscriptionJob", "transcribe:DeleteTranscriptionJob"],
       "Resource": "*"
     },
     {

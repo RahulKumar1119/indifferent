@@ -50,6 +50,18 @@ func TestGetShortsLimits_MatchesEnforcedConstants(t *testing.T) {
 			t.Errorf("AcceptedFileTypes not sorted: %v", limits.AcceptedFileTypes)
 		}
 	}
+	if len(limits.Languages) != len(shorts.SupportedLanguages) {
+		t.Errorf("Languages = %v, want %d entries", limits.Languages, len(shorts.SupportedLanguages))
+	}
+	seenHindi := false
+	for _, lang := range limits.Languages {
+		if lang.Code == shorts.LanguageHindi {
+			seenHindi = true
+		}
+	}
+	if !seenHindi {
+		t.Errorf("Languages = %v, want hi-IN exposed", limits.Languages)
+	}
 }
 
 // The route must be reachable and must not be shadowed by the generic
