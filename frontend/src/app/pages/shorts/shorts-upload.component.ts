@@ -2,7 +2,13 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
-import { DEFAULT_SHORTS_LIMITS, ShortsLimits, ShortsService } from './shorts.service';
+import {
+  DEFAULT_SHORTS_LANGUAGES,
+  DEFAULT_SHORTS_LIMITS,
+  LanguageOption,
+  ShortsLimits,
+  ShortsService,
+} from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 
@@ -205,8 +211,25 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
         </div>
       }
 
-      <!-- Submit -->
-      <div class="flex justify-end mt-6">
+      <!-- Language + Submit -->
+      <div class="mt-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <label class="block text-left">
+          <span class="block text-sm font-medium">Transcript language</span>
+          <span class="block text-[12px] text-[hsl(var(--muted-foreground))]">
+            Auto-detect works for most files. Pick a language if the spoken audio is Hindi or English and detection guesses wrong.
+          </span>
+          <select
+            class="mt-2 w-full sm:w-64 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm min-h-[44px]"
+            [value]="language"
+            (change)="onLanguageChange($event)"
+            [disabled]="isUploading"
+            aria-label="Transcript language"
+          >
+            @for (lang of languages; track lang.code) {
+              <option [value]="lang.code">{{ lang.label }}</option>
+            }
+          </select>
+        </label>
         <button
           class="glow-btn btn-interactive"
           [disabled]="!selectedFile || !!error || isUploading || isProbing"
@@ -259,6 +282,8 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   dragPreviewUrl: string | null = null;
   /** The limits the pipeline enforces, read from GET /shorts/limits. */
   limits: ShortsLimits = DEFAULT_SHORTS_LIMITS;
+  /** Selected transcription language; auto-detect unless the user overrides. */
+  language = 'auto';
 
   private xhr: XMLHttpRequest | null = null;
   private lastJobId: string | null = null;
@@ -286,11 +311,24 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     this.shorts.getLimits().subscribe({
       next: (limits) => {
         if (limits && limits.maxDurationSeconds > 0 && limits.maxUploadBytes > 0) {
-          this.limits = limits;
+          this.limits = {
+            ...DEFAULT_SHORTS_LIMITS,
+            ...limits,
+            languages: limits.languages?.length ? limits.languages : DEFAULT_SHORTS_LANGUAGES,
+          };
         }
       },
       error: () => {},
     });
+  }
+
+  /** Language choices from the API, with local defaults as a fallback. */
+  get languages(): LanguageOption[] {
+    return this.limits.languages?.length ? this.limits.languages : DEFAULT_SHORTS_LANGUAGES;
+  }
+
+  onLanguageChange(event: Event): void {
+    this.language = (event.target as HTMLSelectElement).value;
   }
 
   ngOnDestroy(): void {
@@ -390,7 +428,7 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     this.uploadError = '';
     this.uploadProgress = 0;
 
-    this.shorts.createJob(this.fileType, this.durationSeconds).subscribe({
+    this.shorts.createJob(this.fileType, this.durationSeconds, this.language).subscribe({
       next: (res) => {
         this.lastJobId = res.jobId;
         this.uploadToS3(res.uploadUrl, res.jobId);

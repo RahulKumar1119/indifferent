@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
@@ -50,6 +51,11 @@ func TestValidateCreateShorts(t *testing.T) {
 		{"duration at max", CreateShortsRequest{FileType: "mp4", Duration: 3600}, false},
 		{"duration one over max", CreateShortsRequest{FileType: "mp4", Duration: shorts.MaxSourceDuration + 1}, true},
 		{"duration exactly at max", CreateShortsRequest{FileType: "mp4", Duration: shorts.MaxSourceDuration}, false},
+		{"valid auto language", CreateShortsRequest{FileType: "mp4", Duration: 60, Language: shorts.LanguageAuto}, false},
+		{"valid Hindi alias", CreateShortsRequest{FileType: "mp4", Duration: 60, Language: "hi"}, false},
+		{"valid Hindi code", CreateShortsRequest{FileType: "mp4", Duration: 60, Language: shorts.LanguageHindi}, false},
+		{"valid English India", CreateShortsRequest{FileType: "mp4", Duration: 60, Language: shorts.LanguageEnglishIN}, false},
+		{"unsupported language", CreateShortsRequest{FileType: "mp4", Duration: 60, Language: "klingon"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -148,6 +154,91 @@ func TestCreateShorts_WritesUploadedJob(t *testing.T) {
 	}
 }
 
+func TestCreateShorts_PersistsCanonicalLanguage(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"default auto", `{"fileType":"mp4","duration":60}`, shorts.LanguageAuto},
+		{"hindi alias", `{"fileType":"mp4","duration":60,"language":"hi"}`, shorts.LanguageHindi},
+		{"english india", `{"fileType":"mp4","duration":60,"language":"en-IN"}`, shorts.LanguageEnglishIN},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var putItem map[string]dbtypes.AttributeValue
+			db := &mockDynamoDB{
+				putItemFunc: func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+					putItem = params.Item
+					return &dynamodb.PutItemOutput{}, nil
+				},
+			}
+			h := newShortsTestHandler(t, db)
+
+			resp, err := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+				HTTPMethod: "POST",
+				Path:       "/shorts",
+				Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+				Body:       tt.body,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if resp.StatusCode != 201 {
+				t.Fatalf("got status %d, want 201 (body: %s)", resp.StatusCode, resp.Body)
+			}
+			got, ok := putItem["language"].(*dbtypes.AttributeValueMemberS)
+			if !ok {
+				t.Fatalf("stored item has no language attribute: %+v", putItem)
+			}
+			if got.Value != tt.want {
+				t.Errorf("stored language = %q, want %q", got.Value, tt.want)
+			}
+		})
+	}
+}
+
+func TestStartShorts_PassesLanguageToPipeline(t *testing.T) {
+	var payload map[string]interface{}
+	db := &mockDynamoDB{
+		getItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{
+				Item: map[string]dbtypes.AttributeValue{
+					"PK":             &dbtypes.AttributeValueMemberS{Value: "USER#user1"},
+					"SK":             &dbtypes.AttributeValueMemberS{Value: "SHORTS#job1"},
+					"jobId":          &dbtypes.AttributeValueMemberS{Value: "job1"},
+					"status":         &dbtypes.AttributeValueMemberS{Value: "uploaded"},
+					"fileType":       &dbtypes.AttributeValueMemberS{Value: "mp4"},
+					"language":       &dbtypes.AttributeValueMemberS{Value: shorts.LanguageHindi},
+					"sourceDuration": &dbtypes.AttributeValueMemberN{Value: "120"},
+					"sourceKey":      &dbtypes.AttributeValueMemberS{Value: "uploads/user1/job1/source.mp4"},
+					"createdAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+					"updatedAt":      &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
+				},
+			}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+	h.SFN = &mockSFN{startExecutionFunc: func(_ context.Context, in *sfn.StartExecutionInput, _ ...func(*sfn.Options)) (*sfn.StartExecutionOutput, error) {
+		if err := json.Unmarshal([]byte(aws.ToString(in.Input)), &payload); err != nil {
+			t.Fatalf("unmarshal SFN input: %v", err)
+		}
+		return &sfn.StartExecutionOutput{}, nil
+	}}
+
+	resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/shorts/job1/start",
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if payload["language"] != shorts.LanguageHindi {
+		t.Errorf("pipeline language = %v, want %q", payload["language"], shorts.LanguageHindi)
+	}
+}
+
 func TestGetShorts_NotFound(t *testing.T) {
 	db := &mockDynamoDB{
 		getItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
@@ -223,7 +314,7 @@ func TestListShortsJobs_NewestFirstTrimmed(t *testing.T) {
 		"jobId": &dbtypes.AttributeValueMemberS{Value: "old"}, "status": &dbtypes.AttributeValueMemberS{Value: "completed"},
 		"fileType": &dbtypes.AttributeValueMemberS{Value: "mp4"}, "sourceDuration": &dbtypes.AttributeValueMemberN{Value: "120"},
 		"sourceKey": &dbtypes.AttributeValueMemberS{Value: "uploads/user1/old/source.mp4"},
-		"clips": &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-1","s3Key":"k","rank":1,"score":0.9,"duration":20}]`},
+		"clips":     &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-1","s3Key":"k","rank":1,"score":0.9,"duration":20}]`},
 		"createdAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"}, "updatedAt": &dbtypes.AttributeValueMemberS{Value: "2024-01-01T00:00:00Z"},
 	}
 	newJob := map[string]dbtypes.AttributeValue{
@@ -478,11 +569,11 @@ func shortsJobItem(jobID, status string) map[string]dbtypes.AttributeValue {
 }
 
 type deleteProbe struct {
-	handler   *APIHandler
-	s3        *stubDownloader
-	stops     int
-	putItems  []map[string]dbtypes.AttributeValue
-	deleted   []string
+	handler  *APIHandler
+	s3       *stubDownloader
+	stops    int
+	putItems []map[string]dbtypes.AttributeValue
+	deleted  []string
 }
 
 func newDeleteProbe(t *testing.T, item map[string]dbtypes.AttributeValue, s3 *stubDownloader) *deleteProbe {
@@ -504,11 +595,11 @@ func newDeleteProbe(t *testing.T, item map[string]dbtypes.AttributeValue, s3 *st
 		},
 	}
 	p.handler = &APIHandler{
-		AuthService:           &mockAuthService{},
-		JWTService:            &auth.JWTService{Secret: testSecret, DB: db, SessionTable: "sessions-table"},
-		DB:                    db,
-		S3:                    s3,
-		SFN:                   &mockSFN{stopExecutionFunc: func(_ context.Context, _ *sfn.StopExecutionInput, _ ...func(*sfn.Options)) (*sfn.StopExecutionOutput, error) {
+		AuthService: &mockAuthService{},
+		JWTService:  &auth.JWTService{Secret: testSecret, DB: db, SessionTable: "sessions-table"},
+		DB:          db,
+		S3:          s3,
+		SFN: &mockSFN{stopExecutionFunc: func(_ context.Context, _ *sfn.StopExecutionInput, _ ...func(*sfn.Options)) (*sfn.StopExecutionOutput, error) {
 			p.stops++
 			return &sfn.StopExecutionOutput{}, nil
 		}},
@@ -533,7 +624,7 @@ func TestDeleteShorts_Success(t *testing.T) {
 		status: storage.ObjectStatus{StorageClass: "STANDARD"},
 		listedKeys: []string{
 			"uploads/user1/job1/source.mp4",
-		"shorts/user1/job1/transcript.json",
+			"shorts/user1/job1/transcript.json",
 			"shorts/user1/job1/transcribe-raw.json",
 			"shorts/user1/job1/.write_access_check_file.temp",
 			"shorts/user1/job1/clips/clip-1.mp4",

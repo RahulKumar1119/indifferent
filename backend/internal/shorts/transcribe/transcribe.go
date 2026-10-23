@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,7 @@ const (
 type TranscribeClient interface {
 	StartTranscriptionJob(ctx context.Context, in *transcribe.StartTranscriptionJobInput, optFns ...func(*transcribe.Options)) (*transcribe.StartTranscriptionJobOutput, error)
 	GetTranscriptionJob(ctx context.Context, in *transcribe.GetTranscriptionJobInput, optFns ...func(*transcribe.Options)) (*transcribe.GetTranscriptionJobOutput, error)
+	DeleteTranscriptionJob(ctx context.Context, in *transcribe.DeleteTranscriptionJobInput, optFns ...func(*transcribe.Options)) (*transcribe.DeleteTranscriptionJobOutput, error)
 }
 
 // Service submits and polls Amazon Transcribe jobs and stores the normalized
@@ -72,35 +74,122 @@ func rawOutputKey(userID, jobID string) string {
 	return fmt.Sprintf("shorts/%s/%s/transcribe-raw.json", userID, jobID)
 }
 
-// Start submits the source media for English transcription with word-level
-// timestamps and returns the Transcribe job name. The Transcribe output is
-// written to our own bucket (via OutputBucketName/OutputKey) so Poll can read
-// it back with GetObject. (Requirements 2.1, 2.4)
+// Start submits the source media for transcription with word-level timestamps
+// and returns the Transcribe job name. The Transcribe output is written to our
+// own bucket (via OutputBucketName/OutputKey) so Poll can read it back with
+// GetObject. (Requirements 2.1, 2.4)
 //
-// Job names are deterministic ("shorts-<jobID>"), so a retry or re-entry
-// reports ConflictException instead of starting a duplicate: the existing job
-// is returned for polling, making start idempotent.
-func (s *Service) Start(ctx context.Context, jobID, userID, sourceKey string) (string, error) {
-	name := jobName(jobID)
-	mediaURI := fmt.Sprintf("s3://%s/%s", s.Bucket, sourceKey)
+// language is a canonical language code from shorts.NormalizeLanguage: an
+// explicit code pins the spoken language (Hindi must use hi-IN, never the
+// en-US default), while "auto" asks Transcribe to identify it from the
+// supported languages. Job names are deterministic ("shorts-<jobID>"), so a
+// retry or re-entry reports ConflictException instead of starting a duplicate:
+// completed/in-flight jobs are reused for polling, while a previously failed
+// job is replaced so retries actually re-run.
+func (s *Service) Start(ctx context.Context, jobID, userID, sourceKey, language string) (string, error) {
+	lang, err := shorts.NormalizeLanguage(language)
+	if err != nil {
+		log.Printf("transcribe_start_invalid_language job=%s language=%q err=%v", jobID, language, err)
+		return "", err
+	}
 
-	_, err := s.Client.StartTranscriptionJob(ctx, &transcribe.StartTranscriptionJobInput{
+	name := jobName(jobID)
+	in := s.startInput(name, userID, jobID, sourceKey, lang)
+	startErr := s.start(ctx, in)
+	if startErr == nil {
+		log.Printf("transcribe_started job=%s language=%s", jobID, lang)
+		return name, nil
+	}
+
+	var conflict *types.ConflictException
+	if !errors.As(startErr, &conflict) {
+		log.Printf("transcribe_start_failed job=%s language=%s err=%v", jobID, lang, startErr)
+		return "", fmt.Errorf("failed to start transcription job (%s): %w", lang, startErr)
+	}
+
+	log.Printf("transcribe_start_conflict job=%s language=%s", jobID, lang)
+	out, err := s.Client.GetTranscriptionJob(ctx, &transcribe.GetTranscriptionJobInput{
 		TranscriptionJobName: aws.String(name),
-		LanguageCode:         types.LanguageCodeEnUs,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect existing transcription job %s: %w", name, err)
+	}
+	if out.TranscriptionJob == nil {
+		return "", fmt.Errorf("transcription job %s not found after conflict", name)
+	}
+
+	switch out.TranscriptionJob.TranscriptionJobStatus {
+	case types.TranscriptionJobStatusCompleted, types.TranscriptionJobStatusInProgress, types.TranscriptionJobStatusQueued:
+		log.Printf("transcribe_reuse job=%s language=%s status=%s", jobID, lang, out.TranscriptionJob.TranscriptionJobStatus)
+		return name, nil
+	case types.TranscriptionJobStatusFailed:
+		// A deterministic job name would otherwise pin the failure forever:
+		// delete the stale job so this retry runs with the current language.
+		if _, err := s.Client.DeleteTranscriptionJob(ctx, &transcribe.DeleteTranscriptionJobInput{
+			TranscriptionJobName: aws.String(name),
+		}); err != nil {
+			log.Printf("transcribe_delete_failed job=%s language=%s err=%v", jobID, lang, err)
+			return "", fmt.Errorf("failed to replace failed transcription job %s: %w", name, err)
+		}
+		if err := s.start(ctx, in); err != nil {
+			log.Printf("transcribe_restart_failed job=%s language=%s err=%v", jobID, lang, err)
+			return "", fmt.Errorf("failed to restart transcription job (%s): %w", lang, err)
+		}
+		log.Printf("transcribe_restarted job=%s language=%s", jobID, lang)
+		return name, nil
+	default:
+		return name, nil
+	}
+}
+
+// startInput builds the StartTranscriptionJob request. An explicit language
+// uses LanguageCode; auto uses IdentifyLanguage restricted to the languages
+// the product supports (IdentifyMultipleLanguages is deliberately not used:
+// it produces per-language transcripts instead of one identified language).
+func (s *Service) startInput(name, userID, jobID, sourceKey, language string) *transcribe.StartTranscriptionJobInput {
+	in := &transcribe.StartTranscriptionJobInput{
+		TranscriptionJobName: aws.String(name),
 		Media: &types.Media{
-			MediaFileUri: aws.String(mediaURI),
+			MediaFileUri: aws.String(fmt.Sprintf("s3://%s/%s", s.Bucket, sourceKey)),
 		},
 		OutputBucketName: aws.String(s.Bucket),
 		OutputKey:        aws.String(rawOutputKey(userID, jobID)),
-	})
-	if err != nil {
-		var conflict *types.ConflictException
-		if errors.As(err, &conflict) {
-			return name, nil
-		}
-		return "", fmt.Errorf("failed to start transcription job: %w", err)
 	}
-	return name, nil
+	if language == shorts.LanguageAuto {
+		in.IdentifyLanguage = aws.Bool(true)
+		in.LanguageOptions = transcribeLanguageCodes(shorts.SupportedLanguageCodes)
+		return in
+	}
+	in.LanguageCode = transcribeLanguageCode(language)
+	return in
+}
+
+// start calls StartTranscriptionJob, kept separate so Start can retry after
+// deleting a stale failed job.
+func (s *Service) start(ctx context.Context, in *transcribe.StartTranscriptionJobInput) error {
+	_, err := s.Client.StartTranscriptionJob(ctx, in)
+	return err
+}
+
+// transcribeLanguageCode maps a canonical product language to the Transcribe
+// enum. NormalizeLanguage has already validated the value.
+func transcribeLanguageCode(language string) types.LanguageCode {
+	switch language {
+	case shorts.LanguageHindi:
+		return types.LanguageCodeHiIn
+	case shorts.LanguageEnglishIN:
+		return types.LanguageCodeEnIn
+	default:
+		return types.LanguageCodeEnUs
+	}
+}
+
+func transcribeLanguageCodes(codes []string) []types.LanguageCode {
+	out := make([]types.LanguageCode, 0, len(codes))
+	for _, code := range codes {
+		out = append(out, transcribeLanguageCode(code))
+	}
+	return out
 }
 
 // Poll returns the current state of the transcription job. When COMPLETED it
@@ -123,12 +212,16 @@ func (s *Service) Poll(ctx context.Context, jobID, userID, name string) (PollRes
 	}
 
 	job := out.TranscriptionJob
+	log.Printf("transcribe_poll job=%s status=%s language=%s identifiedScore=%.2f",
+		jobID, job.TranscriptionJobStatus, job.LanguageCode, aws.ToFloat32(job.IdentifiedLanguageScore))
 	switch job.TranscriptionJobStatus {
 	case types.TranscriptionJobStatusCompleted:
 		key, err := s.storeTranscript(ctx, jobID, userID)
 		if err != nil {
+			log.Printf("transcribe_store_failed job=%s language=%s err=%v", jobID, job.LanguageCode, err)
 			return PollResult{}, err
 		}
+		log.Printf("transcribe_completed job=%s language=%s transcript=%s", jobID, job.LanguageCode, key)
 		return PollResult{State: StateCompleted, TranscriptKey: key}, nil
 
 	case types.TranscriptionJobStatusFailed:
@@ -136,6 +229,7 @@ func (s *Service) Poll(ctx context.Context, jobID, userID, name string) (PollRes
 		if job.FailureReason != nil {
 			reason = *job.FailureReason
 		}
+		log.Printf("transcribe_failed job=%s language=%s reason=%s", jobID, job.LanguageCode, reason)
 		return PollResult{State: StateFailed, FailureReason: reason}, nil
 
 	default: // QUEUED or IN_PROGRESS
@@ -189,9 +283,9 @@ type transcribeOutput struct {
 			Transcript string `json:"transcript"`
 		} `json:"transcripts"`
 		Items []struct {
-			Type         string  `json:"type"` // pronunciation | punctuation
-			StartTime    string  `json:"start_time"`
-			EndTime      string  `json:"end_time"`
+			Type         string `json:"type"` // pronunciation | punctuation
+			StartTime    string `json:"start_time"`
+			EndTime      string `json:"end_time"`
 			Alternatives []struct {
 				Content string `json:"content"`
 			} `json:"alternatives"`

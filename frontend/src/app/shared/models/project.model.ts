@@ -139,6 +139,7 @@ export interface CreateProjectRequest {
   shorts?: {
     fileType: string;
     duration: number;
+    language?: string;
   };
 }
 

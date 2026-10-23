@@ -202,7 +202,7 @@ flowchart TB
 
 **Stages**
 
-1. **Transcribe** — Amazon Transcribe runs with `en-US` and word-level timestamps. The raw output and a normalized transcript are written to S3. Job names are deterministic (`shorts-<jobId>`), so retries are idempotent.
+1. **Transcribe** — Amazon Transcribe runs with word-level timestamps using the requested language: `auto` (identify among `en-US`, `en-IN`, `hi-IN`), or an explicit `en-US`/`en-IN`/`hi-IN` chosen from the upload form. The raw output and a normalized transcript are written to S3. Job names are deterministic (`shorts-<jobId>`), so retries are idempotent; a stale failed job is deleted and restarted.
 2. **Thumbnails (optional)** — for `.mp4`/`.mov` sources, a separate thumbnails state machine starts alongside ranking. It is fire-and-forget: thumbnails never delay or fail the clips.
 3. **Rank** — the transcript is condensed to one line per block (about 360 lines for a one-hour file instead of thousands of word tokens) and sent to Bedrock. Ranking defaults to Moonshot Kimi K3 (`global.moonshotai.kimi-k3`); `RANKING_MODEL=nova` or `claude` selects Amazon Nova Pro or Claude 3.5 Sonnet. The response is validated for boundaries, overlap, duration and rank before use.
 4. **Render** — up to three clips, each 30–90 seconds, are rendered in parallel on Fargate Spot. If Spot cannot start or the task fails, the same clip falls back to on-demand Fargate.

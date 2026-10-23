@@ -25,6 +25,21 @@ func TestBuildSRT_BlockFormatting(t *testing.T) {
 	}
 }
 
+func TestBuildSRT_PreservesHindiText(t *testing.T) {
+	// Captions are generated straight from the normalized transcript. Hindi
+	// words must reach the SRT unchanged: no transliteration, no English
+	// fallback, no dropped glyphs.
+	words := []models.Word{
+		{Text: "नमस्ते", Start: 0.1, End: 0.5},
+		{Text: "दुनिया", Start: 0.5, End: 1.0},
+	}
+	got := BuildSRT(words, 0)
+	want := "1\n00:00:00,100 --> 00:00:01,000\nनमस्ते दुनिया\n\n"
+	if got != want {
+		t.Fatalf("Hindi SRT mismatch:\n got=%q\nwant=%q", got, want)
+	}
+}
+
 func TestBuildSRT_TimeShiftRelativeToSegmentStart(t *testing.T) {
 	words := []models.Word{
 		{Text: "one", Start: 10.0, End: 10.4},

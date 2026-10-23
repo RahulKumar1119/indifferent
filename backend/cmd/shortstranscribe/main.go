@@ -23,6 +23,7 @@ type TranscribeEvent struct {
 	UserID    string `json:"userId"`
 	SourceKey string `json:"sourceKey"`
 	JobName   string `json:"jobName"`
+	Language  string `json:"language,omitempty"` // auto | en-US | en-IN | hi-IN
 }
 
 // TranscribeOutput is returned to Step Functions. For "start" only JobName is
@@ -59,7 +60,7 @@ func handleRequest(ctx context.Context, event TranscribeEvent) (TranscribeOutput
 
 	switch event.Mode {
 	case "start":
-		name, err := svc.Start(ctx, event.JobID, event.UserID, event.SourceKey)
+		name, err := svc.Start(ctx, event.JobID, event.UserID, event.SourceKey, event.Language)
 		if err != nil {
 			return TranscribeOutput{}, err
 		}

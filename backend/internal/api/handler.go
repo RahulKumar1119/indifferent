@@ -442,6 +442,7 @@ type CreateProjectRequest struct {
 type CreateProjectShortsRequest struct {
 	FileType string  `json:"fileType"`
 	Duration float64 `json:"duration"`
+	Language string  `json:"language,omitempty"`
 }
 
 // CreateProjectResponse is the POST /projects body: the project plus, when
@@ -469,7 +470,7 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 
 	// Optional shorts leg validated up front so creation is all-or-nothing.
 	if body.Shorts != nil {
-		if err := validateCreateShorts(&CreateShortsRequest{FileType: body.Shorts.FileType, Duration: body.Shorts.Duration}); err != nil {
+		if err := validateCreateShorts(&CreateShortsRequest{FileType: body.Shorts.FileType, Duration: body.Shorts.Duration, Language: body.Shorts.Language}); err != nil {
 			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
 		}
 	}
@@ -509,7 +510,7 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 	// upload" (201 + warning) instead of stranding half-written rows: the job
 	// row is compensated away and the client proceeds quiz-only.
 	if body.Shorts != nil {
-		job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.Shorts.FileType, body.Shorts.Duration, projectID)
+		job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.Shorts.FileType, body.Shorts.Duration, projectID, body.Shorts.Language)
 		if err != nil {
 			log.Printf("create_project_shorts_leg_failed user=%s project=%s err=%v", claims.UserID, projectID, err)
 			resp.Warning = "Project created, but the linked Shorts upload could not be prepared. You can still create shorts separately from Shorts history."

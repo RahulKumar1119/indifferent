@@ -167,11 +167,14 @@ type WatermarkSettings struct {
 // ShortsJob is a single AI Shorts processing run, stored in DynamoDB.
 // PK = "USER#{UserID}", SK = "SHORTS#{JobID}".
 type ShortsJob struct {
-	UserID         string          `json:"userId"`
-	JobID          string          `json:"jobId"`
-	ProjectID      string          `json:"projectId,omitempty"`
-	Status         string          `json:"status"` // uploaded|transcribing|ranking|rendering|completed|failed
-	FileType       string          `json:"fileType"`
+	UserID    string `json:"userId"`
+	JobID     string `json:"jobId"`
+	ProjectID string `json:"projectId,omitempty"`
+	Status    string `json:"status"` // uploaded|transcribing|ranking|rendering|completed|failed
+	FileType  string `json:"fileType"`
+	// Language is the transcription selection: auto|en-US|en-IN|hi-IN.
+	// Empty on jobs created before language support (treated as auto).
+	Language       string          `json:"language,omitempty"`
 	SourceDuration float64         `json:"sourceDuration"`
 	SourceKey      string          `json:"sourceKey"`
 	TranscriptKey  string          `json:"transcriptKey,omitempty"`

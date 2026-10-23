@@ -21,7 +21,8 @@
         "mode": "start",
         "jobId.$": "$.jobId",
         "userId.$": "$.userId",
-        "sourceKey.$": "$.sourceKey"
+        "sourceKey.$": "$.sourceKey",
+        "language.$": "$.language"
       },
       "ResultPath": "$.transcribe",
       "Retry": [

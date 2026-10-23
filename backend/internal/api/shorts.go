@@ -28,6 +28,7 @@ type CreateShortsRequest struct {
 	FileType  string  `json:"fileType"`            // "mp4" | "mov" | "mp3" | "wav"
 	Duration  float64 `json:"duration"`            // client-probed source duration in seconds
 	ProjectID string  `json:"projectId,omitempty"` // optional unified project to link
+	Language  string  `json:"language,omitempty"`  // auto | en-US | en-IN | hi-IN
 }
 
 // CreateShortsResponse returns the created job and a presigned upload URL.
@@ -50,14 +51,15 @@ var validShortsFileTypes = map[string]string{
 // pipeline enforces. The client reads it from GET /shorts/limits so the
 // limits shown in the UI can never drift from the ones the API applies.
 type ShortsLimits struct {
-	MaxDurationSeconds float64 `json:"maxDurationSeconds"`
-	MaxDurationMinutes int      `json:"maxDurationMinutes"`
-	MaxUploadBytes     int64    `json:"maxUploadBytes"`
-	MaxUploadMB        int64    `json:"maxUploadMb"`
-	MaxClipCount       int      `json:"maxClipCount"`
-	MinClipSeconds     float64  `json:"minClipSeconds"`
-	MaxClipSeconds     float64  `json:"maxClipSeconds"`
-	AcceptedFileTypes  []string `json:"acceptedFileTypes"`
+	MaxDurationSeconds float64                 `json:"maxDurationSeconds"`
+	MaxDurationMinutes int                     `json:"maxDurationMinutes"`
+	MaxUploadBytes     int64                   `json:"maxUploadBytes"`
+	MaxUploadMB        int64                   `json:"maxUploadMb"`
+	MaxClipCount       int                     `json:"maxClipCount"`
+	MinClipSeconds     float64                 `json:"minClipSeconds"`
+	MaxClipSeconds     float64                 `json:"maxClipSeconds"`
+	AcceptedFileTypes  []string                `json:"acceptedFileTypes"`
+	Languages          []shorts.LanguageOption `json:"languages"`
 }
 
 // handleGetShortsLimits returns the source limits for the AI Shorts pipeline.
@@ -79,6 +81,7 @@ func (h *APIHandler) handleGetShortsLimits(ctx context.Context, req events.APIGa
 		MinClipSeconds:     shorts.MinClipDuration,
 		MaxClipSeconds:     shorts.MaxClipDuration,
 		AcceptedFileTypes:  types,
+		Languages:          shorts.SupportedLanguages,
 	}), nil
 }
 
@@ -94,6 +97,9 @@ func validateCreateShorts(req *CreateShortsRequest) error {
 	}
 	if req.Duration > shorts.MaxSourceDuration {
 		return fmt.Errorf("source duration %.0fs exceeds maximum of %.0f minutes", req.Duration, shorts.MaxSourceDuration/60)
+	}
+	if _, err := shorts.NormalizeLanguage(req.Language); err != nil {
+		return err
 	}
 	return nil
 }
@@ -118,7 +124,7 @@ func (h *APIHandler) handleCreateShorts(ctx context.Context, req events.APIGatew
 		}
 	}
 
-	job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.FileType, body.Duration, projectID)
+	job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.FileType, body.Duration, projectID, body.Language)
 	if err != nil {
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", err.Error()), nil
 	}
@@ -132,8 +138,8 @@ func (h *APIHandler) handleCreateShorts(ctx context.Context, req events.APIGatew
 
 // createShortsJob validates, stores and presigns a new shorts job, linking it
 // into the given unified project when projectID is set.
-func (h *APIHandler) createShortsJob(ctx context.Context, userID, fileType string, duration float64, projectID string) (models.ShortsJob, string, error) {
-	job, contentType := newShortsJob(userID, fileType, duration, projectID)
+func (h *APIHandler) createShortsJob(ctx context.Context, userID, fileType string, duration float64, projectID, language string) (models.ShortsJob, string, error) {
+	job, contentType := newShortsJob(userID, fileType, duration, projectID, language)
 
 	// Presign before any write: S3 problems then fail with nothing persisted.
 	uploadURL, err := h.S3.GenerateUploadURL(ctx, h.Bucket, job.SourceKey, contentType, storage.UploadURLExpiration)
@@ -168,10 +174,17 @@ func (h *APIHandler) createShortsJob(ctx context.Context, userID, fileType strin
 // newShortsJob builds the job record (and its upload content type) without
 // touching storage: callers presign first so failures happen before any row
 // is written.
-func newShortsJob(userID, fileType string, duration float64, projectID string) (models.ShortsJob, string) {
+func newShortsJob(userID, fileType string, duration float64, projectID, language string) (models.ShortsJob, string) {
 	ext := strings.ToLower(strings.TrimSpace(fileType))
 	contentType := validShortsFileTypes[ext]
 	now := time.Now().UTC().Format(time.RFC3339)
+
+	// Validation already rejected unsupported selections; a legacy/empty
+	// value falls back to auto-detect instead of failing job creation.
+	lang, err := shorts.NormalizeLanguage(language)
+	if err != nil {
+		lang = shorts.LanguageAuto
+	}
 
 	jobID := uuid.New().String()
 	job := models.ShortsJob{
@@ -180,12 +193,23 @@ func newShortsJob(userID, fileType string, duration float64, projectID string) (
 		ProjectID:      projectID,
 		Status:         "uploaded",
 		FileType:       ext,
+		Language:       lang,
 		SourceDuration: duration,
 		SourceKey:      fmt.Sprintf("uploads/%s/%s/source.%s", userID, jobID, ext),
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
 	return job, contentType
+}
+
+// transcriptionLanguage canonicalizes a job's stored language for the
+// pipeline. Legacy jobs without a language keep working as auto-detect.
+func transcriptionLanguage(language string) string {
+	lang, err := shorts.NormalizeLanguage(language)
+	if err != nil {
+		return shorts.LanguageAuto
+	}
+	return lang
 }
 
 // linkShortsJob appends a job ID to its unified project (idempotent). The
@@ -241,6 +265,7 @@ func (h *APIHandler) handleStartShorts(ctx context.Context, req events.APIGatewa
 		"userId":         claims.UserID,
 		"sourceKey":      job.SourceKey,
 		"sourceDuration": job.SourceDuration,
+		"language":       transcriptionLanguage(job.Language),
 	})
 
 	_, err = h.SFN.StartExecution(ctx, &sfn.StartExecutionInput{
@@ -411,6 +436,7 @@ func (h *APIHandler) handleRetryShorts(ctx context.Context, req events.APIGatewa
 		"userId":         claims.UserID,
 		"sourceKey":      reset.SourceKey,
 		"sourceDuration": reset.SourceDuration,
+		"language":       transcriptionLanguage(reset.Language),
 	})
 	_, err = h.SFN.StartExecution(ctx, &sfn.StartExecutionInput{
 		StateMachineArn: aws.String(h.ShortsStateMachineARN),
@@ -954,6 +980,7 @@ type ShortsJobSummary struct {
 	ProjectID      string  `json:"projectId,omitempty"`
 	Status         string  `json:"status"`
 	FileType       string  `json:"fileType"`
+	Language       string  `json:"language,omitempty"`
 	SourceDuration float64 `json:"sourceDuration"`
 	ClipCount      int     `json:"clipCount"`
 	CreatedAt      string  `json:"createdAt"`
@@ -983,6 +1010,7 @@ func (h *APIHandler) handleListShortsJobs(ctx context.Context, req events.APIGat
 			ProjectID:      job.ProjectID,
 			Status:         job.Status,
 			FileType:       job.FileType,
+			Language:       job.Language,
 			SourceDuration: job.SourceDuration,
 			ClipCount:      len(job.Clips),
 			CreatedAt:      job.CreatedAt,
@@ -1133,6 +1161,9 @@ func shortsJobToItem(j models.ShortsJob) map[string]dbtypes.AttributeValue {
 		"createdAt":      &dbtypes.AttributeValueMemberS{Value: j.CreatedAt},
 		"updatedAt":      &dbtypes.AttributeValueMemberS{Value: j.UpdatedAt},
 	}
+	if j.Language != "" {
+		item["language"] = &dbtypes.AttributeValueMemberS{Value: j.Language}
+	}
 	if j.TranscriptKey != "" {
 		item["transcriptKey"] = &dbtypes.AttributeValueMemberS{Value: j.TranscriptKey}
 	}
@@ -1200,6 +1231,9 @@ func itemToShortsJob(item map[string]dbtypes.AttributeValue) models.ShortsJob {
 	}
 	if v, ok := item["sourceKey"].(*dbtypes.AttributeValueMemberS); ok {
 		j.SourceKey = v.Value
+	}
+	if v, ok := item["language"].(*dbtypes.AttributeValueMemberS); ok {
+		j.Language = v.Value
 	}
 	if v, ok := item["transcriptKey"].(*dbtypes.AttributeValueMemberS); ok {
 		j.TranscriptKey = v.Value
