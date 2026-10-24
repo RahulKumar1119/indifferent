@@ -38,4 +38,13 @@ type Downloader interface {
 	// marker under prefix. Needed because plain deletes on a versioned
 	// bucket only hide objects (noncurrent versions keep costing).
 	DeleteObjectVersions(ctx context.Context, bucket, prefix string) error
+
+	// Multipart upload for large sources (issue #151).
+	CreateMultipartUpload(ctx context.Context, bucket, key, contentType string) (uploadID string, err error)
+	// GenerateUploadPartURL signs for the Transfer Acceleration endpoint when
+	// accelerate is set. Every other call stays on the regional endpoint.
+	GenerateUploadPartURL(ctx context.Context, bucket, key, uploadID string, partNumber int32, expiration time.Duration, accelerate bool) (string, error)
+	ListUploadedParts(ctx context.Context, bucket, key, uploadID string) ([]UploadedPart, error)
+	CompleteMultipartUpload(ctx context.Context, bucket, key, uploadID string, parts []CompletedPart) error
+	AbortMultipartUpload(ctx context.Context, bucket, key, uploadID string) error
 }

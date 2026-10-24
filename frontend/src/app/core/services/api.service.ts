@@ -24,8 +24,8 @@ export class ApiService {
     return this.http.get<T>(`${this.baseUrl}${path}`, { params: httpParams, withCredentials, context });
   }
 
-  post<T>(path: string, body: unknown = {}, withCredentials = true): Observable<T> {
-    return this.http.post<T>(`${this.baseUrl}${path}`, body, { withCredentials });
+  post<T>(path: string, body: unknown = {}, withCredentials = true, context?: HttpContext): Observable<T> {
+    return this.http.post<T>(`${this.baseUrl}${path}`, body, { withCredentials, context });
   }
 
   /** POST for binary responses such as the rendered slide preview PNG. */
@@ -46,7 +46,7 @@ export class ApiService {
     return this.http.put<T>(url, body, { withCredentials: false });
   }
 
-  delete<T>(path: string): Observable<T> {
-    return this.http.delete<T>(`${this.baseUrl}${path}`, { withCredentials: true });
+  delete<T>(path: string, context?: HttpContext): Observable<T> {
+    return this.http.delete<T>(`${this.baseUrl}${path}`, { withCredentials: true, context });
   }
 }

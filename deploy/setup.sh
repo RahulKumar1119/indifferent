@@ -106,6 +106,12 @@ aws s3api put-bucket-lifecycle-configuration \
         "Filter": {"Prefix": "uploads/"},
         "Status": "Enabled",
         "Transitions": [{"Days": 30, "StorageClass": "GLACIER"}]
+      },
+      {
+        "ID": "AbortIncompleteMultipartUploads",
+        "Filter": {"Prefix": ""},
+        "Status": "Enabled",
+        "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}
       }
     ]
   }' \

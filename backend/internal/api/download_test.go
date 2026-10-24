@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,17 @@ type stubDownloader struct {
 	meta         storage.ObjectMeta
 	metaErr      error
 	objects      map[string][]byte
+
+	// Multipart upload scripting (issue #151). mpCalls records each call.
+	mpUploadID    string
+	mpCreateErr   error
+	mpParts       []storage.UploadedPart
+	mpListErr     error
+	mpCompleteErr error
+	mpAbortErr    error
+	mpCalls       []string
+	// mpAccel records the accelerate flag of each GenerateUploadPartURL call.
+	mpAccel []bool
 }
 
 func (s *stubDownloader) GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error) {
@@ -81,6 +93,41 @@ func (s *stubDownloader) ObjectMeta(ctx context.Context, bucket, key string) (st
 		return storage.ObjectMeta{}, s.metaErr
 	}
 	return s.meta, nil
+}
+
+func (s *stubDownloader) CreateMultipartUpload(ctx context.Context, bucket, key, contentType string) (string, error) {
+	s.mpCalls = append(s.mpCalls, "create|"+key+"|"+contentType)
+	if s.mpCreateErr != nil {
+		return "", s.mpCreateErr
+	}
+	if s.mpUploadID == "" {
+		return "upload-1", nil
+	}
+	return s.mpUploadID, nil
+}
+
+func (s *stubDownloader) GenerateUploadPartURL(ctx context.Context, bucket, key, uploadID string, partNumber int32, expiration time.Duration, accelerate bool) (string, error) {
+	s.mpCalls = append(s.mpCalls, fmt.Sprintf("partURL|%s|%s|%d|%s", key, uploadID, partNumber, expiration))
+	s.mpAccel = append(s.mpAccel, accelerate)
+	return fmt.Sprintf("https://uploads.example/%s?partNumber=%d&uploadId=%s", key, partNumber, uploadID), nil
+}
+
+func (s *stubDownloader) ListUploadedParts(ctx context.Context, bucket, key, uploadID string) ([]storage.UploadedPart, error) {
+	s.mpCalls = append(s.mpCalls, "list|"+key+"|"+uploadID)
+	if s.mpListErr != nil {
+		return nil, s.mpListErr
+	}
+	return s.mpParts, nil
+}
+
+func (s *stubDownloader) CompleteMultipartUpload(ctx context.Context, bucket, key, uploadID string, parts []storage.CompletedPart) error {
+	s.mpCalls = append(s.mpCalls, fmt.Sprintf("complete|%s|%s|%d", key, uploadID, len(parts)))
+	return s.mpCompleteErr
+}
+
+func (s *stubDownloader) AbortMultipartUpload(ctx context.Context, bucket, key, uploadID string) error {
+	s.mpCalls = append(s.mpCalls, "abort|"+key+"|"+uploadID)
+	return s.mpAbortErr
 }
 
 func (s *stubDownloader) GetObject(ctx context.Context, bucket, key string) ([]byte, error) {
@@ -170,7 +217,7 @@ func TestDownloadURLOrRestore_MissingObject(t *testing.T) {
 // storage.IsNotFound through the Smithy APIError code.
 type stubNotFoundError struct{}
 
-func (e *stubNotFoundError) Error() string         { return "not found" }
-func (e *stubNotFoundError) ErrorCode() string      { return "NoSuchKey" }
-func (e *stubNotFoundError) ErrorMessage() string   { return "not found" }
+func (e *stubNotFoundError) Error() string                 { return "not found" }
+func (e *stubNotFoundError) ErrorCode() string             { return "NoSuchKey" }
+func (e *stubNotFoundError) ErrorMessage() string          { return "not found" }
 func (e *stubNotFoundError) ErrorFault() smithy.ErrorFault { return smithy.FaultUnknown }
