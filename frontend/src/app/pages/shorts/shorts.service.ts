@@ -113,6 +113,33 @@ export interface CreateShortsResponse {
   sourceKey: string;
 }
 
+/** Response from POST /shorts/{id}/upload/multipart/initiate. */
+export interface MultipartInitiateResponse {
+  uploadId: string;
+  partSize: number;
+  partCount: number;
+}
+export interface MultipartPartUrl {
+  partNumber: number;
+  url: string;
+}
+/** Response from POST /shorts/{id}/upload/multipart/parts. */
+export interface MultipartPartsResponse {
+  urls: MultipartPartUrl[];
+  expiresInSeconds: number;
+  /** True when the URLs use S3 Transfer Acceleration. Absent on a server without it. */
+  accelerated?: boolean;
+}
+/** A part S3 holds for an open upload (GET /shorts/{id}/upload/multipart). */
+export interface MultipartStoredPart {
+  partNumber: number;
+  etag: string;
+  size: number;
+}
+export interface MultipartCompletedPart {
+  partNumber: number;
+  etag: string;
+}
 /**
  * The source limits the Shorts pipeline enforces. Read from GET /shorts/limits
  * so the numbers shown in the UI can never drift from the ones the API
@@ -160,6 +187,11 @@ export const DEFAULT_SHORTS_LIMITS: ShortsLimits = {
   languages: DEFAULT_SHORTS_LANGUAGES,
 };
 
+/** The uploader retries and reports its own failures, so the global error toast stays quiet. */
+function quietContext(): HttpContext {
+  return new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true);
+}
+
 /**
  * Client for the Shorts_API routes. Calls flow through ApiService so JWT auth
  * (cookie credentials) is applied, except presigned S3 uploads which use the
@@ -186,6 +218,63 @@ export class ShortsService {
   /** PUT the source media to the presigned S3 URL (no auth cookies). */
   uploadSource(uploadUrl: string, file: File): Observable<unknown> {
     return this.api.putAbsolute<unknown>(uploadUrl, file);
+  }
+
+  /** POST .../upload/multipart/initiate: open a multipart upload for a large source. */
+  initiateMultipart(jobId: string, size: number): Observable<MultipartInitiateResponse> {
+    return this.api.post<MultipartInitiateResponse>(
+      `/shorts/${jobId}/upload/multipart/initiate`,
+      { size },
+      true,
+      quietContext(),
+    );
+  }
+
+  /** POST .../upload/multipart/parts: presigned PUT URLs for a batch of parts. `accelerate: false` asks for regular, non-accelerated URLs. */
+  getPartUrls(
+    jobId: string,
+    uploadId: string,
+    partNumbers: number[],
+    accelerate?: boolean,
+  ): Observable<MultipartPartsResponse> {
+    return this.api.post<MultipartPartsResponse>(
+      `/shorts/${jobId}/upload/multipart/parts`,
+      accelerate === false ? { uploadId, partNumbers, accelerate } : { uploadId, partNumbers },
+      true,
+      quietContext(),
+    );
+  }
+
+  /** GET .../upload/multipart: the parts S3 holds for an open upload. */
+  listMultipartParts(jobId: string, uploadId: string): Observable<{ parts: MultipartStoredPart[] }> {
+    return this.api.get<{ parts: MultipartStoredPart[] }>(
+      `/shorts/${jobId}/upload/multipart`,
+      { uploadId },
+      true,
+      quietContext(),
+    );
+  }
+
+  /** POST .../upload/multipart/complete: assemble the parts into the source file. */
+  completeMultipart(
+    jobId: string,
+    uploadId: string,
+    parts: MultipartCompletedPart[],
+  ): Observable<{ status: string }> {
+    return this.api.post<{ status: string }>(
+      `/shorts/${jobId}/upload/multipart/complete`,
+      { uploadId, parts },
+      true,
+      quietContext(),
+    );
+  }
+
+  /** DELETE .../upload/multipart: discard an open upload and its parts. */
+  abortMultipart(jobId: string, uploadId: string): Observable<void> {
+    return this.api.delete<void>(
+      `/shorts/${jobId}/upload/multipart?uploadId=${encodeURIComponent(uploadId)}`,
+      quietContext(),
+    );
   }
 
   /** POST /shorts/{id}/start: kick off the processing pipeline. */

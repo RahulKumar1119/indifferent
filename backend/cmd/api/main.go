@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/rahul/indifferent/backend/internal/api"
 	"github.com/rahul/indifferent/backend/internal/auth"
+	appconfig "github.com/rahul/indifferent/backend/internal/config"
 	"github.com/rahul/indifferent/backend/internal/slidegen"
 	"github.com/rahul/indifferent/backend/internal/storage"
 )
@@ -96,7 +97,9 @@ func main() {
 		ShortsStateMachineARN: shortsStateMachineARN,
 
 		ThumbnailStateMachineARN: thumbnailStateMachineARN,
-		PreviewRenderer:          slidegen.NewNativeRenderer(),
+		// Optional, off unless S3_ACCELERATE is true or 1.
+		S3Accelerate:    appconfig.S3Accelerate(),
+		PreviewRenderer: slidegen.NewNativeRenderer(),
 	}
 
 	// Start Lambda

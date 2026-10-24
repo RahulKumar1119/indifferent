@@ -291,7 +291,7 @@ S3 layout (`indifferent-fun-assets`):
 | `output/<projectId>/` | Final quiz video and thumbnail | Stays in Standard |
 | `shorts/<userId>/<jobId>/` | Transcripts, raw Transcribe output, clips, thumbnails | Clips stay in Standard for gallery playback |
 
-Objects under 128 KB never transition to Glacier (S3 minimum billable size). The bucket has versioning, AES-256 server-side encryption and public access blocked. Downloads use presigned URLs.
+Incomplete multipart uploads are aborted after 1 day. Objects under 128 KB never transition to Glacier (S3 minimum billable size). The bucket has versioning, AES-256 server-side encryption and public access blocked. Downloads use presigned URLs.
 
 ## Features
 
@@ -608,6 +608,11 @@ All `/projects`, `/settings` and `/shorts` routes require `Authorization: Bearer
 |---|---|---|
 | GET | `/shorts` | List jobs, newest first |
 | POST | `/shorts` | Create a job (optional `projectId` link) |
+| POST | `/shorts/:id/upload/multipart/initiate` | Open a multipart upload for a source over 16 MB (`{size}`) |
+| POST | `/shorts/:id/upload/multipart/parts` | Presigned URLs for a batch of parts (`{uploadId, partNumbers, accelerate?}`), valid for 1 hour. The reply says `accelerated` |
+| POST | `/shorts/:id/upload/multipart/complete` | Assemble the parts (`{uploadId, parts: [{partNumber, etag}]}`) and verify the source |
+| GET | `/shorts/:id/upload/multipart?uploadId=` | Parts S3 holds for an open upload, used to resume |
+| DELETE | `/shorts/:id/upload/multipart?uploadId=` | Abort an upload and discard its parts |
 | GET | `/shorts/limits` | Source duration/size/type limits |
 | GET | `/shorts/:id` | Job status and progress |
 | POST | `/shorts/:id/start` | Start the shorts pipeline |
@@ -619,6 +624,10 @@ All `/projects`, `/settings` and `/shorts` routes require `Authorization: Bearer
 | GET | `/shorts/:id/clips/:clipId/captions` | Transcript words inside the clip window, for editing |
 | PUT | `/shorts/:id/clips/:clipId` | Update clip boundaries or caption text |
 | GET | `/shorts/:id/clips/:clipId/url` | Presigned clip URL; `202` while restoring |
+
+Sources up to 16 MB upload with one presigned PUT, the URL returned by `POST /shorts`. Larger sources use the multipart routes: 16 MB parts, five at a time, each retried on its own. Finished parts are saved in the browser, so a reload or a dropped connection continues from the last finished part when the same file is chosen again.
+
+Part uploads can go through S3 Transfer Acceleration (`<bucket>.s3-accelerate.amazonaws.com`) for users far from ap-south-1. It is controlled by the `S3_ACCELERATE` environment variable on the API Lambda: `true` or `1` turns it on, unset or anything else leaves it off (the default, and the kill switch). The bucket must have acceleration enabled first. Cost: uploads through acceleration are charged $0.04/GB via US, EU and Japan edge locations and $0.08/GB via other edge locations, and are not charged when AWS judges the transfer not faster. The regional endpoint is free for inbound data. Single PUTs (16 MB and under) and all server-side S3 calls stay on the regional endpoint. If a network blocks the accelerate host, the browser asks for regular URLs (`accelerate: false`) for the rest of that upload.
 
 ### AI thumbnails
 

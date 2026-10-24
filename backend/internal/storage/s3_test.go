@@ -145,3 +145,34 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
+
+func TestGenerateUploadPartURL(t *testing.T) {
+	c := newTestClient(t)
+	url, err := c.GenerateUploadPartURL(context.Background(), "test-bucket", "uploads/u1/j1/source.mp4", "up-123", 7, PartURLExpiration, false)
+	if err != nil {
+		t.Fatalf("GenerateUploadPartURL returned error: %v", err)
+	}
+	for _, want := range []string{
+		"test-bucket.s3.us-east-1.amazonaws.com", "uploads/u1/j1/source.mp4",
+		"partNumber=7", "uploadId=up-123",
+		"X-Amz-Expires=3600",
+		// Only host is signed, so the browser sends the part with no extra headers.
+		"X-Amz-SignedHeaders=host",
+	} {
+		if !contains(url, want) {
+			t.Errorf("expected URL to contain %q, got: %s", want, url)
+		}
+	}
+	if contains(url, "checksum") {
+		t.Errorf("part URL must not demand a checksum header the browser cannot send: %s", url)
+	}
+}
+
+func TestPartURLExpiration(t *testing.T) {
+	if PartURLExpiration != time.Hour {
+		t.Errorf("expected PartURLExpiration to be 1h, got %v", PartURLExpiration)
+	}
+	if PartURLExpiration <= UploadURLExpiration {
+		t.Errorf("part URLs must outlive the single PUT window of %v", UploadURLExpiration)
+	}
+}

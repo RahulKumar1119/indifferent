@@ -74,6 +74,10 @@ type APIHandler struct {
 	// ThumbnailStateMachineARN starts AI thumbnail generation. Empty disables
 	// the feature (the endpoints answer 503) so the API can deploy first.
 	ThumbnailStateMachineARN string
+	// S3Accelerate makes the multipart part URLs point at the S3 Transfer
+	// Acceleration endpoint (env S3_ACCELERATE). Off by default, and the kill
+	// switch: a client cannot turn it on when it is off here.
+	S3Accelerate bool
 
 	// PreviewRenderer and the preview limiter/cache back /slide-preview.
 	// Keeping the renderer as an interface makes the endpoint testable without
@@ -153,6 +157,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleGetShortsLimits(ctx, req)
 	case isThumbnailPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleThumbnails)
+	case isMultipartPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handleMultipart)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/start"):
 		return h.handleWithAuth(ctx, req, h.handleStartShorts)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/cancel"):

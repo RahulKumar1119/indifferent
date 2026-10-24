@@ -1,8 +1,10 @@
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { catchError, of, switchMap } from 'rxjs';
 import {
+  CreateShortsResponse,
   DEFAULT_SHORTS_LANGUAGES,
   DEFAULT_SHORTS_LIMITS,
   LanguageOption,
@@ -11,9 +13,23 @@ import {
 } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
+import { ShortsUploader, UploadError, UploadProgress, multipartApi } from './shorts-uploader';
+import {
+  DEFAULT_UPLOAD_BYTES_PER_SEC,
+  LARGE_UPLOAD_WARNING_BYTES,
+  PersistedUpload,
+  estimateSeconds,
+  findUploadForFile,
+  formatEta,
+  formatSpeed,
+  getMeasuredSpeed,
+  listUploads,
+  loadUpload,
+  removeUpload,
+  storedPercent,
+} from './shorts-upload-state';
 
 const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
-const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
 
 @Component({
   selector: 'app-shorts-upload',
@@ -85,6 +101,23 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
           <p class="text-[11px] text-[hsl(var(--muted-foreground))]">1080×1920, captioned</p>
         </div>
       </div>
+
+      <!-- A saved upload from an earlier visit: the browser cannot reopen the file by itself -->
+      @if (pending && !selectedFile) {
+        <div class="mt-4 glass-card p-3 flex flex-wrap items-center justify-between gap-3" role="status">
+          <p class="text-sm">
+            Unfinished upload: <span class="font-medium">{{ pending.fingerprint.name }}</span>
+            ({{ formatFileSize(pending.fingerprint.size) }}). Choose the same file again to continue where it stopped.
+          </p>
+          <button
+            type="button"
+            (click)="discardPending()"
+            class="rounded-full border border-[hsl(var(--border))] px-3 py-1 text-[12.5px] font-medium hover:bg-white/5"
+          >
+            Discard
+          </button>
+        </div>
+      }
 
       <!-- Full-viewport drop zone -->
       <div
@@ -186,11 +219,44 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
         </div>
       }
 
+      <!-- Size and time estimate, before the upload starts -->
+      @if (selectedFile && !error && !isProbing && !isUploading) {
+        <div class="mt-4 glass-card p-4 text-left" role="status">
+          <p class="text-sm">
+            <span class="font-medium">{{ formatFileSize(selectedFile.size) }}</span> to upload.
+            Estimated time: <span class="font-medium">{{ estimateLabel }}</span>{{ ' ' }}
+            <span class="text-[hsl(var(--muted-foreground))]">({{ estimateBasis }}).</span>
+          </p>
+          @if (resumable) {
+            <p class="mt-2 text-sm">
+              An earlier upload of this file reached {{ resumablePercent }}%. Resume upload continues from there.
+              <button
+                type="button"
+                (click)="startOver()"
+                class="ml-1 font-medium text-[hsl(var(--primary))] underline underline-offset-4"
+              >
+                Start over
+              </button>
+            </p>
+          }
+          @if (isLargeUpload) {
+            <p class="mt-2 text-sm flex items-start gap-2">
+              <svg lucideIcon="clock" [size]="16" class="mt-0.5 shrink-0 text-amber-400"></svg>
+              <span>
+                Large file. The upload keeps running in the background while this tab stays open, and it
+                continues from where it stopped if your connection drops. If you close the tab, come back
+                to this page and choose the same file to continue.
+              </span>
+            </p>
+          }
+        </div>
+      }
+
       <!-- Upload Progress -->
       @if (uploadProgress >= 0) {
         <div class="mt-6">
           <div class="flex justify-between items-center text-sm text-[hsl(var(--muted-foreground))] mb-2">
-            <span>Uploading…</span>
+            <span>{{ uploadLabel }}</span>
             <span class="flex items-center gap-3">
               <span>{{ uploadProgress }}%</span>
               <button
@@ -202,12 +268,30 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
               </button>
             </span>
           </div>
-          <div class="h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden">
+          <div
+            class="h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden"
+            role="progressbar"
+            aria-label="Upload progress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            [attr.aria-valuenow]="uploadProgress"
+          >
               <div
                 class="h-full rounded-full bg-[hsl(var(--primary))] transition-all duration-300"
                 [style.width.%]="uploadProgress"
               ></div>
           </div>
+          @if (progress) {
+            <p class="mt-2 text-xs text-[hsl(var(--muted-foreground))]">{{ progressDetail }}</p>
+            @if (progressNote) {
+              <p class="mt-1 text-xs" aria-live="polite">{{ progressNote }}</p>
+            }
+          }
+          @if (isLargeUpload) {
+            <p class="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
+              Keep this tab open. The upload keeps running while you use other tabs.
+            </p>
+          }
         </div>
       }
 
@@ -242,7 +326,7 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
             Uploading…
           } @else {
             <svg lucideIcon="play" [size]="18"></svg>
-            Generate Shorts
+            {{ resumable ? 'Resume upload' : 'Generate Shorts' }}
           }
         </button>
       </div>
@@ -260,7 +344,7 @@ const UPLOAD_STALL_MS = 60_000; // no progress for this long => failed
             [disabled]="isUploading || isProbing"
             class="mt-2 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
           >
-            Try again
+            {{ resumable ? 'Resume upload' : 'Try again' }}
           </button>
         </div>
       }
@@ -285,9 +369,19 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   /** Selected transcription language; auto-detect unless the user overrides. */
   language = 'auto';
 
-  private xhr: XMLHttpRequest | null = null;
+  /** Live detail from the uploader while a transfer runs. */
+  progress: UploadProgress | null = null;
+  /** A saved upload that matches the selected file, so the upload resumes instead of restarting. */
+  resumable: PersistedUpload | null = null;
+  /** The newest saved upload, offered until its file is chosen again or it is discarded. */
+  pending: PersistedUpload | null = null;
+  /** Bytes per second of the last measured upload; null until one has finished. */
+  private measuredSpeed: number | null = getMeasuredSpeed();
+
+  private uploader: ShortsUploader | null = null;
   private lastJobId: string | null = null;
-  private stallTimer: ReturnType<typeof setTimeout> | null = null;
+  /** A job whose file is fully uploaded but whose pipeline did not start: retry starts it without re-sending the file. */
+  private landedJobId: string | null = null;
 
   private readonly preventWindowDrop = (event: DragEvent): void => {
     // Drops outside the zone must never navigate the browser away.
@@ -297,12 +391,14 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   constructor(
     private readonly router: Router,
     private readonly shorts: ShortsService,
+    private readonly zone: NgZone,
   ) {}
 
   ngOnInit(): void {
     window.addEventListener('dragover', this.preventWindowDrop);
     window.addEventListener('drop', this.preventWindowDrop);
     this.loadLimits();
+    this.pending = listUploads()[0] ?? null;
   }
 
   /** Read the enforced limits from the API. The local defaults stay in place
@@ -334,11 +430,70 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     window.removeEventListener('dragover', this.preventWindowDrop);
     window.removeEventListener('drop', this.preventWindowDrop);
-    this.clearStallTimer();
-    if (this.xhr) {
-      this.xhr.abort();
-      this.xhr = null;
+    // Leaving the page stops the transfer but keeps the saved parts, so the file can be chosen again to resume.
+    this.uploader?.pause();
+    this.uploader = null;
+  }
+
+  get isLargeUpload(): boolean {
+    return !!this.selectedFile && this.selectedFile.size >= LARGE_UPLOAD_WARNING_BYTES;
+  }
+
+  private get uploadSpeed(): number {
+    return this.measuredSpeed ?? DEFAULT_UPLOAD_BYTES_PER_SEC;
+  }
+
+  /** Time to upload the selected file at the last measured speed, or at the default before one exists. */
+  get estimateLabel(): string {
+    return this.selectedFile ? formatEta(estimateSeconds(this.selectedFile.size, this.uploadSpeed)) : '';
+  }
+
+  get estimateBasis(): string {
+    return this.measuredSpeed
+      ? `based on your last upload, ${formatSpeed(this.measuredSpeed)}`
+      : `assuming a typical ${formatSpeed(DEFAULT_UPLOAD_BYTES_PER_SEC)} connection`;
+  }
+
+  get resumablePercent(): number {
+    return this.resumable ? storedPercent(this.resumable) : 0;
+  }
+
+  get uploadLabel(): string {
+    switch (this.progress?.status) {
+      case 'finishing':
+        return 'Finishing upload…';
+      case 'retrying':
+        return 'Retrying…';
+      case 'offline':
+        return 'Waiting for your connection…';
+      default:
+        return 'Uploading…';
     }
+  }
+
+  /** "384.00 MB of 2.00 GB · 3.2 MB/s · about 8 min left", then the part counts. */
+  get progressDetail(): string {
+    const p = this.progress;
+    if (!p) return '';
+    const bits = [`${this.formatFileSize(p.bytesDone)} of ${this.formatFileSize(p.bytesTotal)}`];
+    if (p.bytesPerSecond > 0) {
+      bits.push(formatSpeed(p.bytesPerSecond));
+      bits.push(`${formatEta((p.bytesTotal - p.bytesDone) / p.bytesPerSecond)} left`);
+    }
+    if (p.partsTotal > 1) bits.push(`${p.partsDone} of ${p.partsTotal} parts uploaded`);
+    return bits.join(' · ');
+  }
+
+  /** What went wrong right now, in words, for the retry and offline states. */
+  get progressNote(): string {
+    const p = this.progress;
+    if (p?.status === 'offline') return 'You are offline. The upload continues when your connection is back.';
+    if (p?.status === 'retrying') {
+      return p.retry
+        ? `Connection problem on part ${p.retry.part}. Trying again (attempt ${p.retry.attempt} of ${p.retry.of}).`
+        : 'Connection problem. Picking the upload up again.';
+    }
+    return '';
   }
 
   get isAudioFile(): boolean {
@@ -411,7 +566,8 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
   formatDuration(seconds: number): string {
@@ -427,43 +583,158 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     this.isUploading = true;
     this.uploadError = '';
     this.uploadProgress = 0;
+    this.progress = null;
 
+    if (this.landedJobId) {
+      this.uploadProgress = 100;
+      this.startPipeline(this.landedJobId);
+      return;
+    }
+    const saved = this.resumable;
+    if (saved) {
+      this.lastJobId = saved.jobId;
+      this.transfer(saved.jobId, undefined, saved);
+      return;
+    }
     this.shorts.createJob(this.fileType, this.durationSeconds, this.language).subscribe({
-      next: (res) => {
+      next: (res: CreateShortsResponse) => {
         this.lastJobId = res.jobId;
-        this.uploadToS3(res.uploadUrl, res.jobId);
+        this.transfer(res.jobId, res.uploadUrl, null);
       },
       error: (err) => this.failUpload(err, 'Failed to initiate upload. Please try again.'),
     });
   }
 
-  /** Cancel the in-flight upload and clean up its orphan job row. */
-  cancelUpload(): void {
-    this.clearStallTimer();
-    if (this.xhr) {
-      this.xhr.abort();
-      this.xhr = null;
-    }
-    const jobId = this.lastJobId;
-    this.lastJobId = null;
+  /** Sends the file: one PUT for small files, parallel resumable parts for large ones. */
+  private transfer(jobId: string, uploadUrl: string | undefined, saved: PersistedUpload | null): void {
+    const uploader = new ShortsUploader(
+      multipartApi(this.shorts),
+      this.selectedFile!,
+      {
+        jobId,
+        uploadUrl,
+        fileType: this.fileType,
+        durationSeconds: this.durationSeconds,
+        language: this.language,
+      },
+      { onProgress: (p) => this.zone.run(() => this.onUploadProgress(p)) },
+    );
+    this.uploader = uploader;
+    // Progress events fire many times a second; only the throttled callback above re-enters Angular.
+    this.zone.runOutsideAngular(() => {
+      uploader.run(saved).then(
+        () => this.zone.run(() => this.onUploadDone(jobId)),
+        (err) => this.zone.run(() => this.onUploadFailed(uploader, err, jobId)),
+      );
+    });
+  }
+
+  private onUploadProgress(p: UploadProgress): void {
+    this.progress = p;
+    this.uploadProgress = p.bytesTotal > 0 ? Math.round((p.bytesDone / p.bytesTotal) * 100) : 0;
+    this.measuredSpeed = getMeasuredSpeed();
+  }
+
+  private onUploadDone(jobId: string): void {
+    this.uploader = null;
+    this.resumable = null;
+    this.uploadProgress = 100;
+    this.measuredSpeed = getMeasuredSpeed();
+    this.startPipeline(jobId);
+  }
+
+  private onUploadFailed(uploader: ShortsUploader, err: unknown, jobId: string): void {
+    if (this.uploader !== uploader) return; // cancelled or replaced: nothing to report
+    this.uploader = null;
     this.isUploading = false;
+    const failure = err instanceof UploadError ? err : null;
     this.uploadProgress = -1;
-    this.uploadError = '';
-    if (jobId) {
-      // Best effort: don't strand an `uploaded` job that will never start.
-      this.shorts.deleteJob(jobId).subscribe({ error: () => {} });
+    this.progress = null;
+    switch (failure?.kind) {
+      case 'aborted':
+        return;
+      case 'already-started':
+        this.router.navigate(['/shorts', jobId, 'progress']);
+        return;
+      case 'session-lost':
+        // The saved upload is gone: the next attempt starts a new one.
+        this.resumable = null;
+        this.discardJob(jobId);
+        this.lastJobId = null;
+        this.uploadError = 'The saved upload expired, so it has to start again from the beginning.';
+        return;
+      case 'rejected':
+        this.resumable = null;
+        this.discardJob(jobId);
+        this.lastJobId = null;
+        this.uploadError = failure.message;
+        return;
+      default: {
+        // Network trouble or a sign-in that ended: saved parts stay, so the upload can continue.
+        this.resumable = loadUpload(jobId);
+        if (failure?.kind === 'auth') this.uploadError = failure.message;
+        else if (this.resumable) {
+          this.uploadError = `Upload paused at ${storedPercent(this.resumable)}%. The parts already sent are saved. Check your connection, then resume.`;
+        } else {
+          this.uploadError = failure?.message || 'Upload failed. Please try again.';
+        }
+      }
     }
   }
 
-  /** Explicit retry: drop the previous attempt's job row, then start over. */
+  /** Cancel the in-flight upload and clean up its orphan job row. */
+  cancelUpload(): void {
+    this.uploader?.pause();
+    this.uploader = null;
+    const jobId = this.lastJobId;
+    this.lastJobId = null;
+    this.resumable = null;
+    this.isUploading = false;
+    this.uploadProgress = -1;
+    this.progress = null;
+    this.uploadError = '';
+    // Best effort: don't strand an `uploaded` job that will never start.
+    if (jobId) this.discardJob(jobId);
+  }
+
+  /** Explicit retry: continue a saved upload, or drop the previous attempt's job row and start over. */
   retryUpload(): void {
     if (this.isUploading || this.isProbing || !this.selectedFile || this.error) return;
-    const stale = this.lastJobId;
-    this.lastJobId = null;
-    if (stale) {
-      this.shorts.deleteJob(stale).subscribe({ error: () => {} });
+    if (!this.resumable && !this.landedJobId) {
+      const stale = this.lastJobId;
+      this.lastJobId = null;
+      if (stale) this.discardJob(stale);
     }
     this.startProcessing();
+  }
+
+  /** Throws away a saved upload and its job so the file goes up from the start. */
+  startOver(): void {
+    const saved = this.resumable;
+    this.resumable = null;
+    if (saved) this.discardJob(saved.jobId);
+    if (this.pending?.jobId === saved?.jobId) this.pending = null;
+    this.lastJobId = null;
+    this.uploadError = '';
+  }
+
+  discardPending(): void {
+    const pending = this.pending;
+    this.pending = null;
+    if (pending) this.discardJob(pending.jobId);
+  }
+
+  /** Aborts the open S3 upload (if any), forgets the saved parts and deletes the job row. Errors are ignored. */
+  private discardJob(jobId: string): void {
+    const saved = loadUpload(jobId);
+    removeUpload(jobId);
+    const abort$ = saved ? this.shorts.abortMultipart(jobId, saved.uploadId) : of(undefined);
+    abort$
+      .pipe(
+        catchError(() => of(undefined)),
+        switchMap(() => this.shorts.deleteJob(jobId)),
+      )
+      .subscribe({ error: () => {} });
   }
 
   private handleFile(file: File): void {
@@ -490,6 +761,12 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
 
     this.selectedFile = file;
     this.fileType = ext;
+    this.resumable = findUploadForFile(file);
+    if (this.resumable) {
+      // The job already carries these choices, so the picker follows it.
+      this.language = this.resumable.language;
+      if (this.pending?.jobId === this.resumable.jobId) this.pending = null;
+    }
     if (ext === 'mp4' || ext === 'mov') {
       this.previewUrl = URL.createObjectURL(file);
     }
@@ -531,95 +808,38 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     media.src = objectUrl;
   }
 
-  private uploadToS3(uploadUrl: string, jobId: string): void {
-    const file = this.selectedFile!;
-    const xhr = new XMLHttpRequest();
-    this.xhr = xhr;
-    xhr.open('PUT', uploadUrl, true);
-    xhr.setRequestHeader('ngsw-bypass', 'true');
-    this.armStallTimer();
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        this.uploadProgress = Math.round((event.loaded / event.total) * 100);
-        // Progress resets the stall clock: slow is fine, stuck is not.
-        this.armStallTimer();
-      }
-    };
-
-    xhr.onload = () => {
-      this.clearStallTimer();
-      this.xhr = null;
-      if (xhr.status >= 200 && xhr.status < 300) {
-        this.uploadProgress = 100;
-        this.startPipeline(jobId);
-      } else {
-        this.uploadProgress = -1;
-        this.isUploading = false;
-        this.uploadError = `Upload failed with status ${xhr.status}. Please try again.`;
-      }
-    };
-
-    xhr.onerror = () => {
-      this.clearStallTimer();
-      this.xhr = null;
-      this.uploadProgress = -1;
-      this.isUploading = false;
-      this.uploadError = 'Upload failed. Please try again.';
-    };
-
-    xhr.send(file);
-  }
-
-  private armStallTimer(): void {
-    this.clearStallTimer();
-    this.stallTimer = setTimeout(() => {
-      if (this.xhr) {
-        this.xhr.abort();
-        this.xhr = null;
-      }
-      this.isUploading = false;
-      this.uploadProgress = -1;
-      this.uploadError = 'Upload stalled (no progress for 60s). Check your connection and try again.';
-    }, UPLOAD_STALL_MS);
-  }
-
-  private clearStallTimer(): void {
-    if (this.stallTimer !== null) {
-      clearTimeout(this.stallTimer);
-      this.stallTimer = null;
-    }
-  }
-
   private startPipeline(jobId: string): void {
     this.shorts.startJob(jobId).subscribe({
       next: () => {
         this.isUploading = false;
+        this.landedJobId = null;
         this.router.navigate(['/shorts', jobId, 'progress']);
       },
-      error: (err) => this.failUpload(err, 'Failed to start processing. Please try again.'),
+      error: (err) => {
+        // Only a failure that says nothing about the file (network, server) keeps the upload for a quick retry.
+        this.landedJobId = !err?.status || err.status >= 500 ? jobId : null;
+        this.failUpload(err, 'Failed to start processing. Please try again.');
+      },
     });
   }
 
   private failUpload(err: { error?: { message?: string } }, fallback: string): void {
-    this.clearStallTimer();
-    this.xhr = null;
     this.isUploading = false;
     this.uploadProgress = -1;
     this.uploadError = err?.error?.message || fallback;
   }
 
   private reset(): void {
-    this.clearStallTimer();
-    if (this.xhr) {
-      this.xhr.abort();
-      this.xhr = null;
-    }
+    this.uploader?.pause();
+    this.uploader = null;
+    this.resumable = null;
+    this.landedJobId = null;
+    this.progress = null;
     if (this.lastJobId) {
       // Replacing the file strands the previous attempt's job row.
       const stale = this.lastJobId;
       this.lastJobId = null;
-      this.shorts.deleteJob(stale).subscribe({ error: () => {} });
+      this.discardJob(stale);
     }
     if (this.previewUrl) {
       URL.revokeObjectURL(this.previewUrl);
