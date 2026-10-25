@@ -543,8 +543,10 @@ func effectArgs(j effectJob) ([]string, error) {
 	var args []string
 	if j.audioOnly {
 		audioIn = "[1:a]"
+		// The canvas covers the clip window only. holdGraph adds the held frames,
+		// so sizing the canvas to plan.outSec would add them twice.
 		args = append(args, "-f", "lavfi", "-i", fmt.Sprintf("color=c=black:s=%dx%d:r=%d:d=%s",
-			outputWidth, outputHeight, outputFPS, formatSeconds(j.plan.outSec)))
+			outputWidth, outputHeight, outputFPS, formatSeconds(j.end-j.start)))
 	} else if !j.hasAudio {
 		audioIn = ""
 	}

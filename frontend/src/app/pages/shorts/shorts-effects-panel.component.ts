@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import {
   ResolvedVideoEffects,
+  ShortsJob,
   ShortsService,
   defaultVideoEffects,
   resolveVideoEffects,
@@ -34,7 +35,12 @@ interface Option<T extends string> {
     <section class="glass-card p-5 text-left" aria-label="Video effects">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="font-semibold text-[15px]">Video effects</h2>
-        <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Saved per job · used by the next render or retry</span>
+        <span class="flex flex-wrap items-center gap-3">
+          <span class="text-[12px] text-[hsl(var(--muted-foreground))]">{{ startStep ? 'Off by default · saved when you start' : draftMode ? 'Saved when you start the render' : 'Saved per job · used by the next render or retry' }}</span>
+          @if (draftMode) {
+            <button type="button" (click)="cancelled.emit()" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Cancel</button>
+          }
+        </span>
       </div>
 
       @if (loadError) {
@@ -138,11 +144,17 @@ interface Option<T extends string> {
               <div class="mt-2 flex flex-wrap items-end gap-2">
                 <label class="block w-28">
                   <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
-                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="p.at" [attr.aria-label]="'Punch-in ' + (i + 1) + ' start in seconds'" />
+                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="p.at" [attr.aria-label]="'Punch-in ' + (i + 1) + ' start in seconds'" [attr.aria-invalid]="blank(p.at)" />
+                  @if (blank(p.at)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a start time in seconds.</span>
+                  }
                 </label>
                 <label class="block w-28">
                   <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Length (s)</span>
-                  <input type="number" min="0.5" max="6" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="p.duration" [attr.aria-label]="'Punch-in ' + (i + 1) + ' length in seconds'" />
+                  <input type="number" min="0.5" max="6" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="p.duration" [attr.aria-label]="'Punch-in ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(p.duration)" />
+                  @if (blank(p.duration)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a length in seconds.</span>
+                  }
                 </label>
                 <button type="button" (click)="removePunchIn(i)" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Remove</button>
               </div>
@@ -206,11 +218,17 @@ interface Option<T extends string> {
               <div class="mt-2 flex flex-wrap items-end gap-2">
                 <label class="block w-28">
                   <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
-                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="h.at" [attr.aria-label]="'Freeze ' + (i + 1) + ' time in seconds'" />
+                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="h.at" [attr.aria-label]="'Freeze ' + (i + 1) + ' time in seconds'" [attr.aria-invalid]="blank(h.at)" />
+                  @if (blank(h.at)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a time in seconds.</span>
+                  }
                 </label>
                 <label class="block w-28">
                   <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Hold (s)</span>
-                  <input type="number" min="0.2" max="3" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="h.duration" [attr.aria-label]="'Freeze ' + (i + 1) + ' hold length in seconds'" />
+                  <input type="number" min="0.2" max="3" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="h.duration" [attr.aria-label]="'Freeze ' + (i + 1) + ' hold length in seconds'" [attr.aria-invalid]="blank(h.duration)" />
+                  @if (blank(h.duration)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a hold length in seconds.</span>
+                  }
                 </label>
                 <button type="button" (click)="removeFreeze(i)" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Remove</button>
               </div>
@@ -227,11 +245,17 @@ interface Option<T extends string> {
               <div class="mt-2 flex flex-wrap items-end gap-2">
                 <label class="block w-24">
                   <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
-                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="t.at" [attr.aria-label]="'Impact text ' + (i + 1) + ' time in seconds'" />
+                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="t.at" [attr.aria-label]="'Impact text ' + (i + 1) + ' time in seconds'" [attr.aria-invalid]="blank(t.at)" />
+                  @if (blank(t.at)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a time in seconds.</span>
+                  }
                 </label>
                 <label class="block w-24">
                   <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Length (s)</span>
-                  <input type="number" min="0.3" max="4" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="t.duration" [attr.aria-label]="'Impact text ' + (i + 1) + ' length in seconds'" />
+                  <input type="number" min="0.3" max="4" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="t.duration" [attr.aria-label]="'Impact text ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(t.duration)" />
+                  @if (blank(t.duration)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a length in seconds.</span>
+                  }
                 </label>
                 <label class="block min-w-[10rem] flex-1">
                   <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Text, 16 characters</span>
@@ -254,9 +278,9 @@ interface Option<T extends string> {
             <button
               type="button"
               (click)="save()"
-              [disabled]="saving"
+              [disabled]="saving || hasBlankNumbers()"
               class="btn-interactive min-h-[40px] px-5 rounded-full bg-[hsl(var(--primary))] text-white text-[13.5px] font-semibold disabled:opacity-50"
-            >{{ saving ? 'Saving…' : 'Save effects' }}</button>
+            >{{ saving ? 'Saving…' : startStep ? 'Start processing' : draftMode ? 'Start render' : 'Save effects' }}</button>
           </div>
         </fieldset>
 
@@ -270,7 +294,19 @@ interface Option<T extends string> {
   `,
 })
 export class ShortsEffectsPanelComponent implements OnInit {
-  private jobId = '';
+  /** Job to edit. Empty reads the job id from the route, as the gallery and progress pages do. */
+  @Input() jobId = '';
+  /** Upload step: the job was just uploaded and has no saved settings, so the panel starts from the defaults and its save button starts processing. */
+  @Input() startStep = false;
+  /** Job list draft: loads the saved settings, saves only when they changed, and its save button starts the render. */
+  @Input() draftMode = false;
+  /** Emits the saved job after a successful save. */
+  @Output() effectsSaved = new EventEmitter<ShortsJob>();
+  /** Draft mode: the user closed the panel without starting the render. */
+  @Output() cancelled = new EventEmitter<void>();
+  /** Draft mode: the job as the server last returned it, and its settings as JSON, to tell whether the draft changed. */
+  private savedJob: ShortsJob | null = null;
+  private savedSettings = '';
   /** Job status from the last load or save. Only uploaded and failed jobs can change. */
   private status = '';
   loaded = false;
@@ -307,7 +343,12 @@ export class ShortsEffectsPanelComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.jobId = this.route.snapshot.paramMap.get('id') || '';
+    if (this.startStep) {
+      this.status = 'uploaded';
+      this.loaded = true;
+      return;
+    }
+    this.jobId = this.jobId || this.route.snapshot.paramMap.get('id') || '';
     if (!this.jobId) {
       this.loadError = true;
       this.loaded = true;
@@ -315,7 +356,7 @@ export class ShortsEffectsPanelComponent implements OnInit {
     }
     this.shorts.getStatus(this.jobId).subscribe({
       next: (job) => {
-        this.draft = resolveVideoEffects(job.effects);
+        this.remember(job);
         this.status = job.status ?? '';
         this.loaded = true;
       },
@@ -329,6 +370,20 @@ export class ShortsEffectsPanelComponent implements OnInit {
   /** Effects apply to renders, so they change only before a render starts or after one failed. */
   get editable(): boolean {
     return this.status === 'uploaded' || this.status === 'failed';
+  }
+
+  /** A cleared number input reads as null. Those fields need a value before anything is saved. */
+  blank(value: number | null | undefined): boolean {
+    return value === null || value === undefined || Number.isNaN(value);
+  }
+
+  hasBlankNumbers(): boolean {
+    const d = this.draft;
+    return (
+      d.zoom.punchIns.some((p) => this.blank(p.at) || this.blank(p.duration)) ||
+      d.freeze.freezes.some((h) => this.blank(h.at) || this.blank(h.duration)) ||
+      d.freeze.impactTexts.some((t) => this.blank(t.at) || this.blank(t.duration))
+    );
   }
 
   addPunchIn(): void {
@@ -368,8 +423,20 @@ export class ShortsEffectsPanelComponent implements OnInit {
     this.error = '';
   }
 
+  /** Loads the job's settings into the draft and keeps a snapshot of them for draft mode. */
+  private remember(job: ShortsJob): void {
+    this.savedJob = job;
+    this.savedSettings = JSON.stringify(resolveVideoEffects(job.effects));
+    this.draft = resolveVideoEffects(job.effects);
+  }
+
   save(): void {
-    if (this.saving || !this.editable || !this.jobId) return;
+    if (this.saving || !this.editable || !this.jobId || this.hasBlankNumbers()) return;
+    // Draft mode writes only a changed draft. The parent starts the render either way.
+    if (this.draftMode && this.savedJob && JSON.stringify(this.draft) === this.savedSettings) {
+      this.effectsSaved.emit(this.savedJob);
+      return;
+    }
     this.saving = true;
     this.saved = false;
     this.error = '';
@@ -377,7 +444,8 @@ export class ShortsEffectsPanelComponent implements OnInit {
       next: (job) => {
         this.saving = false;
         this.saved = true;
-        this.draft = resolveVideoEffects(job.effects);
+        this.remember(job);
+        this.effectsSaved.emit(job);
       },
       error: (err) => {
         this.saving = false;

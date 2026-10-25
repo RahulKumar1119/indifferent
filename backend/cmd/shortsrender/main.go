@@ -9,13 +9,16 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -44,7 +47,11 @@ var audioExtensions = map[string]bool{
 }
 
 func main() {
-	if err := run(context.Background()); err != nil {
+	// ECS sends SIGTERM when it stops the task. Cancelling the context stops the
+	// render, and the ffmpeg it runs is killed with it.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx); err != nil {
 		log.Fatalf("shorts-render failed: %v", err)
 	}
 }
@@ -155,7 +162,15 @@ func run(ctx context.Context) error {
 		AudioOnly: isAudioOnly(sourceKey),
 	}
 
-	clipKey, err := renderer.Render(ctx, in)
+	// A user cancel only writes the job record. Poll it, and stop this render
+	// once the job leaves "rendering".
+	renderCtx, cancelRender := context.WithCancel(ctx)
+	defer cancelRender()
+	go render.WatchJobStatus(renderCtx, cancelPollInterval, func(ctx context.Context) (string, error) {
+		return jobStatus(ctx, dbClient, table, userID, jobID)
+	}, cancelRender)
+
+	clipKey, err := renderer.Render(renderCtx, in)
 	if err != nil {
 		// Renders with effects record their own reason, so the job shows it
 		// instead of the state machine's generic render failure.
@@ -187,13 +202,41 @@ func fetchJobCaption(ctx context.Context, dbClient *dynamodb.Client, table, user
 	return captionFromItem(out.Item)
 }
 
+// cancelPollInterval is how often the render task re-reads its job record to see
+// whether the user cancelled the job.
+const cancelPollInterval = 10 * time.Second
+
+// jobStatus reads the job's status with a consistent read. A missing record
+// reads as an empty status, so a deleted job stops its render too.
+func jobStatus(ctx context.Context, dbClient *dynamodb.Client, table, userID, jobID string) (string, error) {
+	out, err := dbClient.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(table),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
+		},
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil {
+		return "", err
+	}
+	status, _ := out.Item["status"].(*dbtypes.AttributeValueMemberS)
+	if status == nil {
+		return "", nil
+	}
+	return status.Value, nil
+}
+
 // maxRenderErrorChars bounds the render reason stored on the job record.
 const maxRenderErrorChars = 300
 
 // recordRenderError stores why a render with effects failed on the job record.
 // The status updater reports that reason in place of the generic cause. The
-// write is conditional, so a job deleted meanwhile is never recreated. Failures
-// are only logged, because the render error is the one the task returns.
+// first reason wins: the write only happens while no reason is set, so the
+// failure of the first clip, which usually holds the root cause, is kept. The
+// write is also conditional on the job existing, so a deleted job is never
+// recreated. Failures are only logged, because the render error is the one the
+// task returns.
 func recordRenderError(db render.DynamoUpdater, table, userID, jobID string, renderErr error) {
 	msg := []rune(renderErr.Error())
 	if len(msg) > maxRenderErrorChars {
@@ -207,13 +250,18 @@ func recordRenderError(db render.DynamoUpdater, table, userID, jobID string, ren
 			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
 			"SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
 		},
-		ConditionExpression:      aws.String("attribute_exists(PK)"),
+		ConditionExpression:      aws.String("attribute_exists(PK) AND attribute_not_exists(renderError)"),
 		UpdateExpression:         aws.String("SET #renderError = :reason"),
 		ExpressionAttributeNames: map[string]string{"#renderError": "renderError"},
 		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
 			":reason": &dbtypes.AttributeValueMemberS{Value: string(msg)},
 		},
 	}); err != nil {
+		var condFailed *dbtypes.ConditionalCheckFailedException
+		if errors.As(err, &condFailed) {
+			log.Printf("render error not recorded for job %s: a reason is already set or the job is gone", jobID)
+			return
+		}
 		log.Printf("could not record the render error: %v", err)
 	}
 }

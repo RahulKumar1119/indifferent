@@ -150,6 +150,11 @@ func TestRenderTiming_SkippedWhenClipAlreadyRendered(t *testing.T) {
 	r, in, store := timingFixture(t, nil)
 	r.Detector = nil
 	store.exists = true
+	fp, err := renderFingerprint(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.meta = map[string]string{fingerprintMetaKey: fp}
 	rec := captureTiming(t, func() {
 		if _, err := r.Render(context.Background(), in); err != nil {
 			t.Fatal(err)

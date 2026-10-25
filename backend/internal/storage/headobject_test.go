@@ -132,6 +132,66 @@ func TestHeadObject_NotFoundAPIErrorCodes(t *testing.T) {
 	}
 }
 
+func TestHeadObjectWithMetadata_ReadsUserMetadata(t *testing.T) {
+	mock := &mockHeadAPI{out: &s3.HeadObjectOutput{Metadata: map[string]string{"render-fingerprint": "abc123"}}}
+	c := &S3Client{headAPI: mock}
+
+	meta, exists, err := c.HeadObjectWithMetadata(context.Background(), "test-bucket", "shorts/u1/j1/clips/c1.mp4")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !exists {
+		t.Fatal("expected exists=true when the object is present")
+	}
+	if meta["render-fingerprint"] != "abc123" {
+		t.Errorf("expected the stored fingerprint, got %v", meta)
+	}
+	if mock.gotBucket != "test-bucket" || mock.gotKey != "shorts/u1/j1/clips/c1.mp4" {
+		t.Errorf("bucket and key must pass through, got %q %q", mock.gotBucket, mock.gotKey)
+	}
+}
+
+func TestHeadObjectWithMetadata_MissingObject(t *testing.T) {
+	mock := &mockHeadAPI{err: &types.NotFound{}}
+	c := &S3Client{headAPI: mock}
+
+	meta, exists, err := c.HeadObjectWithMetadata(context.Background(), "test-bucket", "missing-key")
+	if err != nil {
+		t.Fatalf("expected no error for a missing object, got %v", err)
+	}
+	if exists || meta != nil {
+		t.Errorf("expected exists=false and no metadata, got exists=%v meta=%v", exists, meta)
+	}
+}
+
+func TestHeadObjectWithMetadata_ErrorPassthrough(t *testing.T) {
+	sentinel := errors.New("connection reset")
+	c := &S3Client{headAPI: &mockHeadAPI{err: sentinel}}
+
+	_, exists, err := c.HeadObjectWithMetadata(context.Background(), "test-bucket", "some-key")
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("expected the underlying error to pass through, got %v", err)
+	}
+	if exists {
+		t.Error("expected exists=false on error")
+	}
+}
+
+func TestPutObjectWithMetadataBuildsRequest(t *testing.T) {
+	meta := map[string]string{"render-fingerprint": "abc123"}
+	in := putObjectWithMetadataInput("test-bucket", "shorts/u1/j1/clips/c1.mp4", []byte("MP4"), "video/mp4", meta)
+
+	if *in.Bucket != "test-bucket" || *in.Key != "shorts/u1/j1/clips/c1.mp4" {
+		t.Errorf("wrong bucket or key: %q %q", *in.Bucket, *in.Key)
+	}
+	if *in.ContentType != "video/mp4" {
+		t.Errorf("wrong content type %q", *in.ContentType)
+	}
+	if in.Metadata["render-fingerprint"] != "abc123" {
+		t.Errorf("the fingerprint must be sent as user metadata, got %v", in.Metadata)
+	}
+}
+
 func TestHeadObject_RealErrorPassthrough(t *testing.T) {
 	// A genuine service failure (e.g. 500) must still surface as an error.
 	err := fmt.Errorf("operation error S3: HeadObject: %w",

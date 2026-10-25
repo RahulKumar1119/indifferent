@@ -41,6 +41,8 @@ type S3Client struct {
 	headAPI headObjectAPI
 }
 
+var _ MetadataStorage = (*S3Client)(nil)
+
 // NewS3Client creates a new S3Client using the default AWS config.
 func NewS3Client(ctx context.Context) (*S3Client, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
@@ -86,6 +88,24 @@ func (c *S3Client) PutObject(ctx context.Context, bucket, key string, data []byt
 		ContentType: aws.String(contentType),
 	})
 	return err
+}
+
+// PutObjectWithMetadata uploads data like PutObject and stores metadata as S3
+// user metadata on the object.
+func (c *S3Client) PutObjectWithMetadata(ctx context.Context, bucket, key string, data []byte, contentType string, metadata map[string]string) error {
+	_, err := c.client.PutObject(ctx, putObjectWithMetadataInput(bucket, key, data, contentType, metadata))
+	return err
+}
+
+// putObjectWithMetadataInput builds the PutObject request for PutObjectWithMetadata.
+func putObjectWithMetadataInput(bucket, key string, data []byte, contentType string, metadata map[string]string) *s3.PutObjectInput {
+	return &s3.PutObjectInput{
+		Bucket:      aws.String(bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(data),
+		ContentType: aws.String(contentType),
+		Metadata:    metadata,
+	}
 }
 
 // DeleteObject removes an object from S3 at the specified bucket and key.
@@ -241,6 +261,27 @@ func (c *S3Client) HeadObject(ctx context.Context, bucket, key string) (bool, er
 		return false, err
 	}
 	return true, nil
+}
+
+// HeadObjectWithMetadata returns an object's user metadata. exists is false when
+// the object is missing, with the same not-found mapping as HeadObject. S3
+// returns metadata keys in lowercase.
+func (c *S3Client) HeadObjectWithMetadata(ctx context.Context, bucket, key string) (metadata map[string]string, exists bool, err error) {
+	api := c.headAPI
+	if api == nil {
+		api = c.client
+	}
+	out, err := api.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		if isHeadObjectNotFound(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	return out.Metadata, true, nil
 }
 
 // isHeadObjectNotFound reports whether err from HeadObject means "no such

@@ -10,9 +10,11 @@ import {
   LanguageOption,
   ShortsLimits,
   ShortsService,
+  startPipeline,
 } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
+import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
 import { ShortsUploader, UploadError, UploadProgress, multipartApi } from './shorts-uploader';
 import {
   DEFAULT_UPLOAD_BYTES_PER_SEC,
@@ -34,7 +36,7 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
 @Component({
   selector: 'app-shorts-upload',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent, ShortsEffectsPanelComponent],
   styles: [`
     .dropzone {
       border-width: 2px;
@@ -220,7 +222,7 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
       }
 
       <!-- Size and time estimate, before the upload starts -->
-      @if (selectedFile && !error && !isProbing && !isUploading) {
+      @if (selectedFile && !error && !isProbing && !isUploading && !landedJobId) {
         <div class="mt-4 glass-card p-4 text-left" role="status">
           <p class="text-sm">
             <span class="font-medium">{{ formatFileSize(selectedFile.size) }}</span> to upload.
@@ -253,7 +255,7 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
       }
 
       <!-- Upload Progress -->
-      @if (uploadProgress >= 0) {
+      @if (uploadProgress >= 0 && !landedJobId) {
         <div class="mt-6">
           <div class="flex justify-between items-center text-sm text-[hsl(var(--muted-foreground))] mb-2">
             <span>{{ uploadLabel }}</span>
@@ -295,6 +297,23 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
         </div>
       }
 
+      <!-- Effects step: the file is uploaded, and processing starts only when the user does -->
+      @if (landedJobId) {
+        <div class="mt-6 text-left" aria-label="Effects before processing">
+          <h2 class="font-semibold text-[15px]">Upload complete</h2>
+          <p class="mt-1 text-[13px] text-[hsl(var(--muted-foreground))]">
+            Choose video effects, then start processing. Effects are off by default, so you can start right away.
+          </p>
+          <app-shorts-effects-panel
+            class="mt-4 block"
+            [jobId]="landedJobId"
+            [startStep]="true"
+            (effectsSaved)="onEffectsSaved()"
+          ></app-shorts-effects-panel>
+        </div>
+      }
+
+      @if (!landedJobId) {
       <!-- Language + Submit -->
       <div class="mt-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <label class="block text-left">
@@ -330,6 +349,7 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
           }
         </button>
       </div>
+      }
 
       <!-- Upload Error -->
       @if (uploadError) {
@@ -338,14 +358,16 @@ const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
             <svg lucideIcon="circle-x" [size]="16"></svg>
             {{ uploadError }}
           </p>
-          <button
-            type="button"
-            (click)="retryUpload()"
-            [disabled]="isUploading || isProbing"
-            class="mt-2 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
-          >
-            {{ resumable ? 'Resume upload' : 'Try again' }}
-          </button>
+          @if (!landedJobId) {
+            <button
+              type="button"
+              (click)="retryUpload()"
+              [disabled]="isUploading || isProbing"
+              class="mt-2 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+            >
+              {{ resumable ? 'Resume upload' : 'Try again' }}
+            </button>
+          }
         </div>
       }
     </div>
@@ -380,8 +402,8 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
 
   private uploader: ShortsUploader | null = null;
   private lastJobId: string | null = null;
-  /** A job whose file is fully uploaded but whose pipeline did not start: retry starts it without re-sending the file. */
-  private landedJobId: string | null = null;
+  /** A job whose file is fully uploaded and that waits in the effects step for the user to start it. */
+  landedJobId: string | null = null;
 
   private readonly preventWindowDrop = (event: DragEvent): void => {
     // Drops outside the zone must never navigate the browser away.
@@ -578,18 +600,13 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   }
 
   startProcessing(): void {
-    if (!this.selectedFile || this.error || this.isUploading || this.isProbing) return;
+    if (!this.selectedFile || this.error || this.isUploading || this.isProbing || this.landedJobId) return;
 
     this.isUploading = true;
     this.uploadError = '';
     this.uploadProgress = 0;
     this.progress = null;
 
-    if (this.landedJobId) {
-      this.uploadProgress = 100;
-      this.startPipeline(this.landedJobId);
-      return;
-    }
     const saved = this.resumable;
     if (saved) {
       this.lastJobId = saved.jobId;
@@ -640,7 +657,9 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     this.resumable = null;
     this.uploadProgress = 100;
     this.measuredSpeed = getMeasuredSpeed();
-    this.startPipeline(jobId);
+    // The job stays `uploaded` until the user saves the effects and starts it.
+    this.isUploading = false;
+    this.landedJobId = jobId;
   }
 
   private onUploadFailed(uploader: ShortsUploader, err: unknown, jobId: string): void {
@@ -808,12 +827,16 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     media.src = objectUrl;
   }
 
-  private startPipeline(jobId: string): void {
-    this.shorts.startJob(jobId).subscribe({
+  /** The effects panel has saved the settings, so the job can start. */
+  onEffectsSaved(): void {
+    if (!this.landedJobId || this.isUploading) return;
+    const jobId = this.landedJobId;
+    this.isUploading = true;
+    this.uploadError = '';
+    startPipeline(this.shorts, this.router, jobId).subscribe({
       next: () => {
         this.isUploading = false;
         this.landedJobId = null;
-        this.router.navigate(['/shorts', jobId, 'progress']);
       },
       error: (err) => {
         // Only a failure that says nothing about the file (network, server) keeps the upload for a quick retry.

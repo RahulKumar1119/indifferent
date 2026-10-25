@@ -49,9 +49,9 @@ func TestProperty6_RenderedClipsAre9x16(t *testing.T) {
 }
 
 // Feature: ai-shorts-generator, Property 9
-// Idempotent render produces no duplicate clips: when HeadObject reports the
-// clip already exists, Render performs no PutObject and returns the existing
-// key.
+// Idempotent render produces no duplicate clips: when the clip already exists
+// with the fingerprint of these settings, Render performs no PutObject and
+// returns the existing key.
 // Validates: Requirements 5.5
 func TestProperty9_IdempotentRender(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
@@ -59,7 +59,17 @@ func TestProperty9_IdempotentRender(t *testing.T) {
 		jobID := rapid.StringMatching(`[a-z0-9]{1,12}`).Draw(t, "jobID")
 		clipID := rapid.StringMatching(`[a-z0-9]{1,12}`).Draw(t, "clipID")
 
-		store := &mockStorage{exists: true}
+		in := RenderInput{
+			JobID:  jobID,
+			UserID: userID,
+			Clip:   models.Clip{ClipID: clipID},
+		}
+		fingerprint, err := renderFingerprint(in)
+		if err != nil {
+			t.Fatalf("fingerprint: %v", err)
+		}
+
+		store := &mockStorage{exists: true, meta: map[string]string{fingerprintMetaKey: fingerprint}}
 		r := &Renderer{
 			Storage: store,
 			Bucket:  "assets",
@@ -70,12 +80,6 @@ func TestProperty9_IdempotentRender(t *testing.T) {
 				t.Fatalf("RunCommand must not be invoked for an existing clip")
 				return nil
 			},
-		}
-
-		in := RenderInput{
-			JobID:  jobID,
-			UserID: userID,
-			Clip:   models.Clip{ClipID: clipID},
 		}
 
 		key, err := r.Render(context.Background(), in)

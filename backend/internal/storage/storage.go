@@ -15,6 +15,17 @@ type StorageClient interface {
 	HeadObject(ctx context.Context, bucket, key string) (bool, error)
 }
 
+// MetadataStorage is an optional capability of a StorageClient: it keeps user
+// metadata on an object. The shorts renderer uses it to tell which settings a
+// clip was rendered with.
+type MetadataStorage interface {
+	// HeadObjectWithMetadata returns an object's user metadata. exists is false
+	// when the object is missing.
+	HeadObjectWithMetadata(ctx context.Context, bucket, key string) (metadata map[string]string, exists bool, err error)
+	// PutObjectWithMetadata uploads data and stores metadata on the object.
+	PutObjectWithMetadata(ctx context.Context, bucket, key string, data []byte, contentType string, metadata map[string]string) error
+}
+
 // Downloader is the S3 surface the API layer needs for user downloads:
 // presigned URLs plus archival-status awareness so Glacier-stored videos
 // degrade to a restore flow instead of a broken link. DeleteObjects lets

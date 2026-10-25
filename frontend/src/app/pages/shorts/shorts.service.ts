@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpContext } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, tap } from 'rxjs/operators';
 import { ApiService } from '../../core';
 import { SUPPRESS_GLOBAL_ERROR } from '../../core/interceptors/error.interceptor';
 
@@ -462,4 +463,14 @@ export class ShortsService {
   getClipUrl(jobId: string, clipId: string): Observable<ClipUrlResponse> {
     return this.api.get<ClipUrlResponse>(`/shorts/${jobId}/clips/${clipId}/url`);
   }
+}
+
+/**
+ * Starts processing for an uploaded job, then opens its progress page. Errors
+ * go to the caller, because each page keeps its own state when a start fails.
+ */
+export function startPipeline(shorts: ShortsService, router: Router, jobId: string): Observable<unknown> {
+  return shorts.startJob(jobId).pipe(
+    tap(() => router.navigate(['/shorts', jobId, 'progress'])),
+  );
 }

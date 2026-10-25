@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -220,6 +222,67 @@ func ClipKey(userID, jobID, clipID string) string {
 	return fmt.Sprintf("shorts/%s/%s/clips/%s.mp4", userID, jobID, clipID)
 }
 
+// fingerprintMetaKey is the S3 user metadata key that holds a clip's render
+// fingerprint.
+const fingerprintMetaKey = "render-fingerprint"
+
+// renderFingerprint hashes every input that changes what a clip looks like: the
+// caption style, the enabled effects, the clip window, and the user's edit.
+// Effects with none enabled count as no effects, because they render the same
+// way. The edit's UpdatedAt is left out, so saving the same edit again keeps the
+// fingerprint.
+func renderFingerprint(in RenderInput) (string, error) {
+	effects := in.Effects
+	if !effects.Active() {
+		effects = nil
+	}
+	var edit *fingerprintEdit
+	if in.Edit != nil {
+		edit = &fingerprintEdit{Start: in.Edit.Start, End: in.Edit.End}
+		if len(in.Edit.Words) > 0 {
+			edit.Words = in.Edit.Words
+		}
+	}
+	raw, err := json.Marshal(fingerprintSettings{
+		Caption: in.Caption,
+		Effects: effects,
+		Start:   in.ClipStart,
+		End:     in.ClipEnd,
+		Edit:    edit,
+	})
+	if err != nil {
+		return "", fmt.Errorf("render settings cannot be fingerprinted: %w", err)
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// fingerprintSettings is the JSON that renderFingerprint hashes.
+type fingerprintSettings struct {
+	Caption models.CaptionStyle  `json:"caption"`
+	Effects *models.VideoEffects `json:"effects"`
+	Start   float64              `json:"start"`
+	End     float64              `json:"end"`
+	Edit    *fingerprintEdit     `json:"edit"`
+}
+
+// fingerprintEdit is the part of a clip edit that changes the output.
+type fingerprintEdit struct {
+	Start float64       `json:"start"`
+	End   float64       `json:"end"`
+	Words []models.Word `json:"words"`
+}
+
+// metadataStore returns the renderer's storage with metadata support. A clip's
+// fingerprint is stored as object metadata, so a store without it cannot render.
+func (r *Renderer) metadataStore() (storage.MetadataStorage, error) {
+	ms, ok := r.Storage.(storage.MetadataStorage)
+	if !ok {
+		return nil, fmt.Errorf("clip storage cannot keep render fingerprints")
+	}
+	return ms, nil
+}
+
 // buildCropCaptionArgs builds the FFmpeg args for trimming to [start, end],
 // applying the 9:16 center-crop + scale, and burning in the SRT captions.
 // For audio-only sources a solid 1080x1920 canvas is generated instead of a
@@ -314,8 +377,15 @@ func formatSeconds(s float64) string {
 
 // alreadyRendered reports whether the clip already exists in S3, enabling an
 // idempotent resume after a Spot interruption (Requirement 5.5).
-func (r *Renderer) alreadyRendered(ctx context.Context, key string) (bool, error) {
-	return r.Storage.HeadObject(ctx, r.Bucket, key)
+// alreadyRendered reports whether the clip object exists with the fingerprint of
+// these settings. A clip without a fingerprint, or with another one, renders
+// again. Nothing is deleted: the render writes over the key.
+func (r *Renderer) alreadyRendered(ctx context.Context, ms storage.MetadataStorage, key, fingerprint string) (bool, error) {
+	meta, exists, err := ms.HeadObjectWithMetadata(ctx, r.Bucket, key)
+	if err != nil || !exists {
+		return false, err
+	}
+	return meta[fingerprintMetaKey] == fingerprint, nil
 }
 
 // smartReframe decides how the 9:16 window is placed for a landscape source.
@@ -567,16 +637,25 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 	if err := in.Effects.Validate(); err != nil {
 		return "", fmt.Errorf("%w: %v", ErrEffectsInvalid, err)
 	}
+	ms, err := r.metadataStore()
+	if err != nil {
+		return "", err
+	}
+	fingerprint, err := renderFingerprint(in)
+	if err != nil {
+		return "", err
+	}
 	key := ClipKey(in.UserID, in.JobID, in.Clip.ClipID)
 
-	// Idempotent resume: skip everything if the clip is already present.
+	// Idempotent resume: skip everything if this clip already exists with these
+	// same settings. A clip rendered with other settings renders again.
 	done := tm.start(phaseCheckExists)
-	exists, err := r.alreadyRendered(ctx, key)
+	current, err := r.alreadyRendered(ctx, ms, key, fingerprint)
 	if err != nil {
 		return "", fmt.Errorf("failed to check for existing clip %s: %w", key, err)
 	}
 	done()
-	if exists {
+	if current {
 		tm.skipped = true
 		return key, nil
 	}
@@ -762,7 +841,9 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 		return "", fmt.Errorf("failed to read rendered clip: %w", err)
 	}
 	tm.outputBytes = len(clipData)
-	if err := r.Storage.PutObject(ctx, r.Bucket, key, clipData, "video/mp4"); err != nil {
+	// The fingerprint is stored with the clip, so a later retry can tell whether
+	// this clip matches its settings.
+	if err := ms.PutObjectWithMetadata(ctx, r.Bucket, key, clipData, "video/mp4", map[string]string{fingerprintMetaKey: fingerprint}); err != nil {
 		return "", fmt.Errorf("failed to upload clip %s: %w", key, err)
 	}
 	done()
