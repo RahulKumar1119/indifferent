@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/rahul/indifferent/backend/internal/models"
@@ -30,11 +31,39 @@ func TestRecordRenderError(t *testing.T) {
 	if got := db.in.Key["PK"].(*dbtypes.AttributeValueMemberS).Value; got != "USER#u1" {
 		t.Errorf("wrong PK %q", got)
 	}
-	if db.in.ConditionExpression == nil || *db.in.ConditionExpression != "attribute_exists(PK)" {
-		t.Errorf("the write must not recreate a deleted job, got %v", db.in.ConditionExpression)
+	if db.in.ConditionExpression == nil || *db.in.ConditionExpression != "attribute_exists(PK) AND attribute_not_exists(renderError)" {
+		t.Errorf("the write must not recreate a deleted job or overwrite a reason, got %v", db.in.ConditionExpression)
 	}
 	if got := db.in.ExpressionAttributeValues[":reason"].(*dbtypes.AttributeValueMemberS).Value; len([]rune(got)) != maxRenderErrorChars {
 		t.Errorf("reason must be capped at %d characters, got %d", maxRenderErrorChars, len([]rune(got)))
+	}
+}
+
+// fakeRenderStore applies the render error's write condition the way DynamoDB
+// does: a write is refused when the job already has a reason.
+type fakeRenderStore struct {
+	reason string
+	writes int
+}
+
+func (f *fakeRenderStore) UpdateItem(_ context.Context, in *dynamodb.UpdateItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+	if in.ConditionExpression != nil && strings.Contains(*in.ConditionExpression, "attribute_not_exists(renderError)") && f.reason != "" {
+		return nil, &dbtypes.ConditionalCheckFailedException{Message: aws.String("The conditional request failed")}
+	}
+	f.reason = in.ExpressionAttributeValues[":reason"].(*dbtypes.AttributeValueMemberS).Value
+	f.writes++
+	return &dynamodb.UpdateItemOutput{}, nil
+}
+
+func TestRecordRenderErrorKeepsTheFirstReason(t *testing.T) {
+	store := &fakeRenderStore{}
+	recordRenderError(store, "table", "u1", "j1", errors.New("clip-1: ffmpeg render failed: exit status 1"))
+	recordRenderError(store, "table", "u1", "j1", errors.New("clip-2: render timed out"))
+	if store.reason != "clip-1: ffmpeg render failed: exit status 1" {
+		t.Errorf("the first reason must stay, got %q", store.reason)
+	}
+	if store.writes != 1 {
+		t.Errorf("only the first failure may be written, got %d writes", store.writes)
 	}
 }
 

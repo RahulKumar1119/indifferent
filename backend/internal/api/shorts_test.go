@@ -1120,6 +1120,38 @@ func TestUpdateEffects_RejectsBadInput(t *testing.T) {
 	}
 }
 
+// TestUpdateEffects_RejectsClearedNumbers checks that a null or missing numeric
+// field is refused and never saved. models.VideoEffects would store it as zero.
+func TestUpdateEffects_RejectsClearedNumbers(t *testing.T) {
+	writes := 0
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: shortsJobItem("job1", "uploaded")}, nil
+		},
+		putItemFunc: func(_ context.Context, _ *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			writes++
+			return &dynamodb.PutItemOutput{}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+	for _, body := range []string{
+		`{"effects":{"zoom":{"enabled":true,"intensity":40,"punchIns":[{"at":null,"duration":1}]}}}`,
+		`{"effects":{"zoom":{"enabled":true,"intensity":40,"punchIns":[{"at":2}]}}}`,
+		`{"effects":{"freeze":{"enabled":true,"intensity":null,"freezes":[],"impactTexts":[]}}}`,
+		`{"effects":{"freeze":{"enabled":true,"intensity":50,"freezes":[],"impactTexts":[{"at":1,"duration":null,"text":"WAIT"}]}}}`,
+		`{"effects":{"grade":{"enabled":true,"look":"warm"}}}`,
+		`{"effects":{"captions":{"enabled":true,"intensity":50,"font":"sans","fontSize":null,"color":"#FFFFFF","highlight":"#FFD60A","position":"bottom","outline":4,"background":"dark"}}}`,
+	} {
+		resp, _ := h.HandleRequest(context.Background(), effectsReq("job1", body))
+		if resp.StatusCode != 400 {
+			t.Errorf("body %s: got %d, want 400 (body: %s)", body, resp.StatusCode, resp.Body)
+		}
+	}
+	if writes != 0 {
+		t.Errorf("a cleared field must not be saved, got %d writes", writes)
+	}
+}
+
 func TestUpdateEffects_RejectsWrongState(t *testing.T) {
 	for _, status := range []string{"transcribing", "ranking", "rendering", "completed", "delete_failed"} {
 		db := &mockDynamoDB{

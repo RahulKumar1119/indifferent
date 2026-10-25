@@ -11,21 +11,26 @@ import (
 	"testing"
 
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/storage"
 )
 
 // mockStorage implements storage.StorageClient, recording calls for assertions.
 type mockStorage struct {
-	// exists is returned by HeadObject.
-	exists   bool
-	headErr  error
-	getErr   error
-	putErr   error
-	objects  map[string][]byte // keyed by S3 key, seeds GetObject
-	getCalls int
-	putCalls int
-	headKey  string
-	putKey   string
-	putData  []byte
+	// exists is returned by HeadObject and HeadObjectWithMetadata.
+	exists bool
+	// meta is the object metadata HeadObjectWithMetadata returns.
+	meta        map[string]string
+	headErr     error
+	getErr      error
+	putErr      error
+	objects     map[string][]byte // keyed by S3 key, seeds GetObject
+	getCalls    int
+	putCalls    int
+	deleteCalls int
+	headKey     string
+	putKey      string
+	putData     []byte
+	putMeta     map[string]string
 }
 
 func (m *mockStorage) GetObject(ctx context.Context, bucket, key string) ([]byte, error) {
@@ -47,12 +52,25 @@ func (m *mockStorage) PutObject(ctx context.Context, bucket, key string, data []
 }
 
 func (m *mockStorage) DeleteObject(ctx context.Context, bucket, key string) error {
+	m.deleteCalls++
 	return nil
 }
 
 func (m *mockStorage) HeadObject(ctx context.Context, bucket, key string) (bool, error) {
 	m.headKey = key
 	return m.exists, m.headErr
+}
+
+// HeadObjectWithMetadata answers from exists, meta and headErr.
+func (m *mockStorage) HeadObjectWithMetadata(ctx context.Context, bucket, key string) (map[string]string, bool, error) {
+	m.headKey = key
+	return m.meta, m.exists, m.headErr
+}
+
+// PutObjectWithMetadata uploads like PutObject and records the metadata.
+func (m *mockStorage) PutObjectWithMetadata(ctx context.Context, bucket, key string, data []byte, contentType string, metadata map[string]string) error {
+	m.putMeta = metadata
+	return m.PutObject(ctx, bucket, key, data, contentType)
 }
 
 func TestBuildCropCaptionArgs_VideoFilterAndFlags(t *testing.T) {
@@ -278,7 +296,12 @@ func TestRender_HappyPath(t *testing.T) {
 }
 
 func TestRender_IdempotentSkipsWork(t *testing.T) {
-	store := &mockStorage{exists: true}
+	in := RenderInput{JobID: "j1", UserID: "u1", Clip: models.Clip{ClipID: "c1"}}
+	fp, err := renderFingerprint(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &mockStorage{exists: true, meta: map[string]string{fingerprintMetaKey: fp}}
 	r := &Renderer{
 		Storage: store,
 		Bucket:  "assets",
@@ -288,7 +311,6 @@ func TestRender_IdempotentSkipsWork(t *testing.T) {
 			return nil
 		},
 	}
-	in := RenderInput{JobID: "j1", UserID: "u1", Clip: models.Clip{ClipID: "c1"}}
 	key, err := r.Render(context.Background(), in)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -298,6 +320,141 @@ func TestRender_IdempotentSkipsWork(t *testing.T) {
 	}
 	if store.putCalls != 0 {
 		t.Errorf("expected no PutObject, got %d", store.putCalls)
+	}
+}
+
+// A clip that exists with another fingerprint renders again. The new clip
+// carries this render's fingerprint, and no object is deleted.
+func TestRender_RerendersWhenFingerprintDiffers(t *testing.T) {
+	encodes := 0
+	run := func(_ context.Context, _ string, args []string, _ float64, _ func(int)) error {
+		encodes++
+		return writeOutput(args)
+	}
+	r, store, in := effectsRenderer(t, nil, run)
+	store.exists = true
+	store.meta = map[string]string{fingerprintMetaKey: "fingerprint-of-an-earlier-render"}
+	key, err := r.Render(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if encodes != 1 {
+		t.Errorf("a clip with another fingerprint must render once, got %d encodes", encodes)
+	}
+	want, err := renderFingerprint(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := store.putMeta[fingerprintMetaKey]; got != want {
+		t.Errorf("the new clip must carry this render's fingerprint: got %q, want %q", got, want)
+	}
+	if key != ClipKey("u1", "j1", "c1") || store.putKey != key {
+		t.Errorf("the clip keeps its key: returned %q, uploaded to %q", key, store.putKey)
+	}
+	if store.deleteCalls != 0 {
+		t.Errorf("a re-render must not delete objects, got %d deletes", store.deleteCalls)
+	}
+}
+
+// A clip stored before fingerprints existed has no metadata, so it renders once more.
+func TestRender_RerendersWithoutFingerprint(t *testing.T) {
+	encodes := 0
+	run := func(_ context.Context, _ string, args []string, _ float64, _ func(int)) error {
+		encodes++
+		return writeOutput(args)
+	}
+	r, store, in := effectsRenderer(t, nil, run)
+	store.exists = true
+	if _, err := r.Render(context.Background(), in); err != nil {
+		t.Fatal(err)
+	}
+	if encodes != 1 || store.putCalls != 1 {
+		t.Errorf("a clip without a fingerprint must render once: encodes=%d uploads=%d", encodes, store.putCalls)
+	}
+}
+
+// Effects do not change the clip key. The settings are kept in the object's metadata.
+func TestRender_EffectsKeepTheLegacyClipKey(t *testing.T) {
+	effects := &models.VideoEffects{Grade: &models.GradeEffect{Enabled: true, Look: "warm", Intensity: 50}}
+	run := func(_ context.Context, _ string, args []string, _ float64, _ func(int)) error {
+		return writeOutput(args)
+	}
+	r, store, in := effectsRenderer(t, effects, run)
+	key, err := r.Render(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := ClipKey("u1", "j1", "c1"); key != want || store.putKey != want {
+		t.Errorf("the clip key must not depend on effects: returned %q, uploaded to %q, want %q", key, store.putKey, want)
+	}
+}
+
+// renderFingerprint changes when the output changes, and stays the same when it does not.
+func TestRenderFingerprintFollowsOutputSettings(t *testing.T) {
+	on := &models.VideoEffects{Grade: &models.GradeEffect{Enabled: true, Look: "warm", Intensity: 50}}
+	other := &models.VideoEffects{Grade: &models.GradeEffect{Enabled: true, Look: "cool", Intensity: 50}}
+	off := &models.VideoEffects{Grade: &models.GradeEffect{Enabled: false, Look: "warm", Intensity: 50}}
+	base := RenderInput{ClipStart: 10, ClipEnd: 28, Caption: models.CaptionStyle{Preset: "bold"}}
+	withOn := base
+	withOn.Effects = on
+	withOther := base
+	withOther.Effects = other
+	withOff := base
+	withOff.Effects = off
+	styled := base
+	styled.Caption = models.CaptionStyle{Preset: "karaoke"}
+	shifted := base
+	shifted.ClipEnd = 30
+	edit := &models.ClipEdit{Start: 10, End: 28, Words: []models.Word{{Text: "hi", Start: 10, End: 10.5}}}
+	editedAgain := *edit
+	editedAgain.UpdatedAt = "2026-10-25T10:00:00Z"
+	withEdit := base
+	withEdit.Edit = edit
+	withEditAgain := base
+	withEditAgain.Edit = &editedAgain
+	withNewWords := base
+	withNewWords.Edit = &models.ClipEdit{Start: 10, End: 28, Words: []models.Word{{Text: "bye", Start: 10, End: 10.5}}}
+
+	cases := []struct {
+		name string
+		a, b RenderInput
+		same bool
+	}{
+		{"no effects and all disabled match", base, withOff, true},
+		{"enabled effects differ from none", base, withOn, false},
+		{"different effects differ", withOn, withOther, false},
+		{"same effects match", withOn, withOn, true},
+		{"caption style differs", base, styled, false},
+		{"clip window differs", base, shifted, false},
+		{"an edit differs from none", base, withEdit, false},
+		{"an edit saved again matches", withEdit, withEditAgain, true},
+		{"edited words differ", withEdit, withNewWords, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a, err := renderFingerprint(tc.a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			b, err := renderFingerprint(tc.b)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (a == b) != tc.same {
+				t.Errorf("same=%v expected, got %s and %s", tc.same, a, b)
+			}
+		})
+	}
+}
+
+// A store without metadata support cannot tell which settings a clip has, so it
+// is refused before any work.
+func TestRender_StoreWithoutMetadataIsRefused(t *testing.T) {
+	store := struct{ storage.StorageClient }{&mockStorage{}}
+	r := &Renderer{Storage: store, Bucket: "assets", WorkDir: t.TempDir()}
+	in := RenderInput{JobID: "j1", UserID: "u1", Clip: models.Clip{ClipID: "c1"}}
+	if _, err := r.Render(context.Background(), in); err == nil || !strings.Contains(err.Error(), "fingerprints") {
+		t.Fatalf("expected a refusal for a store without metadata, got %v", err)
 	}
 }
 

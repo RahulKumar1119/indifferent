@@ -1,17 +1,18 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
-import { ShortsJobSummary, ShortsService, ShortsStatus } from './shorts.service';
+import { ShortsJobSummary, ShortsService, ShortsStatus, startPipeline } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
 
 @Component({
   selector: 'app-shorts-history',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent],
   template: `
     <app-navbar></app-navbar>
     <app-toasts></app-toasts>
@@ -51,10 +52,12 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
         } @else {
           <ul class="mt-6 divide-y divide-[hsl(var(--border))] rounded-[20px] border border-[hsl(var(--border))] px-2 md:px-4">
             @for (job of jobs; track job.jobId) {
-              <li class="flex items-center gap-1 px-1 md:px-2">
+              <li class="flex flex-wrap items-center gap-1 px-1 md:px-2">
+                <!-- An uploaded job has no page to show yet: the progress page would read as transcribing. -->
                 <a
-                  [routerLink]="job.status === 'completed' && job.clipCount > 0 ? ['/shorts', job.jobId, 'clips'] : ['/shorts', job.jobId, 'progress']"
-                  class="row-hover flex flex-1 items-center gap-4 px-2 md:px-3 py-4 rounded-xl min-w-0"
+                  [routerLink]="job.status === 'uploaded' ? null : job.status === 'completed' && job.clipCount > 0 ? ['/shorts', job.jobId, 'clips'] : ['/shorts', job.jobId, 'progress']"
+                  [class.row-hover]="job.status !== 'uploaded'"
+                  class="flex flex-1 items-center gap-4 px-2 md:px-3 py-4 rounded-xl min-w-0"
                 >
                   <span class="w-9 h-9 rounded-full bg-[hsl(var(--foreground))]/[.06] flex items-center justify-center shrink-0 text-[12px] font-bold text-[hsl(var(--muted-foreground))]">
                     {{ job.fileType.toUpperCase() }}
@@ -65,11 +68,26 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
                       {{ formatDate(job.createdAt) }}
                       @if (job.status === 'completed') {
                         &middot; {{ job.clipCount }} {{ job.clipCount === 1 ? 'clip' : 'clips' }}
+                      } @else if (job.status === 'uploaded') {
+                        &middot; Uploaded. Not started.
                       }
                     </span>
                   </span>
-                  <span class="hidden sm:inline-flex rounded-full border border-[hsl(var(--border))] px-3 py-1 text-[11.5px] font-medium">{{ statusLabel(job.status) }}</span>
+                  @if (job.status !== 'uploaded') {
+                    <span class="hidden sm:inline-flex rounded-full border border-[hsl(var(--border))] px-3 py-1 text-[11.5px] font-medium">{{ statusLabel(job.status) }}</span>
+                  }
                 </a>
+                @if (job.status === 'uploaded' && draftJobId !== job.jobId) {
+                  <!-- Full width on phones, on the row beside the delete button from sm up. -->
+                  <button
+                    type="button"
+                    (click)="openDraft(job)"
+                    class="btn-interactive order-last basis-full sm:order-none sm:basis-auto min-h-[44px] px-4 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] text-[13.5px] font-medium"
+                    [attr.aria-label]="'Start render for short ' + job.jobId.slice(0, 8)"
+                  >
+                    Start render
+                  </button>
+                }
                 <button
                   type="button"
                   (click)="askDelete(job)"
@@ -84,6 +102,16 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
                     <svg lucideIcon="trash-2" [size]="16"></svg>
                   }
                 </button>
+                @if (draftJobId === job.jobId) {
+                  <div class="order-last basis-full pb-4">
+                    <app-shorts-effects-panel
+                      [jobId]="job.jobId"
+                      [draftMode]="true"
+                      (effectsSaved)="onDraftSaved()"
+                      (cancelled)="closeDraft()"
+                    ></app-shorts-effects-panel>
+                  </div>
+                }
               </li>
             }
           </ul>
@@ -112,9 +140,13 @@ export class ShortsHistoryComponent implements OnInit {
   error = '';
   pendingDelete: ShortsJobSummary | null = null;
   deletingId: string | null = null;
+  /** The uploaded job whose Effects step is open, and whether its start request is in flight. */
+  draftJobId: string | null = null;
+  starting = false;
 
   private readonly shorts = inject(ShortsService);
   private readonly toasts = inject(ToastService);
+  private readonly router = inject(Router);
 
   ngOnInit(): void {
     this.reload();
@@ -139,6 +171,37 @@ export class ShortsHistoryComponent implements OnInit {
 
   statusLabel(status: ShortsStatus): string {
     return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  openDraft(job: ShortsJobSummary): void {
+    if (this.starting) return;
+    this.draftJobId = job.jobId;
+  }
+
+  closeDraft(): void {
+    if (this.starting) return;
+    this.draftJobId = null;
+  }
+
+  /** The Effects step saved the draft: start the render the same way the upload page does. */
+  onDraftSaved(): void {
+    const jobId = this.draftJobId;
+    if (this.starting || !jobId) return;
+    this.starting = true;
+    startPipeline(this.shorts, this.router, jobId).subscribe({
+      next: () => {
+        this.starting = false;
+      },
+      error: (err) => {
+        this.starting = false;
+        // Network and server failures keep the step open for a retry. A rejected start means the job changed, so the list reloads.
+        if (err?.status && err.status < 500) {
+          this.draftJobId = null;
+          this.reload();
+        }
+        this.toasts.show(err?.error?.message || 'Failed to start processing. Please try again.', 'error');
+      },
+    });
   }
 
   askDelete(job: ShortsJobSummary): void {

@@ -508,6 +508,90 @@ type UpdateEffectsRequest struct {
 	Effects *models.VideoEffects `json:"effects"`
 }
 
+// effectNumbers mirrors the numeric fields of the effect settings with pointers.
+// A null or missing number stays nil here, although models.VideoEffects decodes
+// it as zero. requireEffectNumbers checks these pointers, so a cleared field is
+// rejected rather than stored as zero.
+type effectNumbers struct {
+	Effects *struct {
+		Captions *struct {
+			Intensity *float64 `json:"intensity"`
+			FontSize  *float64 `json:"fontSize"`
+			Outline   *float64 `json:"outline"`
+		} `json:"captions"`
+		Zoom *struct {
+			Intensity *float64      `json:"intensity"`
+			PunchIns  []timedNumber `json:"punchIns"`
+		} `json:"zoom"`
+		Grade *struct {
+			Intensity *float64 `json:"intensity"`
+		} `json:"grade"`
+		Freeze *struct {
+			Intensity   *float64      `json:"intensity"`
+			Freezes     []timedNumber `json:"freezes"`
+			ImpactTexts []timedNumber `json:"impactTexts"`
+		} `json:"freeze"`
+	} `json:"effects"`
+}
+
+// timedNumber holds the start and length of a punch-in, freeze or impact text.
+type timedNumber struct {
+	At       *float64 `json:"at"`
+	Duration *float64 `json:"duration"`
+}
+
+// numberField names one required number for the error message.
+type numberField struct {
+	name  string
+	value *float64
+}
+
+// requireEffectNumbers returns an error for the first numeric effect field that
+// is null or missing, in the order the settings appear.
+func requireEffectNumbers(n effectNumbers) error {
+	e := n.Effects
+	if e == nil {
+		return nil
+	}
+	var fields []numberField
+	if c := e.Captions; c != nil {
+		fields = append(fields,
+			numberField{"caption dimming", c.Intensity},
+			numberField{"caption font size", c.FontSize},
+			numberField{"caption outline", c.Outline})
+	}
+	if z := e.Zoom; z != nil {
+		fields = append(fields, numberField{"zoom strength", z.Intensity})
+		for i, p := range z.PunchIns {
+			fields = append(fields,
+				numberField{fmt.Sprintf("punch-in %d time", i+1), p.At},
+				numberField{fmt.Sprintf("punch-in %d length", i+1), p.Duration})
+		}
+	}
+	if g := e.Grade; g != nil {
+		fields = append(fields, numberField{"grade strength", g.Intensity})
+	}
+	if f := e.Freeze; f != nil {
+		fields = append(fields, numberField{"impact text size", f.Intensity})
+		for i, h := range f.Freezes {
+			fields = append(fields,
+				numberField{fmt.Sprintf("freeze %d time", i+1), h.At},
+				numberField{fmt.Sprintf("freeze %d hold", i+1), h.Duration})
+		}
+		for i, t := range f.ImpactTexts {
+			fields = append(fields,
+				numberField{fmt.Sprintf("impact text %d time", i+1), t.At},
+				numberField{fmt.Sprintf("impact text %d length", i+1), t.Duration})
+		}
+	}
+	for _, f := range fields {
+		if f.value == nil {
+			return fmt.Errorf("%s is required: enter a number", f.name)
+		}
+	}
+	return nil
+}
+
 // handleUpdateEffects stores validated video effect settings on a shorts job.
 // Like the caption style, the settings apply to renders and retries, and they
 // can change only before a render starts (uploaded) or after one failed.
@@ -523,6 +607,13 @@ func (h *APIHandler) handleUpdateEffects(ctx context.Context, req events.APIGate
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&body); err != nil {
 		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	}
+	var numbers effectNumbers
+	if err := json.NewDecoder(strings.NewReader(req.Body)).Decode(&numbers); err != nil {
+		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	}
+	if err := requireEffectNumbers(numbers); err != nil {
+		return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
 	}
 	if err := body.Effects.Validate(); err != nil {
 		return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil

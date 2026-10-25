@@ -285,8 +285,10 @@ func TestEffectArgsAudioOnlyCanvasCoversHeldFrames(t *testing.T) {
 		t.Fatal(err)
 	}
 	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "color=c=black:s=1080x1920:r=30:d=10.700") {
-		t.Errorf("audio-only canvas must cover the held frames: %s", joined)
+	// The clip is 10 s and the freeze adds 0.7 s. The canvas is the clip
+	// length, and the hold graph adds the held frames.
+	if !strings.Contains(joined, "color=c=black:s=1080x1920:r=30:d=10.000") {
+		t.Errorf("audio-only canvas must be the clip length, the hold graph adds the held frames: %s", joined)
 	}
 	if !strings.Contains(joined, "-shortest") {
 		t.Errorf("audio-only renders must end with the shortest input: %s", joined)
