@@ -3,7 +3,7 @@ import { CommonModule, DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
-import { setCanonical } from '../../shared/seo';
+import { setCanonical, setJsonLd } from '../../shared/seo';
 
 interface Tool {
   icon: string;
@@ -111,7 +111,7 @@ export class ToolsComponent implements OnInit {
       badge: 'AI pipeline',
       title: 'AI Shorts Generator',
       text: 'Long video or audio into ranked 9:16 clips with burned-in captions.',
-      points: ['Engagement-ranked moments', 'Speaker tracking + blur-fill', '1080×1920 exports'],
+      points: ['Moments picked from the transcript', 'Face-centered framing + blur-fill', '1080×1920 exports'],
       infoLink: '/features/ai-shorts',
       ctaLink: '/shorts',
       ctaLabel: 'Make shorts',
@@ -128,15 +128,12 @@ export class ToolsComponent implements OnInit {
     this.meta.updateTag({ property: 'og:url', content: url });
     this.meta.updateTag({ property: 'og:image', content: 'https://indifferent.fun/og-cover.jpg' });
     setCanonical(this.document, url);
-    const script = this.document.createElement('script');
-    script.type = 'application/ld+json';
-    script.text = JSON.stringify({
+    setJsonLd(this.document, 'webpage', {
       '@context': 'https://schema.org',
       '@type': 'WebPage',
       name: 'Free Creator Tools | Indifferent',
       url,
       description,
     });
-    this.document.head.appendChild(script);
   }
 }

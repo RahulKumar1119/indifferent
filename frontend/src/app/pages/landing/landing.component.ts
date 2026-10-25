@@ -3,7 +3,7 @@ import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
-import { setPageSeo } from '../../shared/seo';
+import { setJsonLd, setPageSeo } from '../../shared/seo';
 import { FlipbookComponent } from './flipbook.component';
 import { HeroSceneComponent } from './hero-scene.component';
 
@@ -205,18 +205,18 @@ Answer: C</code></pre>
               <p class="text-[11px] uppercase tracking-[0.06em] text-white/50">AI Shorts generator</p>
               <h3 class="serif mt-2 text-[26px] leading-tight">A long video, cut into ranked vertical clips.</h3>
               <p class="mt-3 text-[14.5px] leading-relaxed text-white/70">
-                Drop in a podcast, an interview or a lecture. It is transcribed word by word, every segment is
-                scored, and the best ones are rendered as 9:16 clips with captions burned in.
+                Drop in a podcast, an interview or a lecture. It is transcribed word by word, a language model picks
+                the strongest moments from the transcript, and the top ones are rendered as 9:16 clips with captions burned in.
               </p>
               <ul class="mt-5 space-y-2.5 text-[14px] leading-relaxed text-white/75">
                 <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Video or audio in: MP4, MOV, MP3, WAV, up to 1 hour</li>
-                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Up to 3 clips per upload, ranked by score</li>
-                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Face tracking pans the frame onto the speaker</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Up to 3 clips per upload, 30 to 90 seconds each, ranked by score</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Face detection centers the 9:16 window on the speaker</li>
                 <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Blur-fill keeps text cards and screen recordings whole</li>
-                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Four caption presets, restyled after the fact</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Burned-in captions, with an optional animated style</li>
               </ul>
               <dl class="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 gap-4 text-[13px]">
-                <div><dt class="text-white/50">Output</dt><dd class="mt-0.5 font-semibold">1080x1920 MP4</dd></div>
+                <div><dt class="text-white/50">Output</dt><dd class="mt-0.5 font-semibold">1080×1920 MP4</dd></div>
                 <div><dt class="text-white/50">Codec</dt><dd class="mt-0.5 font-semibold">H.264 + AAC, 30fps</dd></div>
               </dl>
               <a routerLink="/shorts-maker" class="btn-interactive mt-6 inline-flex items-center gap-2 self-start rounded-full bg-[#F4EFE6] text-[#141310] px-6 py-3 font-semibold text-[14px]">Open the Shorts generator</a>
@@ -233,12 +233,12 @@ Answer: C</code></pre>
               <ul class="mt-5 space-y-2.5 text-[14px] leading-relaxed text-[#EDE8DB]/85">
                 <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Text in 10 typefaces, or your own logo image</li>
                 <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Size, opacity, colour and rotation, all adjustable</li>
-                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Original, 16:9, 9:16 or 1:1 framing</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Crop guides for 16:9, 9:16 and 1:1 on the preview</li>
                 <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Images out at full resolution as PNG or JPEG</li>
                 <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Video out as MP4, rendered on your own machine</li>
               </ul>
               <dl class="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 gap-4 text-[13px]">
-                <div><dt class="text-white/50">Accepts</dt><dd class="mt-0.5 font-semibold">JPG, PNG, WebP, MP4</dd></div>
+                <div><dt class="text-white/50">Accepts</dt><dd class="mt-0.5 font-semibold">JPG, PNG, WebP, MP4, WebM, MOV</dd></div>
                 <div><dt class="text-white/50">Uploads</dt><dd class="mt-0.5 font-semibold">Nothing, ever</dd></div>
               </dl>
               <a routerLink="/tools/add-watermark" class="btn-interactive mt-6 inline-flex items-center gap-2 self-start rounded-full bg-[#EDE8DB] text-[#1E3A2A] px-6 py-3 font-semibold text-[14px]">Open the watermark tool</a>
@@ -307,29 +307,22 @@ Answer: C</code></pre>
         </div>
       </section>
 
-      <!-- CLOSING dark block: trust + newsletter + footer -->
+      <!-- CLOSING dark block: journal + contact + footer -->
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6]">
         <div class="absolute inset-0" style="background: linear-gradient(to bottom, #0F0E0B, rgba(15,14,11,0.75) 45%, #0F0E0B);"></div>
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-20 md:pt-28 pb-10">
-          <!-- Trust + newsletter -->
+          <!-- Journal + contact -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
             <div>
-              <h2 class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)]">Get the next essay first.</h2>
+              <h2 class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)]">Read the journal.</h2>
               <p class="reveal mt-3 text-[15px] leading-relaxed text-white/70 max-w-[46ch]">
-                Notes on pacing, narration and publishing quiz videos. No newsletter exists yet, so this only confirms your address was read.
+                Guides to the three tools: how AI clipping works, how to format a quiz file, how to watermark in your browser, and which video format to export.
+                There is no email list. New articles show up in the journal and in an RSS feed.
               </p>
-              @if (newsletterSubscribed) {
-                <p class="reveal is-visible mt-5 text-[14px] text-[#EDE8DB]">Thanks. Newsletter signup is coming soon, and we will not share your address.</p>
-              } @else {
-                <form (submit)="subscribeNewsletter($event)" class="reveal mt-5 max-w-[420px]">
-                  <label for="landing-newsletter-email" class="sr-only">Email address</label>
-                  <div class="rounded-[20px] p-2 bg-white/[0.06] border border-white/10 backdrop-blur flex flex-col sm:flex-row gap-2">
-                    <input id="landing-newsletter-email" type="email" required placeholder="you@studio.com"
-                      class="flex-1 rounded-[12px] bg-transparent px-5 h-12 text-[15px] placeholder:text-white/60 outline-none border border-transparent focus:border-white/40">
-                    <button type="submit" class="btn-primary rounded-full bg-[#E8E0D2] text-[#141310] px-7 h-12 font-semibold text-[14.5px]">Subscribe</button>
-                  </div>
-                </form>
-              }
+              <p class="reveal mt-5 flex flex-wrap gap-3">
+                <a routerLink="/blog" class="btn-primary inline-flex items-center min-h-[44px] rounded-full bg-[#E8E0D2] text-[#141310] px-7 font-semibold text-[14.5px]">Open the journal</a>
+                <a href="/feed.xml" class="inline-flex items-center min-h-[44px] rounded-full border border-white/25 text-white/85 px-7 font-semibold text-[14.5px] hover:border-white/50 transition-colors">RSS feed</a>
+              </p>
             </div>
             <div>
               <h2 class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)]">Who runs this.</h2>
@@ -397,52 +390,63 @@ export class LandingComponent implements OnInit, AfterViewInit {
   @ViewChild('heroSection') heroSection!: ElementRef;
 
   currentYear = new Date().getFullYear();
-  newsletterSubscribed = false;
 
   faqs: { q: string; a: string }[] = [
     { q: 'What file do I need?', a: 'A plain text (.txt) file containing your multiple-choice questions. Number each question, list the options, and mark the answer. Numbered, bulleted and tab-indented formats are all detected, so you do not have to clean up your formatting first.' },
     { q: 'How large can the file be?', a: 'Up to 5 MB, which is enough for several hundred questions. The video length follows from how many questions you write.' },
     { q: 'Which voices can I use?', a: 'Five, all real Amazon Polly voices: Joanna (US English, clear and professional), Matthew (US English, warm and authoritative), Amy (British English, polished), Brian (British English, natural) and Aditi (Indian English, approachable).' },
-    { q: 'How long does rendering take?', a: 'A short quiz renders in a couple of minutes. The project page shows the live stage, so you can leave it open and come back.' },
+    { q: 'How long does rendering take?', a: 'A short quiz usually renders in a few minutes, and a longer one takes longer. The project page shows the live stage, so you can leave it open and come back.' },
     { q: 'Is it free?', a: 'Yes, during the beta. No credit card, no quota to track, no paid tier to upgrade to yet. The beta terms say what that means.' },
     { q: 'Is my question file uploaded?', a: 'Yes, the text file has to reach the server to be parsed and narrated, and it is stored with your project so you can re-render it. The privacy page explains exactly what is kept and for how long. The watermark tool is the opposite: it never uploads anything.' },
-    { q: 'Can I use the video commercially?', a: 'The narration and slides are generated for you, so what you can do with the result depends on the questions you wrote and on your account terms. The terms page covers this in full.' },
+    { q: 'Can I use the video commercially?', a: 'You keep ownership of the videos you generate. You are responsible for having the rights to the questions you upload, and the narration is produced by Amazon Polly, so the AWS terms apply to it too. The terms page covers the details.' },
     { q: 'What happens to my file afterwards?', a: 'Your project and its text file stay in your account so you can re-render with a different voice or design, and you can delete them at any time from the project page.' },
   ];
 
   ngOnInit(): void {
-    setPageSeo(this.document, {
-      title: 'Indifferent: Turn a TXT Quiz File into a Narrated Video',
-      description:
-        'Write your quiz questions in a plain text file and get back a 1080p MP4 where a voice reads each question aloud and reveals the answer. Free during beta, no credit card.',
-      canonical: 'https://indifferent.fun/',
-    });
-    this.addJsonLd({
+    const title = 'Indifferent: AI Shorts, Quiz Videos and a Free Watermark Tool';
+    const description =
+      'Cut long videos into captioned vertical clips, turn quiz text files into narrated MP4s, and watermark images in your browser. Free during beta.';
+    setPageSeo(this.document, { title, description, canonical: 'https://indifferent.fun/' });
+    setJsonLd(this.document, 'webpage', {
       '@context': 'https://schema.org',
       '@type': 'WebPage',
-      name: 'Indifferent: Turn a TXT Quiz File into a Narrated Video',
+      name: title,
       url: 'https://indifferent.fun/',
-      description:
-        'Write your quiz questions in a plain text file and get back a 1080p MP4 where a voice reads each question aloud and reveals the answer.',
+      description,
     });
-    this.addJsonLd({
+    const free = { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'Free during beta' };
+    setJsonLd(this.document, 'software-quiz', {
       '@context': 'https://schema.org',
       '@type': 'SoftwareApplication',
       name: 'Indifferent Quiz Video Generator',
-      url: 'https://indifferent.fun/',
+      url: 'https://indifferent.fun/features/txt-to-video-quiz',
       applicationCategory: 'MultimediaApplication',
       operatingSystem: 'Web',
-      description:
-        'Turns a plain text file of multiple-choice questions into a narrated 1080p MP4 quiz video.',
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'Free during beta' },
-      featureList: [
-        'TXT quiz file input',
-        '5 narration voices',
-        '1080p MP4 output',
-        'Question and answer slides',
-      ],
+      description: 'Turns a plain text file of multiple-choice questions into a narrated 1080p MP4 quiz video.',
+      offers: free,
+      featureList: ['TXT quiz file input', '5 narration voices', '1080p MP4 output', 'Question and answer slides'],
     });
-    this.addJsonLd({
+    setJsonLd(this.document, 'software-shorts', {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Indifferent AI Shorts Generator',
+      url: 'https://indifferent.fun/features/ai-shorts',
+      applicationCategory: 'MultimediaApplication',
+      operatingSystem: 'Web',
+      description: 'Turns a video or audio file of up to 1 hour into up to 3 captioned 9:16 clips.',
+      offers: free,
+    });
+    setJsonLd(this.document, 'software-watermark', {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Indifferent Watermark Tool',
+      url: 'https://indifferent.fun/features/watermark',
+      applicationCategory: 'MultimediaApplication',
+      operatingSystem: 'Web',
+      description: 'Adds text or logo watermarks to images and video entirely in the browser.',
+      offers: free,
+    });
+    setJsonLd(this.document, 'faq', {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
       mainEntity: this.faqs.map((f) => ({
@@ -451,18 +455,6 @@ export class LandingComponent implements OnInit, AfterViewInit {
         acceptedAnswer: { '@type': 'Answer', text: f.a },
       })),
     });
-  }
-
-  private addJsonLd(schema: Record<string, unknown>): void {
-    const script = this.document.createElement('script');
-    script.type = 'application/ld+json';
-    script.text = JSON.stringify(schema);
-    this.document.head.appendChild(script);
-  }
-
-  subscribeNewsletter(event: Event): void {
-    event.preventDefault();
-    this.newsletterSubscribed = true;
   }
 
   steps = [

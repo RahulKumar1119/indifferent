@@ -1,100 +1,131 @@
-import { Component } from '@angular/core';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { LucideDynamicIcon } from '@lucide/angular';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { RouterLink } from '@angular/router';
+import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
+import { setPageSeo } from '../../shared/seo';
+import { FEATURE_DATA, FeatureData, FeatureFaq } from '../features/feature-page.component';
+
+interface HelpSection {
+  id: string;
+  title: string;
+  intro?: string;
+  faqs: FeatureFaq[];
+  /** Link to the full product page, when the section is about one tool. */
+  more?: { label: string; path: string };
+}
+
+/** Questions that apply to the whole site. Anything about a single tool comes
+ * from FEATURE_DATA, so the help page and the product pages cannot disagree. */
+export const GENERAL_FAQ: FeatureFaq[] = [
+  {
+    q: 'Is Indifferent free?',
+    a: 'Yes, during the beta. There is no credit card and no paid plan yet.',
+  },
+  {
+    q: 'Do I need an account?',
+    a: 'The AI Shorts generator and the TXT to quiz video generator need you to sign in with Google. The watermark tool needs no account.',
+  },
+  {
+    q: 'How long are my files kept?',
+    a: 'Until you delete them. Uploaded source files move to archive storage after 30 days, and temporary working files are removed after 7 days. Nothing else is deleted automatically. The privacy policy has the details.',
+  },
+  {
+    q: 'How do I delete my files?',
+    a: 'Delete the project or the Short from your library. That removes its stored files and its record.',
+  },
+  {
+    q: 'How do I delete my account?',
+    a: 'Email support@indifferent.fun from the address on the account and ask for it to be deleted. There is no delete button in the app yet, and requests are handled by hand.',
+  },
+  {
+    q: 'Which browsers work?',
+    a: 'Use a current version of Chrome, Edge, Firefox or Safari.',
+  },
+  {
+    q: 'Where do I report a problem or ask for a feature?',
+    a: 'Open an issue on GitHub, or email support@indifferent.fun. The contact page lists both.',
+  },
+];
 
 @Component({
   selector: 'app-help',
   standalone: true,
-  imports: [MatExpansionModule, LucideDynamicIcon],
+  imports: [RouterLink, SiteFooterComponent],
+  styles: [`
+    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
+    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
+  `],
   template: `
-    <div class="mx-auto max-w-2xl p-6">
-      <h1 class="mb-6 text-2xl font-bold">Help</h1>
+    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
+      <header class="max-w-3xl mx-auto px-4 pt-24 pb-6">
+        <a routerLink="/" class="inline-flex items-center min-h-[44px] text-[13px] text-[#6B6560] hover:text-[#1A1714]">← Indifferent</a>
+        <h1 class="serif mt-4 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2.2rem,5vw,3.4rem)]">Help and FAQ</h1>
+        <p class="mt-4 text-[16.5px] leading-relaxed text-[#3E3A33]">
+          Answers about the three tools, your files and your account. Each tool also has a page with its exact limits and a step-by-step guide.
+        </p>
+        <nav aria-label="Sections" class="mt-6 flex flex-wrap gap-2">
+          @for (s of sections; track s.id) {
+            <a [href]="'#' + s.id" class="inline-flex items-center min-h-[44px] rounded-full border border-black/15 px-4 text-[13px] hover:bg-black/5 transition-colors">{{ s.title }}</a>
+          }
+        </nav>
+      </header>
 
-      <!-- FAQ Section -->
-      <section class="mb-8">
-        <h2 class="mb-4 text-lg font-semibold flex items-center gap-2">
-          <svg lucideIcon="help-circle" [size]="20" class="text-[hsl(var(--primary))]"></svg>
-          Frequently Asked Questions
-        </h2>
-        <mat-accordion>
-          <mat-expansion-panel>
-            <mat-expansion-panel-header>
-              <mat-panel-title>What file formats are supported?</mat-panel-title>
-            </mat-expansion-panel-header>
-            <p class="text-[hsl(var(--muted-foreground))]">
-              We support TXT files with questions formatted using numbered lists, bulleted lists, or
-              tab-indented structures. Each question should include the question text and answer
-              options.
-            </p>
-          </mat-expansion-panel>
+      <main class="max-w-3xl mx-auto px-4 pb-12">
+        @for (s of sections; track s.id) {
+          <section [id]="s.id" class="mt-10 scroll-mt-24" [attr.aria-labelledby]="s.id + '-heading'">
+            <h2 [id]="s.id + '-heading'" class="text-[22px] font-semibold">{{ s.title }}</h2>
+            @if (s.intro) {
+              <p class="mt-2 text-[14.5px] leading-relaxed text-[#3E3A33]">{{ s.intro }}</p>
+            }
+            <div class="mt-4 space-y-3">
+              @for (f of s.faqs; track f.q) {
+                <details class="rounded-[14px] border border-black/10 bg-white px-5 py-4">
+                  <summary class="cursor-pointer font-semibold text-[14.5px]">{{ f.q }}</summary>
+                  <p class="mt-3 text-[14px] leading-relaxed text-[#3E3A33]">{{ f.a }}</p>
+                </details>
+              }
+            </div>
+            @if (s.more) {
+              <p class="mt-4"><a [routerLink]="s.more.path" class="inline-flex items-center min-h-[44px] text-[14px] font-semibold underline underline-offset-4">{{ s.more.label }}</a></p>
+            }
+          </section>
+        }
 
-          <mat-expansion-panel>
-            <mat-expansion-panel-header>
-              <mat-panel-title>How long does processing take?</mat-panel-title>
-            </mat-expansion-panel-header>
-            <p class="text-[hsl(var(--muted-foreground))]">
-              Processing typically takes 2-5 minutes depending on the number of questions in your
-              file. Larger files with more questions will take longer to generate slides, narration,
-              and final video output.
-            </p>
-          </mat-expansion-panel>
-
-          <mat-expansion-panel>
-            <mat-expansion-panel-header>
-              <mat-panel-title>What designs are available?</mat-panel-title>
-            </mat-expansion-panel-header>
-            <p class="text-[hsl(var(--muted-foreground))]">
-              Six: Classic, Modern, Education, Dark, Minimal and Neon. A design sets the colours, type scale and
-              layout of your slides, including the background, answer cards and the highlight on the correct answer.
-              The project form shows a real preview of each one.
-            </p>
-          </mat-expansion-panel>
-
-          <mat-expansion-panel>
-            <mat-expansion-panel-header>
-              <mat-panel-title>What voices can I use?</mat-panel-title>
-            </mat-expansion-panel-header>
-            <p class="text-[hsl(var(--muted-foreground))]">
-              We offer 5 Amazon Polly neural voices to narrate your quiz videos. You can select your
-              preferred voice during project creation.
-            </p>
-          </mat-expansion-panel>
-        </mat-accordion>
-      </section>
-
-      <!-- Usage Instructions -->
-      <section class="mb-8">
-        <h2 class="mb-4 text-lg font-semibold flex items-center gap-2">
-          <svg lucideIcon="play" [size]="20" class="text-[hsl(var(--primary))]"></svg>
-          How to Use
-        </h2>
-        <div class="glass-card p-6">
-          <ol class="list-decimal space-y-3 pl-5 text-[hsl(var(--muted-foreground))]">
-            <li>Create a new project from the dashboard</li>
-            <li>Upload a TXT file containing your quiz questions</li>
-            <li>Select a design and voice for your video</li>
-            <li>Click "Generate" and wait for processing to complete</li>
-            <li>Download your finished quiz video</li>
-          </ol>
-        </div>
-      </section>
-
-      <!-- Contact Information -->
-      <section>
-        <h2 class="mb-4 text-lg font-semibold flex items-center gap-2">
-          <svg lucideIcon="settings" [size]="20" class="text-[hsl(var(--primary))]"></svg>
-          Contact Us
-        </h2>
-        <div class="glass-card p-6">
-          <div class="flex items-center gap-3">
-            <svg lucideIcon="settings" [size]="20" class="text-[hsl(var(--muted-foreground))]"></svg>
-            <a href="mailto:support@indifferent.fun" class="text-[hsl(var(--primary))] hover:underline">
-              support&#64;indifferent.fun
-            </a>
-          </div>
-        </div>
-      </section>
+        <section class="mt-12 rounded-[20px] bg-[#1A1714] text-white px-6 py-8" aria-labelledby="contact-heading">
+          <h2 id="contact-heading" class="text-[20px] font-semibold">Still stuck?</h2>
+          <p class="mt-2 text-[14.5px] leading-relaxed text-white/75">
+            Email <a href="mailto:support@indifferent.fun" class="underline underline-offset-4">support&#64;indifferent.fun</a> with the file type, its length and what the page showed. The <a routerLink="/contact" class="underline underline-offset-4">contact page</a> lists the other ways to reach us.
+          </p>
+        </section>
+      </main>
+      <app-site-footer />
     </div>
   `,
 })
-export class HelpComponent {}
+export class HelpComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+
+  readonly sections: HelpSection[] = [
+    { id: 'general', title: 'Accounts, files and pricing', faqs: GENERAL_FAQ },
+    ...(['ai-shorts', 'txt-to-video-quiz', 'watermark'] as const).map((slug) => this.toolSection(FEATURE_DATA[slug])),
+  ];
+
+  ngOnInit(): void {
+    setPageSeo(this.document, {
+      title: 'Help and FAQ | Indifferent',
+      description:
+        'Answers about the AI Shorts generator, the TXT to quiz video generator and the watermark tool: limits, file formats, fixes, privacy and your account.',
+      canonical: 'https://indifferent.fun/help',
+    });
+  }
+
+  private toolSection(f: FeatureData): HelpSection {
+    return {
+      id: f.slug,
+      title: f.title,
+      intro: f.hook,
+      faqs: f.troubleshooting,
+      more: { label: `${f.title}: limits and step-by-step guide`, path: `/features/${f.slug}` },
+    };
+  }
+}

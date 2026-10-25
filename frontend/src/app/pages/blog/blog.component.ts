@@ -3,6 +3,7 @@ import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { setPageSeo } from '../../shared/seo';
+import { ARTICLES, ARTICLE_CATEGORIES, articlePath, formatShortDate } from './articles/registry';
 
 interface Post {
   route: string;
@@ -11,7 +12,8 @@ interface Post {
   date: string;
   read: string;
   category: string;
-  image: string;
+  cover: string;
+  coverAlt: string;
 }
 
 @Component({
@@ -78,7 +80,7 @@ interface Post {
               Notes on<br><em class="font-light italic">video.</em>
             </h1>
             <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[46ch]">
-              Essays on pacing, narration, and publishing quiz films.
+              Guides to the AI Shorts generator, quiz videos and the watermark tool: how they work, their limits and how to fix problems.
             </p>
           </div>
           <div class="lg:justify-self-end w-full max-w-[420px]">
@@ -116,9 +118,10 @@ interface Post {
           } @else {
             <!-- Featured essay -->
             @if (showFeatured()) {
-              <a [routerLink]="filteredPosts[0].route"
+              <a data-article [routerLink]="filteredPosts[0].route"
                 class="reveal card-lift group grid grid-cols-1 lg:grid-cols-2 overflow-hidden rounded-[20px] bg-white border border-black/[0.07]">
 
+                <img [src]="filteredPosts[0].cover" [alt]="filteredPosts[0].coverAlt" class="block w-full h-full min-h-[220px] object-cover bg-[#EDE8DB]" width="1200" height="630" fetchpriority="high">
                 <div class="p-8 md:p-12 flex flex-col justify-center">
                   <p class="text-[12px] uppercase tracking-[0.08em] text-[#6B6560]">{{ filteredPosts[0].date }} · {{ filteredPosts[0].read }}</p>
                   <h2 class="serif mt-3 font-medium leading-[1.02] tracking-[-0.01em] text-[clamp(1.8rem,3.5vw,2.8rem)]">{{ filteredPosts[0].title }}</h2>
@@ -131,8 +134,9 @@ interface Post {
             <!-- Archive grid -->
             <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5">
               @for (p of gridPosts(); track p.route) {
-                <a [routerLink]="p.route" class="reveal card-lift group rounded-[20px] overflow-hidden bg-white border border-black/[0.07] flex flex-col">
+                <a data-article [routerLink]="p.route" class="reveal card-lift group rounded-[20px] overflow-hidden bg-white border border-black/[0.07] flex flex-col">
 
+                  <img [src]="p.cover" [alt]="p.coverAlt" class="block w-full h-auto aspect-[1200/630] object-cover bg-[#EDE8DB]" width="1200" height="630" loading="lazy">
                   <div class="p-6 md:p-7 flex flex-col flex-1">
                     <p class="text-[12px] uppercase tracking-[0.06em] text-[#6B6560]">{{ p.date }} · {{ p.read }}</p>
                     <h3 class="serif mt-2 text-[26px] leading-[1.05]">{{ p.title }}</h3>
@@ -157,7 +161,7 @@ interface Post {
           <div class="reveal mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <a routerLink="/features/ai-shorts" class="rounded-[16px] border border-black/10 bg-white p-5 block hover:border-black/25 transition-colors">
               <p class="font-semibold text-[14.5px]">AI Shorts generator</p>
-              <p class="mt-1 text-[13px] text-[#6B6560]">Long video to ranked 9:16 clips.</p>
+              <p class="mt-1 text-[13px] text-[#6B6560]">Long video or audio to up to 3 captioned 9:16 clips.</p>
             </a>
             <a routerLink="/features/txt-to-video-quiz" class="rounded-[16px] border border-black/10 bg-white p-5 block hover:border-black/25 transition-colors">
               <p class="font-semibold text-[14.5px]">TXT to quiz video</p>
@@ -165,7 +169,7 @@ interface Post {
             </a>
             <a routerLink="/features/watermark" class="rounded-[16px] border border-black/10 bg-white p-5 block hover:border-black/25 transition-colors">
               <p class="font-semibold text-[14.5px]">Watermark tool</p>
-              <p class="mt-1 text-[13px] text-[#6B6560]">Free in-browser image marking.</p>
+              <p class="mt-1 text-[13px] text-[#6B6560]">Text or logo marks for images and video, in your browser.</p>
             </a>
           </div>
         </div>
@@ -174,20 +178,14 @@ interface Post {
       <!-- CLOSING dark block -->
       <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6]">
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-20 pb-10">
-          <h2 class="reveal serif font-medium text-center leading-[1.0] text-[clamp(2rem,5vw,3.6rem)] max-w-[22ch] mx-auto text-balance">Get the next essay first.</h2>
-          @if (newsletterSubscribed) {
-            <div class="reveal is-visible mt-8 mx-auto max-w-[520px] rounded-[20px] p-4 bg-white/[0.06] border border-white/10 backdrop-blur flex items-center gap-3">
-              <svg lucideIcon="circle-check" size="16" class="text-emerald-400 shrink-0"></svg>
-              <p class="text-[14px] text-[#F4EFE6]">Thanks. Newsletter signup is coming soon - we will not share your address.</p>
-            </div>
-          } @else {
-            <form (submit)="subscribeNewsletter($event)" class="reveal mt-8 mx-auto max-w-[520px] rounded-[20px] p-2 bg-white/[0.06] border border-white/10 backdrop-blur flex flex-col sm:flex-row gap-2">
-              <label for="blog-newsletter-email" class="sr-only">Email address</label>
-              <input id="blog-newsletter-email" type="email" required placeholder="you@studio.com"
-                class="flex-1 rounded-[12px] bg-transparent px-5 h-12 text-[15px] placeholder:text-white/60 outline-none border border-transparent focus:border-white/30">
-              <button type="submit" class="btn-primary rounded-full bg-[#E8E0D2] text-[#141310] px-7 h-12 font-semibold text-[14.5px]">Subscribe</button>
-            </form>
-          }
+          <h2 class="reveal serif font-medium text-center leading-[1.0] text-[clamp(2rem,5vw,3.6rem)] max-w-[22ch] mx-auto text-balance">Follow the journal.</h2>
+          <p class="reveal mt-5 mx-auto max-w-[52ch] text-center text-[15.5px] leading-relaxed text-white/70">
+            New articles appear on this page first. To get them in a feed reader, add the RSS feed. There is no email list.
+          </p>
+          <div class="reveal mt-8 flex flex-wrap justify-center gap-3">
+            <a href="/feed.xml" class="btn-primary inline-flex items-center min-h-[44px] rounded-full bg-[#E8E0D2] text-[#141310] px-7 font-semibold text-[14.5px]">RSS feed</a>
+            <a routerLink="/contact" class="inline-flex items-center min-h-[44px] rounded-full border border-white/25 text-white/85 px-7 font-semibold text-[14.5px] hover:border-white/50 transition-colors">Suggest a topic</a>
+          </div>
           <footer class="mt-16 border-t border-white/10 pt-10">
             <p class="serif text-center leading-none tracking-[-0.03em] text-[clamp(3rem,13vw,10rem)] text-[#F4EFE6]/95 select-none">INDIFFERENT</p>
             <div class="mt-10 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/60">
@@ -211,63 +209,30 @@ export class BlogComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     setPageSeo(this.document, {
-      title: 'Journal: Essays & Notes | Indifferent',
+      title: 'Journal: Guides & Notes | Indifferent',
       description:
-        'The Indifferent journal: guides on quiz videos, AI narration, video designs, and getting the most out of AI video creation.',
+        'Guides from the Indifferent studio on AI Shorts, quiz videos and watermarking: how the tools work, their limits, file formats and fixes.',
       canonical: 'https://indifferent.fun/blog',
     });
   }
 
   currentYear = new Date().getFullYear();
-  newsletterSubscribed = false;
 
-  categories = ['All', 'YouTube', 'Teaching', 'Formatting', 'Narration'];
+  categories: string[] = ['All', ...ARTICLE_CATEGORIES];
 
-  subscribeNewsletter(event: Event): void {
-    event.preventDefault();
-    this.newsletterSubscribed = true;
-  }
   activeCategory = 'All';
   query = '';
 
-  posts: Post[] = [
-    {
-      route: '/blog/quiz-videos-youtube',
-      title: 'How to Create Quiz Videos for YouTube',
-      excerpt: 'The complete process behind quiz films that earn views, comments, and subscribers: pacing, reveals, and retention.',
-      date: 'Jan 15, 2025',
-      read: '6 min read',
-      category: 'YouTube',
-      image: 'https://picsum.photos/seed/indifferent-b-youtube/1200/700',
-    },
-    {
-      route: '/blog/educational-video-best-practices',
-      title: 'Best Practices for Educational Video Content',
-      excerpt: 'Proven strategies for films that improve retention and keep learners watching to the final reveal.',
-      date: 'Jan 10, 2025',
-      read: '7 min read',
-      category: 'Teaching',
-      image: 'https://picsum.photos/seed/indifferent-b-teaching/800/600',
-    },
-    {
-      route: '/blog/quiz-file-format-guide',
-      title: 'Quiz File Format Guide: TXT Formatting Tips',
-      excerpt: 'How to format questions, options, and answer keys so parsing succeeds on the first upload.',
-      date: 'Jan 5, 2025',
-      read: '6 min read',
-      category: 'Formatting',
-      image: 'https://picsum.photos/seed/indifferent-b-format/800/600',
-    },
-    {
-      route: '/blog/ai-narration-guide',
-      title: 'AI Narration for Videos: A Complete Guide',
-      excerpt: 'Everything about AI voiceovers: choosing a voice, pacing, and when human narration is the better choice.',
-      date: 'Dec 20, 2024',
-      read: '6 min read',
-      category: 'Narration',
-      image: 'https://picsum.photos/seed/indifferent-b-narration/800/600',
-    },
-  ];
+  posts: Post[] = ARTICLES.map((a) => ({
+    route: articlePath(a.slug),
+    title: a.title,
+    excerpt: a.description,
+    date: formatShortDate(a.published),
+    read: `${a.readMinutes} min read`,
+    category: a.category,
+    cover: a.cover,
+    coverAlt: a.coverAlt,
+  }));
 
   get filteredPosts(): Post[] {
     const q = this.query.trim().toLowerCase();

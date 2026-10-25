@@ -16,7 +16,7 @@ import { UserProfile } from '../../shared/models/user-profile.model';
       <div class="glass-card p-6 mb-6">
         <div class="flex items-center gap-6">
           <img
-            [src]="profile().avatarUrl || 'https://via.placeholder.com/80'"
+            [src]="profile().avatarUrl || '/icons/icon-96x96.png'"
             [alt]="profile().name + ' avatar'"
             class="h-20 w-20 rounded-full object-cover border-2 border-[hsl(var(--primary))]/30"
           />

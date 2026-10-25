@@ -1,13 +1,14 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
-import { setCanonical } from '../../../shared/seo';
+import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
+import { setArticleSeo } from './article-seo';
+import { articleByline, findArticle } from './registry';
 
 @Component({
   selector: 'app-quiz-file-format-guide',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, SiteFooterComponent],
   styles: [`
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
@@ -29,7 +30,7 @@ import { setCanonical } from '../../../shared/seo';
         <a routerLink="/blog" class="text-[13px] text-[#6B6560] hover:text-[#1A1714]">&larr; Back to Blog</a>
         <p class="mt-6 text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Guide · Quiz format</p>
         <h1 class="serif mt-3 font-medium tracking-[-0.02em] leading-[1.05] text-[clamp(2rem,5vw,3rem)]">Quiz File Format Guide: TXT Formatting Tips</h1>
-        <p class="mt-3 text-[13px] text-[#6B6560]">Published January 5, 2025 · 6 min read</p>
+        <p class="mt-3 text-[13px] text-[#6B6560]">{{ byline }}</p>
       </div>
       <main class="max-w-3xl mx-auto px-4 pb-10">
         <div class="article-body">
@@ -104,11 +105,11 @@ Answer: Gold</pre>
         <p>Characters to avoid at the start of answer lines include hash symbols, which may be interpreted as markdown headers, and greater-than signs, which some systems interpret as quotation markers.</p>
 
         <h2>File Size and Question Limits</h2>
-        <p>Indifferent accepts text files up to five megabytes in size, which is sufficient for hundreds of questions. For optimal video length and viewer engagement, we recommend the following guidelines:</p>
+        <p>Indifferent accepts text files up to five megabytes in size, which is far more than a quiz needs. The 5 MB file size is the only limit it enforces. For video length and viewer engagement, we recommend the following guidelines:</p>
         <ul>
           <li>Minimum: 5 questions (produces a video of approximately two minutes)</li>
           <li>Recommended: 15 to 25 questions (produces videos of eight to fifteen minutes, ideal for YouTube)</li>
-          <li>Maximum: 100 questions per file (longer quizzes should be split into multiple videos)</li>
+          <li>Upper end: around 100 questions per file. There is no hard cap on the number of questions, so this is a viewing guideline, not a limit. Split longer quizzes into several videos</li>
         </ul>
         <p>Each question should have between three and five answer options. Four options is the sweet spot: enough to provide genuine challenge without overwhelming viewers with too many choices to read while the question is on screen.</p>
 
@@ -129,28 +130,16 @@ Answer: Gold</pre>
           <p class="mt-3 text-[13px]"><a routerLink="/features/txt-to-video-quiz" class="underline underline-offset-4 text-white/70 hover:text-white">How the quiz generator works →</a></p>
         </div>
       </main>
-      <footer class="border-t border-black/10 px-4 py-8">
-        <p class="text-center text-[12.5px] text-[#6B6560]">© {{ currentYear }} Indifferent · <a routerLink="/blog" class="underline underline-offset-4">Blog</a></p>
-      </footer>
+      <app-site-footer />
     </div>
   `,
 })
 export class QuizFileFormatGuideComponent implements OnInit {
-  private readonly title = inject(Title);
-  private readonly meta = inject(Meta);
   private readonly document = inject(DOCUMENT);
-
-  currentYear = new Date().getFullYear();
+  private readonly article = findArticle('quiz-file-format-guide')!;
+  readonly byline = articleByline(this.article);
 
   ngOnInit(): void {
-    const url = 'https://indifferent.fun/blog/quiz-file-format-guide';
-    const description = 'Format quiz TXT files correctly: numbered, bulleted and tab-indented patterns, answer markers, and common mistakes to avoid.';
-    this.title.setTitle('Quiz File Format Guide: TXT Formatting Tips | Indifferent');
-    this.meta.updateTag({ name: 'description', content: description });
-    this.meta.updateTag({ property: 'og:title', content: 'Quiz File Format Guide: TXT Formatting Tips | Indifferent' });
-    this.meta.updateTag({ property: 'og:description', content: description });
-    this.meta.updateTag({ property: 'og:url', content: url });
-    this.meta.updateTag({ property: 'og:image', content: 'https://indifferent.fun/og-cover.jpg' });
-    setCanonical(this.document, url);
+    setArticleSeo(this.document, this.article);
   }
 }

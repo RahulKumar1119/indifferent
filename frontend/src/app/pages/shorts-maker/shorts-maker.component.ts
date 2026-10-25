@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { LucideDynamicIcon } from '@lucide/angular';
-import { setCanonical } from '../../shared/seo';
+import { setCanonical, setJsonLd } from '../../shared/seo';
 
 interface Feature {
   icon: string;
@@ -122,7 +122,7 @@ interface UseCaseLink {
           </h1>
           <p class="reveal mt-5 text-[16.5px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
             Upload a video or audio file.
-            AI transcribes it, scores every segment, and renders up to 3 ranked 9:16 clips
+            AI transcribes it, picks the strongest moments from the transcript, and renders up to 3 ranked 9:16 clips
             with burned-in captions.
           </p>
           <div class="reveal mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -156,7 +156,7 @@ interface UseCaseLink {
                     Drop a file and the limits are stated up front: MP4, MOV, MP3 or WAV, 1 hour, 2 GB.
                   </p>
                   <p class="mt-4 text-[11px] uppercase tracking-[0.06em] text-white/50">Pipeline</p>
-                  <p class="mt-2 text-[15px] leading-relaxed text-white/80">Transcribe, score every segment, track the speaker, burn captions, publish.</p>
+                  <p class="mt-2 text-[15px] leading-relaxed text-white/80">Transcribe, rank the moments, center the speaker, burn in captions, download.</p>
                 </div>
               </div>
             </div>
@@ -164,9 +164,9 @@ interface UseCaseLink {
 
           <!-- What you get: the caption styles the product actually renders -->
           <div class="reveal mt-8 mx-auto w-[min(880px,100%)]">
-            <p class="text-center text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">Caption styles you can pick</p>
+            <p class="text-center text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">Caption presets</p>
             <p class="mt-2 text-center text-[15px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
-              Every clip is captioned word by word from the transcript. These are the four presets in the editor.
+              Every clip is captioned word by word from the transcript. The gallery has these four presets. Bold is the default, and a preset is used when a job's clips render, so a finished job keeps the look it was rendered with.
             </p>
             <div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
               @for (p of captionPreviews; track p.id) {
@@ -184,7 +184,7 @@ interface UseCaseLink {
                 </figure>
               }
             </div>
-            <p class="mt-3 text-center text-[11.5px] text-[#6B6560]">Frames show the caption style over a still. The speaker tracking and blur-fill fit are applied when your clip renders.</p>
+            <p class="mt-3 text-center text-[11.5px] text-[#6B6560]">Frames show each caption style over a still. Face-centered framing and blur-fill are applied when the clip renders.</p>
           </div>
         </div>
       </section>
@@ -217,12 +217,12 @@ interface UseCaseLink {
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 1</p>
               <h3 class="mt-2 font-semibold text-[17px]">Upload a video or audio file</h3>
-              <p class="mt-2 text-[14px] leading-relaxed text-white/60">MP4, MOV, MP3 or WAV up to 1 hour. Podcasts, interviews, or phone footage. All formats work.</p>
+              <p class="mt-2 text-[14px] leading-relaxed text-white/60">MP4, MOV, MP3 or WAV up to 1 hour and 2 GB. Podcasts, interviews or phone footage.</p>
             </div>
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 2</p>
               <h3 class="mt-2 font-semibold text-[17px]">Let AI edit for you</h3>
-              <p class="mt-2 text-[14px] leading-relaxed text-white/60">AI transcribes, ranks the most engaging moments, tracks the speaker, and burns in short caption lines automatically.</p>
+              <p class="mt-2 text-[14px] leading-relaxed text-white/60">AI transcribes the file, picks the strongest moments from the transcript, centers the 9:16 window on the speaker, and burns in short caption lines.</p>
             </div>
             <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 3</p>
@@ -420,10 +420,10 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
 
 
   features: Feature[] = [
-    { icon: 'scissors', title: 'Segments are scored, not guessed', text: 'Every segment is scored for engagement signals, and the highest scoring ones are kept, up to 3. You publish, not scrub timelines.' },
-    { icon: 'focus', title: 'Subject tracking follows the speaker', text: 'Face detection pans the 9:16 window onto the speaker instead of blindly cropping the middle.' },
+    { icon: 'scissors', title: 'A language model picks the moments', text: 'The transcript is cut into 10 second blocks, and a language model on Amazon Bedrock picks up to 3 moments of 30 to 90 seconds, each with a score. You review, not scrub timelines.' },
+    { icon: 'focus', title: 'Face detection frames the speaker', text: 'Faces are found in up to 8 frames of each clip, and the 9:16 window is centered on the largest one instead of blindly cropping the middle. The window stays in one place for the whole clip.' },
     { icon: 'frame', title: 'Blur-fill fit never cuts content', text: 'Cartoons, text cards and screen recordings scale to fit over a blurred background. Nothing gets chopped.' },
-    { icon: 'gauge', title: 'Shorts-spec output, every time', text: '1080×1920, H.264 + AAC, 30fps, 48kHz, a standard format for YouTube Shorts, Reels and TikTok.' },
+    { icon: 'gauge', title: 'One output format', text: '1080×1920 MP4, H.264 video, AAC audio at 48kHz, 30fps, a format YouTube Shorts, Reels and TikTok accept.' },
     { icon: 'download', title: 'Upload, wait, download', text: 'Transcribe, score, render, then download the clips one by one or as a zip.' },
   ];
 
@@ -446,24 +446,24 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
   ];
 
   faqs: Faq[] = [
-    { q: 'How do I create a short?', a: 'Upload a video or audio file. It gets transcribed, every segment is scored, the highest scoring ones are captioned and rendered as ranked 9:16 clips, ready in minutes.' },
-    { q: 'Can I turn a long video into multiple shorts?', a: 'Yes. Every upload produces up to 3 ranked clips from the most engaging moments, each downloadable as its own 9:16 MP4.' },
+    { q: 'How do I create a short?', a: 'Upload a video or audio file. It gets transcribed, a language model picks the strongest moments from the transcript, and the top ones are captioned and rendered as ranked 9:16 clips, usually within minutes for a short file.' },
+    { q: 'Can I turn a long video into multiple shorts?', a: 'Yes. Every upload produces up to 3 ranked clips from the strongest moments in the transcript, each downloadable as its own 9:16 MP4.' },
     { q: 'Are captions added automatically?', a: 'Yes. Word-level timestamps become short burned-in caption lines styled for readability without sound.' },
     { q: 'What formats and quality do I get?', a: 'MP4 with H.264 video and AAC audio at 1080×1920 and 30fps, a standard format for YouTube Shorts, Instagram Reels and TikTok.' },
-    { q: 'What if my video has no people in it?', a: 'Segments without a visible subject render in blur-fill fit: the whole frame stays visible over a blurred background, so text and diagrams are never cut.' },
+    { q: 'What if my video has no people in it?', a: 'When no face is found in a clip, it renders in blur-fill fit: the whole frame stays visible over a blurred background, so text and diagrams are never cut.' },
     { q: 'Which files can I upload?', a: 'MP4, MOV, MP3 and WAV up to 1 hour long and 2 GB.' },
-    { q: 'How are the best moments picked?', a: 'Your file is transcribed, then every segment is scored for engagement signals such as speech density and how much the speaker moves. The highest scoring segments are kept, up to 3, and rendered in score order. Nothing is picked at random, and you can see the score of each clip in the gallery.' },
-    { q: 'What happens if no segment scores well?', a: 'You still get clips. If the source is mostly silence or a static frame, the top segments will not be compelling, and the tool cannot fix that. Trim the file to the interesting part and try again.' },
-    { q: 'Is my source file uploaded and kept?', a: 'Your file is uploaded so it can be transcribed and rendered. It is used to produce your clips and is not kept as a copy you can browse later. Download your clips before you delete the job.' },
+    { q: 'How are the best moments picked?', a: 'Your file is transcribed, and the transcript is sent to a language model in 10 second blocks. The model is asked for up to 3 self-contained moments of 30 to 90 seconds with a strong hook or a complete thought, and returns a score for each. The clips are rendered in score order, and the score shows in the gallery. The model reads text only, so it cannot see the picture or hear tone of voice.' },
+    { q: 'What happens if no segment scores well?', a: 'You still get clips, up to 3. If the source is mostly silence or a static frame, the chosen moments will not be compelling, and the tool cannot fix that. Trim the file to the interesting part and try again. A file with no speech at all fails with a no speech detected message.' },
+    { q: 'Is my source file uploaded and kept?', a: 'Your file is uploaded to private storage so it can be transcribed and rendered. It stays in your account until you delete the job, and uploaded sources move to archive storage after 30 days. Deleting a Short removes its files and its record, so download your clips first.' },
     { q: 'How long does processing take?', a: 'Most files finish in a few minutes, and a one-hour file takes longer than a short one. The progress page shows the live stage you are on, so you can leave it open while it works.' },
-    { q: 'Can I change the caption style after the clip is made?', a: 'Yes. The gallery has a caption panel with the four presets, plus size, color and position controls. Saving a new style re-renders the clips so the change shows up in the exported MP4.' },
-    { q: 'Where are the clips stored, and what are they called?', a: 'Each job keeps its clips in the Shorts gallery, named by rank so the first clip is always your strongest. You can download them one by one or grab the selected ones as a zip.' },
+    { q: 'Can I change the captions after the clips are made?', a: 'No. The captions are burned into the video, and a finished job is not rendered again. Animated captions and the other effects can be changed in the step between upload and processing, and on a failed job before you press Retry. To try a different look on a finished job, upload the file again and set the effects first.' },
+    { q: 'Where are the clips stored, and what are they called?', a: 'Each job keeps its clips in the Shorts gallery, ranked by score, so the first clip is the one the model scored highest. You can download them one by one or grab the selected ones as a zip.' },
     { q: 'Can I publish straight to TikTok or Reels?', a: 'Not yet. You download the 9:16 MP4s and upload them to the platform yourself. The clips are exported at 1080x1920, 30fps, H.264 with AAC, which is the format Shorts and Reels expect.' },
   ];
 
   ngOnInit(): void {
     const pageUrl = 'https://indifferent.fun/shorts-maker';
-    const description = 'Upload a video or audio file and let AI transcribe, rank and render top 9:16 shorts with burned-in captions. Free to try.';
+    const description = 'Upload a video or audio file and let AI transcribe, rank and render top 9:16 shorts with burned-in captions. Free during beta.';
     this.title.setTitle('AI Shorts Maker: Long Video to Ranked Clips | Indifferent');
     this.meta.updateTag({ name: 'description', content: description });
     this.meta.updateTag({ property: 'og:type', content: 'website' });
@@ -482,7 +482,7 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
       applicationCategory: 'MultimediaApplication',
       operatingSystem: 'Web',
       description,
-      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'Free to try' },
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'Free during beta' },
     });
     this.addJsonLd({
       '@context': 'https://schema.org',
@@ -492,10 +492,8 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
   }
 
   private addJsonLd(schema: Record<string, unknown>): void {
-    const script = this.document.createElement('script');
-    script.type = 'application/ld+json';
-    script.text = JSON.stringify(schema);
-    this.document.head.appendChild(script);
+    // One block per schema type, so revisiting the page never stacks duplicates.
+    setJsonLd(this.document, String(schema['@type']).toLowerCase(), schema);
   }
 
   ngAfterViewInit(): void {

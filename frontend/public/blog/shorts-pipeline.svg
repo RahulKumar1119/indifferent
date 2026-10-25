@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-labelledby="t d">
+  <title id="t">From upload to download: six stages</title>
+  <desc id="d">Upload, transcribe, rank, frame, caption and render. A video or audio file up to 1 hour and 2 GB becomes up to 3 vertical clips of 30 to 90 seconds.</desc>
+  <rect width="1200" height="630" fill="#FAF7F2"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6B6560"/>
+    </marker>
+  </defs>
+  <g font-family="Outfit, Inter, 'DejaVu Sans', Arial, sans-serif" fill="#1A1714">
+    <text x="60" y="64" font-size="30" font-weight="700">From upload to download: six stages</text>
+    <text x="60" y="96" font-size="18" fill="#6B6560">Limits: 1 hour, 2 GB, up to 3 clips of 30 to 90 seconds each.</text>
+
+    <!-- Row 1 -->
+    <g>
+      <rect x="60" y="140" width="330" height="190" rx="18" fill="#FFFFFF" stroke="#1A1714" stroke-opacity="0.15"/>
+      <circle cx="96" cy="176" r="18" fill="#D96C3D"/><text x="96" y="183" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
+      <text x="126" y="183" font-size="24" font-weight="700">Upload</text>
+      <text x="84" y="228" font-size="17" fill="#3E3A33">MP4, MOV, MP3 or WAV.</text>
+      <text x="84" y="256" font-size="17" fill="#3E3A33">Large files go up in 16 MB</text>
+      <text x="84" y="284" font-size="17" fill="#3E3A33">parts that retry and resume.</text>
+    </g>
+    <g>
+      <rect x="435" y="140" width="330" height="190" rx="18" fill="#FFFFFF" stroke="#1A1714" stroke-opacity="0.15"/>
+      <circle cx="471" cy="176" r="18" fill="#D96C3D"/><text x="471" y="183" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
+      <text x="501" y="183" font-size="24" font-weight="700">Transcribe</text>
+      <text x="459" y="228" font-size="17" fill="#3E3A33">Amazon Transcribe returns</text>
+      <text x="459" y="256" font-size="17" fill="#3E3A33">every word with a start and</text>
+      <text x="459" y="284" font-size="17" fill="#3E3A33">end time, in the language you pick.</text>
+    </g>
+    <g>
+      <rect x="810" y="140" width="330" height="190" rx="18" fill="#FFFFFF" stroke="#1A1714" stroke-opacity="0.15"/>
+      <circle cx="846" cy="176" r="18" fill="#D96C3D"/><text x="846" y="183" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
+      <text x="876" y="183" font-size="24" font-weight="700">Rank</text>
+      <text x="834" y="228" font-size="17" fill="#3E3A33">A language model reads the</text>
+      <text x="834" y="256" font-size="17" fill="#3E3A33">transcript in 10 second blocks</text>
+      <text x="834" y="284" font-size="17" fill="#3E3A33">and picks up to 3 moments.</text>
+    </g>
+    <path d="M392 235 H431" stroke="#6B6560" stroke-width="3" marker-end="url(#arrow)"/>
+    <path d="M767 235 H806" stroke="#6B6560" stroke-width="3" marker-end="url(#arrow)"/>
+
+    <!-- Row 2 -->
+    <g>
+      <rect x="60" y="390" width="330" height="190" rx="18" fill="#FFFFFF" stroke="#1A1714" stroke-opacity="0.15"/>
+      <circle cx="96" cy="426" r="18" fill="#D96C3D"/><text x="96" y="433" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+      <text x="126" y="433" font-size="24" font-weight="700">Frame</text>
+      <text x="84" y="478" font-size="17" fill="#3E3A33">Face detection places the 9:16</text>
+      <text x="84" y="506" font-size="17" fill="#3E3A33">window. No face: blur-fill.</text>
+      <text x="84" y="534" font-size="17" fill="#3E3A33">Audio only: a black canvas.</text>
+    </g>
+    <g>
+      <rect x="435" y="390" width="330" height="190" rx="18" fill="#FFFFFF" stroke="#1A1714" stroke-opacity="0.15"/>
+      <circle cx="471" cy="426" r="18" fill="#D96C3D"/><text x="471" y="433" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="middle">5</text>
+      <text x="501" y="433" font-size="24" font-weight="700">Caption</text>
+      <text x="459" y="478" font-size="17" fill="#3E3A33">Words are grouped into cues of</text>
+      <text x="459" y="506" font-size="17" fill="#3E3A33">up to 4 and burned into the</text>
+      <text x="459" y="534" font-size="17" fill="#3E3A33">picture, timed to the speech.</text>
+    </g>
+    <g>
+      <rect x="810" y="390" width="330" height="190" rx="18" fill="#FFFFFF" stroke="#1A1714" stroke-opacity="0.15"/>
+      <circle cx="846" cy="426" r="18" fill="#D96C3D"/><text x="846" y="433" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="middle">6</text>
+      <text x="876" y="433" font-size="24" font-weight="700">Render</text>
+      <text x="834" y="478" font-size="17" fill="#3E3A33">FFmpeg writes 1080×1920 MP4s</text>
+      <text x="834" y="506" font-size="17" fill="#3E3A33">(H.264 and AAC, 30 fps) to</text>
+      <text x="834" y="534" font-size="17" fill="#3E3A33">your gallery.</text>
+    </g>
+    <path d="M392 485 H431" stroke="#6B6560" stroke-width="3" marker-end="url(#arrow)"/>
+    <path d="M767 485 H806" stroke="#6B6560" stroke-width="3" marker-end="url(#arrow)"/>
+    <path d="M975 332 V360 H225 V386" fill="none" stroke="#6B6560" stroke-width="3" marker-end="url(#arrow)"/>
+  </g>
+</svg>

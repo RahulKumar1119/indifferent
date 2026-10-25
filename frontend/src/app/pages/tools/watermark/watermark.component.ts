@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { NavMobileMenuComponent } from '../../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { FormsModule } from '@angular/forms';
 import gsap from 'gsap';
-import { setPageSeo } from '../../../shared/seo';
+import { setJsonLd, setPageSeo } from '../../../shared/seo';
 
 // FFmpeg.wasm single-thread core (no COOP/COEP headers needed). Pinned CDN
 // URLs, fetched lazily on first video export — never on page load.
@@ -148,7 +148,7 @@ interface FfmpegEngine {
                   </div>
                 </li>
               </ol>
-              <p class="mt-5 text-[13.5px] text-[#6B6560]">No account, no upload, no queue. The page works with the network off once loaded.</p>
+              <p class="mt-5 text-[13.5px] text-[#6B6560]">No account, no upload, no queue. Images work with the network off once the page has loaded, and the first video export downloads a processing engine of about 30 MB.</p>
             </div>
             <div class="rounded-[20px] overflow-hidden border border-black/10 bg-white">
               <img
@@ -535,7 +535,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
         'Text and logo watermarks',
         'Image and video support',
         'Runs entirely in the browser',
-        'Full-resolution PNG export',
+        'PNG or JPEG export at the original size',
       ],
     });
     this.addJsonLd({
@@ -550,10 +550,8 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private addJsonLd(schema: Record<string, unknown>): void {
-    const script = this.document.createElement('script');
-    script.type = 'application/ld+json';
-    script.text = JSON.stringify(schema);
-    this.document.head.appendChild(script);
+    // One block per schema type, so revisiting the page never stacks duplicates.
+    setJsonLd(this.document, String(schema['@type']).toLowerCase(), schema);
   }
 
   @ViewChild('previewCanvas') previewCanvas!: ElementRef<HTMLCanvasElement>;
@@ -712,7 +710,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
       // through the video element's error event below.
       setTimeout(() => this.updatePreview(), 100);
     } else {
-      this.fileError = 'Unsupported file type. Please use JPG, PNG, WebP or MP4.';
+      this.fileError = 'Unsupported file type. Please use JPG, PNG, WebP, MP4, WebM or MOV.';
     }
   }
 
