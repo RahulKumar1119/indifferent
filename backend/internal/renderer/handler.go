@@ -161,9 +161,33 @@ func (h *Handler) HandleRequest(ctx context.Context, input models.RendererInput)
 	}, nil
 }
 
+// validateS3Key rejects object keys that could escape an intended prefix or a
+// local directory once joined to a path. Legitimate pipeline keys are plain
+// relative keys such as "temp/<projectId>/slides/q0_question.png": forward
+// slashes only, no leading slash, no "." or ".." segment, no NUL or backslash.
+// Keys reach this handler from the job record, which is built from
+// user-supplied uploads, so they are treated as untrusted (go/path-injection).
+func validateS3Key(key string) error {
+	if key == "" {
+		return fmt.Errorf("empty S3 key")
+	}
+	if strings.ContainsAny(key, "\x00\\") || strings.HasPrefix(key, "/") {
+		return fmt.Errorf("invalid S3 key: %q", key)
+	}
+	for _, seg := range strings.Split(key, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return fmt.Errorf("invalid S3 key: %q", key)
+		}
+	}
+	return nil
+}
+
 // applyBranding downloads the project logo and burns it onto the finished
 // video, returning the branded file path.
 func (h *Handler) applyBranding(ctx context.Context, workDir, videoPath, logoKey string) (string, error) {
+	if err := validateS3Key(logoKey); err != nil {
+		return "", err
+	}
 	logoData, err := h.Storage.GetObject(ctx, h.Bucket, logoKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to download logo: %w", err)
@@ -210,13 +234,19 @@ func (h *Handler) downloadAssets(ctx context.Context, workDir, subDir string, ke
 
 	var localFiles []string
 	for i, key := range keys {
+		// Reject traversal before the key is used as a storage path or joined locally.
+		if err := validateS3Key(key); err != nil {
+			return nil, err
+		}
 		data, err := h.Storage.GetObject(ctx, h.Bucket, key)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download %s (key=%s): %w", subDir, key, err)
 		}
 
-		// Use sanitized extension and validate path stays within directory
-		filename := fmt.Sprintf("%s-%03d%s", subDir, i, safeFileExt(key))
+		// Local filename is generated, not taken from the key: only its sanitized
+		// extension is reused. filepath.Clean collapses the result and the prefix
+		// check below proves containment, which is what go/path-injection needs.
+		filename := filepath.Clean(fmt.Sprintf("%s-%03d%s", subDir, i, safeFileExt(key)))
 		localPath := filepath.Join(dir, filename)
 
 		// Verify the resolved path is within the safe directory

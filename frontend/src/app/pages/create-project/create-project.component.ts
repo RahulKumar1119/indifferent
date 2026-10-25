@@ -14,6 +14,20 @@ import {
   ShortsService,
 } from '../shorts/shorts.service';
 
+/**
+ * Object URL for a locally chosen File, guaranteed to be a `blob:` URL the
+ * browser minted for this document. Assigning it to a media element's `src`
+ * cannot inject markup or script; the explicit check documents that.
+ */
+function blobObjectUrl(file: Blob): string {
+  const url = URL.createObjectURL(file);
+  if (!url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+    throw new Error('Unexpected object URL scheme');
+  }
+  return url;
+}
+
 @Component({
   selector: 'app-create-project',
   standalone: true,
@@ -437,7 +451,7 @@ export class CreateProjectComponent implements OnInit {
     const isAudio = ext === 'mp3' || ext === 'wav';
     const media = document.createElement(isAudio ? 'audio' : 'video') as HTMLMediaElement;
     media.preload = 'metadata';
-    const objectUrl = URL.createObjectURL(file);
+    const objectUrl = blobObjectUrl(file);
     const cleanup = () => {
       URL.revokeObjectURL(objectUrl);
       this.shortsProbing = false;

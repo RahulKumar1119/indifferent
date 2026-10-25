@@ -33,6 +33,21 @@ import {
 
 const ACCEPTED_EXTENSIONS = ['mp4', 'mov', 'mp3', 'wav'];
 
+/**
+ * Object URL for a locally chosen File, guaranteed to be a `blob:` URL the
+ * browser minted for this document. Assigning it to a media element's `src`
+ * cannot inject markup or script. The explicit check documents that and keeps
+ * a stray non-blob value (never produced here) from ever reaching a `.src`.
+ */
+function blobObjectUrl(file: Blob): string {
+  const url = URL.createObjectURL(file);
+  if (!url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+    throw new Error('Unexpected object URL scheme');
+  }
+  return url;
+}
+
 @Component({
   selector: 'app-shorts-upload',
   standalone: true,
@@ -534,7 +549,7 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
         this.dragFileName = file.name;
         if (file.type.startsWith('video/')) {
           this.clearDragPreview();
-          this.dragPreviewUrl = URL.createObjectURL(file);
+          this.dragPreviewUrl = blobObjectUrl(file);
         }
       }
     } catch {
@@ -787,7 +802,7 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
       if (this.pending?.jobId === this.resumable.jobId) this.pending = null;
     }
     if (ext === 'mp4' || ext === 'mov') {
-      this.previewUrl = URL.createObjectURL(file);
+      this.previewUrl = blobObjectUrl(file);
     }
     this.probeDuration(file, ext);
   }
@@ -798,7 +813,7 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     const isAudio = ext === 'mp3' || ext === 'wav';
     const media = document.createElement(isAudio ? 'audio' : 'video') as HTMLMediaElement;
     media.preload = 'metadata';
-    const objectUrl = URL.createObjectURL(file);
+    const objectUrl = blobObjectUrl(file);
 
     const cleanup = () => {
       URL.revokeObjectURL(objectUrl);
