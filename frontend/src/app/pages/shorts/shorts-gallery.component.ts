@@ -10,6 +10,7 @@ import { NavbarComponent } from '../../shared/components/navbar/navbar.component
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
 
 /** Hover previews play at most this long before pausing again. */
 const HOVER_PREVIEW_MS = 2000;
@@ -33,7 +34,7 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
 @Component({
   selector: 'app-shorts-gallery',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent],
   styles: [`
     @keyframes card-in {
       from { opacity: 0; transform: translateY(14px); }
@@ -90,6 +91,15 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
           >
             <svg lucideIcon="captions" [size]="15"></svg>
             Captions
+          </button>
+          <button
+            class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium inline-flex items-center gap-1.5"
+            (click)="toggleEffectsPanel()"
+            [attr.aria-expanded]="effectsOpen"
+            aria-label="Video effects"
+          >
+            <svg lucideIcon="film" [size]="15"></svg>
+            Effects
           </button>
           <button
             class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
@@ -230,6 +240,12 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
             @if (styleError) {
               <p class="mt-2 text-[13px] text-red-400" role="alert">{{ styleError }}</p>
             }
+          </div>
+        }
+        <!-- Video effects (same rules as the caption studio: editable while uploaded or failed) -->
+        @if (effectsOpen) {
+          <div class="mb-4">
+            <app-shorts-effects-panel></app-shorts-effects-panel>
           </div>
         }
         <!-- Selection toolbar -->        <div class="mb-4 flex flex-wrap items-center gap-2" aria-label="Clip selection">
@@ -658,6 +674,9 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   styleDraft: Required<CaptionStyle> = { ...DEFAULT_CAPTION_STYLE };
   readonly captionPresets = CAPTION_PRESETS;
   readonly positionOptions: NonNullable<CaptionStyle['position']>[] = ['top', 'middle', 'bottom'];
+
+  /** Video effects panel (its own component loads and saves the settings). */
+  effectsOpen = false;
 
   /** Selected clip IDs. Keyed by stable clipId so selection survives
    * re-sorts and list refreshes; pruned when the list changes. */
@@ -1382,6 +1401,10 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     if (this.styleOpen && !this.styleLoaded) {
       this.loadStyle();
     }
+  }
+
+  toggleEffectsPanel(): void {
+    this.effectsOpen = !this.effectsOpen;
   }
 
   selectPreset(preset: NonNullable<CaptionStyle['preset']>): void {

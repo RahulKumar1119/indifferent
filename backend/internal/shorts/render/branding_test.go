@@ -97,7 +97,7 @@ func TestLogoFetcher_UnlinkedJobSkips(t *testing.T) {
 
 func TestLogoFetcher_LinkedLogo(t *testing.T) {
 	db := &memDynamo{items: map[string]map[string]dbtypes.AttributeValue{
-		"USER#u1|SHORTS#j1": jobItem("p1"),
+		"USER#u1|SHORTS#j1":  jobItem("p1"),
 		"USER#u1|PROJECT#p1": projectItem(`{"logoKey":"uploads/u1/p1/logo.png","channelName":"@s"}`),
 	}}
 	store := &mockStorage{objects: map[string][]byte{"uploads/u1/p1/logo.png": []byte("LOGO")}}
@@ -136,7 +136,8 @@ func TestLogoFetcher_ErrorsPropagate(t *testing.T) {
 	}
 }
 
-func TestBuildLogoOverlayArgs_Shorts(t *testing.T) {	args := buildLogoOverlayArgs("clip.mp4", "logo.png", "branded.mp4")
+func TestBuildLogoOverlayArgs_Shorts(t *testing.T) {
+	args := buildLogoOverlayArgs("clip.mp4", "logo.png", "branded.mp4")
 	joined := strings.Join(args, " ")
 	for _, want := range []string{"scale=200:-1", "overlay=W-w-24:24", "-c:a copy", "branded.mp4"} {
 		if !strings.Contains(joined, want) {
@@ -166,7 +167,7 @@ func TestRender_BrandedClipOverlaysLogo(t *testing.T) {
 			calls = append(calls, args)
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED"), 0o644)
 		},
-		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
+		RunCommandProgress: func(_ context.Context, name string, args []string, duration float64, onProgress func(int)) error {
 			calls = append(calls, args)
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED"), 0o644)
 		},
@@ -219,7 +220,7 @@ func TestRender_LogoFailureStillRenders(t *testing.T) {
 			calls++
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED"), 0o644)
 		},
-		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
+		RunCommandProgress: func(_ context.Context, name string, args []string, duration float64, onProgress func(int)) error {
 			calls++
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED"), 0o644)
 		},

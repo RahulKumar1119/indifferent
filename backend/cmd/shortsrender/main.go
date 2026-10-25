@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -32,14 +33,14 @@ import (
 // a solid canvas rather than a center-crop. Extension-based by necessity (no
 // stream probe in this worker); covered formats stay generous.
 var audioExtensions = map[string]bool{
-	".mp3": true,
-	".wav": true,
-	".m4a": true,
-	".aac": true,
-	".ogg": true,
+	".mp3":  true,
+	".wav":  true,
+	".m4a":  true,
+	".aac":  true,
+	".ogg":  true,
 	".opus": true,
 	".flac": true,
-	".wma": true,
+	".wma":  true,
 }
 
 func main() {
@@ -127,6 +128,11 @@ func run(ctx context.Context) error {
 	renderer.Table = table
 	renderer.Dynamo = dbClient
 
+	effects, err := fetchJobEffects(ctx, dbClient, table, userID, jobID)
+	if err != nil {
+		return fmt.Errorf("failed to load video effects: %w", err)
+	}
+
 	in := render.RenderInput{
 		JobID:         jobID,
 		UserID:        userID,
@@ -134,6 +140,7 @@ func run(ctx context.Context) error {
 		TranscriptKey: transcriptKey,
 		Caption:       fetchJobCaption(ctx, dbClient, table, userID, jobID),
 		Edit:          fetchClipEdit(ctx, dbClient, table, userID, jobID, clipID),
+		Effects:       effects,
 		Clip: models.Clip{
 			// Start/End ride along for caption rebuilds (Score/HookText live
 			// only in the ranker's DynamoDB record, not in worker env).
@@ -150,6 +157,11 @@ func run(ctx context.Context) error {
 
 	clipKey, err := renderer.Render(ctx, in)
 	if err != nil {
+		// Renders with effects record their own reason, so the job shows it
+		// instead of the state machine's generic render failure.
+		if effects.Active() {
+			recordRenderError(dbClient, table, userID, jobID, err)
+		}
 		return err
 	}
 
@@ -173,6 +185,70 @@ func fetchJobCaption(ctx context.Context, dbClient *dynamodb.Client, table, user
 		return models.CaptionStyle{}
 	}
 	return captionFromItem(out.Item)
+}
+
+// maxRenderErrorChars bounds the render reason stored on the job record.
+const maxRenderErrorChars = 300
+
+// recordRenderError stores why a render with effects failed on the job record.
+// The status updater reports that reason in place of the generic cause. The
+// write is conditional, so a job deleted meanwhile is never recreated. Failures
+// are only logged, because the render error is the one the task returns.
+func recordRenderError(db render.DynamoUpdater, table, userID, jobID string, renderErr error) {
+	msg := []rune(renderErr.Error())
+	if len(msg) > maxRenderErrorChars {
+		msg = msg[:maxRenderErrorChars]
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(table),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
+		},
+		ConditionExpression:      aws.String("attribute_exists(PK)"),
+		UpdateExpression:         aws.String("SET #renderError = :reason"),
+		ExpressionAttributeNames: map[string]string{"#renderError": "renderError"},
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":reason": &dbtypes.AttributeValueMemberS{Value: string(msg)},
+		},
+	}); err != nil {
+		log.Printf("could not record the render error: %v", err)
+	}
+}
+
+// fetchJobEffects loads the job's saved video effects with a consistent read,
+// so a retry started right after a save sees the new settings. Unlike the
+// caption style, a failed read fails the render: a clip rendered without the
+// effects the user chose would be a different clip.
+func fetchJobEffects(ctx context.Context, dbClient *dynamodb.Client, table, userID, jobID string) (*models.VideoEffects, error) {
+	out, err := dbClient.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(table),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
+		},
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return effectsFromItem(out.Item)
+}
+
+// effectsFromItem decodes the stored video effects. A missing value means the
+// job has no effects, and a value that cannot be decoded is an error.
+func effectsFromItem(item map[string]dbtypes.AttributeValue) (*models.VideoEffects, error) {
+	raw, ok := item["effects"].(*dbtypes.AttributeValueMemberS)
+	if !ok || raw.Value == "" {
+		return nil, nil
+	}
+	var effects models.VideoEffects
+	if err := json.Unmarshal([]byte(raw.Value), &effects); err != nil {
+		return nil, fmt.Errorf("stored effects are unreadable: %w", err)
+	}
+	return &effects, nil
 }
 
 // captionFromItem decodes the stored caption style; anything unexpected

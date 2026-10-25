@@ -9,6 +9,7 @@ import { ShortsJob, ShortsService, ShortsStatus } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 import { ToastService } from '../../shared/components/toast/toast.service';
+import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -28,7 +29,7 @@ const STAGES: Stage[] = [
 @Component({
   selector: 'app-shorts-progress',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent, ShortsEffectsPanelComponent],
   styles: [`
     @keyframes eq-bounce {
       0%, 100% { transform: scaleY(0.3); }
@@ -171,6 +172,8 @@ const STAGES: Stage[] = [
           <p class="text-sm text-[hsl(var(--muted-foreground))] mt-2">
             {{ errorMessage || 'Something went wrong while processing your media. Please try again.' }}
           </p>
+          <!-- A failed job can change its video effects before Retry re-renders it. -->
+          <app-shorts-effects-panel class="mt-5 block"></app-shorts-effects-panel>
           <div class="mt-4 flex flex-wrap justify-center gap-2">
             @if (retryableFailure) {
               <button class="glow-btn" (click)="retry()" [disabled]="retrying">

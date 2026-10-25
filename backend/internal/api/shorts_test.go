@@ -1057,6 +1057,118 @@ func TestUpdateCaption_UnknownJob(t *testing.T) {
 	}
 }
 
+func effectsReq(jobID, body string) events.APIGatewayProxyRequest {
+	return events.APIGatewayProxyRequest{
+		HTTPMethod: "PUT",
+		Path:       "/shorts/" + jobID + "/effects",
+		Body:       body,
+		Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+	}
+}
+
+func TestUpdateEffects_SavesValidatedEffects(t *testing.T) {
+	var puts []map[string]dbtypes.AttributeValue
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: shortsJobItem("job1", "failed")}, nil
+		},
+		putItemFunc: func(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			puts = append(puts, params.Item)
+			return &dynamodb.PutItemOutput{}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+
+	resp, _ := h.HandleRequest(context.Background(), effectsReq("job1",
+		`{"effects":{"grade":{"enabled":true,"look":"warm","intensity":60},"zoom":{"enabled":true,"intensity":40,"punchIns":[{"at":2,"duration":1.5}]}}}`))
+	if resp.StatusCode != 200 {
+		t.Fatalf("got status %d, want 200 (body: %s)", resp.StatusCode, resp.Body)
+	}
+	if len(puts) != 1 {
+		t.Fatalf("expected 1 persisted write, got %d", len(puts))
+	}
+	raw, ok := puts[0]["effects"].(*dbtypes.AttributeValueMemberS)
+	if !ok || !strings.Contains(raw.Value, `"look":"warm"`) || !strings.Contains(raw.Value, `"punchIns":[{"at":2,"duration":1.5}]`) {
+		t.Errorf("expected persisted effects, got %v", puts[0]["effects"])
+	}
+	if !strings.Contains(resp.Body, `"effects"`) {
+		t.Errorf("expected the saved job in the response, got %s", resp.Body)
+	}
+}
+
+func TestUpdateEffects_RejectsBadInput(t *testing.T) {
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: shortsJobItem("job1", "uploaded")}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+	for _, body := range []string{
+		`{"effects":{"transitions":{"enabled":true}}}`,
+		`{"effects":{"grade":{"enabled":true,"look":"warm","intensity":500}}}`,
+		`{"effects":{"grade":{"enabled":true,"look":"sepia","intensity":50}}}`,
+		`{"effects":{"zoom":{"enabled":true,"intensity":40,"punchIns":[]}}}`,
+		`{"effects":{"zoom":{"enabled":true,"intensity":40,"punchIns":[{"at":95,"duration":1}]}}}`,
+		`{"effects":{"captions":{"enabled":true,"intensity":50,"font":"Comic; drop","fontSize":18,"color":"#FFFFFF","highlight":"#FFD60A","position":"bottom","outline":4,"background":"dark"}}}`,
+		`{"unexpected":1}`,
+		`not-json`,
+	} {
+		resp, _ := h.HandleRequest(context.Background(), effectsReq("job1", body))
+		if resp.StatusCode != 400 {
+			t.Errorf("body %s: got %d, want 400 (body: %s)", body, resp.StatusCode, resp.Body)
+		}
+	}
+}
+
+func TestUpdateEffects_RejectsWrongState(t *testing.T) {
+	for _, status := range []string{"transcribing", "ranking", "rendering", "completed", "delete_failed"} {
+		db := &mockDynamoDB{
+			getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				return &dynamodb.GetItemOutput{Item: shortsJobItem("job1", status)}, nil
+			},
+		}
+		h := newShortsTestHandler(t, db)
+		resp, _ := h.HandleRequest(context.Background(), effectsReq("job1", `{"effects":null}`))
+		if resp.StatusCode != 400 {
+			t.Errorf("status %s: got %d, want 400 (body: %s)", status, resp.StatusCode, resp.Body)
+		}
+	}
+}
+
+func TestUpdateEffects_UnknownJob(t *testing.T) {
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+	resp, _ := h.HandleRequest(context.Background(), effectsReq("job1", `{"effects":null}`))
+	if resp.StatusCode != 404 {
+		t.Errorf("got status %d, want 404 (body: %s)", resp.StatusCode, resp.Body)
+	}
+}
+
+// TestShortsJobItemKeepsEffectsOnRewrite checks the codec that retries use to
+// rewrite a job, so the saved effects survive a retry.
+func TestShortsJobItemKeepsEffectsOnRewrite(t *testing.T) {
+	job := models.ShortsJob{
+		UserID: "user1", JobID: "job1", Status: "uploaded",
+		Effects: &models.VideoEffects{
+			Freeze: &models.FreezeEffect{Enabled: true, Intensity: 30,
+				Freezes:     []models.FreezeHold{{At: 4, Duration: 0.8}},
+				ImpactTexts: []models.ImpactText{{At: 4, Duration: 1, Text: "WAIT"}}},
+		},
+	}
+	back := itemToShortsJob(shortsJobToItem(job))
+	if back.Effects == nil || back.Effects.Freeze == nil || !back.Effects.Freeze.Enabled ||
+		len(back.Effects.Freeze.Freezes) != 1 || back.Effects.Freeze.ImpactTexts[0].Text != "WAIT" {
+		t.Fatalf("effects lost in the item codec: %+v", back.Effects)
+	}
+	if plain := itemToShortsJob(shortsJobToItem(models.ShortsJob{UserID: "user1", JobID: "job2"})); plain.Effects != nil {
+		t.Errorf("a job without effects must stay without effects, got %+v", plain.Effects)
+	}
+}
+
 func editedJobItem(jobID, status string) map[string]dbtypes.AttributeValue {
 	item := shortsJobItem(jobID, status)
 	item["segments"] = &dbtypes.AttributeValueMemberS{Value: `[{"clipId":"clip-9","start":10,"end":40,"score":0.9,"rank":1,"hookText":"h"}]`}

@@ -65,7 +65,7 @@ func timingFixture(t *testing.T, det FaceDetector) (*Renderer, RenderInput, *moc
 		ProbeDimensions: func(string) (int, int, error) { return 1920, 1080, nil },
 		ExtractFrames:   func(string, float64, float64) ([][]byte, error) { return [][]byte{[]byte("f")}, nil },
 		RunCommand:      fake,
-		RunCommandProgress: func(name string, args []string, _ float64, _ func(int)) error {
+		RunCommandProgress: func(_ context.Context, name string, args []string, _ float64, _ func(int)) error {
 			return fake(name, args)
 		},
 	}
@@ -171,7 +171,9 @@ func TestRenderTiming_NamesThePhaseThatFailed(t *testing.T) {
 	}{
 		{"source download fails", func(_ *Renderer, s *mockStorage) { s.getErr = errors.New("S3 down") }, phaseDownloadSource},
 		{"encode fails", func(r *Renderer, _ *mockStorage) {
-			r.RunCommandProgress = func(string, []string, float64, func(int)) error { return errors.New("ffmpeg exit 1") }
+			r.RunCommandProgress = func(context.Context, string, []string, float64, func(int)) error {
+				return errors.New("ffmpeg exit 1")
+			}
 		}, phaseEncode},
 		{"upload fails", func(_ *Renderer, s *mockStorage) { s.putErr = errors.New("access denied") }, phaseUpload},
 	}

@@ -422,6 +422,30 @@ func TestUpdateShortsStatus_Failed(t *testing.T) {
 	}
 }
 
+func TestUpdateShortsStatus_FailedUsesRenderError(t *testing.T) {
+	// A render with video effects records its own reason. The job shows that
+	// reason instead of the state machine's generic cause.
+	const reason = "render timed out after 2m0s: ffmpeg failed: signal: killed"
+	mock := &mockDynamoDBClient{
+		getItemResult: map[string]types.AttributeValue{
+			"renderError": &types.AttributeValueMemberS{Value: reason},
+		},
+	}
+	updater := &StatusUpdater{DB: mock, TableName: "jobs"}
+	err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
+		JobID:  "j1",
+		UserID: "u1",
+		Status: ShortsStatusFailed,
+		Error:  "Clip rendering failed on both Spot and on-demand capacity",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if v, ok := mock.updateItemInput.ExpressionAttributeValues[":error"].(*types.AttributeValueMemberS); !ok || v.Value != reason {
+		t.Errorf("expected the render's reason stored, got %+v", mock.updateItemInput.ExpressionAttributeValues[":error"])
+	}
+}
+
 func TestUpdateShortsStatus_DynamoDBError(t *testing.T) {
 	mock := &mockDynamoDBClient{updateItemErr: fmt.Errorf("connection refused")}
 	updater := &StatusUpdater{DB: mock, TableName: "projects-table", Bucket: "test-bucket"}

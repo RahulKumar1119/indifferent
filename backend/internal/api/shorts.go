@@ -502,6 +502,52 @@ func (h *APIHandler) handleUpdateCaption(ctx context.Context, req events.APIGate
 	return jsonResponse(http.StatusOK, job), nil
 }
 
+// UpdateEffectsRequest carries the phase 1 video effect settings for a job.
+// A null effects value clears them.
+type UpdateEffectsRequest struct {
+	Effects *models.VideoEffects `json:"effects"`
+}
+
+// handleUpdateEffects stores validated video effect settings on a shorts job.
+// Like the caption style, the settings apply to renders and retries, and they
+// can change only before a render starts (uploaded) or after one failed.
+// Unknown keys are rejected, so a misspelled effect cannot be saved silently.
+func (h *APIHandler) handleUpdateEffects(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	jobID := extractShortsIDFromSubpath(req.Path, "/effects")
+	if jobID == "" {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Job ID is required"), nil
+	}
+
+	var body UpdateEffectsRequest
+	dec := json.NewDecoder(strings.NewReader(req.Body))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	}
+	if err := body.Effects.Validate(); err != nil {
+		return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
+	}
+
+	job, err := h.getShortsJobByID(ctx, claims.UserID, jobID)
+	if err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
+	}
+	if job.Status != "uploaded" && job.Status != "failed" {
+		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Video effects can only be changed before rendering starts or after a failed render."), nil
+	}
+
+	job.Effects = body.Effects
+	job.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(h.TableName),
+		Item:      shortsJobToItem(*job),
+	}); err != nil {
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to save video effects."), nil
+	}
+
+	return jsonResponse(http.StatusOK, job), nil
+}
+
 // extractClipPath splits /shorts/{jobId}/clips/{clipId} exactly (len 4).
 func extractClipPath(path string) (jobID, clipID string, ok bool) {
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
@@ -1200,6 +1246,11 @@ func shortsJobToItem(j models.ShortsJob) map[string]dbtypes.AttributeValue {
 			item["caption"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
 		}
 	}
+	if j.Effects != nil {
+		if b, err := json.Marshal(j.Effects); err == nil {
+			item["effects"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+		}
+	}
 	if len(j.ClipEdits) > 0 {
 		if b, err := json.Marshal(j.ClipEdits); err == nil {
 			item["clipEdits"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
@@ -1266,6 +1317,9 @@ func itemToShortsJob(item map[string]dbtypes.AttributeValue) models.ShortsJob {
 	}
 	if v, ok := item["caption"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
 		_ = json.Unmarshal([]byte(v.Value), &j.Caption)
+	}
+	if v, ok := item["effects"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		_ = json.Unmarshal([]byte(v.Value), &j.Effects)
 	}
 	if v, ok := item["clipEdits"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
 		_ = json.Unmarshal([]byte(v.Value), &j.ClipEdits)

@@ -56,6 +56,8 @@ export interface ShortsJob {
   caption?: CaptionStyle;
   /** Per-clip user overrides (boundaries + corrected captions). */
   clipEdits?: Record<string, ClipEdit>;
+  /** Phase 1 video effect settings for this job's renders. */
+  effects?: VideoEffects;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -91,6 +93,111 @@ export interface ClipEdit {
   end: number;
   words?: CaptionWord[];
   updatedAt?: string;
+}
+
+/** Phase 1 video effects stored per shorts job (mirrors backend models.VideoEffects). */
+export interface VideoEffects {
+  captions?: AnimatedCaptions;
+  zoom?: ZoomEffect;
+  grade?: GradeEffect;
+  freeze?: FreezeEffect;
+}
+
+export interface AnimatedCaptions {
+  enabled: boolean;
+  /** 0-100: how far words not spoken yet are dimmed. */
+  intensity: number;
+  font: 'sans' | 'serif' | 'condensed';
+  /** 8-72, the same scale as the caption style. */
+  fontSize: number;
+  color: string;
+  highlight: string;
+  position: 'top' | 'middle' | 'bottom';
+  /** 0-12 pixels. */
+  outline: number;
+  background: 'none' | 'dark' | 'light';
+}
+
+export interface PunchIn {
+  /** Seconds from the start of each clip. */
+  at: number;
+  /** Seconds, 0.5 to 6. */
+  duration: number;
+}
+
+export interface ZoomEffect {
+  enabled: boolean;
+  /** 0-100: the peak zoom runs from 1.0x to 1.5x. */
+  intensity: number;
+  punchIns: PunchIn[];
+}
+
+export interface GradeEffect {
+  enabled: boolean;
+  look: 'cinematic' | 'warm' | 'cool' | 'high-contrast';
+  /** 0-100. */
+  intensity: number;
+}
+
+export interface FreezeHold {
+  at: number;
+  /** Seconds, 0.2 to 3. */
+  duration: number;
+}
+
+export interface ImpactText {
+  at: number;
+  /** Seconds, 0.3 to 4. */
+  duration: number;
+  /** One line, up to 16 characters. */
+  text: string;
+}
+
+export interface FreezeEffect {
+  enabled: boolean;
+  /** 0-100: the size of the impact text. */
+  intensity: number;
+  freezes: FreezeHold[];
+  impactTexts: ImpactText[];
+}
+
+/** Every phase 1 effect, always present, for the editing panel. */
+export type ResolvedVideoEffects = Required<VideoEffects>;
+
+/** The settings a new job starts with: every effect off, with usable values. */
+export function defaultVideoEffects(): ResolvedVideoEffects {
+  return {
+    captions: {
+      enabled: false,
+      intensity: 50,
+      font: 'sans',
+      fontSize: 18,
+      color: '#FFFFFF',
+      highlight: '#FFD60A',
+      position: 'bottom',
+      outline: 4,
+      background: 'dark',
+    },
+    zoom: { enabled: false, intensity: 40, punchIns: [] },
+    grade: { enabled: false, look: 'cinematic', intensity: 50 },
+    freeze: { enabled: false, intensity: 50, freezes: [], impactTexts: [] },
+  };
+}
+
+/** Fills every effect from the saved settings, keeping the defaults for anything missing. */
+export function resolveVideoEffects(saved?: VideoEffects | null): ResolvedVideoEffects {
+  const base = defaultVideoEffects();
+  return {
+    captions: { ...base.captions, ...(saved?.captions ?? {}) },
+    zoom: { ...base.zoom, ...(saved?.zoom ?? {}), punchIns: [...(saved?.zoom?.punchIns ?? [])] },
+    grade: { ...base.grade, ...(saved?.grade ?? {}) },
+    freeze: {
+      ...base.freeze,
+      ...(saved?.freeze ?? {}),
+      freezes: [...(saved?.freeze?.freezes ?? [])],
+      impactTexts: [...(saved?.freeze?.impactTexts ?? [])],
+    },
+  };
 }
 
 /** Trimmed shorts job for history lists (matches backend ShortsJobSummary). */
@@ -295,6 +402,11 @@ export class ShortsService {
   /** PUT /shorts/{id}/style: store a validated caption style for future renders. */
   updateCaption(jobId: string, caption: CaptionStyle): Observable<ShortsJob> {
     return this.api.put<ShortsJob>(`/shorts/${jobId}/style`, { caption });
+  }
+
+  /** PUT /shorts/{id}/effects: store validated video effects for future renders (null clears them). */
+  updateEffects(jobId: string, effects: VideoEffects | null): Observable<ShortsJob> {
+    return this.api.put<ShortsJob>(`/shorts/${jobId}/effects`, { effects });
   }
 
   /** GET /shorts/{id}/clips/{clipId}/captions: words inside the clip window. */
