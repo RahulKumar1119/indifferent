@@ -47,7 +47,7 @@ func TestRender_ReportsProgress(t *testing.T) {
 		Storage: store,
 		Bucket:  "assets",
 		WorkDir: workDir,
-		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
+		RunCommandProgress: func(_ context.Context, name string, args []string, duration float64, onProgress func(int)) error {
 			if duration != 18.0 {
 				t.Errorf("expected duration 18, got %v", duration)
 			}

@@ -289,7 +289,7 @@ func TestRender_UsesTrackedCrop(t *testing.T) {
 			vf = argValue(args, "-vf")
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
 		},
-		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
+		RunCommandProgress: func(_ context.Context, name string, args []string, duration float64, onProgress func(int)) error {
 			vf = argValue(args, "-vf")
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
 		},
@@ -335,7 +335,7 @@ func TestRender_FacelessUsesFitFill(t *testing.T) {
 			vf = argValue(args, "-vf")
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
 		},
-		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
+		RunCommandProgress: func(_ context.Context, name string, args []string, duration float64, onProgress func(int)) error {
 			vf = argValue(args, "-vf")
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
 		},

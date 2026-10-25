@@ -193,6 +193,9 @@ type ShortsJob struct {
 	// Caption is the reusable caption style chosen for this job's renders
 	// (preset + user overrides). Zero value renders the legacy bold look.
 	Caption CaptionStyle `json:"caption,omitempty"`
+	// Effects holds the phase 1 video effect settings (nil = no effects).
+	// Honored by renders and retries, like Caption.
+	Effects *VideoEffects `json:"effects,omitempty"`
 	// ClipEdits maps clipId to the user's boundary/caption overrides,
 	// honored by renders and retries.
 	ClipEdits   map[string]ClipEdit `json:"clipEdits,omitempty"`

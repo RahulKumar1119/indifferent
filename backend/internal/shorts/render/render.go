@@ -70,6 +70,9 @@ type RenderInput struct {
 	// Edit, when non-nil, overrides the trim window and caption words with
 	// the user's saved correction (timings preserved as stored).
 	Edit *models.ClipEdit
+	// Effects holds the phase 1 video effect settings. Nil, or settings with
+	// no enabled effect, render exactly as they did before effects existed.
+	Effects *models.VideoEffects
 }
 
 // Renderer renders a single ranked segment into a 9:16 captioned clip and
@@ -101,9 +104,17 @@ type Renderer struct {
 	// ProgressReporter receives throttled 0-99 progress reports during the
 	// render. Defaults to a DynamoDB update when Table+Dynamo are set.
 	ProgressReporter func(ctx context.Context, in RenderInput, percent int) error
-	// RunCommandProgress runs ffmpeg while streaming -progress output.
-	// Injectable; defaults to a real exec parsing out_time_ms.
-	RunCommandProgress func(name string, args []string, duration float64, onProgress func(int)) error
+	// RunCommandProgress runs ffmpeg while streaming -progress output. The
+	// process is killed when ctx is done. Injectable; defaults to a real exec
+	// parsing out_time_ms.
+	RunCommandProgress func(ctx context.Context, name string, args []string, duration float64, onProgress func(int)) error
+	// EffectTimeout bounds the ffmpeg run of a render with effects. Zero uses
+	// the length-based default in effectEncodeTimeout.
+	EffectTimeout time.Duration
+	// ProbeHasAudio reports whether a video source has an audio stream.
+	// Injectable; defaults to ffprobe. It runs only when a freeze needs the
+	// audio cut.
+	ProbeHasAudio func(path string) (bool, error)
 }
 
 // DynamoUpdater is the subset of the DynamoDB API used for progress writes.
@@ -265,18 +276,11 @@ func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float6
 
 	// Video source: -ss/-to before -i seek quickly; the caption file is
 	// generated relative to the clip start so it aligns after the trim.
-	videoFilter := cropCaptionFilter
-	switch {
-	case fit:
-		videoFilter = fitFillFilter
-	case cropX != "":
-		videoFilter = fmt.Sprintf("crop=w=ih*9/16:h=ih:x=%s:y=0,scale=1080:1920,setsar=1,fps=30", cropX)
-	}
 	return []string{
 		"-ss", formatSeconds(start),
 		"-to", formatSeconds(end),
 		"-i", src,
-		"-vf", fmt.Sprintf("%s%s", videoFilter, subsFilter),
+		"-vf", fmt.Sprintf("%s%s", framingFilter(cropX, fit), subsFilter),
 		"-c:v", "libx264",
 		"-preset", "veryfast",
 		"-pix_fmt", "yuv420p",
@@ -286,6 +290,20 @@ func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float6
 		"-ar", "48000",
 		"-movflags", "+faststart",
 		"-y", out,
+	}
+}
+
+// framingFilter returns the video filter that frames a video source as 9:16:
+// the blur fill when fit is set, the tracked crop when cropX is set, and
+// otherwise the centered crop.
+func framingFilter(cropX string, fit bool) string {
+	switch {
+	case fit:
+		return fitFillFilter
+	case cropX != "":
+		return fmt.Sprintf("crop=w=ih*9/16:h=ih:x=%s:y=0,scale=1080:1920,setsar=1,fps=30", cropX)
+	default:
+		return cropCaptionFilter
 	}
 }
 
@@ -378,6 +396,19 @@ func defaultProbeDimensions(path string) (int, int, error) {
 	return parsed.Streams[0].Width, parsed.Streams[0].Height, nil
 }
 
+// defaultProbeHasAudio reports whether the file has at least one audio stream.
+func defaultProbeHasAudio(path string) (bool, error) {
+	out, err := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "a",
+		"-show_entries", "stream=index",
+		"-of", "csv=p=0", path).Output()
+	if err != nil {
+		return false, fmt.Errorf("ffprobe failed: %w", err)
+	}
+	return len(bytes.TrimSpace(out)) > 0, nil
+}
+
 // utcNow renders the current UTC time for DynamoDB timestamp attributes.
 func utcNow() string {
 	return time.Now().UTC().Format(time.RFC3339)
@@ -411,9 +442,9 @@ func progressPercent(line string, duration float64) int {
 // defaultRunCommandProgress runs ffmpeg with -progress pipe:1 and streams
 // out_time_ms timestamps to onProgress (throttled to 5-point steps).
 // FFmpeg diagnostics go to the task log; only progress lines are parsed.
-func defaultRunCommandProgress(name string, args []string, duration float64, onProgress func(int)) error {
+func defaultRunCommandProgress(ctx context.Context, name string, args []string, duration float64, onProgress func(int)) error {
 	full := append([]string{"-progress", "pipe:1", "-nostats"}, args...)
-	cmd := exec.Command(name, full...)
+	cmd := exec.CommandContext(ctx, name, full...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("ffmpeg stdout pipe failed: %w", err)
@@ -531,6 +562,11 @@ func (r *Renderer) Render(ctx context.Context, in RenderInput) (string, error) {
 }
 
 func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) (string, error) {
+	// Check the effect settings before any work. The API validates them too,
+	// but settings written any other way must still never reach ffmpeg.
+	if err := in.Effects.Validate(); err != nil {
+		return "", fmt.Errorf("%w: %v", ErrEffectsInvalid, err)
+	}
 	key := ClipKey(in.UserID, in.JobID, in.Clip.ClipID)
 
 	// Idempotent resume: skip everything if the clip is already present.
@@ -606,14 +642,32 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 			words = filterWords(transcript.Words, clipStart, clipEnd)
 		}
 	}
+	// With effects on, the clip is planned on its own timeline. Freeze holds
+	// move the caption words, so the words are mapped before any caption file
+	// is written. Animated captions replace the Caption style for this render.
+	effects := in.Effects.Active()
+	var plan clipEffects
+	if effects {
+		plan = planEffects(in.Effects, clipEnd-clipStart)
+		if len(plan.holds) > 0 {
+			words = plan.remapWords(words, clipStart)
+		}
+		if err := writeImpactFiles(r.WorkDir, in.Clip.ClipID, plan.texts); err != nil {
+			return "", err
+		}
+	}
 	subsPath := ""
 	if len(words) > 0 {
 		var doc string
 		var ext string
-		if isKaraokeStyle(in.Caption) {
+		switch {
+		case effects && plan.captions != nil:
+			doc = BuildAnimatedASS(words, clipStart, *plan.captions)
+			ext = ".ass"
+		case isKaraokeStyle(in.Caption):
 			doc = BuildASS(words, clipStart, in.Caption)
 			ext = ".ass"
-		} else {
+		default:
 			doc = BuildSRT(words, clipStart)
 			ext = ".srt"
 		}
@@ -633,25 +687,48 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 
 	// Render with FFmpeg, streaming -progress so the job record reflects the
 	// live encode percent (clamped at 99; completion is marked downstream).
+	// Renders without effects keep their legacy arguments and run without a
+	// timeout. Renders with effects get a context timeout sized to the output.
 	outPath := filepath.Join(r.WorkDir, in.Clip.ClipID+".mp4")
-	args := r.buildCropCaptionArgs(srcPath, subsPath, outPath, clipStart, clipEnd, in.AudioOnly, cropX, fit, in.Caption)
 	runProgress := r.RunCommandProgress
 	if runProgress == nil {
 		runProgress = defaultRunCommandProgress
 	}
 	duration := clipEnd - clipStart
 	tm.clipSeconds = duration
+	var args []string
+	progressSec := duration
+	var timeout time.Duration
+	if effects {
+		var err error
+		args, err = r.effectRenderArgs(in, plan, srcPath, subsPath, outPath, clipStart, clipEnd, cropX, fit)
+		if err != nil {
+			return "", fmt.Errorf("failed to build effect filters: %w", err)
+		}
+		progressSec = plan.outSec
+		timeout = r.effectTimeout(plan.outSec)
+	} else {
+		args = r.buildCropCaptionArgs(srcPath, subsPath, outPath, clipStart, clipEnd, in.AudioOnly, cropX, fit, in.Caption)
+	}
+	var encCtx context.Context
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		encCtx, cancel = context.WithTimeout(ctx, timeout)
+	} else {
+		encCtx, cancel = context.WithCancel(ctx)
+	}
+	defer cancel()
 	done = tm.start(phaseEncode)
 	var runErr error
 	if duration > 0 {
-		runErr = runProgress("ffmpeg", args, duration, func(pct int) {
+		runErr = runProgress(encCtx, "ffmpeg", args, progressSec, func(pct int) {
 			r.reportProgress(ctx, in, pct)
 		})
 	} else {
 		runErr = r.RunCommand("ffmpeg", args)
 	}
 	if runErr != nil {
-		return "", fmt.Errorf("ffmpeg render failed: %w", runErr)
+		return "", encodeFailure(ctx, encCtx, timeout, runErr)
 	}
 	done()
 

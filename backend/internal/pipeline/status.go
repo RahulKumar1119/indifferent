@@ -159,6 +159,11 @@ func (u *StatusUpdater) UpdateShortsStatus(ctx context.Context, input ShortsStat
 
 	case ShortsStatusFailed:
 		errMsg := extractErrorMessage(input.Error)
+		// A render with video effects records its own reason. That reason
+		// says what failed, which the state machine's generic cause does not.
+		if own := u.renderOwnError(ctx, input); own != "" {
+			errMsg = own
+		}
 		updateExpr += ", #error = :error"
 		exprNames["#error"] = "error"
 		exprValues[":error"] = &types.AttributeValueMemberS{Value: errMsg}
@@ -237,6 +242,27 @@ func segmentsToClips(userID, jobID string, segments []models.RankedSegment) []mo
 // GenerateVideoURL generates a presigned download URL for the video with 24-hour expiration.
 func (u *StatusUpdater) GenerateVideoURL(ctx context.Context, videoKey string) (string, error) {
 	return u.S3Storage.GenerateDownloadURL(ctx, u.Bucket, videoKey, storage.DownloadURLExpiration)
+}
+
+// renderOwnError returns the reason a render recorded on the job, or "" when
+// none was recorded. Only renders with video effects record one, and a retry
+// rewrites the whole record, which clears it.
+func (u *StatusUpdater) renderOwnError(ctx context.Context, input ShortsStatusInput) string {
+	out, err := u.DB.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(u.TableName),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: fmt.Sprintf("USER#%s", input.UserID)},
+			"SK": &types.AttributeValueMemberS{Value: fmt.Sprintf("SHORTS#%s", input.JobID)},
+		},
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil || out == nil {
+		return ""
+	}
+	if v, ok := out.Item["renderError"].(*types.AttributeValueMemberS); ok {
+		return v.Value
+	}
+	return ""
 }
 
 // classifyShortsFailure determines the failed stage (from the record's

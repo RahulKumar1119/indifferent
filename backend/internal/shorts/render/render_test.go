@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -138,6 +139,55 @@ func TestBuildCropCaptionArgs_AudioOnlyCanvas(t *testing.T) {
 	}
 }
 
+// legacyArgsCase is one entry of testdata/legacy_args.json: the argument list
+// origin/main produced for a render without effects.
+type legacyArgsCase struct {
+	Name string   `json:"name"`
+	Args []string `json:"args"`
+}
+
+// TestBuildCropCaptionArgs_MatchesOriginMain pins the no-effects argument lists
+// to the lists origin/main produced. A job without effect settings must keep
+// the same ffmpeg command.
+func TestBuildCropCaptionArgs_MatchesOriginMain(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "legacy_args.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var golden []legacyArgsCase
+	if err := json.Unmarshal(raw, &golden); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name      string
+		subs      string
+		audioOnly bool
+		cropX     string
+		fit       bool
+		style     models.CaptionStyle
+	}{
+		{"video_no_captions", "", false, "", false, models.CaptionStyle{}},
+		{"video_bold_default", "cap.srt", false, "", false, models.CaptionStyle{}},
+		{"video_karaoke", "cap.srt", false, "", false, models.CaptionStyle{Preset: "karaoke"}},
+		{"audio_only_captions", "cap.srt", true, "", false, models.CaptionStyle{}},
+		{"video_subject_crop_minimal", "cap.srt", false, "420", false, models.CaptionStyle{Preset: "minimal", Position: "top"}},
+		{"video_blur_fill_clean", "cap.srt", false, "", true, models.CaptionStyle{Preset: "clean", FontSize: 20, Color: "#00FF00"}},
+	}
+	if len(golden) != len(cases) {
+		t.Fatalf("golden has %d cases, test has %d", len(golden), len(cases))
+	}
+	r := &Renderer{Bucket: "b", WorkDir: "/tmp"}
+	for i, c := range cases {
+		if golden[i].Name != c.name {
+			t.Fatalf("case %d: golden %q, test %q", i, golden[i].Name, c.name)
+		}
+		got := r.buildCropCaptionArgs("source.mp4", c.subs, "out.mp4", 12.4, 39.9, c.audioOnly, c.cropX, c.fit, c.style)
+		if !reflect.DeepEqual(got, golden[i].Args) {
+			t.Errorf("%s changed\n got: %q\nwant: %q", c.name, got, golden[i].Args)
+		}
+	}
+}
+
 func TestRender_HappyPath(t *testing.T) {
 	workDir := t.TempDir()
 
@@ -154,7 +204,7 @@ func TestRender_HappyPath(t *testing.T) {
 	store := &mockStorage{
 		exists: false,
 		objects: map[string][]byte{
-			"uploads/u1/j1/source.mp4":   []byte("SOURCE-BYTES"),
+			"uploads/u1/j1/source.mp4":     []byte("SOURCE-BYTES"),
 			"shorts/u1/j1/transcript.json": tData,
 		},
 	}
@@ -174,7 +224,7 @@ func TestRender_HappyPath(t *testing.T) {
 			out := args[len(args)-1]
 			return os.WriteFile(out, []byte("RENDERED-CLIP"), 0o644)
 		},
-		RunCommandProgress: func(name string, args []string, duration float64, onProgress func(int)) error {
+		RunCommandProgress: func(_ context.Context, name string, args []string, duration float64, onProgress func(int)) error {
 			ranArgs = args
 			return os.WriteFile(args[len(args)-1], []byte("RENDERED-CLIP"), 0o644)
 		},
