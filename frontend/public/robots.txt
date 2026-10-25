@@ -1,9 +1,17 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://indifferent.fun/sitemap.xml
-
-# Disallow private/authenticated pages from crawling
+# Signed-in areas. They redirect visitors to the login page, so crawling them
+# only finds duplicates of it. /shorts-maker is a public page and stays open:
+# "/shorts$" matches the signed-in /shorts page only.
 Disallow: /dashboard
 Disallow: /projects
-Disallow: /auth/callback
+Disallow: /new
+Disallow: /shorts$
+Disallow: /shorts/
+Disallow: /account
+Disallow: /profile
+Disallow: /settings
+Disallow: /auth/
+
+Sitemap: https://indifferent.fun/sitemap.xml

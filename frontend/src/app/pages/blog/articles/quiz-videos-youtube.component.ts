@@ -1,12 +1,14 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { setPageSeo } from '../../../shared/seo';
+import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
+import { setArticleSeo } from './article-seo';
+import { articleByline, findArticle } from './registry';
 
 @Component({
   selector: 'app-quiz-videos-youtube',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, SiteFooterComponent],
   styles: [`
     :host {
       display: block;
@@ -160,7 +162,7 @@ import { setPageSeo } from '../../../shared/seo';
       <header class="blog-article-header">
         <a routerLink="/blog" class="blog-back">&larr; Back to Blog</a>
         <h1>How to Create Quiz Videos for YouTube</h1>
-        <div class="blog-meta">Published January 15, 2025 · 6 min read</div>
+        <div class="blog-meta">{{ byline }}</div>
       </header>
       <div class="blog-content">
         <p>Quiz videos have become one of the most popular content formats on YouTube, attracting viewers who love testing their knowledge on topics ranging from general trivia to specialized subjects. Whether you are a content creator looking to diversify your channel or an educator wanting to reach a broader audience, quiz videos offer a proven path to growing your viewership and building an engaged community.</p>
@@ -211,25 +213,15 @@ import { setPageSeo } from '../../../shared/seo';
         <a routerLink="/login" class="blog-cta-btn">Get Started Free</a>
       </div>
     </article>
-    <footer class="blog-footer">
-      <a routerLink="/">Home</a>
-      <a routerLink="/about">About</a>
-      <a routerLink="/contact">Contact</a>
-      <a routerLink="/privacy">Privacy</a>
-      <a routerLink="/terms">Terms</a>
-      <p>&copy; 2025 Indifferent. All rights reserved.</p>
-    </footer>
+    <app-site-footer />
   `,
 })
 export class QuizVideosYoutubeComponent implements OnInit {
   private readonly document = inject(DOCUMENT);
+  private readonly article = findArticle('quiz-videos-youtube')!;
+  readonly byline = articleByline(this.article);
 
   ngOnInit(): void {
-    setPageSeo(this.document, {
-      title: 'How to Create Quiz Videos for YouTube | Indifferent',
-      description:
-        'Learn how to create engaging quiz videos for YouTube: formats, scripting, narration, and publishing interactive trivia content viewers love.',
-      canonical: 'https://indifferent.fun/blog/quiz-videos-youtube',
-    });
+    setArticleSeo(this.document, this.article);
   }
 }

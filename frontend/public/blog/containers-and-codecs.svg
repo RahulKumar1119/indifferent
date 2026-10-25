@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-labelledby="t d">
+  <title id="t">Containers and the codecs they usually hold</title>
+  <desc id="d">An MP4 file usually holds H.264 video and AAC audio. A WebM file holds VP8, VP9 or AV1 video and Vorbis or Opus audio. The container is the box and the codecs decide size, quality and compatibility.</desc>
+  <rect width="1200" height="630" fill="#FAF7F2"/>
+  <g font-family="Outfit, Inter, 'DejaVu Sans', Arial, sans-serif" fill="#1A1714">
+    <text x="60" y="64" font-size="30" font-weight="700">The container is the box. The codecs are what is inside.</text>
+    <text x="60" y="96" font-size="18" fill="#6B6560">Two files with the same extension can behave very differently when the codecs differ.</text>
+
+    <!-- MP4 -->
+    <rect x="60" y="136" width="520" height="400" rx="20" fill="#FFFFFF" stroke="#1A1714" stroke-opacity="0.2" stroke-width="2"/>
+    <text x="90" y="186" font-size="28" font-weight="700">MP4 container</text>
+    <text x="90" y="216" font-size="17" fill="#6B6560">File extension .mp4 (also .m4a for audio)</text>
+    <rect x="90" y="240" width="460" height="108" rx="14" fill="#D96C3D" fill-opacity="0.12" stroke="#D96C3D" stroke-opacity="0.5"/>
+    <text x="110" y="278" font-size="20" font-weight="700">Video</text>
+    <text x="110" y="310" font-size="18" fill="#3E3A33">H.264 (the common choice), H.265, AV1</text>
+    <rect x="90" y="368" width="460" height="108" rx="14" fill="#1E3A2A" fill-opacity="0.1" stroke="#1E3A2A" stroke-opacity="0.45"/>
+    <text x="110" y="406" font-size="20" font-weight="700">Audio</text>
+    <text x="110" y="438" font-size="18" fill="#3E3A33">AAC (the common choice), MP3</text>
+    <text x="90" y="512" font-size="17" fill="#6B6560">The safest choice for uploads.</text>
+
+    <!-- WebM -->
+    <rect x="620" y="136" width="520" height="400" rx="20" fill="#FFFFFF" stroke="#1A1714" stroke-opacity="0.2" stroke-width="2"/>
+    <text x="650" y="186" font-size="28" font-weight="700">WebM container</text>
+    <text x="650" y="216" font-size="17" fill="#6B6560">File extension .webm</text>
+    <rect x="650" y="240" width="460" height="108" rx="14" fill="#D96C3D" fill-opacity="0.12" stroke="#D96C3D" stroke-opacity="0.5"/>
+    <text x="670" y="278" font-size="20" font-weight="700">Video</text>
+    <text x="670" y="310" font-size="18" fill="#3E3A33">VP8, VP9 or AV1</text>
+    <rect x="650" y="368" width="460" height="108" rx="14" fill="#1E3A2A" fill-opacity="0.1" stroke="#1E3A2A" stroke-opacity="0.45"/>
+    <text x="670" y="406" font-size="20" font-weight="700">Audio</text>
+    <text x="670" y="438" font-size="18" fill="#3E3A33">Opus or Vorbis</text>
+    <text x="650" y="512" font-size="17" fill="#6B6560">Open formats, built for the web.</text>
+
+    <text x="60" y="584" font-size="19" fill="#3E3A33">Rule of thumb: pick the container for where the file is going, then pick codecs that destination supports.</text>
+  </g>
+</svg>

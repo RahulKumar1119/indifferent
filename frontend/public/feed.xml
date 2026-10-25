@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Indifferent journal</title>
+    <link>https://indifferent.fun/blog</link>
+    <description>Guides to the AI Shorts generator, the TXT to quiz video generator and the watermark tool.</description>
+    <language>en</language>
+    <lastBuildDate>Sun, 25 Oct 2026 00:00:00 GMT</lastBuildDate>
+    <atom:link href="https://indifferent.fun/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>How to Turn a Podcast into YouTube Shorts</title>
+      <link>https://indifferent.fun/blog/podcast-to-youtube-shorts</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/podcast-to-youtube-shorts</guid>
+      <pubDate>Sun, 25 Oct 2026 00:00:00 GMT</pubDate>
+      <category>Shorts</category>
+      <description>Prepare an episode, upload it, pick the right language and review three ranked clips. A practical workflow with limits, file-size maths and fixes.</description>
+    </item>
+    <item>
+      <title>How to Add Animated Captions to Shorts</title>
+      <link>https://indifferent.fun/blog/animated-captions-for-shorts</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/animated-captions-for-shorts</guid>
+      <pubDate>Sun, 25 Oct 2026 00:00:00 GMT</pubDate>
+      <category>Shorts</category>
+      <description>Word-by-word captions from transcript timestamps: the four presets, the animated captions effect, colours, safe positions and Hindi text.</description>
+    </item>
+    <item>
+      <title>How AI Video Clipping Works, Step by Step</title>
+      <link>https://indifferent.fun/blog/how-ai-video-clipping-works</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/how-ai-video-clipping-works</guid>
+      <pubDate>Sun, 25 Oct 2026 00:00:00 GMT</pubDate>
+      <category>Shorts</category>
+      <description>What happens between upload and download: transcription, ranking, snapping to word edges, face-based framing and rendering, and where it can go wrong.</description>
+    </item>
+    <item>
+      <title>How to Convert Landscape Footage into Vertical Video</title>
+      <link>https://indifferent.fun/blog/landscape-to-vertical-video</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/landscape-to-vertical-video</guid>
+      <pubDate>Sun, 25 Oct 2026 00:00:00 GMT</pubDate>
+      <category>Shorts</category>
+      <description>Center crop, face-aware crop or blur-fill: the 16:9 to 9:16 maths, ffmpeg commands you can run yourself, and how each clip is framed.</description>
+    </item>
+    <item>
+      <title>How to Add a Watermark to an Image in Your Browser</title>
+      <link>https://indifferent.fun/blog/add-watermark-to-image-in-browser</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/add-watermark-to-image-in-browser</guid>
+      <pubDate>Sun, 25 Oct 2026 00:00:00 GMT</pubDate>
+      <category>Watermark</category>
+      <description>Step-by-step guide to text and logo watermarks in the free in-browser tool: formats, opacity, placement, export options, privacy and troubleshooting.</description>
+    </item>
+    <item>
+      <title>MP4 vs WebM: Formats, Compatibility and File Size</title>
+      <link>https://indifferent.fun/blog/mp4-vs-webm-formats</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/mp4-vs-webm-formats</guid>
+      <pubDate>Sun, 25 Oct 2026 00:00:00 GMT</pubDate>
+      <category>Video basics</category>
+      <description>Containers are not codecs. What MP4 and WebM hold, where each plays, how to convert between them with ffmpeg, and which one to upload.</description>
+    </item>
+    <item>
+      <title>How to Create Quiz Videos for YouTube</title>
+      <link>https://indifferent.fun/blog/quiz-videos-youtube</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/quiz-videos-youtube</guid>
+      <pubDate>Sat, 08 Aug 2026 00:00:00 GMT</pubDate>
+      <category>Quiz videos</category>
+      <description>Learn how to create engaging quiz videos for YouTube: formats, scripting, narration, and publishing interactive trivia content viewers love.</description>
+    </item>
+    <item>
+      <title>Best Practices for Educational Video Content</title>
+      <link>https://indifferent.fun/blog/educational-video-best-practices</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/educational-video-best-practices</guid>
+      <pubDate>Sat, 08 Aug 2026 00:00:00 GMT</pubDate>
+      <category>Quiz videos</category>
+      <description>Design better educational videos: structure, slide design, narration pacing, accessibility, and measuring learning outcomes.</description>
+    </item>
+    <item>
+      <title>Quiz File Format Guide: TXT Formatting Tips</title>
+      <link>https://indifferent.fun/blog/quiz-file-format-guide</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/quiz-file-format-guide</guid>
+      <pubDate>Sat, 08 Aug 2026 00:00:00 GMT</pubDate>
+      <category>Quiz videos</category>
+      <description>Format quiz TXT files correctly: numbered, bulleted and tab-indented patterns, answer markers, and common mistakes to avoid.</description>
+    </item>
+    <item>
+      <title>AI Narration for Videos: A Complete Guide</title>
+      <link>https://indifferent.fun/blog/ai-narration-guide</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/ai-narration-guide</guid>
+      <pubDate>Sat, 08 Aug 2026 00:00:00 GMT</pubDate>
+      <category>Quiz videos</category>
+      <description>A complete guide to AI narration for videos: voices, pacing, pronunciation, and how to get natural-sounding voiceovers with Amazon Polly.</description>
+    </item>
+  </channel>
+</rss>

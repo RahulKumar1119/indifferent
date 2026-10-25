@@ -1,13 +1,14 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
-import { setCanonical } from '../../../shared/seo';
+import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
+import { setArticleSeo } from './article-seo';
+import { articleByline, findArticle } from './registry';
 
 @Component({
   selector: 'app-educational-video-best-practices',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, SiteFooterComponent],
   styles: [`
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
@@ -29,7 +30,7 @@ import { setCanonical } from '../../../shared/seo';
         <a routerLink="/blog" class="text-[13px] text-[#6B6560] hover:text-[#1A1714]">&larr; Back to Blog</a>
         <p class="mt-6 text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Guide · Educational video</p>
         <h1 class="serif mt-3 font-medium tracking-[-0.02em] leading-[1.05] text-[clamp(2rem,5vw,3rem)]">Best Practices for Educational Video Content</h1>
-        <p class="mt-3 text-[13px] text-[#6B6560]">Published January 10, 2025 · 7 min read</p>
+        <p class="mt-3 text-[13px] text-[#6B6560]">{{ byline }}</p>
       </div>
       <main class="max-w-3xl mx-auto px-4 pb-10">
         <div class="article-body">
@@ -89,28 +90,16 @@ import { setCanonical } from '../../../shared/seo';
           <p class="mt-3 text-[13px]"><a routerLink="/features/txt-to-video-quiz" class="underline underline-offset-4 text-white/70 hover:text-white">How the quiz generator works →</a></p>
         </div>
       </main>
-      <footer class="border-t border-black/10 px-4 py-8">
-        <p class="text-center text-[12.5px] text-[#6B6560]">© {{ currentYear }} Indifferent · <a routerLink="/blog" class="underline underline-offset-4">Blog</a></p>
-      </footer>
+      <app-site-footer />
     </div>
   `,
 })
 export class EducationalVideoBestPracticesComponent implements OnInit {
-  private readonly title = inject(Title);
-  private readonly meta = inject(Meta);
   private readonly document = inject(DOCUMENT);
-
-  currentYear = new Date().getFullYear();
+  private readonly article = findArticle('educational-video-best-practices')!;
+  readonly byline = articleByline(this.article);
 
   ngOnInit(): void {
-    const url = 'https://indifferent.fun/blog/educational-video-best-practices';
-    const description = 'Design better educational videos: structure, slide design, narration pacing, accessibility, and measuring learning outcomes.';
-    this.title.setTitle('Best Practices for Educational Video Content | Indifferent');
-    this.meta.updateTag({ name: 'description', content: description });
-    this.meta.updateTag({ property: 'og:title', content: 'Best Practices for Educational Video Content | Indifferent' });
-    this.meta.updateTag({ property: 'og:description', content: description });
-    this.meta.updateTag({ property: 'og:url', content: url });
-    this.meta.updateTag({ property: 'og:image', content: 'https://indifferent.fun/og-cover.jpg' });
-    setCanonical(this.document, url);
+    setArticleSeo(this.document, this.article);
   }
 }

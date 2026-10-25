@@ -1,6 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { ROBOTS_NOINDEX, setPageSeo, setRobots } from '../../shared/seo';
 
 @Component({
   selector: 'app-not-found',
@@ -32,4 +34,17 @@ import { LucideDynamicIcon } from '@lucide/angular';
     </div>
   `,
 })
-export class NotFoundComponent {}
+export class NotFoundComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+
+  ngOnInit(): void {
+    // The host answers every path with the app shell and a 200, so a missing
+    // page has to say it is missing itself: noindex keeps it out of search.
+    setPageSeo(this.document, {
+      title: 'Page not found | Indifferent',
+      description: 'This page does not exist. Go back to the Indifferent home page or the journal.',
+      canonical: 'https://indifferent.fun/',
+    });
+    setRobots(this.document, ROBOTS_NOINDEX);
+  }
+}

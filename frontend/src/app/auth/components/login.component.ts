@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { environment } from '../../../environments/environment';
 import { AuthService, DEFAULT_POST_AUTH_PATH, sanitizeNextPath } from '../../core/services/auth.service';
-import { setPageSeo } from '../../shared/seo';
+import { ROBOTS_NOINDEX, setPageSeo, setRobots } from '../../shared/seo';
 
 @Component({
   selector: 'app-login',
@@ -175,6 +175,8 @@ export class LoginComponent implements OnInit {
         'Sign in to Indifferent to turn TXT quiz files into narrated videos and long footage into ranked vertical shorts.',
       canonical: 'https://indifferent.fun/login',
     });
+    // The sign-in form has nothing to read; keep it out of search results.
+    setRobots(this.document, ROBOTS_NOINDEX);
     this.route.queryParamMap.subscribe((params) => {
       this.isSignupMode = params.get('mode') === 'signup';
       this.postAuthPath = sanitizeNextPath(params.get('next'));

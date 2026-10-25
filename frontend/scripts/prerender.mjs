@@ -15,36 +15,14 @@ import { readFile, stat } from 'node:fs/promises';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import puppeteer from 'puppeteer';
+import { prerenderRoutes } from './site-routes.mjs';
 
 const DIST = resolve(process.argv[2] ?? 'dist/frontend/browser');
 const PORT = 4329;
 
-// Public, indexable routes. Parameterized SEO pages are expanded explicitly.
-const ROUTES = [
-  '/',
-  '/login',
-  '/about',
-  '/contact',
-  '/privacy',
-  '/terms',
-  '/tools',
-  '/tools/add-watermark',
-  '/blog',
-  '/blog/quiz-videos-youtube',
-  '/blog/educational-video-best-practices',
-  '/blog/quiz-file-format-guide',
-  '/blog/ai-narration-guide',
-  '/features/ai-shorts',
-  '/features/watermark',
-  '/features/txt-to-video-quiz',
-  '/shorts-maker',
-  '/use-cases/content-creators',
-  '/use-cases/marketing-teams',
-  '/use-cases/agencies',
-  '/use-cases/coaches',
-  '/use-cases/media-companies',
-  '/use-cases/educators',
-];
+// Public routes come from one shared list, so the sitemap, the prerender and the
+// SEO checks cannot drift apart. Journal articles are read from articles.json.
+const ROUTES = prerenderRoutes();
 
 const MIME = {
   '.html': 'text/html',

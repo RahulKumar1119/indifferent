@@ -1,14 +1,17 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { legalUpdatedLabel } from '../../core/config/legal';
 import { setPageSeo } from '../../shared/seo';
 
 interface DocSection {
   id: string;
   n: string;
   title: string;
-  body?: string;
+  /** Paragraphs shown above the list. */
+  body?: string[];
   items?: string[];
+  links?: { label: string; href: string }[];
 }
 
 @Component({
@@ -41,7 +44,7 @@ interface DocSection {
         <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
           <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-white/15 text-white/70">Legal · Terms</p>
           <h1 class="serif mt-5 font-medium leading-[0.95] text-[clamp(2.6rem,6vw,4.6rem)]">Terms of Service.</h1>
-          <p class="mt-4 text-white/60">Last updated: January 2025</p>
+          <p class="mt-4 text-white/60">Last updated: {{ updated }}</p>
         </div>
       </section>
 
@@ -60,13 +63,20 @@ interface DocSection {
           @for (s of sections; track s.id) {
             <section [id]="s.id" class="scroll-mt-28 rounded-[20px] bg-white border border-black/[0.07] p-8 md:p-10 mb-5">
               <h2 class="flex items-baseline gap-4"><span class="serif italic text-[28px] text-[#BC5227]">{{ s.n }}</span><span class="serif text-[30px] leading-tight">{{ s.title }}</span></h2>
-              @if (s.body) { <p class="mt-4 text-[15px] text-[#3E3A33] leading-relaxed">{{ s.body }}</p> }
+              @for (p of s.body ?? []; track p) { <p class="mt-4 text-[15px] text-[#3E3A33] leading-relaxed">{{ p }}</p> }
               @if (s.items) {
                 <ul class="mt-4 space-y-2.5">
                   @for (it of s.items; track it) {
                     <li class="flex gap-2.5 text-[14.5px] text-[#3E3A33]"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>{{ it }}</li>
                   }
                 </ul>
+              }
+              @if (s.links) {
+                <p class="mt-4 flex flex-wrap gap-x-5 text-[14.5px] text-[#3E3A33]">
+                  @for (l of s.links; track l.href) {
+                    <a [href]="l.href" target="_blank" rel="noopener noreferrer" class="inline-flex items-center min-h-[44px] underline underline-offset-4 decoration-black/30 hover:decoration-black">{{ l.label }}</a>
+                  }
+                </p>
               }
               @if (s.id === 'contact') {
                 <p class="mt-4 text-[15px] text-[#3E3A33]">For questions about terms, contact <a href="mailto:support@indifferent.fun" class="font-semibold underline underline-offset-4 decoration-black/25 hover:decoration-black">support&#64;indifferent.fun</a></p>
@@ -103,16 +113,102 @@ export class TermsComponent implements OnInit {
   }
 
   currentYear = new Date().getFullYear();
+  readonly updated = legalUpdatedLabel();
   sections: DocSection[] = [
-    { id: 'acceptance', n: '01', title: 'Acceptance of Terms', body: 'By using Indifferent you agree to these terms. If you do not agree, please do not use the service.' },
-    { id: 'service', n: '02', title: 'Service Description', body: 'Indifferent converts text-based quiz files into video content using automated processing.' },
-    { id: 'accounts', n: '03', title: 'User Accounts', items: ['Must be 13+ to use the service', 'Responsible for account security', 'One account per person'] },
-    { id: 'acceptable-use', n: '04', title: 'Acceptable Use', items: ['Upload only content you own or have rights to', 'Do not upload harmful or illegal content', 'Do not attempt to reverse engineer the service', 'Do not use for spam or abuse'] },
-    { id: 'ownership', n: '05', title: 'Content Ownership', items: ['You retain ownership of uploaded quiz files', 'You retain ownership of generated videos', 'We do not claim rights to your content', 'We may use anonymized usage data to improve the service'] },
-    { id: 'availability', n: '06', title: 'Service Availability', items: ['We aim for high availability but do not guarantee 100% uptime', 'We may modify or discontinue features with notice', 'Scheduled maintenance will be communicated in advance'] },
-    { id: 'liability', n: '07', title: 'Limitation of Liability', items: ['Service provided "as is"', 'Not liable for content accuracy in generated videos', 'Not liable for indirect damages'] },
-    { id: 'termination', n: '08', title: 'Termination', items: ['We may suspend accounts violating these terms', 'You may delete your account at any time', 'Upon termination your data will be deleted within 30 days'] },
-    { id: 'changes', n: '09', title: 'Changes to Terms', body: 'We may update terms with 30 days notice. Continued use constitutes acceptance.' },
-    { id: 'contact', n: '10', title: 'Contact' },
+    {
+      id: 'acceptance',
+      n: '01',
+      title: 'Acceptance of these terms',
+      body: ['By using Indifferent you agree to these terms and to the privacy policy. If you do not agree, please do not use the service.'],
+    },
+    {
+      id: 'service',
+      n: '02',
+      title: 'The service',
+      body: [
+        'Indifferent offers three tools: the AI Shorts generator, which turns a long video or audio file into captioned vertical clips; the TXT to quiz video generator, which turns a text file of questions into a narrated video; and a watermark tool that runs in your browser.',
+        'The service is in beta and free to use. Features, limits and availability can change.',
+      ],
+    },
+    {
+      id: 'accounts',
+      n: '03',
+      title: 'Accounts',
+      items: [
+        'You must be at least 13 years old.',
+        'You sign in with Google. You are responsible for keeping your account secure and for what happens under it.',
+        'One account per person.',
+        'The watermark tool needs no account.',
+      ],
+    },
+    {
+      id: 'content',
+      n: '04',
+      title: 'Your content',
+      items: [
+        'You keep ownership of what you upload, and of the transcripts, clips and videos made from it.',
+        'You give us permission to store and process your content, and to pass it to the service providers named in the privacy policy, only to run the tools for you.',
+        'You are responsible for having the rights to everything you upload, including footage, music, scripts, and recordings of other people. Do not upload content you are not allowed to copy or process.',
+      ],
+    },
+    {
+      id: 'acceptable-use',
+      n: '05',
+      title: 'Acceptable use',
+      items: [
+        'Do not upload content that is illegal, harmful, or that infringes someone else’s rights.',
+        'Do not upload recordings of people where the law requires their consent and you do not have it.',
+        'Do not try to break, overload, or reverse engineer the service.',
+        'Do not use the service to send spam or to harass anyone.',
+      ],
+    },
+    {
+      id: 'output',
+      n: '06',
+      title: 'Automatic output',
+      body: [
+        'Transcripts, the moments chosen, framing and narration are produced automatically and can be wrong. Captions may contain mistakes, and a clip may start or end in a place you would not choose.',
+        'Check every clip, caption and narration before you publish it. You are responsible for what you publish.',
+      ],
+    },
+    {
+      id: 'limits',
+      n: '07',
+      title: 'Limits and availability',
+      items: [
+        'The current limits for file size, length and number of clips are listed on each tool’s page, and they can change.',
+        'We do not promise that the service will always be available or free of errors.',
+        'We may change or remove features during the beta.',
+      ],
+    },
+    {
+      id: 'storage',
+      n: '08',
+      title: 'Storage and deletion',
+      body: ['Your projects and Shorts stay in your account until you delete them. Deleting one removes its stored files and its record. The privacy policy lists what is kept, where, and for how long.'],
+    },
+    {
+      id: 'termination',
+      n: '09',
+      title: 'Ending your use',
+      items: [
+        'You can stop using the service at any time.',
+        'We may suspend or remove an account that breaks these terms.',
+        'To have your account and its data deleted, email support@indifferent.fun from the address on the account.',
+      ],
+    },
+    {
+      id: 'liability',
+      n: '10',
+      title: 'Disclaimer and liability',
+      body: ['The service is provided as it is, without warranties. As far as the law allows, we are not liable for indirect or consequential losses, lost profits or lost data. Keep copies of anything important.'],
+    },
+    {
+      id: 'changes',
+      n: '11',
+      title: 'Changes to these terms',
+      body: ['We may update these terms. The date at the top shows the current version, and using the service after a change means you accept it.'],
+    },
+    { id: 'contact', n: '12', title: 'Contact' },
   ];
 }

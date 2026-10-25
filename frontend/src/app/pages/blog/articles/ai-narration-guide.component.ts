@@ -1,12 +1,14 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { setPageSeo } from '../../../shared/seo';
+import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
+import { setArticleSeo } from './article-seo';
+import { articleByline, findArticle } from './registry';
 
 @Component({
   selector: 'app-ai-narration-guide',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, SiteFooterComponent],
   styles: [`
     :host {
       display: block;
@@ -160,21 +162,21 @@ import { setPageSeo } from '../../../shared/seo';
       <header class="blog-article-header">
         <a routerLink="/blog" class="blog-back">&larr; Back to Blog</a>
         <h1>AI Narration for Videos: A Complete Guide</h1>
-        <div class="blog-meta">Published December 20, 2024 · 6 min read</div>
+        <div class="blog-meta">{{ byline }}</div>
       </header>
       <div class="blog-content">
         <p>AI narration makes professional voiceovers accessible to everyone, regardless of recording equipment or vocal training. For quiz video creators, AI narration provides consistent, clear, and natural-sounding audio that enhances the viewing experience and keeps audiences engaged. This guide covers everything you need to know about using AI narration effectively in your video projects.</p>
 
         <h2>What AI Narration Is and How It Works</h2>
-        <p>AI narration uses text-to-speech technology to convert written text into natural-sounding human speech. Modern systems like Amazon Polly, which powers Indifferent's narration engine, use neural network models trained on thousands of hours of recorded human speech. These models learn the patterns of natural language including intonation, rhythm, emphasis, and breathing patterns that make speech sound human rather than robotic.</p>
+        <p>AI narration uses text-to-speech technology to convert written text into natural-sounding human speech. Amazon Polly, which powers Indifferent's narration, offers several voice engines. Its neural engines use machine-learning models trained on recorded speech. Its standard engine, which Indifferent uses for all five of its voices, joins together short pieces of recorded speech, a method AWS calls concatenative synthesis. Either way, the engine decides intonation, rhythm, and emphasis from the text, which is why punctuation and sentence length change how a line sounds.</p>
         <p>The process works by analyzing your text at multiple levels. First, the system processes the linguistic content, understanding word boundaries, sentence structure, and parts of speech. Then it applies prosody rules that determine pitch, speed, and emphasis based on context. Finally, it synthesizes the audio waveform using learned voice characteristics, producing output that closely mimics human speech patterns.</p>
         <p>For quiz videos specifically, the narration system processes each question and its answer options as separate speech segments. This keeps each question and each answer in its own spoken segment, so the narration lines up with the question slide and the answer slide. The result is a synchronized audiovisual experience.</p>
 
         <h2>Benefits Over Manual Recording</h2>
         <p><strong>Consistency:</strong> AI voices maintain identical quality, volume, and tone across every question in your video and across multiple videos. Human narrators naturally vary in energy, pronunciation, and pacing between recording sessions, which can create an uneven viewing experience, especially in longer quiz videos.</p>
         <p><strong>Speed:</strong> Generating narration for a twenty-question quiz takes seconds rather than the hours required for manual recording, editing, and retakes. This dramatically accelerates your production workflow and lets you publish content more frequently.</p>
-        <p><strong>Cost:</strong> Professional voice actors charge per word or per minute of finished audio. AI narration eliminates this recurring cost entirely, making it economically viable to produce large volumes of content without budget constraints.</p>
-        <p><strong>Iteration:</strong> If you need to change a question or fix a typo, regenerating the narration takes seconds. With human recording, any change requires scheduling another session, re-recording, and re-editing the audio.</p>
+        <p><strong>Cost:</strong> Professional voice actors charge per word or per minute of finished audio. AI narration removes that per-word fee, and Indifferent is free during the beta, so producing many videos does not add up the way studio sessions do.</p>
+        <p><strong>Iteration:</strong> If you need to change a question or fix a typo, you edit the text file and render the video again, which takes a few minutes. With human recording, any change requires scheduling another session, re-recording, and re-editing the audio.</p>
         <p><strong>Scalability:</strong> Whether you need narration for one video or one hundred, AI narration scales instantly without additional coordination, scheduling, or cost considerations.</p>
 
         <h2>Overview of Available Voices</h2>
@@ -223,8 +225,8 @@ import { setPageSeo } from '../../../shared/seo';
         <p>Brand-building content where a recognizable personal voice is part of the channel identity may also warrant human narration. Some creators' voices become inseparable from their brand, and switching to AI narration could feel disconnected to existing audiences.</p>
 
         <h2>The Future of AI Voices in Education</h2>
-        <p>AI voice technology is advancing rapidly. Current neural text-to-speech models already produce output that many listeners cannot distinguish from human speech in blind tests. Future developments will bring even more natural prosody, emotional range, and voice customization options.</p>
-        <p>Upcoming capabilities include real-time voice cloning that could allow creators to generate AI narration in their own voice, multilingual narration that seamlessly switches between languages within a single video, and adaptive pacing that automatically adjusts based on content complexity.</p>
+        <p>AI voice technology keeps improving. AWS now offers neural, long-form, and generative engines next to the standard one. Indifferent currently uses the standard engine for its five voices, so it does not offer the newer engines yet.</p>
+        <p>Across the industry, voice cloning, narration that switches languages inside one video, and pacing that adapts to the content are active areas of work. Indifferent does not offer any of these today.</p>
         <p>For educational content creators, these advances mean that the gap between AI and human narration will continue to narrow. Investing in AI narration workflows today positions you to benefit from each improvement without changing your production process. As the technology improves, your existing content structure and text formatting skills will produce increasingly natural results.</p>
       </div>
       <div class="blog-cta">
@@ -233,25 +235,15 @@ import { setPageSeo } from '../../../shared/seo';
         <a routerLink="/login" class="blog-cta-btn">Get Started Free</a>
       </div>
     </article>
-    <footer class="blog-footer">
-      <a routerLink="/">Home</a>
-      <a routerLink="/about">About</a>
-      <a routerLink="/contact">Contact</a>
-      <a routerLink="/privacy">Privacy</a>
-      <a routerLink="/terms">Terms</a>
-      <p>&copy; 2025 Indifferent. All rights reserved.</p>
-    </footer>
+    <app-site-footer />
   `,
 })
 export class AiNarrationGuideComponent implements OnInit {
   private readonly document = inject(DOCUMENT);
+  private readonly article = findArticle('ai-narration-guide')!;
+  readonly byline = articleByline(this.article);
 
   ngOnInit(): void {
-    setPageSeo(this.document, {
-      title: 'AI Narration for Videos: A Complete Guide | Indifferent',
-      description:
-        'A complete guide to AI narration for videos: voices, pacing, pronunciation, and how to get natural-sounding voiceovers with Amazon Polly.',
-      canonical: 'https://indifferent.fun/blog/ai-narration-guide',
-    });
+    setArticleSeo(this.document, this.article);
   }
 }

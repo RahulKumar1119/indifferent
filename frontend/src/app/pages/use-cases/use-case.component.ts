@@ -1,8 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { setCanonical } from '../../shared/seo';
+import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
+import { ROBOTS_NOINDEX, setPageSeo, setRobots } from '../../shared/seo';
 export interface UseCaseData {
   slug: string;
   title: string;
@@ -20,8 +21,8 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
     hook: 'Repurpose podcasts, interviews and videos into ranked vertical shorts.',
     description: 'Upload a long video or audio file and get up to 3 ranked 9:16 clips with burned-in captions, ready for Shorts, Reels and TikTok.',
     benefits: [
-      'AI finds your most engaging moments: no timeline scrubbing',
-      'Speaker tracking keeps you framed, blur-fill protects on-screen text',
+      'A language model picks up to three moments from the transcript, so you skip the timeline scrubbing',
+      'Face detection frames the speaker, and blur-fill keeps on-screen text whole',
       'Short caption lines styled for silent viewing',
       'Full-HD 1080×1920 MP4 exports, free during beta',
     ],
@@ -30,13 +31,13 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
   'marketing-teams': {
     slug: 'marketing-teams',
     title: 'AI Shorts Maker for Marketing Teams',
-    hook: 'Create high-performing shorts that drive business growth.',
+    hook: 'Turn webinars, launches and interviews into vertical clips.',
     description: 'Turn webinars, launches and interviews into a pipeline of short-form content without adding editing headcount.',
     benefits: [
       'One upload becomes three ranked, ready-to-post clips',
       'Consistent captioned style across every video',
-      'YouTube Shorts-spec output: 1080×1920, H.264 + AAC, 30fps',
-      'Minutes per video instead of hours in an editor',
+      'Vertical output: 1080×1920 MP4, H.264 + AAC, 30 fps',
+      'No editing software to learn or license',
     ],
     cta: 'Scale your short-form output',
   },
@@ -46,22 +47,22 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
     hook: 'Produce on-brand client content with consistent quality, fast.',
     description: 'Repurpose client long-form into platform-ready shorts with predictable turnaround and consistent caption styling.',
     benefits: [
-      'Ranked clips remove subjective “which moment?” debates',
+      'Ranked clips give the team a starting point when choosing moments',
       'Same caption and framing treatment on every deliverable',
       'Blur-fill fit keeps client graphics and text intact',
-      'Downloadable MP4s drop straight into scheduling tools',
+      'Downloadable MP4s you can upload to any scheduling tool',
     ],
     cta: 'Speed up client delivery',
   },
   coaches: {
     slug: 'coaches',
     title: 'AI Shorts Maker for Coaches',
-    hook: 'Turn long lessons and calls into authority-building clips.',
+    hook: 'Turn long lessons and calls into short clips.',
     description: 'Extract the key insight from every coaching call, lesson or live session and publish it as a captioned short.',
     benefits: [
-      'Key moments ranked by predicted engagement',
-      'Speaker-tracked framing keeps you centered on camera',
-      'Captions readable with sound off, where feeds are watched',
+      'Moments ranked by a language model that reads the transcript',
+      'Face detection places the vertical window on you',
+      'Burned-in captions, so clips read with the sound off',
       'No editing skills or software needed',
     ],
     cta: 'Clip your next lesson',
@@ -69,13 +70,13 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
   'media-companies': {
     slug: 'media-companies',
     title: 'AI Shorts Maker for Media Companies',
-    hook: 'Turn long-form content into high-performing shorts at scale.',
-    description: 'Convert shows, interviews and coverage into a steady stream of vertical clips with broadcast-safe specs.',
+    hook: 'Turn long-form content into captioned vertical clips.',
+    description: 'Convert shows, interviews and coverage into vertical clips, each a 1080×1920 MP4 with captions burned in.',
     benefits: [
-      'Batch-friendly: every upload yields ranked clips automatically',
-      'Face tracking handles multi-speaker footage gracefully',
+      'Every upload returns up to three ranked clips',
+      'With several people in frame the largest face sets the framing, so check each preview',
       'Blur-fill preserves graphics, lower-thirds and diagrams',
-      'H.264 + AAC exports accepted everywhere',
+      'Standard H.264 + AAC MP4 exports',
     ],
     cta: 'Repurpose your archive',
   },
@@ -85,7 +86,7 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
     hook: 'Clip the key explanation from every lecture, automatically.',
     description: 'Upload a lecture recording and get the most engaging explanations back as captioned vertical clips for revision and reach.',
     benefits: [
-      'Engagement ranking surfaces the moments students rewatch',
+      'Ranking picks self-contained explanations from the transcript',
       'Short caption lines aid comprehension and retention',
       'Diagrams and slides stay fully visible with blur-fill fit',
       'MP3 and WAV lecture audio supported too',
@@ -97,7 +98,7 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
 @Component({
   selector: 'app-use-case',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, SiteFooterComponent],
   template: `
     <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
       <header class="max-w-3xl mx-auto px-4 pt-24 pb-6 text-center">
@@ -108,7 +109,7 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
       <main class="max-w-3xl mx-auto px-4 pb-10">
         <p class="text-[15.5px] leading-relaxed">{{ data.description }}</p>
         <ul class="mt-6 space-y-3">
-          @for (b of data.benefits; track b) {
+          @for (b of data.benefits; track $index) {
             <li class="flex items-start gap-3 rounded-[14px] border border-black/10 bg-white px-4 py-3 text-[14.5px]">
               <span class="mt-0.5 inline-flex w-5 h-5 shrink-0 items-center justify-center rounded-full bg-[#D96C3D]/15 text-[#A8481F] text-[12px] font-bold">✓</span>
               {{ b }}
@@ -129,9 +130,7 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
           </div>
         </div>
       </main>
-      <footer class="border-t border-black/10 px-4 py-8">
-        <p class="text-center text-[12.5px] text-[#6B6560]">© {{ currentYear }} Indifferent · <a routerLink="/shorts-maker" class="inline-flex items-center min-h-[44px] px-1 underline underline-offset-4">AI Shorts Maker</a></p>
-      </footer>
+      <app-site-footer />
     </div>
   `,
   styles: [`
@@ -140,34 +139,30 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
 })
 export class UseCaseComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
-  private readonly title = inject(Title);
-  private readonly meta = inject(Meta);
   private readonly document = inject(DOCUMENT);
-
+  private readonly destroyRef = inject(DestroyRef);
   data: UseCaseData = USE_CASE_DATA['content-creators'];
   others: UseCaseData[] = [];
   currentYear = new Date().getFullYear();
-
   ngOnInit(): void {
-    const slug = this.route.snapshot.paramMap.get('slug') ?? 'content-creators';
+    // The router reuses this component when only :slug changes, as it does for the
+    // "Other use cases" links, so follow the param map instead of reading it once.
+    this.route.paramMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => this.show(params.get('slug') ?? 'content-creators'));
+  }
+
+  private show(slug: string): void {
     this.data = USE_CASE_DATA[slug] ?? USE_CASE_DATA['content-creators'];
     this.others = Object.values(USE_CASE_DATA).filter((u) => u.slug !== this.data.slug);
-    const pageUrl = `https://indifferent.fun/use-cases/${this.data.slug}`;
-    this.title.setTitle(`${this.data.title} | Indifferent`);
-    this.meta.updateTag({ name: 'description', content: this.data.description });
-    this.meta.updateTag({ property: 'og:title', content: `${this.data.title} | Indifferent` });
-    this.meta.updateTag({ property: 'og:description', content: this.data.description });
-    this.meta.updateTag({ property: 'og:url', content: pageUrl });
-    setCanonical(this.document, pageUrl);
-    const script = this.document.createElement('script');
-    script.type = 'application/ld+json';
-    script.text = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'WebPage',
-      name: `${this.data.title} | Indifferent`,
-      url: pageUrl,
+    setPageSeo(this.document, {
+      title: `${this.data.title} | Indifferent`,
       description: this.data.description,
+      canonical: `https://indifferent.fun/use-cases/${this.data.slug}`,
     });
-    this.document.head.appendChild(script);
+    // These six pages share one template and about sixty words each. Until they
+    // carry material of their own they stay out of search results; the AI Shorts
+    // page and the journal hold the real documentation.
+    setRobots(this.document, ROBOTS_NOINDEX);
   }
 }

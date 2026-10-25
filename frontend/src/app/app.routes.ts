@@ -180,5 +180,12 @@ export const routes: Routes = [
         (m) => m.AiNarrationGuideComponent,
       ),
   },
+  {
+    // Data-driven articles (articles.json). The four older articles above keep
+    // their own components, and explicit paths win over this parameter route.
+    path: 'blog/:slug',
+    loadComponent: () =>
+      import('./pages/blog/articles/article-page.component').then((m) => m.ArticlePageComponent),
+  },
   { path: '**', component: NotFoundComponent },
 ];
