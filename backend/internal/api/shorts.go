@@ -531,6 +531,10 @@ type effectNumbers struct {
 			Freezes     []timedNumber `json:"freezes"`
 			ImpactTexts []timedNumber `json:"impactTexts"`
 		} `json:"freeze"`
+		Fade *struct {
+			InDuration  *float64 `json:"inDuration"`
+			OutDuration *float64 `json:"outDuration"`
+		} `json:"fade"`
 	} `json:"effects"`
 }
 
@@ -583,6 +587,11 @@ func requireEffectNumbers(n effectNumbers) error {
 				numberField{fmt.Sprintf("impact text %d time", i+1), t.At},
 				numberField{fmt.Sprintf("impact text %d length", i+1), t.Duration})
 		}
+	}
+	if fd := e.Fade; fd != nil {
+		fields = append(fields,
+			numberField{"fade in length", fd.InDuration},
+			numberField{"fade out length", fd.OutDuration})
 	}
 	for _, f := range fields {
 		if f.value == nil {
