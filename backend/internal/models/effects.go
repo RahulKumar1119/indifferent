@@ -27,6 +27,7 @@ const (
 	impactMaxDuration  = 4.0
 	impactMaxChars     = 16
 	maxCaptionOutline  = 12
+	fadeMaxDuration    = 2.0
 )
 
 // VideoEffects is the phase 1 effect configuration stored on a shorts job.
@@ -38,6 +39,7 @@ type VideoEffects struct {
 	Zoom     *ZoomEffect       `json:"zoom,omitempty"`
 	Grade    *GradeEffect      `json:"grade,omitempty"`
 	Freeze   *FreezeEffect     `json:"freeze,omitempty"`
+	Fade     *FadeEffect       `json:"fade,omitempty"`
 }
 
 // AnimatedCaptions draws burned-in captions with a word-by-word highlight.
@@ -97,13 +99,25 @@ type ImpactText struct {
 	Text     string  `json:"text"`
 }
 
+// FadeEffect fades the clip in at its start and out at its end. InDuration and
+// OutDuration are seconds; 0 on a side disables that side. The fade covers the
+// finished picture, captions and impact text included, and the audio fades with
+// it. Timing is relative to the output length, so it already accounts for any
+// frames freeze holds add.
+type FadeEffect struct {
+	Enabled     bool    `json:"enabled"`
+	InDuration  float64 `json:"inDuration"`
+	OutDuration float64 `json:"outDuration"`
+}
+
 // Active reports whether at least one effect is enabled.
 func (e *VideoEffects) Active() bool {
 	return e != nil &&
 		((e.Captions != nil && e.Captions.Enabled) ||
 			(e.Zoom != nil && e.Zoom.Enabled) ||
 			(e.Grade != nil && e.Grade.Enabled) ||
-			(e.Freeze != nil && e.Freeze.Enabled))
+			(e.Freeze != nil && e.Freeze.Enabled) ||
+			(e.Fade != nil && e.Fade.Enabled))
 }
 
 // Validate checks every configured effect, enabled or not, so a saved value
@@ -129,6 +143,11 @@ func (e *VideoEffects) Validate() error {
 	}
 	if e.Freeze != nil {
 		if err := e.Freeze.Validate(); err != nil {
+			return err
+		}
+	}
+	if e.Fade != nil {
+		if err := e.Fade.Validate(); err != nil {
 			return err
 		}
 	}
@@ -250,6 +269,21 @@ func (f FreezeEffect) Validate() error {
 		spans = append(spans, span{t.At, t.At + t.Duration})
 	}
 	return checkNoOverlap("impact texts", spans)
+}
+
+// Validate checks the fade durations. Each side is between 0 and
+// fadeMaxDuration seconds, and an enabled fade needs at least one side.
+func (f FadeEffect) Validate() error {
+	if err := checkFloatRange("fade in duration", f.InDuration, 0, fadeMaxDuration); err != nil {
+		return err
+	}
+	if err := checkFloatRange("fade out duration", f.OutDuration, 0, fadeMaxDuration); err != nil {
+		return err
+	}
+	if f.Enabled && f.InDuration == 0 && f.OutDuration == 0 {
+		return fmt.Errorf("fade needs a fade-in or fade-out longer than 0 seconds")
+	}
+	return nil
 }
 
 // validateImpactText accepts one non-empty line of at most impactMaxChars

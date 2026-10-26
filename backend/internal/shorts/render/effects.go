@@ -58,7 +58,12 @@ type clipEffects struct {
 	holds    []frameHold              // sorted by frame
 	texts    []impactCue              // output timeline
 	captions *models.AnimatedCaptions // non-nil when animated captions are on
+	fade     *fadeTiming              // nil when fade is off
 }
+
+// fadeTiming is the resolved fade-in and fade-out for a clip, in seconds on the
+// output timeline. A zero duration on a side means no fade there.
+type fadeTiming struct{ in, out float64 }
 
 // punchWindow is one zoom moment on the source timeline.
 type punchWindow struct{ start, dur float64 }
@@ -104,7 +109,68 @@ func planEffects(e *models.VideoEffects, clipSec float64) clipEffects {
 	if f := e.Freeze; f != nil && f.Enabled {
 		p.planFreeze(f, clipSec)
 	}
+	// Fade is resolved after freeze, because its fade-out is measured from the
+	// final output length, which freeze holds extend.
+	if fd := e.Fade; fd != nil && fd.Enabled {
+		p.fade = planFade(fd, p.outSec)
+	}
 	return p
+}
+
+// planFade clamps the fades so the fade-in and fade-out never overlap on a
+// short clip: together they cover at most the whole output. A side that
+// rounds to zero is dropped.
+func planFade(f *models.FadeEffect, outSec float64) *fadeTiming {
+	in, out := f.InDuration, f.OutDuration
+	if total := in + out; total > outSec && total > 0 {
+		// Shrink both sides in proportion so they just fill the clip.
+		scale := outSec / total
+		in *= scale
+		out *= scale
+	}
+	t := &fadeTiming{}
+	if in > 0.01 {
+		t.in = in
+	}
+	if out > 0.01 {
+		t.out = out
+	}
+	if t.in == 0 && t.out == 0 {
+		return nil
+	}
+	return t
+}
+
+// videoFilters returns the video fade chain for the clip's output length. A nil
+// plan or a fade shorter than a frame yields an empty slice.
+func (t *fadeTiming) videoFilters(outSec float64) []string {
+	if t == nil {
+		return nil
+	}
+	var out []string
+	if t.in > 0 {
+		out = append(out, fmt.Sprintf("fade=t=in:st=0:d=%.3f", t.in))
+	}
+	if t.out > 0 {
+		out = append(out, fmt.Sprintf("fade=t=out:st=%.3f:d=%.3f", math.Max(0, outSec-t.out), t.out))
+	}
+	return out
+}
+
+// audioFilters returns the afade chain for the clip's output length. A nil plan
+// yields an empty slice.
+func (t *fadeTiming) audioFilters(outSec float64) []string {
+	if t == nil {
+		return nil
+	}
+	var out []string
+	if t.in > 0 {
+		out = append(out, fmt.Sprintf("afade=t=in:st=0:d=%.3f", t.in))
+	}
+	if t.out > 0 {
+		out = append(out, fmt.Sprintf("afade=t=out:st=%.3f:d=%.3f", math.Max(0, outSec-t.out), t.out))
+	}
+	return out
 }
 
 // planFreeze keeps the holds the clip can show and places the impact text on
@@ -370,9 +436,9 @@ type graphInput struct {
 }
 
 // graph builds the -filter_complex graph for one clip. Stages run in this
-// order: framing, zoom, grade, freeze holds, impact text, captions. It returns
-// the graph and the audio label to map ("" when audio passes through
-// unchanged).
+// order: framing, zoom, grade, freeze holds, impact text, captions, fade. The
+// fade is last so it covers the captions and impact text. It returns the graph
+// and the audio label to map ("" when audio passes through unchanged).
 func (p clipEffects) graph(in graphInput) (string, string, error) {
 	var chains []string
 	n := 0
@@ -416,10 +482,35 @@ func (p clipEffects) graph(in graphInput) (string, string, error) {
 		cur = next
 	}
 
+	// Fade, when on, is the last stage so it covers captions and impact text.
+	// A fade terminal replaces the plain "[vout]" below.
+	vFade := p.fade.videoFilters(p.outSec)
+	burnOut := "[vout]"
+	if len(vFade) > 0 {
+		burnOut = ref(label("v"))
+	}
 	if in.burn != "" {
-		chains = append(chains, ref(cur)+in.burn+"[vout]")
+		chains = append(chains, ref(cur)+in.burn+burnOut)
 	} else {
-		chains = append(chains, ref(cur)+"null[vout]")
+		chains = append(chains, ref(cur)+"null"+burnOut)
+	}
+	if len(vFade) > 0 {
+		chains = append(chains, burnOut+strings.Join(vFade, ",")+"[vout]")
+	}
+
+	// Audio fade. When holds already cut the audio, fade the labelled stream.
+	// Otherwise build a short chain from the input so there is a stream to map.
+	if aFade := p.fade.audioFilters(p.outSec); len(aFade) > 0 {
+		switch {
+		case audioOut != "":
+			next := label("af")
+			chains = append(chains, ref(audioOut)+strings.Join(aFade, ",")+ref(next))
+			audioOut = next
+		case in.audioIn != "":
+			next := label("af")
+			chains = append(chains, in.audioIn+strings.Join(aFade, ",")+ref(next))
+			audioOut = next
+		}
 	}
 	return strings.Join(chains, ";"), audioOut, nil
 }

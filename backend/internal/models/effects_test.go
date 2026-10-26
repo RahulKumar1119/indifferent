@@ -25,6 +25,7 @@ func validEffects() *VideoEffects {
 			Freezes:     []FreezeHold{{At: 4, Duration: 0.8}, {At: 12, Duration: 3}},
 			ImpactTexts: []ImpactText{{At: 4, Duration: 1, Text: "WAIT, WHAT?"}},
 		},
+		Fade: &FadeEffect{Enabled: true, InDuration: 0.5, OutDuration: 0.5},
 	}
 }
 
@@ -105,6 +106,15 @@ func TestVideoEffectsValidate(t *testing.T) {
 				e.Freeze.ImpactTexts = append(e.Freeze.ImpactTexts, ImpactText{At: float64(i * 5), Duration: 0.5, Text: "X"})
 			}
 		}, "too many impact texts"},
+		{"fade in too long", func(e *VideoEffects) { e.Fade.InDuration = 2.5 }, "fade in duration 2.5 must be between 0 and 2 seconds"},
+		{"fade out too long", func(e *VideoEffects) { e.Fade.OutDuration = 3 }, "fade out duration 3 must be between 0 and 2 seconds"},
+		{"fade in negative", func(e *VideoEffects) { e.Fade.InDuration = -0.5 }, "fade in duration -0.5 must be between 0 and 2 seconds"},
+		{"fade in NaN", func(e *VideoEffects) { e.Fade.InDuration = math.NaN() }, "fade in duration"},
+		{"fade out infinite", func(e *VideoEffects) { e.Fade.OutDuration = math.Inf(1) }, "fade out duration"},
+		{"fade enabled with both sides zero", func(e *VideoEffects) { e.Fade.InDuration = 0; e.Fade.OutDuration = 0 }, "fade needs a fade-in or fade-out"},
+		{"fade disabled with both sides zero is fine", func(e *VideoEffects) { e.Fade.Enabled = false; e.Fade.InDuration = 0; e.Fade.OutDuration = 0 }, ""},
+		{"fade in only is fine", func(e *VideoEffects) { e.Fade.OutDuration = 0 }, ""},
+		{"fade at max is fine", func(e *VideoEffects) { e.Fade.InDuration = 2; e.Fade.OutDuration = 2 }, ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

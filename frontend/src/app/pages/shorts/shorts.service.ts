@@ -102,6 +102,7 @@ export interface VideoEffects {
   zoom?: ZoomEffect;
   grade?: GradeEffect;
   freeze?: FreezeEffect;
+  fade?: FadeEffect;
 }
 
 export interface AnimatedCaptions {
@@ -162,6 +163,14 @@ export interface FreezeEffect {
   impactTexts: ImpactText[];
 }
 
+export interface FadeEffect {
+  enabled: boolean;
+  /** Fade-in length in seconds, 0 to 2. 0 disables the fade-in. */
+  inDuration: number;
+  /** Fade-out length in seconds, 0 to 2. 0 disables the fade-out. */
+  outDuration: number;
+}
+
 /** Every phase 1 effect, always present, for the editing panel. */
 export type ResolvedVideoEffects = Required<VideoEffects>;
 
@@ -182,6 +191,7 @@ export function defaultVideoEffects(): ResolvedVideoEffects {
     zoom: { enabled: false, intensity: 40, punchIns: [] },
     grade: { enabled: false, look: 'cinematic', intensity: 50 },
     freeze: { enabled: false, intensity: 50, freezes: [], impactTexts: [] },
+    fade: { enabled: false, inDuration: 0.5, outDuration: 0.5 },
   };
 }
 
@@ -198,6 +208,7 @@ export function resolveVideoEffects(saved?: VideoEffects | null): ResolvedVideoE
       freezes: [...(saved?.freeze?.freezes ?? [])],
       impactTexts: [...(saved?.freeze?.impactTexts ?? [])],
     },
+    fade: { ...base.fade, ...(saved?.fade ?? {}) },
   };
 }
 

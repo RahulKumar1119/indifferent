@@ -468,3 +468,111 @@ func TestRenderFFmpegFailureKeepsMessage(t *testing.T) {
 		t.Errorf("an ffmpeg failure is neither a timeout nor a cancel, and must not upload: %v", err)
 	}
 }
+
+// --- Fade in / out (issue #172) ---
+
+func TestPlanFadeSetsTimingFromOutputLength(t *testing.T) {
+	e := &models.VideoEffects{Fade: &models.FadeEffect{Enabled: true, InDuration: 0.5, OutDuration: 0.8}}
+	p := planEffects(e, 10)
+	if p.fade == nil || p.fade.in != 0.5 || p.fade.out != 0.8 {
+		t.Fatalf("fade timing: got %+v want in=0.5 out=0.8", p.fade)
+	}
+}
+
+func TestPlanFadeUsesFreezeExtendedLength(t *testing.T) {
+	// Freeze adds 0.7s (10.7s out). The fade-out must start from the longer length.
+	e := freezeEffects()
+	e.Fade = &models.FadeEffect{Enabled: true, OutDuration: 1.0}
+	p := planEffects(e, 10)
+	got := strings.Join(p.fade.videoFilters(p.outSec), ",")
+	if !strings.Contains(got, "fade=t=out:st=9.700:d=1.000") {
+		t.Fatalf("fade-out must start at outSec-dur on the extended timeline, got %q (outSec=%v)", got, p.outSec)
+	}
+}
+
+func TestPlanFadeClampsToClipLength(t *testing.T) {
+	// 2s + 2s of fade on a 3s clip: both shrink in proportion to fill it.
+	e := &models.VideoEffects{Fade: &models.FadeEffect{Enabled: true, InDuration: 2, OutDuration: 2}}
+	p := planEffects(e, 3)
+	if p.fade == nil {
+		t.Fatal("expected a fade")
+	}
+	if total := p.fade.in + p.fade.out; math.Abs(total-3) > 1e-6 {
+		t.Errorf("clamped fades should fill the clip, got in=%v out=%v (sum %v)", p.fade.in, p.fade.out, total)
+	}
+}
+
+func TestPlanFadeDropsSubFrameSides(t *testing.T) {
+	e := &models.VideoEffects{Fade: &models.FadeEffect{Enabled: true, InDuration: 0.005, OutDuration: 0}}
+	if p := planEffects(e, 10); p.fade != nil {
+		t.Errorf("a fade shorter than a frame on its only side must be dropped, got %+v", p.fade)
+	}
+}
+
+func TestFadeGraphAppliesVideoAndAudioLast(t *testing.T) {
+	e := &models.VideoEffects{Fade: &models.FadeEffect{Enabled: true, InDuration: 0.4, OutDuration: 0.6}}
+	p := planEffects(e, 10)
+	graph, audioLabel, err := p.graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[0:a]", burn: "subtitles=/tmp/x.ass"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"fade=t=in:st=0:d=0.400",
+		"fade=t=out:st=9.400:d=0.600",
+		"afade=t=in:st=0:d=0.400",
+		"afade=t=out:st=9.400:d=0.600",
+	} {
+		if !strings.Contains(graph, want) {
+			t.Errorf("fade graph missing %q\n%s", want, graph)
+		}
+	}
+	// The video fade must run after the caption burn, so burn is not the terminal step.
+	if strings.Contains(graph, "subtitles=/tmp/x.ass[vout]") {
+		t.Errorf("caption burn must feed the fade, not go straight to [vout]\n%s", graph)
+	}
+	if !strings.Contains(graph, "[vout]") {
+		t.Errorf("graph must produce [vout]: %s", graph)
+	}
+	if audioLabel == "" {
+		t.Error("a fade must produce an audio stream to map")
+	}
+}
+
+func TestFadeGraphWithoutAudioHasNoAfade(t *testing.T) {
+	e := &models.VideoEffects{Fade: &models.FadeEffect{Enabled: true, InDuration: 0.4}}
+	p := planEffects(e, 10)
+	graph, audioLabel, err := p.graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(graph, "afade") || audioLabel != "" {
+		t.Errorf("a clip with no audio must not get an afade or an audio label, got label %q\n%s", audioLabel, graph)
+	}
+	if !strings.Contains(graph, "fade=t=in:st=0:d=0.400") {
+		t.Errorf("video fade-in still expected\n%s", graph)
+	}
+}
+
+func TestFadeGraphAudioOnlyFadesCanvasAudio(t *testing.T) {
+	e := &models.VideoEffects{Fade: &models.FadeEffect{Enabled: true, OutDuration: 0.5}}
+	p := planEffects(e, 10)
+	// Audio-only sources read audio from the second input.
+	graph, audioLabel, err := p.graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[1:a]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if audioLabel == "" || !strings.Contains(graph, "[1:a]afade=t=out:st=9.500:d=0.500") {
+		t.Errorf("audio-only fade must read [1:a] and map the result, got label %q\n%s", audioLabel, graph)
+	}
+}
+
+func TestFadeOffLeavesGraphUnchanged(t *testing.T) {
+	off := &models.VideoEffects{Fade: &models.FadeEffect{Enabled: false, InDuration: 1, OutDuration: 1}, Grade: &models.GradeEffect{Enabled: true, Look: "warm", Intensity: 40}}
+	graph, _, err := planEffects(off, 10).graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[0:a]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(graph, "fade=") || strings.Contains(graph, "afade=") {
+		t.Errorf("a disabled fade must add no fade filters\n%s", graph)
+	}
+}

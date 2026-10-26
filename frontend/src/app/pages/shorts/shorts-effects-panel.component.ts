@@ -272,6 +272,30 @@ interface Option<T extends string> {
             >Add impact text</button>
           </div>
 
+          <!-- Fade in and out -->
+          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="text-[13.5px] font-semibold">Fade in and out</h3>
+                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Eases the clip up from black at the start and down at the end. Picture and sound fade together. Set a side to 0 to skip it.</p>
+              </div>
+              <label class="flex items-center gap-2 text-[13px] font-medium">
+                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.fade.enabled" aria-label="Turn on fade in and out" />
+                On
+              </label>
+            </div>
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label class="block">
+                <span class="text-[12.5px] font-medium">Fade in · <span class="tabular-nums">{{ draft.fade.inDuration }}s</span></span>
+                <input type="range" min="0" max="2" step="0.1" class="w-full" [(ngModel)]="draft.fade.inDuration" aria-label="Fade-in length in seconds" />
+              </label>
+              <label class="block">
+                <span class="text-[12.5px] font-medium">Fade out · <span class="tabular-nums">{{ draft.fade.outDuration }}s</span></span>
+                <input type="range" min="0" max="2" step="0.1" class="w-full" [(ngModel)]="draft.fade.outDuration" aria-label="Fade-out length in seconds" />
+              </label>
+            </div>
+          </div>
+
           <div class="flex flex-wrap items-center gap-3">
             <button type="button" (click)="resetDraft()" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Reset to defaults</button>
             <span class="flex-1"></span>
