@@ -538,6 +538,10 @@ type effectNumbers struct {
 		Speed *struct {
 			Windows []speedNumber `json:"windows"`
 		} `json:"speed"`
+		Shake *struct {
+			Intensity *float64      `json:"intensity"`
+			Windows   []timedNumber `json:"windows"`
+		} `json:"shake"`
 	} `json:"effects"`
 }
 
@@ -610,6 +614,14 @@ func requireEffectNumbers(n effectNumbers) error {
 				numberField{fmt.Sprintf("speed window %d time", i+1), w.At},
 				numberField{fmt.Sprintf("speed window %d length", i+1), w.Duration},
 				numberField{fmt.Sprintf("speed window %d rate", i+1), w.Rate})
+		}
+	}
+	if sh := e.Shake; sh != nil {
+		fields = append(fields, numberField{"shake intensity", sh.Intensity})
+		for i, w := range sh.Windows {
+			fields = append(fields,
+				numberField{fmt.Sprintf("shake window %d time", i+1), w.At},
+				numberField{fmt.Sprintf("shake window %d length", i+1), w.Duration})
 		}
 	}
 	for _, f := range fields {

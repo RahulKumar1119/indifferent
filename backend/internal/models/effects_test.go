@@ -28,7 +28,10 @@ func validEffects() *VideoEffects {
 		Fade: &FadeEffect{Enabled: true, InDuration: 0.5, OutDuration: 0.5},
 		// Speed is present but off: freeze is on in this fixture, and the two
 		// cannot both be enabled. Tests that exercise speed flip freeze off.
-		Speed: &SpeedEffect{Enabled: false, Windows: []SpeedWindow{{At: 1, Duration: 2, Rate: 0.5}}},
+		Speed:    &SpeedEffect{Enabled: false, Windows: []SpeedWindow{{At: 1, Duration: 2, Rate: 0.5}}},
+		Finish:   &FinishEffect{Enabled: true, Grain: 30, Glow: 40, LightLeak: 20},
+		Waveform: &WaveformEffect{Enabled: true, Style: "waves", Color: "#FFFFFF", Position: "bottom", Height: 25},
+		Shake:    &ShakeEffect{Enabled: true, Intensity: 50, Windows: []ShakeWindow{{At: 2, Duration: 1}}},
 	}
 }
 
@@ -148,6 +151,36 @@ func TestVideoEffectsValidate(t *testing.T) {
 		}, ""},
 		{"freeze and speed both on is rejected", func(e *VideoEffects) { e.Speed.Enabled = true }, "freeze frame and speed cannot both be on"},
 		{"speed on with freeze off is fine", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true }, ""},
+		// Finish (effect 8).
+		{"finish grain out of range", func(e *VideoEffects) { e.Finish.Grain = 101 }, "grain strength 101 out of range"},
+		{"finish glow negative", func(e *VideoEffects) { e.Finish.Glow = -1 }, "glow strength -1 out of range"},
+		{"finish light leak out of range", func(e *VideoEffects) { e.Finish.LightLeak = 200 }, "light leak strength 200 out of range"},
+		{"finish enabled with all zero", func(e *VideoEffects) { e.Finish.Grain = 0; e.Finish.Glow = 0; e.Finish.LightLeak = 0 }, "finish needs grain, glow or light leak"},
+		{"finish disabled with all zero is fine", func(e *VideoEffects) { e.Finish.Enabled = false; e.Finish.Grain = 0; e.Finish.Glow = 0; e.Finish.LightLeak = 0 }, ""},
+		{"finish grain only is fine", func(e *VideoEffects) { e.Finish.Glow = 0; e.Finish.LightLeak = 0 }, ""},
+		// Waveform (effect 9).
+		{"waveform style unknown", func(e *VideoEffects) { e.Waveform.Style = "spectrum" }, "unknown waveform style"},
+		{"waveform color not hex", func(e *VideoEffects) { e.Waveform.Color = "red" }, "must be #RRGGBB"},
+		{"waveform position unknown", func(e *VideoEffects) { e.Waveform.Position = "left" }, "unknown waveform position"},
+		{"waveform height too low", func(e *VideoEffects) { e.Waveform.Height = 5 }, "waveform height 5 out of range 10-50"},
+		{"waveform height too high", func(e *VideoEffects) { e.Waveform.Height = 60 }, "waveform height 60 out of range 10-50"},
+		{"waveform bars is fine", func(e *VideoEffects) { e.Waveform.Style = "bars" }, ""},
+		// Shake (effect 10).
+		{"shake intensity out of range", func(e *VideoEffects) { e.Shake.Intensity = 101 }, "shake intensity 101 out of range"},
+		{"shake enabled without windows", func(e *VideoEffects) { e.Shake.Windows = nil }, "at least one window"},
+		{"shake disabled without windows is fine", func(e *VideoEffects) { e.Shake.Enabled = false; e.Shake.Windows = nil }, ""},
+		{"too many shake windows", func(e *VideoEffects) {
+			e.Shake.Windows = nil
+			for i := 0; i < 11; i++ {
+				e.Shake.Windows = append(e.Shake.Windows, ShakeWindow{At: float64(i * 7), Duration: 0.5})
+			}
+		}, "too many shake windows"},
+		{"shake window start out of range", func(e *VideoEffects) { e.Shake.Windows[0].At = 95 }, "shake window 1 start 95 must be between 0 and 90 seconds"},
+		{"shake window duration too short", func(e *VideoEffects) { e.Shake.Windows[0].Duration = 0.1 }, "shake window 1 duration 0.1 must be between 0.2 and 6 seconds"},
+		{"shake window NaN", func(e *VideoEffects) { e.Shake.Windows[0].At = math.NaN() }, "must be between 0 and 90 seconds"},
+		{"shake windows overlap", func(e *VideoEffects) {
+			e.Shake.Windows = []ShakeWindow{{At: 1, Duration: 2}, {At: 2, Duration: 1}}
+		}, "shake windows overlap"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

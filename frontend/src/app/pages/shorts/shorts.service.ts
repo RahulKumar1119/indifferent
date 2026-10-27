@@ -104,6 +104,9 @@ export interface VideoEffects {
   freeze?: FreezeEffect;
   fade?: FadeEffect;
   speed?: SpeedEffect;
+  finish?: FinishEffect;
+  waveform?: WaveformEffect;
+  shake?: ShakeEffect;
 }
 
 export interface AnimatedCaptions {
@@ -186,6 +189,39 @@ export interface SpeedEffect {
   windows: SpeedWindow[];
 }
 
+export interface FinishEffect {
+  enabled: boolean;
+  /** 0-100 film-grain strength; 0 is off. */
+  grain: number;
+  /** 0-100 soft-glow strength; 0 is off. */
+  glow: number;
+  /** 0-100 light-leak wash strength; 0 is off. */
+  lightLeak: number;
+}
+
+export interface WaveformEffect {
+  enabled: boolean;
+  style: 'waves' | 'bars';
+  color: string;
+  position: 'top' | 'middle' | 'bottom';
+  /** 10-50 percent of frame height. */
+  height: number;
+}
+
+export interface ShakeWindow {
+  /** Seconds from the start of each clip. */
+  at: number;
+  /** Seconds, 0.2 to 6. */
+  duration: number;
+}
+
+export interface ShakeEffect {
+  enabled: boolean;
+  /** 0-100 shake strength. */
+  intensity: number;
+  windows: ShakeWindow[];
+}
+
 /** Every phase 1 effect, always present, for the editing panel. */
 export type ResolvedVideoEffects = Required<VideoEffects>;
 
@@ -208,6 +244,9 @@ export function defaultVideoEffects(): ResolvedVideoEffects {
     freeze: { enabled: false, intensity: 50, freezes: [], impactTexts: [] },
     fade: { enabled: false, inDuration: 0.5, outDuration: 0.5 },
     speed: { enabled: false, windows: [] },
+    finish: { enabled: false, grain: 30, glow: 40, lightLeak: 0 },
+    waveform: { enabled: false, style: 'waves', color: '#FFFFFF', position: 'bottom', height: 22 },
+    shake: { enabled: false, intensity: 50, windows: [] },
   };
 }
 
@@ -226,6 +265,9 @@ export function resolveVideoEffects(saved?: VideoEffects | null): ResolvedVideoE
     },
     fade: { ...base.fade, ...(saved?.fade ?? {}) },
     speed: { ...base.speed, ...(saved?.speed ?? {}), windows: [...(saved?.speed?.windows ?? [])] },
+    finish: { ...base.finish, ...(saved?.finish ?? {}) },
+    waveform: { ...base.waveform, ...(saved?.waveform ?? {}) },
+    shake: { ...base.shake, ...(saved?.shake ?? {}), windows: [...(saved?.shake?.windows ?? [])] },
   };
 }
 
