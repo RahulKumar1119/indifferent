@@ -19,6 +19,14 @@ import (
 // timing are counted in these frames.
 const outputFPS = 30
 
+// Camera shake. The frame is overscanned by shakeOverscan, then displaced
+// within that margin, so a shake never exposes a black edge. shakeMaxPx is the
+// peak displacement at intensity 100, kept below the margin in pixels.
+const (
+	shakeOverscan = 1.06 // scale before displacement: 6% margin all round
+	shakeMaxPx    = 24.0 // peak displacement at intensity 100 (margin is ~32px)
+)
+
 // audioFormat sets every audio piece to one format, so the pieces of a
 // concat always match.
 const audioFormat = "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo"
@@ -61,7 +69,14 @@ type clipEffects struct {
 	fade     *fadeTiming              // nil when fade is off
 	speeds   []speedWindow            // sorted by start; empty when speed is off
 	srcSec   float64                  // clip source length; set when speed is on
+	finish   *models.FinishEffect     // nil when finish looks are off
+	waveform *models.WaveformEffect   // nil when the visualizer is off
+	shakes   []shakeWindow            // sorted by start; empty when shake is off
+	shakeAmp float64                  // peak shake displacement in px; 0 when off
 }
+
+// shakeWindow is one camera-shake moment on the source timeline.
+type shakeWindow struct{ start, dur float64 }
 
 // speedWindow plays the source span [start, start+dur) at rate times speed.
 // Clamped to the clip end at plan time.
@@ -119,6 +134,26 @@ func planEffects(e *models.VideoEffects, clipSec float64) clipEffects {
 	// forbids freeze and speed together, so only one of them touches outSec.
 	if s := e.Speed; s != nil && s.Enabled {
 		p.planSpeed(s, clipSec)
+	}
+	if fn := e.Finish; fn != nil && fn.Enabled {
+		look := *fn
+		p.finish = &look
+	}
+	if wv := e.Waveform; wv != nil && wv.Enabled {
+		w := *wv
+		p.waveform = &w
+	}
+	if sh := e.Shake; sh != nil && sh.Enabled {
+		// Peak displacement: up to shakeMaxPx at intensity 100. Kept within the
+		// overscan margin (see framing in the shake graph) so no black edge shows.
+		p.shakeAmp = shakeMaxPx * float64(sh.Intensity) / 100
+		for _, w := range sh.Windows {
+			if w.At >= clipSec {
+				continue
+			}
+			p.shakes = append(p.shakes, shakeWindow{start: w.At, dur: math.Min(w.Duration, clipSec-w.At)})
+		}
+		sort.Slice(p.shakes, func(i, j int) bool { return p.shakes[i].start < p.shakes[j].start })
 	}
 	// Fade is resolved last, because its fade-out is measured from the final
 	// output length, which freeze holds and speed windows both change.
@@ -328,6 +363,66 @@ func (p clipEffects) zoomExpr() string {
 	return fmt.Sprintf("1+%.4f*(%s)", p.zoomAmp, strings.Join(terms, "+"))
 }
 
+// shakeFilter returns the camera-shake chain: scale the frame up by the
+// overscan factor, then crop back to the output size at a time-varying offset
+// that oscillates inside the margin during each window and is still otherwise.
+// Applied on source-timed frames, like zoom, so a shake stays on its moment.
+func (p clipEffects) shakeFilter() string {
+	ow, oh := outputWidth, outputHeight
+	sw := int(math.Ceil(float64(ow) * shakeOverscan))
+	sh := int(math.Ceil(float64(oh) * shakeOverscan))
+	// Margin available for displacement on each axis, in the scaled frame.
+	marginX := float64(sw-ow) / 2
+	marginY := float64(sh-oh) / 2
+	ampX := math.Min(p.shakeAmp, marginX)
+	ampY := math.Min(p.shakeAmp, marginY)
+	// A per-window decaying oscillation. x and y use different frequencies so
+	// the motion is not a straight diagonal. Outside every window the sum is 0,
+	// so the crop sits centered and the frame is still.
+	gate := func(freq float64) string {
+		terms := make([]string, 0, len(p.shakes))
+		for _, w := range p.shakes {
+			// sin ramped down to 0 by the window end, so it eases out.
+			terms = append(terms, fmt.Sprintf("between(t,%.3f,%.3f)*sin(%.2f*(t-%.3f))*(1-(t-%.3f)/%.3f)",
+				w.start, w.start+w.dur, freq, w.start, w.start, w.dur))
+		}
+		return strings.Join(terms, "+")
+	}
+	xExpr := fmt.Sprintf("(iw-%d)/2+%.2f*(%s)", ow, ampX, gate(37))
+	yExpr := fmt.Sprintf("(ih-%d)/2+%.2f*(%s)", oh, ampY, gate(43))
+	return fmt.Sprintf("scale=%d:%d,crop=%d:%d:x='%s':y='%s'", sw, sh, ow, oh, xExpr, yExpr)
+}
+
+// finishFilters returns the grain/glow/light-leak look as a comma-chainable
+// filter list, each sub-effect present only when its strength is above 0. Every
+// filter here is linear (single in, single out), so the whole look drops into
+// the video chain like the color grade does. The glow is an in-place
+// unsharp-based bloom rather than a split/blend, to keep the chain linear and
+// the encode cheap. An empty slice means no finish.
+func (f *clipEffects) finishFilters() []string {
+	if f.finish == nil {
+		return nil
+	}
+	var out []string
+	fn := f.finish
+	if fn.Glow > 0 {
+		// Soft bloom: unsharp with a large radius and a negative amount lifts
+		// and spreads highlights, a cheap glow that needs no second stream.
+		k := float64(fn.Glow) / 100
+		out = append(out, fmt.Sprintf("unsharp=lx=13:ly=13:la=%.3f", -0.8*k))
+	}
+	if fn.Grain > 0 {
+		// Film grain: temporal noise, strength scaled and capped so it stays subtle.
+		out = append(out, fmt.Sprintf("noise=alls=%d:allf=t", int(math.Round(6+0.3*float64(fn.Grain)))))
+	}
+	if fn.LightLeak > 0 {
+		// Light leak: a warm wash over the frame, scaled by strength.
+		k := float64(fn.LightLeak) / 100
+		out = append(out, fmt.Sprintf("drawbox=x=0:y=0:w=iw:h=ih:color=orange@%.3f:t=fill", 0.15*k))
+	}
+	return out
+}
+
 // segment is one cut of the clip: a run of source frames, or a hold.
 type segment struct {
 	hold     bool
@@ -497,13 +592,14 @@ type graphInput struct {
 }
 
 // graph builds the -filter_complex graph for one clip. Stages run in this
-// order: framing, zoom, grade, freeze holds OR speed retiming, impact text,
-// captions, fade. Freeze and speed never both run (validation forbids it), so
-// they share the retiming slot. Zoom runs before retiming, on source-timed
-// frames, so a punch-in stays glued to its content as the clip speeds up or
-// slows down. The fade is last so it covers the captions and impact text. It
-// returns the graph and the audio label to map ("" when audio passes through
-// unchanged).
+// order: framing, zoom, shake, grade, finish look, freeze holds OR speed
+// retiming, impact text, captions, fade, waveform overlay. Freeze and speed
+// never both run (validation forbids it), so they share the retiming slot.
+// Zoom and shake run before retiming, on source-timed frames, so they stay
+// glued to their moment as the clip speeds up or slows down. The fade covers
+// the captions and impact text. The waveform overlay is last so it reads the
+// final (retimed) audio and tracks what is heard. It returns the graph and the
+// audio label to map ("" when audio passes through unchanged).
 func (p clipEffects) graph(in graphInput) (string, string, error) {
 	var chains []string
 	n := 0
@@ -520,9 +616,23 @@ func (p clipEffects) graph(in graphInput) (string, string, error) {
 			ref(cur), p.zoomExpr(), outputWidth, outputHeight, outputFPS, ref(next)))
 		cur = next
 	}
+	// Shake runs on source-timed frames (like zoom), so a shake stays glued to
+	// its moment as the clip is retimed later.
+	if p.shakeAmp > 0 && len(p.shakes) > 0 {
+		next := label("v")
+		chains = append(chains, ref(cur)+p.shakeFilter()+ref(next))
+		cur = next
+	}
 	if p.grade != nil {
 		next := label("v")
 		chains = append(chains, ref(cur)+strings.Join(p.grade.filters(), ",")+ref(next))
+		cur = next
+	}
+	// Finish looks (grain, glow, light leak) sit with the grade, over the whole
+	// clip, before any retiming.
+	if ff := p.finishFilters(); len(ff) > 0 {
+		next := label("v")
+		chains = append(chains, ref(cur)+strings.Join(ff, ",")+ref(next))
 		cur = next
 	}
 
@@ -555,10 +665,16 @@ func (p clipEffects) graph(in graphInput) (string, string, error) {
 		cur = next
 	}
 
-	// Fade, when on, is the last stage so it covers captions and impact text.
-	// A fade terminal replaces the plain "[vout]" below.
+	// Video terminal: caption burn, then optional fade. The last video stage
+	// normally writes [vout]; when a waveform overlay follows, it writes a
+	// plain label instead and the overlay produces [vout]. videoFinal is that
+	// final video label.
+	videoFinal := "[vout]"
+	if p.waveform != nil {
+		videoFinal = ref(label("v"))
+	}
 	vFade := p.fade.videoFilters(p.outSec)
-	burnOut := "[vout]"
+	burnOut := videoFinal
 	if len(vFade) > 0 {
 		burnOut = ref(label("v"))
 	}
@@ -568,8 +684,9 @@ func (p clipEffects) graph(in graphInput) (string, string, error) {
 		chains = append(chains, ref(cur)+"null"+burnOut)
 	}
 	if len(vFade) > 0 {
-		chains = append(chains, burnOut+strings.Join(vFade, ",")+"[vout]")
+		chains = append(chains, burnOut+strings.Join(vFade, ",")+videoFinal)
 	}
+	cur = videoFinal
 
 	// Audio fade. When holds already cut the audio, fade the labelled stream.
 	// Otherwise build a short chain from the input so there is a stream to map.
@@ -585,7 +702,75 @@ func (p clipEffects) graph(in graphInput) (string, string, error) {
 			audioOut = next
 		}
 	}
+
+	// Waveform visualizer. It reads the clip's final audio and overlays onto
+	// the video last, so it tracks what is heard even after retiming. The audio
+	// it reads is split off the stream we also map out. With no audio there is
+	// nothing to visualize, so the effect is skipped. cur holds the final video
+	// label (a plain label reserved above when a waveform is present).
+	if p.waveform != nil {
+		audioSrc := audioOut
+		if audioSrc == "" {
+			audioSrc = in.audioIn
+		}
+		if audioSrc != "" {
+			vizChains, newAudio := p.waveformGraph(cur, audioSrc, label)
+			chains = append(chains, vizChains...)
+			audioOut = newAudio
+		} else {
+			// No audio: the reserved label never became [vout], so alias it.
+			chains = append(chains, cur+"null[vout]")
+		}
+	}
+
 	return strings.Join(chains, ";"), audioOut, nil
+}
+
+// waveformGraph overlays an audio visualizer on the video. videoIn is the
+// finished-picture label (a plain label, not [vout]); audioSrc is the audio to
+// read and also map out. It returns the chains and the audio label to map
+// (split off audioSrc). The overlay produces [vout].
+func (p clipEffects) waveformGraph(videoIn, audioSrc string, label func(string) string) ([]string, string) {
+	w := p.waveform
+	var chains []string
+	vIn := videoIn
+
+	// Split the audio: one copy for the output map, one for the visualizer.
+	aMain := ref(label("wa"))
+	aViz := ref(label("wa"))
+	chains = append(chains, audioSrc+"asplit="+aMain+aViz)
+
+	// Visualizer: full width, height a share of the frame, in the chosen color.
+	vizH := outputHeight * clampInt(w.Height, 10, 50) / 100
+	color := strings.TrimPrefix(w.Color, "#")
+	vizOut := ref(label("wv"))
+	gen := fmt.Sprintf("showwaves=s=%dx%d:mode=line:colors=0x%s", outputWidth, vizH, color)
+	if w.Style == "bars" {
+		gen = fmt.Sprintf("showfreqs=s=%dx%d:mode=bar:ascale=log:colors=0x%s", outputWidth, vizH, color)
+	}
+	chains = append(chains, aViz+gen+vizOut)
+
+	// Overlay position.
+	y := "H-h" // bottom
+	switch w.Position {
+	case "top":
+		y = "0"
+	case "middle":
+		y = "(H-h)/2"
+	}
+	chains = append(chains, fmt.Sprintf("%s%soverlay=x=0:y=%s[vout]", vIn, vizOut, y))
+	return chains, aMain
+}
+
+// clampInt bounds v to [lo, hi].
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
 }
 
 // holdGraph cuts video and audio at each hold and joins the pieces again. Each

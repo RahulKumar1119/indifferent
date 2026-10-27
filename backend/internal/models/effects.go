@@ -33,6 +33,9 @@ const (
 	speedMaxRate       = 4.0
 	speedMinDuration   = 0.3
 	speedMaxDuration   = effectMaxSeconds
+	maxShakeWindows    = 10
+	shakeMinDuration   = 0.2
+	shakeMaxDuration   = 6.0
 )
 
 // VideoEffects is the phase 1 effect configuration stored on a shorts job.
@@ -46,6 +49,9 @@ type VideoEffects struct {
 	Freeze   *FreezeEffect     `json:"freeze,omitempty"`
 	Fade     *FadeEffect       `json:"fade,omitempty"`
 	Speed    *SpeedEffect      `json:"speed,omitempty"`
+	Finish   *FinishEffect     `json:"finish,omitempty"`
+	Waveform *WaveformEffect   `json:"waveform,omitempty"`
+	Shake    *ShakeEffect      `json:"shake,omitempty"`
 }
 
 // AnimatedCaptions draws burned-in captions with a word-by-word highlight.
@@ -132,6 +138,40 @@ type SpeedWindow struct {
 	Rate     float64 `json:"rate"`
 }
 
+// FinishEffect adds optional film grain, glow and light-leak looks over the
+// whole clip. Each strength is 0-100; 0 turns that sub-effect off, so one
+// FinishEffect can carry any mix of the three.
+type FinishEffect struct {
+	Enabled   bool `json:"enabled"`
+	Grain     int  `json:"grain"`     // 0-100 film-grain strength
+	Glow      int  `json:"glow"`      // 0-100 soft-glow strength
+	LightLeak int  `json:"lightLeak"` // 0-100 light-leak wash strength
+}
+
+// WaveformEffect draws an audio visualizer onto the clip. It reads the clip's
+// final (retimed) audio, so the bars track what is heard.
+type WaveformEffect struct {
+	Enabled  bool   `json:"enabled"`
+	Style    string `json:"style"`    // waves|bars
+	Color    string `json:"color"`    // #RRGGBB
+	Position string `json:"position"` // top|middle|bottom
+	Height   int    `json:"height"`   // 10-50 percent of frame height
+}
+
+// ShakeEffect adds camera shake over chosen windows. Intensity sets how far the
+// frame moves, bounded so the overscan margin never exposes a black edge.
+type ShakeEffect struct {
+	Enabled   bool          `json:"enabled"`
+	Intensity int           `json:"intensity"` // 0-100
+	Windows   []ShakeWindow `json:"windows"`
+}
+
+// ShakeWindow is one shake moment: it starts at At and lasts Duration seconds.
+type ShakeWindow struct {
+	At       float64 `json:"at"`
+	Duration float64 `json:"duration"`
+}
+
 // Active reports whether at least one effect is enabled.
 func (e *VideoEffects) Active() bool {
 	return e != nil &&
@@ -140,7 +180,10 @@ func (e *VideoEffects) Active() bool {
 			(e.Grade != nil && e.Grade.Enabled) ||
 			(e.Freeze != nil && e.Freeze.Enabled) ||
 			(e.Fade != nil && e.Fade.Enabled) ||
-			(e.Speed != nil && e.Speed.Enabled))
+			(e.Speed != nil && e.Speed.Enabled) ||
+			(e.Finish != nil && e.Finish.Enabled) ||
+			(e.Waveform != nil && e.Waveform.Enabled) ||
+			(e.Shake != nil && e.Shake.Enabled))
 }
 
 // Validate checks every configured effect, enabled or not, so a saved value
@@ -176,6 +219,21 @@ func (e *VideoEffects) Validate() error {
 	}
 	if e.Speed != nil {
 		if err := e.Speed.Validate(); err != nil {
+			return err
+		}
+	}
+	if e.Finish != nil {
+		if err := e.Finish.Validate(); err != nil {
+			return err
+		}
+	}
+	if e.Waveform != nil {
+		if err := e.Waveform.Validate(); err != nil {
+			return err
+		}
+	}
+	if e.Shake != nil {
+		if err := e.Shake.Validate(); err != nil {
 			return err
 		}
 	}
@@ -343,6 +401,67 @@ func (s SpeedEffect) Validate() error {
 		spans = append(spans, span{w.At, w.At + w.Duration})
 	}
 	return checkNoOverlap("speed windows", spans)
+}
+
+// Validate checks the finish strengths and requires at least one sub-effect
+// when enabled.
+func (f FinishEffect) Validate() error {
+	if err := checkIntRange("grain strength", f.Grain, 0, 100); err != nil {
+		return err
+	}
+	if err := checkIntRange("glow strength", f.Glow, 0, 100); err != nil {
+		return err
+	}
+	if err := checkIntRange("light leak strength", f.LightLeak, 0, 100); err != nil {
+		return err
+	}
+	if f.Enabled && f.Grain == 0 && f.Glow == 0 && f.LightLeak == 0 {
+		return fmt.Errorf("finish needs grain, glow or light leak above 0")
+	}
+	return nil
+}
+
+// Validate checks the waveform style, color, position and height.
+func (w WaveformEffect) Validate() error {
+	switch w.Style {
+	case "waves", "bars":
+	default:
+		return fmt.Errorf("unknown waveform style %q: must be waves or bars", w.Style)
+	}
+	if !hexColor.MatchString(w.Color) {
+		return fmt.Errorf("waveform color %q must be #RRGGBB", w.Color)
+	}
+	switch w.Position {
+	case "top", "middle", "bottom":
+	default:
+		return fmt.Errorf("unknown waveform position %q: must be top, middle or bottom", w.Position)
+	}
+	return checkIntRange("waveform height", w.Height, 10, 50)
+}
+
+// Validate checks the shake intensity and the windows: count, finite
+// non-overlapping times, and at least one window when enabled.
+func (s ShakeEffect) Validate() error {
+	if err := checkIntRange("shake intensity", s.Intensity, 0, 100); err != nil {
+		return err
+	}
+	if len(s.Windows) > maxShakeWindows {
+		return fmt.Errorf("too many shake windows: %d, the limit is %d", len(s.Windows), maxShakeWindows)
+	}
+	if s.Enabled && len(s.Windows) == 0 {
+		return fmt.Errorf("shake needs at least one window")
+	}
+	spans := make([]span, 0, len(s.Windows))
+	for i, w := range s.Windows {
+		if err := checkSeconds(fmt.Sprintf("shake window %d start", i+1), w.At); err != nil {
+			return err
+		}
+		if err := checkFloatRange(fmt.Sprintf("shake window %d duration", i+1), w.Duration, shakeMinDuration, shakeMaxDuration); err != nil {
+			return err
+		}
+		spans = append(spans, span{w.At, w.At + w.Duration})
+	}
+	return checkNoOverlap("shake windows", spans)
 }
 
 // validateImpactText accepts one non-empty line of at most impactMaxChars

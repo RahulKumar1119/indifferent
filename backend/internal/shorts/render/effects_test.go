@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -733,5 +734,215 @@ func TestSpeedOffLeavesGraphUnchanged(t *testing.T) {
 	}
 	if strings.Contains(graph, "atempo") || strings.Contains(graph, "setpts=(PTS") {
 		t.Errorf("a disabled speed effect must add no retiming\n%s", graph)
+	}
+}
+
+// --- Phase 3: finish look (#176), waveform (#177), camera shake (#178) ---
+
+func TestFinishFiltersPerSubEffect(t *testing.T) {
+	// Each sub-effect appears only when its strength is above 0.
+	p := planEffects(&models.VideoEffects{Finish: &models.FinishEffect{Enabled: true, Grain: 40, Glow: 0, LightLeak: 0}}, 10)
+	f := strings.Join(p.finishFilters(), ",")
+	if !strings.Contains(f, "noise=") || strings.Contains(f, "unsharp") || strings.Contains(f, "drawbox") {
+		t.Errorf("grain only should emit noise and nothing else, got %q", f)
+	}
+	p = planEffects(&models.VideoEffects{Finish: &models.FinishEffect{Enabled: true, Glow: 50}}, 10)
+	if f = strings.Join(p.finishFilters(), ","); !strings.Contains(f, "unsharp") {
+		t.Errorf("glow should emit unsharp, got %q", f)
+	}
+	p = planEffects(&models.VideoEffects{Finish: &models.FinishEffect{Enabled: true, LightLeak: 70}}, 10)
+	if f = strings.Join(p.finishFilters(), ","); !strings.Contains(f, "drawbox") || !strings.Contains(f, "orange@") {
+		t.Errorf("light leak should emit an orange drawbox, got %q", f)
+	}
+}
+
+func TestFinishOffEmitsNothing(t *testing.T) {
+	p := planEffects(&models.VideoEffects{Finish: &models.FinishEffect{Enabled: false, Grain: 80}}, 10)
+	if p.finish != nil || len(p.finishFilters()) != 0 {
+		t.Errorf("a disabled finish must contribute no filters, got %v", p.finishFilters())
+	}
+}
+
+func TestFinishInGraphAfterGrade(t *testing.T) {
+	e := &models.VideoEffects{
+		Grade:  &models.GradeEffect{Enabled: true, Look: "warm", Intensity: 40},
+		Finish: &models.FinishEffect{Enabled: true, Grain: 30, Glow: 40},
+	}
+	graph, _, err := planEffects(e, 10).graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[0:a]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gradeAt := strings.Index(graph, "colorbalance=")
+	noiseAt := strings.Index(graph, "noise=")
+	if gradeAt < 0 || noiseAt < 0 || noiseAt < gradeAt {
+		t.Errorf("finish must come after the grade\n%s", graph)
+	}
+}
+
+func TestShakeFilterOverscansAndStaysInMargin(t *testing.T) {
+	// Intensity 100 -> peak shakeMaxPx (24px), margin is 6% of 1080 = ~32px, so it fits.
+	p := planEffects(&models.VideoEffects{Shake: &models.ShakeEffect{
+		Enabled: true, Intensity: 100, Windows: []models.ShakeWindow{{At: 2, Duration: 1}},
+	}}, 10)
+	f := p.shakeFilter()
+	if !strings.HasPrefix(f, "scale=") || !strings.Contains(f, "crop=1080:1920") {
+		t.Errorf("shake must overscan with scale then crop back to the output size, got %q", f)
+	}
+	// The displacement amplitude must not exceed the margin.
+	sw := math.Ceil(outputWidth * shakeOverscan)
+	margin := (sw - outputWidth) / 2
+	if p.shakeAmp > margin {
+		t.Errorf("shake amplitude %v exceeds the overscan margin %v (black edge risk)", p.shakeAmp, margin)
+	}
+	if !strings.Contains(f, "between(t,2.000,3.000)") {
+		t.Errorf("shake must gate motion to its window, got %q", f)
+	}
+}
+
+func TestShakeSkipsWindowsPastClip(t *testing.T) {
+	p := planEffects(&models.VideoEffects{Shake: &models.ShakeEffect{
+		Enabled: true, Intensity: 50,
+		Windows: []models.ShakeWindow{{At: 2, Duration: 1}, {At: 50, Duration: 1}, {At: 9, Duration: 5}},
+	}}, 10)
+	if len(p.shakes) != 2 {
+		t.Fatalf("expected 2 windows inside the clip, got %+v", p.shakes)
+	}
+	if p.shakes[1].dur != 1 {
+		t.Errorf("a window past the clip end must be clamped, got %+v", p.shakes[1])
+	}
+}
+
+func TestShakeRunsBeforeRetiming(t *testing.T) {
+	// Shake is source-timed: it must appear before a speed stage in the graph.
+	e := &models.VideoEffects{
+		Shake: &models.ShakeEffect{Enabled: true, Intensity: 60, Windows: []models.ShakeWindow{{At: 1, Duration: 1}}},
+		Speed: &models.SpeedEffect{Enabled: true, Windows: []models.SpeedWindow{{At: 3, Duration: 2, Rate: 0.5}}},
+	}
+	graph, _, err := planEffects(e, 10).graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[0:a]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	shakeAt := strings.Index(graph, "crop=1080:1920:x=")
+	speedAt := strings.Index(graph, "setpts=(PTS-STARTPTS)/")
+	if shakeAt < 0 || speedAt < 0 || shakeAt > speedAt {
+		t.Errorf("shake must run before speed retiming\n%s", graph)
+	}
+}
+
+func TestShakeOffEmitsNoCrop(t *testing.T) {
+	e := &models.VideoEffects{Shake: &models.ShakeEffect{Enabled: false, Intensity: 80, Windows: []models.ShakeWindow{{At: 1, Duration: 1}}}}
+	graph, _, err := planEffects(e, 10).graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[0:a]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(graph, "scale=") && strings.Contains(graph, "crop=1080:1920:x=") {
+		t.Errorf("a disabled shake must add no overscan crop\n%s", graph)
+	}
+}
+
+func TestWaveformOverlaysAndSplitsAudio(t *testing.T) {
+	e := &models.VideoEffects{Waveform: &models.WaveformEffect{
+		Enabled: true, Style: "waves", Color: "#FF0000", Position: "bottom", Height: 25,
+	}}
+	graph, audioLabel, err := planEffects(e, 10).graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[0:a]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"asplit",                      // audio shared between output and visualizer
+		"showwaves=s=1080x480",        // 25% of 1920 = 480
+		"colors=0xFF0000",
+		"overlay=x=0:y=H-h",           // bottom
+	} {
+		if !strings.Contains(graph, want) {
+			t.Errorf("waveform graph missing %q\n%s", want, graph)
+		}
+	}
+	if audioLabel == "" {
+		t.Error("waveform must still map an audio stream")
+	}
+	if !strings.HasSuffix(graph, "[vout]") {
+		t.Errorf("overlay must produce the terminal [vout]: %s", graph)
+	}
+}
+
+func TestWaveformBarsStyleUsesShowfreqs(t *testing.T) {
+	e := &models.VideoEffects{Waveform: &models.WaveformEffect{
+		Enabled: true, Style: "bars", Color: "#00FF00", Position: "top", Height: 40,
+	}}
+	graph, _, err := planEffects(e, 10).graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[0:a]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(graph, "showfreqs=s=1080x768") || !strings.Contains(graph, "overlay=x=0:y=0") {
+		t.Errorf("bars style at top should use showfreqs and y=0\n%s", graph)
+	}
+}
+
+func TestWaveformWithoutAudioIsSkipped(t *testing.T) {
+	e := &models.VideoEffects{Waveform: &models.WaveformEffect{Enabled: true, Style: "waves", Color: "#FFFFFF", Position: "bottom", Height: 20}}
+	graph, audioLabel, err := planEffects(e, 10).graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(graph, "showwaves") || strings.Contains(graph, "asplit") {
+		t.Errorf("no audio means no visualizer\n%s", graph)
+	}
+	if audioLabel != "" {
+		t.Errorf("no audio to map, got %q", audioLabel)
+	}
+	if !strings.Contains(graph, "[vout]") {
+		t.Errorf("graph must still produce [vout]: %s", graph)
+	}
+}
+
+// TestPhase3GraphsRunThroughFFmpeg builds each Phase 3 effect's real graph and
+// runs it through the system ffmpeg on a synthetic clip. This catches
+// filtergraph syntax errors that string assertions cannot. Skipped when ffmpeg
+// is not on PATH (CI images without it, local machines without it).
+func TestPhase3GraphsRunThroughFFmpeg(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not on PATH")
+	}
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.mp4")
+	// 3s 1080x1920 test pattern with a tone, so there is video and audio.
+	mk := exec.Command("ffmpeg", "-v", "error",
+		"-f", "lavfi", "-i", "testsrc2=s=1080x1920:r=30:d=3",
+		"-f", "lavfi", "-i", "sine=frequency=440:duration=3",
+		"-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-y", src)
+	if out, err := mk.CombinedOutput(); err != nil {
+		t.Fatalf("make source: %v\n%s", err, out)
+	}
+
+	cases := map[string]*models.VideoEffects{
+		"finish":   {Finish: &models.FinishEffect{Enabled: true, Grain: 40, Glow: 50, LightLeak: 30}},
+		"shake":    {Shake: &models.ShakeEffect{Enabled: true, Intensity: 100, Windows: []models.ShakeWindow{{At: 0.5, Duration: 1}}}},
+		"wavewaves": {Waveform: &models.WaveformEffect{Enabled: true, Style: "waves", Color: "#FF3B30", Position: "bottom", Height: 25}},
+		"wavebars":  {Waveform: &models.WaveformEffect{Enabled: true, Style: "bars", Color: "#00C7FF", Position: "top", Height: 40}},
+		"combo":    {Shake: &models.ShakeEffect{Enabled: true, Intensity: 60, Windows: []models.ShakeWindow{{At: 0.5, Duration: 1}}}, Finish: &models.FinishEffect{Enabled: true, Grain: 20}, Waveform: &models.WaveformEffect{Enabled: true, Style: "waves", Color: "#FFFFFF", Position: "middle", Height: 20}},
+	}
+	for name, e := range cases {
+		t.Run(name, func(t *testing.T) {
+			graph, audioLabel, err := planEffects(e, 3).graph(graphInput{
+				framing: "scale=1080:1920", videoIn: "[0:v]", audioIn: "[0:a]",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			out := filepath.Join(dir, name+".mp4")
+			args := []string{"-v", "error", "-i", src, "-filter_complex", graph, "-map", "[vout]"}
+			if audioLabel != "" {
+				args = append(args, "-map", audioLabel)
+			}
+			args = append(args, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-t", "4", "-y", out)
+			if o, err := exec.Command("ffmpeg", args...).CombinedOutput(); err != nil {
+				t.Fatalf("ffmpeg rejected the %s graph: %v\ngraph: %s\n%s", name, err, graph, o)
+			}
+			fi, err := os.Stat(out)
+			if err != nil || fi.Size() < 1000 {
+				t.Fatalf("%s produced no real output: %v", name, err)
+			}
+		})
 	}
 }

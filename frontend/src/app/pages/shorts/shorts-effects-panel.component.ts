@@ -15,6 +15,7 @@ const MAX_PUNCH_INS = 10;
 const MAX_FREEZES = 5;
 const MAX_IMPACT_TEXTS = 5;
 const MAX_SPEED_WINDOWS = 5;
+const MAX_SHAKE_WINDOWS = 10;
 
 interface Option<T extends string> {
   id: T;
@@ -346,6 +347,125 @@ interface Option<T extends string> {
             <p class="mt-2 text-[11.5px] text-[hsl(var(--muted-foreground))]">Up to {{ maxSpeedWindows }}. Times are seconds from the start of each clip. Windows can't overlap.</p>
           </div>
 
+          <!-- Finish: film grain, glow, light leaks -->
+          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="text-[13.5px] font-semibold">Film look</h3>
+                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Optional grain, glow and a warm light leak over the whole clip. Set any to 0 to skip it.</p>
+              </div>
+              <label class="flex items-center gap-2 text-[13px] font-medium">
+                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.finish.enabled" aria-label="Turn on film look" />
+                On
+              </label>
+            </div>
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <label class="block">
+                <span class="text-[12.5px] font-medium">Grain · <span class="tabular-nums">{{ draft.finish.grain }}</span></span>
+                <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.finish.grain" aria-label="Film grain strength" />
+              </label>
+              <label class="block">
+                <span class="text-[12.5px] font-medium">Glow · <span class="tabular-nums">{{ draft.finish.glow }}</span></span>
+                <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.finish.glow" aria-label="Glow strength" />
+              </label>
+              <label class="block">
+                <span class="text-[12.5px] font-medium">Light leak · <span class="tabular-nums">{{ draft.finish.lightLeak }}</span></span>
+                <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.finish.lightLeak" aria-label="Light leak strength" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Audio visualizer -->
+          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="text-[13.5px] font-semibold">Audio visualizer</h3>
+                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Draws the sound as a waveform or frequency bars. Useful for audio-only clips.</p>
+              </div>
+              <label class="flex items-center gap-2 text-[13px] font-medium">
+                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.waveform.enabled" aria-label="Turn on the audio visualizer" />
+                On
+              </label>
+            </div>
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label class="block">
+                <span class="text-[12.5px] font-medium">Style</span>
+                <select class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="draft.waveform.style" aria-label="Visualizer style">
+                  @for (s of waveStyles; track s.id) {
+                    <option [ngValue]="s.id">{{ s.label }}</option>
+                  }
+                </select>
+              </label>
+              <label class="block">
+                <span class="text-[12.5px] font-medium">Height · <span class="tabular-nums">{{ draft.waveform.height }}%</span></span>
+                <input type="range" min="10" max="50" step="1" class="w-full" [(ngModel)]="draft.waveform.height" aria-label="Visualizer height percent" />
+              </label>
+              <label class="flex items-center gap-2 text-[12.5px] font-medium">
+                Color
+                <input type="color" class="h-10 w-10 cursor-pointer rounded-lg border border-[hsl(var(--border))] bg-transparent" [(ngModel)]="draft.waveform.color" aria-label="Visualizer color" />
+              </label>
+              <div>
+                <span class="text-[12.5px] font-medium">Position</span>
+                <div class="mt-1 flex flex-wrap gap-2" role="group" aria-label="Visualizer position">
+                  @for (pos of positions; track pos) {
+                    <button
+                      type="button"
+                      (click)="draft.waveform.position = pos"
+                      [attr.aria-pressed]="draft.waveform.position === pos"
+                      class="min-h-[40px] px-4 rounded-full border text-[13px] font-medium capitalize"
+                      [class]="draft.waveform.position === pos ? 'bg-[hsl(var(--foreground))] text-[hsl(var(--background))] border-transparent' : 'border-[hsl(var(--border))]'"
+                    >{{ pos }}</button>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Camera shake -->
+          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="text-[13.5px] font-semibold">Camera shake</h3>
+                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Adds a subtle shake over chosen moments. The frame is zoomed slightly first, so no black edges show.</p>
+              </div>
+              <label class="flex items-center gap-2 text-[13px] font-medium">
+                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.shake.enabled" aria-label="Turn on camera shake" />
+                On
+              </label>
+            </div>
+            <label class="mt-4 block max-w-md">
+              <span class="text-[12.5px] font-medium">Strength · <span class="tabular-nums">{{ draft.shake.intensity }}</span></span>
+              <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.shake.intensity" aria-label="Shake strength" />
+            </label>
+            <p class="mt-4 text-[12.5px] font-medium">Shake moments</p>
+            @for (w of draft.shake.windows; track $index; let i = $index) {
+              <div class="mt-2 flex flex-wrap items-end gap-2">
+                <label class="block w-28">
+                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
+                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="w.at" [attr.aria-label]="'Shake ' + (i + 1) + ' start in seconds'" [attr.aria-invalid]="blank(w.at)" />
+                  @if (blank(w.at)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a start time in seconds.</span>
+                  }
+                </label>
+                <label class="block w-28">
+                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Length (s)</span>
+                  <input type="number" min="0.2" max="6" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="w.duration" [attr.aria-label]="'Shake ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(w.duration)" />
+                  @if (blank(w.duration)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a length in seconds.</span>
+                  }
+                </label>
+                <button type="button" (click)="removeShakeWindow(i)" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Remove</button>
+              </div>
+            }
+            <button
+              type="button"
+              (click)="addShakeWindow()"
+              [disabled]="draft.shake.windows.length >= maxShakeWindows"
+              class="mt-3 min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+            >Add shake moment</button>
+            <p class="mt-2 text-[11.5px] text-[hsl(var(--muted-foreground))]">Up to {{ maxShakeWindows }}. Times are seconds from the start of each clip. They can't overlap.</p>
+          </div>
+
           <div class="flex flex-wrap items-center gap-3">
             <button type="button" (click)="resetDraft()" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Reset to defaults</button>
             <span class="flex-1"></span>
@@ -394,6 +514,11 @@ export class ShortsEffectsPanelComponent implements OnInit {
   readonly maxFreezes = MAX_FREEZES;
   readonly maxImpactTexts = MAX_IMPACT_TEXTS;
   readonly maxSpeedWindows = MAX_SPEED_WINDOWS;
+  readonly maxShakeWindows = MAX_SHAKE_WINDOWS;
+  readonly waveStyles: Option<ResolvedVideoEffects['waveform']['style']>[] = [
+    { id: 'waves', label: 'Waveform' },
+    { id: 'bars', label: 'Frequency bars' },
+  ];
   readonly fonts: Option<ResolvedVideoEffects['captions']['font']>[] = [
     { id: 'sans', label: 'Sans' },
     { id: 'serif', label: 'Serif' },
@@ -458,8 +583,19 @@ export class ShortsEffectsPanelComponent implements OnInit {
       d.zoom.punchIns.some((p) => this.blank(p.at) || this.blank(p.duration)) ||
       d.freeze.freezes.some((h) => this.blank(h.at) || this.blank(h.duration)) ||
       d.freeze.impactTexts.some((t) => this.blank(t.at) || this.blank(t.duration)) ||
-      d.speed.windows.some((w) => this.blank(w.at) || this.blank(w.duration) || this.blank(w.rate))
+      d.speed.windows.some((w) => this.blank(w.at) || this.blank(w.duration) || this.blank(w.rate)) ||
+      d.shake.windows.some((w) => this.blank(w.at) || this.blank(w.duration))
     );
+  }
+
+  addShakeWindow(): void {
+    if (this.draft.shake.windows.length < MAX_SHAKE_WINDOWS) {
+      this.draft.shake.windows.push({ at: 0, duration: 0.5 });
+    }
+  }
+
+  removeShakeWindow(index: number): void {
+    this.draft.shake.windows.splice(index, 1);
   }
 
   /** Freeze and speed both retime the clip and cannot both be on (the server rejects it). */
