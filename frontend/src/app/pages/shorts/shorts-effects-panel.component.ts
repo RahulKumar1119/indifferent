@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { EFFECT_PRESETS } from './effect-presets';
 import {
   ResolvedVideoEffects,
   ShortsJob,
@@ -57,6 +58,25 @@ interface Option<T extends string> {
 
       @if (loaded && !loadError) {
         <fieldset class="mt-4 min-w-0 space-y-4" [disabled]="!editable">
+          <!-- One-click presets: each fills the panel with a combination the user can then edit. -->
+          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
+            <h3 class="text-[13.5px] font-semibold">Quick presets</h3>
+            <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Start from a combination, then adjust anything below.</p>
+            <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Effect presets">
+              @for (p of presets; track p.id) {
+                <button
+                  type="button"
+                  (click)="applyPreset(p.id)"
+                  [title]="p.blurb"
+                  class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5"
+                >{{ p.label }}</button>
+              }
+            </div>
+            @if (appliedPreset) {
+              <p class="mt-2 text-[12px] text-[hsl(var(--muted-foreground))]" role="status">{{ appliedPreset }}</p>
+            }
+          </div>
+
           <!-- Animated captions -->
           <div class="rounded-xl border border-[hsl(var(--border))] p-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
@@ -643,9 +663,25 @@ export class ShortsEffectsPanelComponent implements OnInit {
     this.draft.freeze.impactTexts.splice(index, 1);
   }
 
+  readonly presets = EFFECT_PRESETS;
+  /** The blurb of the last applied preset, shown as a hint. */
+  appliedPreset = '';
+
+  /** Replaces the draft with a preset combination. The user edits it afterward;
+   * nothing is saved until Save. */
+  applyPreset(id: string): void {
+    const preset = EFFECT_PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    this.draft = preset.build();
+    this.appliedPreset = `Applied "${preset.label}". ${preset.blurb} Edit anything below, then save.`;
+    this.saved = false;
+    this.error = '';
+  }
+
   /** Puts every effect back to its default. Nothing is saved until Save effects. */
   resetDraft(): void {
     this.draft = defaultVideoEffects();
+    this.appliedPreset = '';
     this.saved = false;
     this.error = '';
   }
