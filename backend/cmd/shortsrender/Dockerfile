@@ -1,5 +1,5 @@
 # Stage 1: Build the Go binary
-FROM golang:1.26-alpine AS builder
+FROM golang:1.26-alpine AS gobuild
 
 # go.mod may require a newer patch release than the base image ships; allow the
 # Go toolchain to auto-download the required version.
@@ -20,32 +20,28 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-s -w" -o /out/shortsrender ./cmd/shortsrender
 
-# Stage 2: Download static FFmpeg binary
-FROM alpine:3.21 AS ffmpeg-downloader
-
-RUN apk add --no-cache curl tar xz \
-    && mkdir -p /ffmpeg \
-    && curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
-       | tar xJ --strip-components=1 -C /ffmpeg
-
-# Stage 3: Plain Alpine runtime (this is an ECS Fargate task, not a Lambda)
+# Stage 2: Plain Alpine runtime (this is an ECS Fargate task, not a Lambda).
+#
+# FFmpeg comes from Alpine's own package, not the johnvansickle static build
+# the thumbnails task avoids as well (#77). The static build is compiled
+# without libfreetype, so it has no drawtext filter, and the freeze effect's
+# impact text silently renders nothing (#174). Alpine's ffmpeg is built with
+# libass AND libfreetype, so both the subtitles (caption) filter and drawtext
+# work.
+#
+# fontconfig + DejaVu + Noto Devanagari so libass and drawtext can shape and
+# rasterize text in both Latin and Hindi. Without fonts the subtitles filter
+# silently produces captionless video, and without a Devanagari font Hindi
+# captions render as missing-glyph boxes. ttf-dejavu installs DejaVuSans at
+# /usr/share/fonts/dejavu/DejaVuSans.ttf, which impactFontOption() probes.
 FROM alpine:3.21
-
-# ca-certificates for TLS; fontconfig + DejaVu + Noto Devanagari so libass can
-# actually shape and rasterize burned-in captions in both Latin and Hindi.
-# Without fonts the subtitles filter silently produces captionless video, and
-# without a Devanagari font Hindi captions render as missing-glyph boxes.
-RUN apk add --no-cache ca-certificates fontconfig ttf-dejavu font-noto-devanagari
-
-# Copy static FFmpeg binaries (include libx264, libmp3lame, subtitles filter, etc.)
-COPY --from=ffmpeg-downloader /ffmpeg/ffmpeg /usr/local/bin/ffmpeg
-COPY --from=ffmpeg-downloader /ffmpeg/ffprobe /usr/local/bin/ffprobe
+RUN apk add --no-cache ca-certificates ffmpeg fontconfig ttf-dejavu font-noto-devanagari
 
 # Copy the compiled Go binary
-COPY --from=builder /out/shortsrender /app/shortsrender
+COPY --from=gobuild /out/shortsrender /app/shortsrender
 
-# Ensure binaries are executable
-RUN chmod +x /app/shortsrender /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
+# Ensure the binary is executable
+RUN chmod +x /app/shortsrender
 
 # ECS task entry point — runs to completion and exits (no Lambda runtime)
 ENTRYPOINT ["/app/shortsrender"]
