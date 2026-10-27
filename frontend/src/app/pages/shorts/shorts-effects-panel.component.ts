@@ -14,6 +14,7 @@ import {
 const MAX_PUNCH_INS = 10;
 const MAX_FREEZES = 5;
 const MAX_IMPACT_TEXTS = 5;
+const MAX_SPEED_WINDOWS = 5;
 
 interface Option<T extends string> {
   id: T;
@@ -296,13 +297,62 @@ interface Option<T extends string> {
             </div>
           </div>
 
+          <!-- Speed ramping -->
+          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="text-[13.5px] font-semibold">Speed</h3>
+                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Slow motion or fast motion over chosen moments. 1.0 is normal speed, below 1 is slower, above 1 is faster. Audio is retimed to match.</p>
+              </div>
+              <label class="flex items-center gap-2 text-[13px] font-medium">
+                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.speed.enabled" aria-label="Turn on speed" />
+                On
+              </label>
+            </div>
+            @if (speedFreezeConflict) {
+              <p class="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-2.5 text-[13px] text-amber-400" role="alert">
+                Speed and freeze frame can't both be on for the same clip yet. Turn one off before saving.
+              </p>
+            }
+            @for (w of draft.speed.windows; track $index; let i = $index) {
+              <div class="mt-2 flex flex-wrap items-end gap-2">
+                <label class="block w-24">
+                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
+                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="w.at" [attr.aria-label]="'Speed window ' + (i + 1) + ' start in seconds'" [attr.aria-invalid]="blank(w.at)" />
+                  @if (blank(w.at)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a start time in seconds.</span>
+                  }
+                </label>
+                <label class="block w-24">
+                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Length (s)</span>
+                  <input type="number" min="0.3" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="w.duration" [attr.aria-label]="'Speed window ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(w.duration)" />
+                  @if (blank(w.duration)) {
+                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a length in seconds.</span>
+                  }
+                </label>
+                <label class="block w-28">
+                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Rate · <span class="tabular-nums">{{ w.rate }}x</span></span>
+                  <input type="range" min="0.25" max="4" step="0.25" class="w-full" [(ngModel)]="w.rate" [attr.aria-label]="'Speed window ' + (i + 1) + ' rate'" />
+                </label>
+                <button type="button" (click)="removeSpeedWindow(i)" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Remove</button>
+              </div>
+            }
+            <button
+              type="button"
+              (click)="addSpeedWindow()"
+              [disabled]="draft.speed.windows.length >= maxSpeedWindows"
+              class="mt-3 min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+            >Add speed window</button>
+            <p class="mt-2 text-[11.5px] text-[hsl(var(--muted-foreground))]">Up to {{ maxSpeedWindows }}. Times are seconds from the start of each clip. Windows can't overlap.</p>
+          </div>
+
           <div class="flex flex-wrap items-center gap-3">
             <button type="button" (click)="resetDraft()" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Reset to defaults</button>
             <span class="flex-1"></span>
             <button
               type="button"
               (click)="save()"
-              [disabled]="saving || hasBlankNumbers()"
+              [disabled]="saving || hasBlankNumbers() || speedFreezeConflict"
               class="btn-interactive min-h-[40px] px-5 rounded-full bg-[hsl(var(--primary))] text-white text-[13.5px] font-semibold disabled:opacity-50"
             >{{ saving ? 'Saving…' : startStep ? 'Start processing' : draftMode ? 'Start render' : 'Save effects' }}</button>
           </div>
@@ -343,6 +393,7 @@ export class ShortsEffectsPanelComponent implements OnInit {
   readonly maxPunchIns = MAX_PUNCH_INS;
   readonly maxFreezes = MAX_FREEZES;
   readonly maxImpactTexts = MAX_IMPACT_TEXTS;
+  readonly maxSpeedWindows = MAX_SPEED_WINDOWS;
   readonly fonts: Option<ResolvedVideoEffects['captions']['font']>[] = [
     { id: 'sans', label: 'Sans' },
     { id: 'serif', label: 'Serif' },
@@ -406,8 +457,24 @@ export class ShortsEffectsPanelComponent implements OnInit {
     return (
       d.zoom.punchIns.some((p) => this.blank(p.at) || this.blank(p.duration)) ||
       d.freeze.freezes.some((h) => this.blank(h.at) || this.blank(h.duration)) ||
-      d.freeze.impactTexts.some((t) => this.blank(t.at) || this.blank(t.duration))
+      d.freeze.impactTexts.some((t) => this.blank(t.at) || this.blank(t.duration)) ||
+      d.speed.windows.some((w) => this.blank(w.at) || this.blank(w.duration) || this.blank(w.rate))
     );
+  }
+
+  /** Freeze and speed both retime the clip and cannot both be on (the server rejects it). */
+  get speedFreezeConflict(): boolean {
+    return this.draft.freeze.enabled && this.draft.speed.enabled;
+  }
+
+  addSpeedWindow(): void {
+    if (this.draft.speed.windows.length < MAX_SPEED_WINDOWS) {
+      this.draft.speed.windows.push({ at: 0, duration: 1, rate: 0.5 });
+    }
+  }
+
+  removeSpeedWindow(index: number): void {
+    this.draft.speed.windows.splice(index, 1);
   }
 
   addPunchIn(): void {

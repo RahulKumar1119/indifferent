@@ -535,7 +535,18 @@ type effectNumbers struct {
 			InDuration  *float64 `json:"inDuration"`
 			OutDuration *float64 `json:"outDuration"`
 		} `json:"fade"`
+		Speed *struct {
+			Windows []speedNumber `json:"windows"`
+		} `json:"speed"`
 	} `json:"effects"`
+}
+
+// speedNumber holds the three numbers of a speed window as pointers, so a
+// cleared field is caught rather than stored as zero.
+type speedNumber struct {
+	At       *float64 `json:"at"`
+	Duration *float64 `json:"duration"`
+	Rate     *float64 `json:"rate"`
 }
 
 // timedNumber holds the start and length of a punch-in, freeze or impact text.
@@ -592,6 +603,14 @@ func requireEffectNumbers(n effectNumbers) error {
 		fields = append(fields,
 			numberField{"fade in length", fd.InDuration},
 			numberField{"fade out length", fd.OutDuration})
+	}
+	if s := e.Speed; s != nil {
+		for i, w := range s.Windows {
+			fields = append(fields,
+				numberField{fmt.Sprintf("speed window %d time", i+1), w.At},
+				numberField{fmt.Sprintf("speed window %d length", i+1), w.Duration},
+				numberField{fmt.Sprintf("speed window %d rate", i+1), w.Rate})
+		}
 	}
 	for _, f := range fields {
 		if f.value == nil {

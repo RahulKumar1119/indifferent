@@ -59,7 +59,13 @@ type clipEffects struct {
 	texts    []impactCue              // output timeline
 	captions *models.AnimatedCaptions // non-nil when animated captions are on
 	fade     *fadeTiming              // nil when fade is off
+	speeds   []speedWindow            // sorted by start; empty when speed is off
+	srcSec   float64                  // clip source length; set when speed is on
 }
+
+// speedWindow plays the source span [start, start+dur) at rate times speed.
+// Clamped to the clip end at plan time.
+type speedWindow struct{ start, dur, rate float64 }
 
 // fadeTiming is the resolved fade-in and fade-out for a clip, in seconds on the
 // output timeline. A zero duration on a side means no fade there.
@@ -109,12 +115,58 @@ func planEffects(e *models.VideoEffects, clipSec float64) clipEffects {
 	if f := e.Freeze; f != nil && f.Enabled {
 		p.planFreeze(f, clipSec)
 	}
-	// Fade is resolved after freeze, because its fade-out is measured from the
-	// final output length, which freeze holds extend.
+	// Speed retimes the clip and sets outSec from the window rates. Validation
+	// forbids freeze and speed together, so only one of them touches outSec.
+	if s := e.Speed; s != nil && s.Enabled {
+		p.planSpeed(s, clipSec)
+	}
+	// Fade is resolved last, because its fade-out is measured from the final
+	// output length, which freeze holds and speed windows both change.
 	if fd := e.Fade; fd != nil && fd.Enabled {
 		p.fade = planFade(fd, p.outSec)
 	}
 	return p
+}
+
+// planSpeed keeps the windows that start inside the clip, clamps a window that
+// overruns the clip end, and sets the output length from the retimed spans.
+func (p *clipEffects) planSpeed(s *models.SpeedEffect, clipSec float64) {
+	for _, w := range s.Windows {
+		if w.At >= clipSec {
+			continue
+		}
+		dur := math.Min(w.Duration, clipSec-w.At)
+		p.speeds = append(p.speeds, speedWindow{start: w.At, dur: dur, rate: w.Rate})
+	}
+	sort.Slice(p.speeds, func(i, j int) bool { return p.speeds[i].start < p.speeds[j].start })
+	p.srcSec = clipSec
+	p.outSec = p.speedMapSource(clipSec)
+}
+
+// speedMapSource maps a clip-relative source time to the output timeline under
+// the speed windows. Time outside a window passes 1:1; the part of a window of
+// rate r that the time reaches advances at 1/r. Windows are sorted and
+// non-overlapping.
+func (p clipEffects) speedMapSource(t float64) float64 {
+	out := 0.0
+	cursor := 0.0 // source time accounted for so far
+	for _, w := range p.speeds {
+		if t <= w.start {
+			break
+		}
+		// Normal-speed run between the cursor and this window's start.
+		out += w.start - cursor
+		cursor = w.start
+		// The part of the window the time reaches, retimed by 1/rate.
+		end := math.Min(t, w.start+w.dur)
+		out += (end - w.start) / w.rate
+		cursor = end
+	}
+	// Normal-speed tail after the last window the time passed.
+	if t > cursor {
+		out += t - cursor
+	}
+	return out
 }
 
 // planFade clamps the fades so the fade-in and fade-out never overlap on a
@@ -229,15 +281,24 @@ func (p clipEffects) shiftBefore(t float64, inclusive bool) float64 {
 	return total
 }
 
-// mapStart maps a clip-relative source time to the output timeline. A hold
-// that starts at or before t moves t later by the hold's extra time.
+// mapStart maps a clip-relative source time to the output timeline. With speed
+// windows it follows the retimed timeline; otherwise a hold that starts at or
+// before t moves t later by the hold's extra time. Freeze and speed never both
+// run (validation forbids it), so only one branch applies.
 func (p clipEffects) mapStart(t float64) float64 {
+	if len(p.speeds) > 0 {
+		return p.speedMapSource(t)
+	}
 	return t + p.shiftBefore(t, true)
 }
 
-// mapEnd is mapStart for the end of a span. A hold that starts exactly at t
-// does not move t.
+// mapEnd is mapStart for the end of a span. With holds, a hold that starts
+// exactly at t does not move t. Under speed the map is continuous, so start
+// and end use the same mapping.
 func (p clipEffects) mapEnd(t float64) float64 {
+	if len(p.speeds) > 0 {
+		return p.speedMapSource(t)
+	}
 	return t + p.shiftBefore(t, false)
 }
 
@@ -436,9 +497,13 @@ type graphInput struct {
 }
 
 // graph builds the -filter_complex graph for one clip. Stages run in this
-// order: framing, zoom, grade, freeze holds, impact text, captions, fade. The
-// fade is last so it covers the captions and impact text. It returns the graph
-// and the audio label to map ("" when audio passes through unchanged).
+// order: framing, zoom, grade, freeze holds OR speed retiming, impact text,
+// captions, fade. Freeze and speed never both run (validation forbids it), so
+// they share the retiming slot. Zoom runs before retiming, on source-timed
+// frames, so a punch-in stays glued to its content as the clip speeds up or
+// slows down. The fade is last so it covers the captions and impact text. It
+// returns the graph and the audio label to map ("" when audio passes through
+// unchanged).
 func (p clipEffects) graph(in graphInput) (string, string, error) {
 	var chains []string
 	n := 0
@@ -466,6 +531,14 @@ func (p clipEffects) graph(in graphInput) (string, string, error) {
 		var holdChains []string
 		holdChains, cur, audioOut = p.holdGraph(ref(cur), in.audioIn, label)
 		chains = append(chains, holdChains...)
+	}
+
+	// Speed retiming. Freeze and speed never both run (validation forbids it),
+	// so this reuses the same slot in the chain.
+	if len(p.speeds) > 0 {
+		var speedChains []string
+		speedChains, cur, audioOut = p.speedGraph(ref(cur), in.audioIn, label)
+		chains = append(chains, speedChains...)
 	}
 
 	if len(p.texts) > 0 {
@@ -586,6 +659,103 @@ func (p clipEffects) holdGraph(in, audioIn string, label func(string) string) ([
 	aOut := label("af")
 	chains = append(chains, concatChain(aPieces, 0, 1, aOut))
 	return chains, vOut, aOut
+}
+
+// speedSeg is one time-based cut of the clip for speed retiming: the source
+// span [from, to) seconds, played at rate (1.0 outside a window).
+type speedSeg struct{ from, to, rate float64 }
+
+// speedSegments cuts the clip timeline at each speed window boundary. Normal
+// runs get rate 1.0; windows get their own rate. clipSec is the source length.
+func (p clipEffects) speedSegments(clipSec float64) []speedSeg {
+	var segs []speedSeg
+	pos := 0.0
+	for _, w := range p.speeds {
+		if w.start > pos {
+			segs = append(segs, speedSeg{from: pos, to: w.start, rate: 1})
+		}
+		end := math.Min(w.start+w.dur, clipSec)
+		segs = append(segs, speedSeg{from: w.start, to: end, rate: w.rate})
+		pos = end
+	}
+	if pos < clipSec {
+		segs = append(segs, speedSeg{from: pos, to: clipSec, rate: 1})
+	}
+	return segs
+}
+
+// speedGraph cuts video and audio at each speed-window boundary, retimes each
+// piece (setpts on video, atempo on audio), and concats them. Both streams are
+// retimed by the same factor per piece, so they stay in step. It returns the
+// chains, the video label, and the audio label ("" when there is no audio).
+// in and audioIn are input references that already carry their brackets.
+func (p clipEffects) speedGraph(in, audioIn string, label func(string) string) ([]string, string, string) {
+	segs := p.speedSegments(p.srcSec)
+	var chains []string
+
+	vSplit := make([]string, len(segs))
+	for i := range segs {
+		vSplit[i] = label("ss")
+	}
+	chains = append(chains, splitChain(in, vSplit, "split", "null"))
+
+	vPieces := make([]string, len(segs))
+	for i, s := range segs {
+		vPieces[i] = label("sp")
+		// trim by time, reset PTS, then scale PTS by 1/rate (rate>1 shortens).
+		pts := "setpts=PTS-STARTPTS"
+		if s.rate != 1 {
+			pts = fmt.Sprintf("setpts=(PTS-STARTPTS)/%.6f", s.rate)
+		}
+		chains = append(chains, fmt.Sprintf("%strim=start=%.6f:end=%.6f,%s%s",
+			ref(vSplit[i]), s.from, s.to, pts, ref(vPieces[i])))
+	}
+	vOut := label("sf")
+	chains = append(chains, concatChain(vPieces, 1, 0, vOut))
+
+	if audioIn == "" {
+		return chains, vOut, ""
+	}
+	aSplit := make([]string, len(segs))
+	for i := range segs {
+		aSplit[i] = label("sas")
+	}
+	chains = append(chains, splitChain(audioIn, aSplit, "asplit", "anull"))
+
+	aPieces := make([]string, len(segs))
+	for i, s := range segs {
+		aPieces[i] = label("sap")
+		filters := []string{fmt.Sprintf("atrim=start=%.6f:end=%.6f", s.from, s.to), "asetpts=PTS-STARTPTS"}
+		for _, f := range atempoFactors(s.rate) {
+			filters = append(filters, fmt.Sprintf("atempo=%.6f", f))
+		}
+		filters = append(filters, audioFormat)
+		chains = append(chains, ref(aSplit[i])+strings.Join(filters, ",")+ref(aPieces[i]))
+	}
+	aOut := label("saf")
+	chains = append(chains, concatChain(aPieces, 0, 1, aOut))
+	return chains, vOut, aOut
+}
+
+// atempoFactors breaks a playback rate into atempo factors, each within
+// atempo's supported 0.5 to 2.0 range, whose product is the rate. A rate of
+// 1.0 needs none.
+func atempoFactors(rate float64) []float64 {
+	if rate == 1 {
+		return nil
+	}
+	var factors []float64
+	r := rate
+	for r > 2.0 {
+		factors = append(factors, 2.0)
+		r /= 2.0
+	}
+	for r < 0.5 {
+		factors = append(factors, 0.5)
+		r /= 0.5
+	}
+	factors = append(factors, r)
+	return factors
 }
 
 // ref writes a filtergraph label reference such as "[v3]".

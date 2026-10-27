@@ -26,6 +26,9 @@ func validEffects() *VideoEffects {
 			ImpactTexts: []ImpactText{{At: 4, Duration: 1, Text: "WAIT, WHAT?"}},
 		},
 		Fade: &FadeEffect{Enabled: true, InDuration: 0.5, OutDuration: 0.5},
+		// Speed is present but off: freeze is on in this fixture, and the two
+		// cannot both be enabled. Tests that exercise speed flip freeze off.
+		Speed: &SpeedEffect{Enabled: false, Windows: []SpeedWindow{{At: 1, Duration: 2, Rate: 0.5}}},
 	}
 }
 
@@ -115,6 +118,36 @@ func TestVideoEffectsValidate(t *testing.T) {
 		{"fade disabled with both sides zero is fine", func(e *VideoEffects) { e.Fade.Enabled = false; e.Fade.InDuration = 0; e.Fade.OutDuration = 0 }, ""},
 		{"fade in only is fine", func(e *VideoEffects) { e.Fade.OutDuration = 0 }, ""},
 		{"fade at max is fine", func(e *VideoEffects) { e.Fade.InDuration = 2; e.Fade.OutDuration = 2 }, ""},
+		// Speed. The fixture has freeze on, so speed cases turn freeze off first.
+		{"speed valid", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true }, ""},
+		{"speed enabled without windows", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true; e.Speed.Windows = nil }, "at least one window"},
+		{"speed disabled without windows is fine", func(e *VideoEffects) { e.Speed.Windows = nil }, ""},
+		{"too many speed windows", func(e *VideoEffects) {
+			e.Freeze.Enabled = false
+			e.Speed.Enabled = true
+			e.Speed.Windows = nil
+			for i := 0; i < 6; i++ {
+				e.Speed.Windows = append(e.Speed.Windows, SpeedWindow{At: float64(i * 10), Duration: 1, Rate: 1.5})
+			}
+		}, "too many speed windows"},
+		{"speed rate too low", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true; e.Speed.Windows[0].Rate = 0.1 }, "rate 0.1 must be between 0.25x and 4x"},
+		{"speed rate too high", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true; e.Speed.Windows[0].Rate = 5 }, "rate 5 must be between 0.25x and 4x"},
+		{"speed rate NaN", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true; e.Speed.Windows[0].Rate = math.NaN() }, "rate NaN must be between"},
+		{"speed rate infinite", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true; e.Speed.Windows[0].Rate = math.Inf(1) }, "rate +Inf must be between"},
+		{"speed start out of range", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true; e.Speed.Windows[0].At = 95 }, "start 95 must be between 0 and 90 seconds"},
+		{"speed duration too short", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true; e.Speed.Windows[0].Duration = 0.1 }, "duration 0.1 must be between 0.3 and 90 seconds"},
+		{"speed windows overlap", func(e *VideoEffects) {
+			e.Freeze.Enabled = false
+			e.Speed.Enabled = true
+			e.Speed.Windows = []SpeedWindow{{At: 1, Duration: 3, Rate: 0.5}, {At: 2, Duration: 1, Rate: 2}}
+		}, "speed windows overlap"},
+		{"speed windows touching is fine", func(e *VideoEffects) {
+			e.Freeze.Enabled = false
+			e.Speed.Enabled = true
+			e.Speed.Windows = []SpeedWindow{{At: 1, Duration: 1, Rate: 0.5}, {At: 2, Duration: 1, Rate: 2}}
+		}, ""},
+		{"freeze and speed both on is rejected", func(e *VideoEffects) { e.Speed.Enabled = true }, "freeze frame and speed cannot both be on"},
+		{"speed on with freeze off is fine", func(e *VideoEffects) { e.Freeze.Enabled = false; e.Speed.Enabled = true }, ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

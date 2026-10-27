@@ -576,3 +576,162 @@ func TestFadeOffLeavesGraphUnchanged(t *testing.T) {
 		t.Errorf("a disabled fade must add no fade filters\n%s", graph)
 	}
 }
+
+// --- Speed ramping (issue #171) ---
+
+func speedEffects(windows ...models.SpeedWindow) *models.VideoEffects {
+	return &models.VideoEffects{Speed: &models.SpeedEffect{Enabled: true, Windows: windows}}
+}
+
+func TestPlanSpeedSkipsAndClampsWindows(t *testing.T) {
+	// Window at 50s is past a 10s clip (skipped); the 8s window is clamped to the clip end.
+	e := speedEffects(
+		models.SpeedWindow{At: 2, Duration: 2, Rate: 0.5},
+		models.SpeedWindow{At: 50, Duration: 1, Rate: 2},
+		models.SpeedWindow{At: 9, Duration: 8, Rate: 2},
+	)
+	p := planEffects(e, 10)
+	if len(p.speeds) != 2 {
+		t.Fatalf("expected 2 windows inside the clip, got %+v", p.speeds)
+	}
+	if p.speeds[1].start != 9 || p.speeds[1].dur != 1 {
+		t.Errorf("window past the clip end must be clamped to it, got %+v", p.speeds[1])
+	}
+}
+
+func TestSpeedOutputLength(t *testing.T) {
+	// 10s clip. 2s at 0.5x -> 4s; 1s at 2x -> 0.5s. Rest 7s at 1x.
+	// out = 7 + 4 + 0.5 = 11.5s.
+	p := planEffects(speedEffects(
+		models.SpeedWindow{At: 2, Duration: 2, Rate: 0.5},
+		models.SpeedWindow{At: 6, Duration: 1, Rate: 2},
+	), 10)
+	if math.Abs(p.outSec-11.5) > 1e-9 {
+		t.Errorf("output length: got %v want 11.5", p.outSec)
+	}
+	if math.Abs(p.srcSec-10) > 1e-9 {
+		t.Errorf("source length: got %v want 10", p.srcSec)
+	}
+}
+
+func TestSpeedMapsTimesForCaptionsAndImpact(t *testing.T) {
+	// One window: 2s to 4s at 0.5x (slow-mo, so it takes 4s of output).
+	p := planEffects(speedEffects(models.SpeedWindow{At: 2, Duration: 2, Rate: 0.5}), 10)
+	cases := []struct{ src, out float64 }{
+		{0, 0},     // before the window: 1:1
+		{2, 2},     // window start: unchanged
+		{3, 4},     // halfway through a 0.5x window: 2 + 1/0.5 = 4
+		{4, 6},     // window end: 2 + 2/0.5 = 6
+		{10, 12},   // tail: 6 + (10-4) = 12 = outSec
+	}
+	for _, c := range cases {
+		if got := p.mapStart(c.src); math.Abs(got-c.out) > 1e-9 {
+			t.Errorf("mapStart(%v) = %v, want %v", c.src, got, c.out)
+		}
+		if got := p.mapEnd(c.src); math.Abs(got-c.out) > 1e-9 {
+			t.Errorf("mapEnd(%v) = %v, want %v", c.src, got, c.out)
+		}
+	}
+	if math.Abs(p.outSec-12) > 1e-9 {
+		t.Errorf("outSec: got %v want 12", p.outSec)
+	}
+}
+
+func TestRemapWordsUnderSpeed(t *testing.T) {
+	// Clip starts at absolute 100s; a 0.5x window at clip-relative 2-4s.
+	p := planEffects(speedEffects(models.SpeedWindow{At: 2, Duration: 2, Rate: 0.5}), 10)
+	words := []models.Word{{Text: "slow", Start: 103, End: 104}} // clip-relative 3-4s
+	out := p.remapWords(words, 100)
+	// src 3 -> out 4, src 4 -> out 6, absolute = clipStart + mapped.
+	if math.Abs(out[0].Start-104) > 1e-9 || math.Abs(out[0].End-106) > 1e-9 {
+		t.Errorf("word under slow-mo: got %+v want start 104 end 106", out[0])
+	}
+}
+
+func TestSpeedGraphRetimesVideoAndAudio(t *testing.T) {
+	p := planEffects(speedEffects(models.SpeedWindow{At: 2, Duration: 2, Rate: 0.5}), 10)
+	graph, audioLabel, err := p.graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[0:a]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"split=3",            // before / window / after
+		"asplit=3",
+		"trim=start=0.000000:end=2.000000,setpts=PTS-STARTPTS",       // normal run keeps PTS
+		"trim=start=2.000000:end=4.000000,setpts=(PTS-STARTPTS)/0.500000", // 0.5x window
+		"atempo=0.500000",    // audio slowed to match
+		"concat=n=3:v=1:a=0",
+		"concat=n=3:v=0:a=1",
+	} {
+		if !strings.Contains(graph, want) {
+			t.Errorf("speed graph missing %q\n%s", want, graph)
+		}
+	}
+	if audioLabel == "" {
+		t.Error("speed must map a retimed audio stream")
+	}
+	if !strings.Contains(graph, "[vout]") {
+		t.Errorf("graph must produce [vout]: %s", graph)
+	}
+}
+
+func TestSpeedGraphWithoutAudio(t *testing.T) {
+	p := planEffects(speedEffects(models.SpeedWindow{At: 1, Duration: 2, Rate: 2}), 10)
+	graph, audioLabel, err := p.graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if audioLabel != "" || strings.Contains(graph, "atempo") || strings.Contains(graph, "asplit") {
+		t.Errorf("a clip with no audio must build no audio chain, got label %q\n%s", audioLabel, graph)
+	}
+	if !strings.Contains(graph, "setpts=(PTS-STARTPTS)/2.000000") {
+		t.Errorf("video must still be retimed: %s", graph)
+	}
+}
+
+func TestAtempoFactors(t *testing.T) {
+	cases := []struct {
+		rate float64
+		want []float64
+	}{
+		{1, nil},
+		{0.5, []float64{0.5}},
+		{2, []float64{2}},
+		{4, []float64{2, 2}},     // 4x needs two 2.0 stages
+		{0.25, []float64{0.5, 0.5}}, // 0.25x needs two 0.5 stages
+		{3, []float64{2, 1.5}},
+	}
+	for _, c := range cases {
+		got := atempoFactors(c.rate)
+		if len(got) != len(c.want) {
+			t.Fatalf("atempoFactors(%v) = %v, want %v", c.rate, got, c.want)
+		}
+		product := 1.0
+		for i, f := range got {
+			if f < 0.5-1e-9 || f > 2.0+1e-9 {
+				t.Errorf("atempoFactors(%v): factor %v outside 0.5-2.0", c.rate, f)
+			}
+			if math.Abs(f-c.want[i]) > 1e-9 {
+				t.Errorf("atempoFactors(%v)[%d] = %v, want %v", c.rate, i, f, c.want[i])
+			}
+			product *= f
+		}
+		if math.Abs(product-c.rate) > 1e-9 {
+			t.Errorf("atempoFactors(%v) product = %v, want %v", c.rate, product, c.rate)
+		}
+	}
+}
+
+func TestSpeedOffLeavesGraphUnchanged(t *testing.T) {
+	off := &models.VideoEffects{
+		Speed: &models.SpeedEffect{Enabled: false, Windows: []models.SpeedWindow{{At: 1, Duration: 2, Rate: 2}}},
+		Grade: &models.GradeEffect{Enabled: true, Look: "warm", Intensity: 40},
+	}
+	graph, _, err := planEffects(off, 10).graph(graphInput{framing: "null", videoIn: "[0:v]", audioIn: "[0:a]"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(graph, "atempo") || strings.Contains(graph, "setpts=(PTS") {
+		t.Errorf("a disabled speed effect must add no retiming\n%s", graph)
+	}
+}
