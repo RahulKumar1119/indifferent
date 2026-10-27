@@ -103,6 +103,7 @@ export interface VideoEffects {
   grade?: GradeEffect;
   freeze?: FreezeEffect;
   fade?: FadeEffect;
+  speed?: SpeedEffect;
 }
 
 export interface AnimatedCaptions {
@@ -171,6 +172,20 @@ export interface FadeEffect {
   outDuration: number;
 }
 
+export interface SpeedWindow {
+  /** Seconds from the start of each clip. */
+  at: number;
+  /** Seconds, at least 0.3. */
+  duration: number;
+  /** Playback rate, 0.25 (slow) to 4 (fast). */
+  rate: number;
+}
+
+export interface SpeedEffect {
+  enabled: boolean;
+  windows: SpeedWindow[];
+}
+
 /** Every phase 1 effect, always present, for the editing panel. */
 export type ResolvedVideoEffects = Required<VideoEffects>;
 
@@ -192,6 +207,7 @@ export function defaultVideoEffects(): ResolvedVideoEffects {
     grade: { enabled: false, look: 'cinematic', intensity: 50 },
     freeze: { enabled: false, intensity: 50, freezes: [], impactTexts: [] },
     fade: { enabled: false, inDuration: 0.5, outDuration: 0.5 },
+    speed: { enabled: false, windows: [] },
   };
 }
 
@@ -209,6 +225,7 @@ export function resolveVideoEffects(saved?: VideoEffects | null): ResolvedVideoE
       impactTexts: [...(saved?.freeze?.impactTexts ?? [])],
     },
     fade: { ...base.fade, ...(saved?.fade ?? {}) },
+    speed: { ...base.speed, ...(saved?.speed ?? {}), windows: [...(saved?.speed?.windows ?? [])] },
   };
 }
 

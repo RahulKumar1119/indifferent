@@ -28,6 +28,11 @@ const (
 	impactMaxChars     = 16
 	maxCaptionOutline  = 12
 	fadeMaxDuration    = 2.0
+	maxSpeedWindows    = 5
+	speedMinRate       = 0.25
+	speedMaxRate       = 4.0
+	speedMinDuration   = 0.3
+	speedMaxDuration   = effectMaxSeconds
 )
 
 // VideoEffects is the phase 1 effect configuration stored on a shorts job.
@@ -40,6 +45,7 @@ type VideoEffects struct {
 	Grade    *GradeEffect      `json:"grade,omitempty"`
 	Freeze   *FreezeEffect     `json:"freeze,omitempty"`
 	Fade     *FadeEffect       `json:"fade,omitempty"`
+	Speed    *SpeedEffect      `json:"speed,omitempty"`
 }
 
 // AnimatedCaptions draws burned-in captions with a word-by-word highlight.
@@ -110,6 +116,22 @@ type FadeEffect struct {
 	OutDuration float64 `json:"outDuration"`
 }
 
+// SpeedEffect changes playback speed over chosen windows: slow motion below
+// 1.0x, fast motion above. Outside a window the clip plays at 1.0x. Audio is
+// retimed with it. Windows must not overlap.
+type SpeedEffect struct {
+	Enabled bool          `json:"enabled"`
+	Windows []SpeedWindow `json:"windows"`
+}
+
+// SpeedWindow plays the source span [At, At+Duration) at Rate times speed.
+// At and Duration are seconds on the source timeline; Rate is 0.25 to 4.0.
+type SpeedWindow struct {
+	At       float64 `json:"at"`
+	Duration float64 `json:"duration"`
+	Rate     float64 `json:"rate"`
+}
+
 // Active reports whether at least one effect is enabled.
 func (e *VideoEffects) Active() bool {
 	return e != nil &&
@@ -117,7 +139,8 @@ func (e *VideoEffects) Active() bool {
 			(e.Zoom != nil && e.Zoom.Enabled) ||
 			(e.Grade != nil && e.Grade.Enabled) ||
 			(e.Freeze != nil && e.Freeze.Enabled) ||
-			(e.Fade != nil && e.Fade.Enabled))
+			(e.Fade != nil && e.Fade.Enabled) ||
+			(e.Speed != nil && e.Speed.Enabled))
 }
 
 // Validate checks every configured effect, enabled or not, so a saved value
@@ -150,6 +173,17 @@ func (e *VideoEffects) Validate() error {
 		if err := e.Fade.Validate(); err != nil {
 			return err
 		}
+	}
+	if e.Speed != nil {
+		if err := e.Speed.Validate(); err != nil {
+			return err
+		}
+	}
+	// Freeze and speed both retime the clip by cutting it into pieces, and
+	// combining the two on one clip is not supported yet. Reject the pair
+	// only when both are enabled; a disabled effect keeps its saved values.
+	if e.Freeze != nil && e.Freeze.Enabled && e.Speed != nil && e.Speed.Enabled {
+		return fmt.Errorf("freeze frame and speed cannot both be on for the same clip yet")
 	}
 	return nil
 }
@@ -286,6 +320,31 @@ func (f FadeEffect) Validate() error {
 	return nil
 }
 
+// Validate checks the speed windows: rate range, count, finite non-overlapping
+// times, and at least one window when enabled.
+func (s SpeedEffect) Validate() error {
+	if len(s.Windows) > maxSpeedWindows {
+		return fmt.Errorf("too many speed windows: %d, the limit is %d", len(s.Windows), maxSpeedWindows)
+	}
+	if s.Enabled && len(s.Windows) == 0 {
+		return fmt.Errorf("speed needs at least one window")
+	}
+	spans := make([]span, 0, len(s.Windows))
+	for i, w := range s.Windows {
+		if err := checkSeconds(fmt.Sprintf("speed window %d start", i+1), w.At); err != nil {
+			return err
+		}
+		if err := checkFloatRange(fmt.Sprintf("speed window %d duration", i+1), w.Duration, speedMinDuration, speedMaxDuration); err != nil {
+			return err
+		}
+		if err := checkRate(fmt.Sprintf("speed window %d rate", i+1), w.Rate, speedMinRate, speedMaxRate); err != nil {
+			return err
+		}
+		spans = append(spans, span{w.At, w.At + w.Duration})
+	}
+	return checkNoOverlap("speed windows", spans)
+}
+
 // validateImpactText accepts one non-empty line of at most impactMaxChars
 // characters. Any punctuation is allowed. Control characters, including
 // newlines and tabs, are not, because impact text is drawn on a single line.
@@ -335,6 +394,15 @@ func checkSeconds(what string, v float64) error {
 func checkFloatRange(what string, v, lo, hi float64) error {
 	if math.IsNaN(v) || v < lo || v > hi {
 		return fmt.Errorf("%s %v must be between %g and %g seconds", what, v, lo, hi)
+	}
+	return nil
+}
+
+// checkRate rejects a playback rate outside [lo, hi], including NaN and
+// infinity. Separate from checkFloatRange, whose message names seconds.
+func checkRate(what string, v, lo, hi float64) error {
+	if math.IsNaN(v) || math.IsInf(v, 0) || v < lo || v > hi {
+		return fmt.Errorf("%s %v must be between %gx and %gx", what, v, lo, hi)
 	}
 	return nil
 }
