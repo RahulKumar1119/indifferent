@@ -1,5 +1,18 @@
 [
   {
+    "slug": "video-effects-for-shorts",
+    "title": "Video Effects for Shorts: Zoom, Grade, Speed and More",
+    "description": "Every video effect in the AI Shorts generator with its exact limits: zoom, color grade, speed ramping, freeze frames, shake, finish, fade, waveform and the five presets.",
+    "category": "Shorts",
+    "published": "2026-10-28",
+    "updated": "2026-10-28",
+    "readMinutes": 6,
+    "cover": "/screenshots/shorts-hero-still.png",
+    "coverAlt": "A long video turning into three vertical AI Shorts clips with captions burned in",
+    "product": "ai-shorts",
+    "legacy": false
+  },
+  {
     "slug": "podcast-to-youtube-shorts",
     "title": "How to Turn a Podcast into YouTube Shorts",
     "description": "Prepare an episode, upload it, pick the right language and review three ranked clips. A practical workflow with limits, file-size maths and fixes.",
