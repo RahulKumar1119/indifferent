@@ -5,8 +5,16 @@
     <link>https://indifferent.fun/blog</link>
     <description>Guides to the AI Shorts generator, the TXT to quiz video generator and the watermark tool.</description>
     <language>en</language>
-    <lastBuildDate>Sun, 25 Oct 2026 00:00:00 GMT</lastBuildDate>
+    <lastBuildDate>Wed, 28 Oct 2026 00:00:00 GMT</lastBuildDate>
     <atom:link href="https://indifferent.fun/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>Video Effects for Shorts: Zoom, Grade, Speed and More</title>
+      <link>https://indifferent.fun/blog/video-effects-for-shorts</link>
+      <guid isPermaLink="true">https://indifferent.fun/blog/video-effects-for-shorts</guid>
+      <pubDate>Wed, 28 Oct 2026 00:00:00 GMT</pubDate>
+      <category>Shorts</category>
+      <description>Every video effect in the AI Shorts generator with its exact limits: zoom, color grade, speed ramping, freeze frames, shake, finish, fade, waveform and the five presets.</description>
+    </item>
     <item>
       <title>How to Turn a Podcast into YouTube Shorts</title>
       <link>https://indifferent.fun/blog/podcast-to-youtube-shorts</link>
