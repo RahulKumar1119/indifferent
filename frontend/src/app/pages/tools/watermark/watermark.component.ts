@@ -516,7 +516,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     setPageSeo(this.document, {
-      title: 'Add Text & Logo Watermarks to Images and Videos | Indifferent.fun',
+      title: 'Watermark Images and Videos Free | Indifferent',
       description:
         'Add text or logo watermarks to JPG, PNG, WebP, MP4, WebM and MOV files. Free, private, processed in your browser. Nothing uploads anywhere.',
       canonical: 'https://indifferent.fun/tools/add-watermark',

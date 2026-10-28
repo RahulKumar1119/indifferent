@@ -46,22 +46,22 @@ describe('seo helpers', () => {
 
   it('setPageSeo writes consistent title, description, OG, twitter and canonical', () => {
     setPageSeo(document, {
-      title: 'Add Text & Logo Watermarks to Images and Videos | Indifferent.fun',
+      title: 'Watermark Images and Videos Free | Indifferent',
       description: 'Add text or logo watermarks to JPG, PNG, WebP, and MP4 files.',
       canonical: 'https://indifferent.fun/tools/add-watermark',
     });
 
-    expect(document.title).toContain('Add Text & Logo Watermarks');
+    expect(document.title).toContain('Watermark Images and Videos Free');
     const desc = head.querySelector('meta[name="description"]');
     expect(desc?.getAttribute('content')).toContain('JPG, PNG, WebP, and MP4');
     expect(head.querySelector('meta[property="og:title"]')?.getAttribute('content')).toContain(
-      'Add Text & Logo Watermarks',
+      'Watermark Images and Videos Free',
     );
     expect(head.querySelector('meta[property="og:description"]')?.getAttribute('content')).toContain(
       'JPG, PNG, WebP, and MP4',
     );
     expect(head.querySelector('meta[name="twitter:title"]')?.getAttribute('content')).toContain(
-      'Add Text & Logo Watermarks',
+      'Watermark Images and Videos Free',
     );
     expect(head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
       'https://indifferent.fun/tools/add-watermark',

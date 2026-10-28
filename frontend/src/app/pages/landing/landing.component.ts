@@ -403,7 +403,7 @@ export class LandingComponent implements OnInit, AfterViewInit {
   ];
 
   ngOnInit(): void {
-    const title = 'Indifferent: AI Shorts, Quiz Videos and a Free Watermark Tool';
+    const title = 'Indifferent: AI Shorts, Quiz Videos and Watermark Tool';
     const description =
       'Cut long videos into captioned vertical clips, turn quiz text files into narrated MP4s, and watermark images in your browser. Free during beta.';
     setPageSeo(this.document, { title, description, canonical: 'https://indifferent.fun/' });
