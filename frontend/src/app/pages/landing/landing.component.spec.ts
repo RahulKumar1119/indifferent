@@ -126,7 +126,7 @@ describe('LandingComponent', () => {
   it('sets a unique title, description and canonical URL for the home page', () => {
     render();
 
-    expect(document.title).toBe('Indifferent: AI Shorts, Quiz Videos and a Free Watermark Tool');
+    expect(document.title).toBe('Indifferent: AI Shorts, Quiz Videos and Watermark Tool');
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toContain('Free during beta');
     expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/');
   });
