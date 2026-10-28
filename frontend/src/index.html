@@ -44,6 +44,32 @@
       }
     })();
   </script>
+  <!-- Site-wide structured data. Per-page WebPage, SoftwareApplication and
+       FAQPage blocks are added and cleared on navigation; this Organization and
+       WebSite pair stays put (the router only clears blocks with data-seo-id). -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://indifferent.fun/#organization",
+        "name": "Indifferent",
+        "url": "https://indifferent.fun/",
+        "logo": "https://indifferent.fun/logo.svg"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://indifferent.fun/#website",
+        "name": "Indifferent",
+        "url": "https://indifferent.fun/",
+        "description": "Cut long videos into captioned vertical clips, turn quiz text files into narrated MP4s, and watermark images in your browser. Free during beta.",
+        "publisher": { "@id": "https://indifferent.fun/#organization" },
+        "inLanguage": "en"
+      }
+    ]
+  }
+  </script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="alternate icon" type="image/x-icon" href="favicon.ico">
   <link rel="apple-touch-icon" href="icons/icon-192x192.png">
