@@ -28,6 +28,14 @@
   --shadow-card-hover: 0 10px 15px -3px rgba(0,0,0,0.1);
   --transition-fast: 150ms ease;
   --transition-normal: 300ms ease;
+  /* Canonical motion curves (ui-animation skill). One source of truth so the
+   * per-component copies stop drifting. `enter` is the historical house curve
+   * (0.23,1,0.32,1), used for entrances and transform hover; `move` for
+   * slides/panels; `press` for button press; `expo` for dramatic reveals. */
+  --ease-enter: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-move: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-press: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-expo: cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .dark {
@@ -124,7 +132,8 @@ html, body {
   font-size: 1rem;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
+  /* Explicit list, not `transition: all`: only these ever animate here. */
+  transition: transform 0.2s var(--ease-enter), background-color 0.2s var(--ease-enter), box-shadow 0.3s var(--ease-enter);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -379,6 +388,57 @@ input:focus-visible,
 }
 .toast-enter {
   animation: toast-in 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ---------------------------------------------------------------------------
+ * Shared UI motion (ui-animation skill, issue #182)
+ *
+ * One definition for the reveal / lift / press patterns that were copy-pasted
+ * into landing, shorts-maker, blog, about, dashboard and new. Components use
+ * these classes (and the appReveal directive) instead of redeclaring the CSS.
+ * Movement is transform + opacity only. The global reduced-motion block below
+ * neutralises every transition, so these need no per-rule reduced-motion gate.
+ * ------------------------------------------------------------------------- */
+
+/* Scroll reveal: hidden until the appReveal directive adds `is-visible`. */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.8s var(--ease-enter), transform 0.8s var(--ease-enter);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Card hover lift. Transform/shadow only; gated to real hover pointers so a
+ * tap on a touch screen does not stick the lifted state. */
+.card-lift {
+  transition: transform 0.35s var(--ease-enter), box-shadow 0.35s var(--ease-enter);
+}
+@media (hover: hover) and (pointer: fine) {
+  .card-lift:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+.card-lift:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+/* Button press feedback. Presses at 0ms on :active; manipulation kills the
+ * 300ms tap delay on touch. */
+.btn-motion {
+  transition: transform 0.2s var(--ease-enter), background-color 0.2s var(--ease-enter);
+  touch-action: manipulation;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-motion:hover {
+    transform: translateY(-1px);
+  }
+}
+.btn-motion:active {
+  transform: translateY(1px) scale(0.98);
 }
 
 /* Global reduced-motion kill switch. */

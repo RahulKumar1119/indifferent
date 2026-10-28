@@ -1,9 +1,10 @@
-import { AfterViewInit, Component, ElementRef, OnInit, PLATFORM_ID, inject } from '@angular/core';
-import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
+import { RevealDirective } from '../../shared/directives/reveal.directive';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { setCanonical, setJsonLd } from '../../shared/seo';
 
@@ -33,23 +34,17 @@ interface UseCaseLink {
 @Component({
   selector: 'app-shorts-maker',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavMenuComponent, NavMobileMenuComponent],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavMenuComponent, NavMobileMenuComponent, RevealDirective],
   styles: [`
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(0.23,1,0.32,1), transform .8s cubic-bezier(0.23,1,0.32,1); }
-    .reveal.is-visible { opacity: 1; transform: none; }
-    .card-lift { transition: transform .35s cubic-bezier(0.23,1,0.32,1), box-shadow .35s; }
-    .card-lift:hover { transform: translateY(-6px); }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(1px) scale(.99); }
+    /* .reveal, .card-lift and button press live in the shared stylesheet
+     * (styles.css, issue #182). Only this page's FAQ chevron is local. */
     details.faq summary::-webkit-details-marker { display: none; }
     details.faq[open] .faq-chevron { transform: rotate(180deg); }
-    .faq-chevron { transition: transform .25s; }
-    @media (prefers-reduced-motion: reduce) {
-      .reveal { opacity: 1; transform: none; transition: none; }
-      .card-lift, .btn-primary { transition: none; }
-    }
+    .faq-chevron { transition: transform .25s var(--ease-enter); }
+    .btn-primary { transition: transform .2s var(--ease-enter), background-color .2s var(--ease-enter); touch-action: manipulation; }
+    @media (hover: hover) and (pointer: fine) { .btn-primary:hover { transform: translateY(-1px); } }
+    .btn-primary:active { transform: translateY(1px) scale(.99); }
   `],
   template: `
     <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased">
@@ -117,19 +112,19 @@ interface UseCaseLink {
       <!-- Hero -->
       <section class="pt-32 md:pt-40 pb-14 px-4">
         <div class="max-w-5xl mx-auto text-center">
-          <h1 class="reveal font-medium tracking-[-0.03em] leading-[0.98] text-[clamp(2.6rem,6vw,4.8rem)]">
+          <h1 appReveal class="reveal font-medium tracking-[-0.03em] leading-[0.98] text-[clamp(2.6rem,6vw,4.8rem)]">
             Turn long videos into <em class="italic font-light">ranked vertical shorts</em>
           </h1>
-          <p class="reveal mt-5 text-[16.5px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
+          <p appReveal class="reveal mt-5 text-[16.5px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
             Upload a video or audio file.
             AI transcribes it, picks the strongest moments from the transcript, and renders up to 3 ranked 9:16 clips
             with burned-in captions.
           </p>
-          <div class="reveal mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div appReveal class="reveal mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a routerLink="/shorts" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Upload a video</a>
             <a href="#how" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full border border-black/15 hover:bg-black/5 transition-colors font-semibold text-[15px]">See how it works</a>
           </div>
-          <div class="reveal mt-6 flex flex-col items-center gap-2">
+          <div appReveal class="reveal mt-6 flex flex-col items-center gap-2">
             <p class="text-[13px] text-[#6B6560]">MP4, MOV, MP3 or WAV · 1 hour max · 2 GB max</p>
             <p class="text-[13px] text-[#6B6560]">
               Free during beta, no credit card.
@@ -138,7 +133,7 @@ interface UseCaseLink {
           </div>
 
           <!-- Product proof: the real upload screen plus the real caption presets -->
-          <div class="reveal mt-12 mx-auto w-[min(880px,100%)]">
+          <div appReveal class="reveal mt-12 mx-auto w-[min(880px,100%)]">
             <div class="rounded-[20px] border border-black/10 bg-white p-3">
               <div class="rounded-[12px] bg-[#0F0E0B] px-4 py-5 md:px-8 md:py-6 flex flex-col md:flex-row items-center gap-6">
                 <!-- Real upload screen -->
@@ -163,7 +158,7 @@ interface UseCaseLink {
           </div>
 
           <!-- What you get: the caption styles the product actually renders -->
-          <div class="reveal mt-8 mx-auto w-[min(880px,100%)]">
+          <div appReveal class="reveal mt-8 mx-auto w-[min(880px,100%)]">
             <p class="text-center text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">Caption presets</p>
             <p class="mt-2 text-center text-[15px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
               Every clip is captioned word by word from the transcript. The gallery has these four presets. Bold is the default, and a preset is used when a job's clips render, so a finished job keeps the look it was rendered with.
@@ -192,11 +187,11 @@ interface UseCaseLink {
       <!-- Features -->
       <section id="features" class="py-16 px-4 scroll-mt-24">
         <div class="max-w-6xl mx-auto">
-          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Features</p>
-          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)] leading-tight">What the pipeline <span class="font-light italic">does to your file.</span><br><span class="font-light italic">Five things it handles for you.</span></h2>
+          <p appReveal class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Features</p>
+          <h2 appReveal class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)] leading-tight">What the pipeline <span class="font-light italic">does to your file.</span><br><span class="font-light italic">Five things it handles for you.</span></h2>
           <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             @for (f of features; track f.title) {
-              <div class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6">
+              <div appReveal class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6">
                 <span class="inline-flex w-10 h-10 items-center justify-center rounded-xl bg-[#D96C3D]/12 text-[#A8481F]">
                   <svg lucideIcon="{{ f.icon }}" [size]="20"></svg>
                 </span>
@@ -211,26 +206,26 @@ interface UseCaseLink {
       <!-- How it works -->
       <section id="how" class="py-16 px-4 scroll-mt-24 bg-[#0F0E0B] text-[#F4EFE6]">
         <div class="max-w-6xl mx-auto">
-          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-white/50">How it works</p>
-          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Turn long videos into shorts.<br><span class="font-light italic text-white/70">Simple to use, built for speed.</span></h2>
+          <p appReveal class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-white/50">How it works</p>
+          <h2 appReveal class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Turn long videos into shorts.<br><span class="font-light italic text-white/70">Simple to use, built for speed.</span></h2>
           <div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
+            <div appReveal class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 1</p>
               <h3 class="mt-2 font-semibold text-[17px]">Upload a video or audio file</h3>
               <p class="mt-2 text-[14px] leading-relaxed text-white/60">MP4, MOV, MP3 or WAV up to 1 hour and 2 GB. Podcasts, interviews or phone footage.</p>
             </div>
-            <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
+            <div appReveal class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 2</p>
               <h3 class="mt-2 font-semibold text-[17px]">Let AI edit for you</h3>
               <p class="mt-2 text-[14px] leading-relaxed text-white/60">AI transcribes the file, picks the strongest moments from the transcript, centers the 9:16 window on the speaker, and burns in short caption lines.</p>
             </div>
-            <div class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
+            <div appReveal class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
               <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 3</p>
               <h3 class="mt-2 font-semibold text-[17px]">Preview and download</h3>
               <p class="mt-2 text-[14px] leading-relaxed text-white/60">Ranked clips land in your gallery with previews. Download full-HD 9:16 MP4s, ready for Shorts, Reels and TikTok.</p>
             </div>
           </div>
-          <div class="reveal mt-8 text-center">
+          <div appReveal class="reveal mt-8 text-center">
             <a routerLink="/shorts" class="btn-primary inline-block px-7 py-3.5 rounded-full bg-[#BC5227] hover:bg-[#A8481F] text-white font-semibold text-[15px]">Upload your first video</a>
           </div>
         </div>
@@ -239,11 +234,11 @@ interface UseCaseLink {
       <!-- Use cases -->
       <section id="use-cases" class="py-16 px-4 scroll-mt-24">
         <div class="max-w-6xl mx-auto">
-          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Use cases</p>
-          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Six ways to use <span class="font-light italic">ranked clips.</span></h2>
+          <p appReveal class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Use cases</p>
+          <h2 appReveal class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Six ways to use <span class="font-light italic">ranked clips.</span></h2>
           <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             @for (u of useCases; track u.slug) {
-              <a [routerLink]="['/use-cases', u.slug]" class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6 block hover:border-black/25">
+              <a [routerLink]="['/use-cases', u.slug]" appReveal class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6 block hover:border-black/25">
                 <h3 class="font-semibold text-[16.5px]">{{ u.title }}</h3>
                 <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560]">{{ u.text }}</p>
                 <span class="mt-3 inline-block text-[13.5px] font-semibold text-[#BC5227]">Learn more</span>
@@ -255,7 +250,7 @@ interface UseCaseLink {
 
       <!-- Stats band -->
       <section class="px-4 pb-4">
-        <div class="reveal max-w-6xl mx-auto rounded-[20px] bg-[#1A1714] text-white px-6 py-12 md:py-14 grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
+        <div appReveal class="reveal max-w-6xl mx-auto rounded-[20px] bg-[#1A1714] text-white px-6 py-12 md:py-14 grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
           <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">Up to 3</p><p class="mt-1 text-[13.5px] text-white/60">ranked clips per upload</p></div>
           <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">1080×1920</p><p class="mt-1 text-[13.5px] text-white/60">full-HD vertical export</p></div>
         </div>
@@ -264,8 +259,8 @@ interface UseCaseLink {
       <!-- FAQ -->
       <section id="faq" class="py-16 px-4 scroll-mt-24 bg-white border-y border-black/10">
         <div class="max-w-3xl mx-auto">
-          <p class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">FAQ</p>
-          <h2 class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Before you <span class="font-light italic">upload.</span></h2>
+          <p appReveal class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">FAQ</p>
+          <h2 appReveal class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Before you <span class="font-light italic">upload.</span></h2>
           <div class="mt-8 space-y-3">
             @for (f of faqs; track f.q) {
               <details class="faq reveal group rounded-[16px] border border-black/10 bg-[#FAF7F2] px-5 py-4">
@@ -282,8 +277,8 @@ interface UseCaseLink {
 
       <!-- Final CTA -->
       <section class="py-20 px-4 text-center">
-        <h2 class="reveal font-medium tracking-[-0.02em] text-[clamp(2rem,4.5vw,3.4rem)] leading-tight">Start creating shorts<br><span class="font-light italic">from your long videos.</span></h2>
-        <div class="reveal mt-8">
+        <h2 appReveal class="reveal font-medium tracking-[-0.02em] text-[clamp(2rem,4.5vw,3.4rem)] leading-tight">Start creating shorts<br><span class="font-light italic">from your long videos.</span></h2>
+        <div appReveal class="reveal mt-8">
           <a routerLink="/shorts" class="btn-primary inline-block px-8 py-4 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Turn your next video into shorts</a>
         </div>
       </section>
@@ -337,12 +332,10 @@ interface UseCaseLink {
     </div>
   `,
 })
-export class ShortsMakerComponent implements OnInit, AfterViewInit {
+export class ShortsMakerComponent implements OnInit {
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
   private readonly document = inject(DOCUMENT);
-  private readonly host = inject(ElementRef);
-  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   currentYear = new Date().getFullYear();
 
@@ -496,27 +489,4 @@ export class ShortsMakerComponent implements OnInit, AfterViewInit {
     setJsonLd(this.document, String(schema['@type']).toLowerCase(), schema);
   }
 
-  ngAfterViewInit(): void {
-    // DOM-only scroll reveals: skip on the server (Domino nodelists lack
-    // forEach and there is no IntersectionObserver). Content prerenders
-    // un-revealed; the client animates after hydration.
-    if (!this.isBrowser) {
-      return;
-    }
-    const els: Element[] = Array.from(this.host.nativeElement.querySelectorAll('.reveal'));
-    if (typeof IntersectionObserver === 'undefined') {
-      els.forEach((el) => el.classList.add('is-visible'));
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach((e) => {
-        if (e.isIntersecting) {
-          e.target.classList.add('is-visible');
-          observer.unobserve(e.target);
-        }
-      }),
-      { threshold: 0.12 },
-    );
-    els.forEach((el) => observer.observe(el));
-  }
 }
