@@ -162,6 +162,10 @@ Rules:
   edges.
 - Prefer moments with a strong hook, emotional peak, or a complete thought.
 - Return at most %d segments, ordered from most to least engaging.
+- Write every hookText in the same language and script as the transcript. Never
+  translate it: Hindi in Devanagari stays Hindi in Devanagari, English stays
+  English, and a transcript that mixes the two gets a hookText that mixes them
+  the same way.
 - Respond with ONLY a JSON object matching the schema. No prose, no markdown.
 
 Schema: {"segments":[{"start":number,"end":number,"score":number,"hookText":string}]}

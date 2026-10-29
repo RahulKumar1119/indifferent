@@ -70,6 +70,35 @@ func TestBuildPrompt_KeepsAllWords(t *testing.T) {
 	}
 }
 
+// hookText is shown under each clip and used as the share caption, so it must
+// stay in the transcript's language. Without this instruction the model
+// answered a Hindi transcript with English labels (issue #158).
+func TestBuildPrompt_KeepsHookTextInTranscriptLanguage(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+	}{
+		{"hindi", "दो हज़ार एक सीरीज ऑस्ट्रेलिया वाली"},
+		{"english", "this is an english sentence"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tr := models.Transcript{Words: []models.Word{{Text: tc.text, Start: 0, End: 1}}}
+			prompt := buildPrompt(tr, 60)
+
+			if !strings.Contains(prompt, tc.text) {
+				t.Errorf("transcript text %q missing from prompt", tc.text)
+			}
+			if !strings.Contains(prompt, "hookText in the same language and script as the transcript") {
+				t.Errorf("prompt does not pin hookText to the transcript language:\n%s", prompt)
+			}
+			if !strings.Contains(prompt, "Never\n  translate it") {
+				t.Errorf("prompt does not forbid translating hookText:\n%s", prompt)
+			}
+		})
+	}
+}
+
 // Snapping must move boundaries onto word edges.
 func TestSnapSegmentsToWords(t *testing.T) {
 	words := []models.Word{
