@@ -165,15 +165,58 @@ func parseRetryAfter(v string, now time.Time) time.Duration {
 	return 0
 }
 
-// headerInt reads an integer header, reporting whether it was present and valid.
-func headerInt(h http.Header, name string) (int64, bool) {
+// maxHeaderCount bounds the integers read from rate-limit headers. Provider
+// headers are untrusted input: a malformed one could otherwise be negative or
+// larger than int on a 32-bit build, or overflow when multiplied into a
+// time.Duration. A million is far above any real quota (Pexels' is 20,000 a
+// month) and far below every overflow point.
+const maxHeaderCount = 1_000_000
+
+// headerInt reads an integer header, reporting whether it was present and
+// valid. The value is clamped to [0, maxHeaderCount], so callers can convert
+// it to int or multiply it into a Duration without an overflow check. A
+// negative count is treated as zero, which for a quota means "used up".
+func headerInt(h http.Header, name string) (int, bool) {
 	v := strings.TrimSpace(h.Get(name))
 	if v == "" {
 		return 0, false
 	}
-	n, err := strconv.ParseInt(v, 10, 64)
-	return n, err == nil
+	// Atoi parses straight to int, so there is no 64-bit to int narrowing to
+	// bound. A value too large for int on this platform comes back as ErrRange
+	// and is clamped below like any other big number.
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		if ne, ok := err.(*strconv.NumError); ok && ne.Err == strconv.ErrRange {
+			if strings.HasPrefix(v, "-") {
+				return 0, true
+			}
+			return maxHeaderCount, true
+		}
+		return 0, false
+	}
+	if n < 0 {
+		return 0, true
+	}
+	if n > maxHeaderCount {
+		return maxHeaderCount, true
+	}
+	return n, true
 }
+
+// headerUnix reads a UNIX timestamp header such as Pexels' X-Ratelimit-Reset.
+// It returns the zero time when the header is absent, invalid or not
+// positive. Years beyond 9999 are rejected as not being a timestamp at all.
+func headerUnix(h http.Header, name string) time.Time {
+	v := strings.TrimSpace(h.Get(name))
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil || n <= 0 || n > maxUnixTime {
+		return time.Time{}
+	}
+	return time.Unix(n, 0)
+}
+
+// maxUnixTime is 9999-12-31T23:59:59Z.
+const maxUnixTime = 253402300799
 
 // requireBase checks a provider base URL once, at construction, so request
 // building later cannot fail with an error that quotes the URL.
