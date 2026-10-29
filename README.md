@@ -521,6 +521,7 @@ Generate the JWT secret with `openssl rand -hex 32`.
 | `THUMBNAIL_STATE_MACHINE_ARN` | API | Thumbnails state machine |
 | `RANKING_MODEL` | `shorts-rank` | `kimi` (default), `nova`, or `claude` |
 | `THUMBNAIL_MODEL` | `thumbnails` | Bedrock vision model ID |
+| `PEXELS_API_KEY` / `PIXABAY_API_KEY` | Story2Shorts stock search (`backend/internal/stockmedia`) | Provider API keys. Either one alone is enough; a missing key leaves that provider out. Pexels has paused new key issuance, so Pixabay alone is the working setup for new accounts. Backend only, never sent to the browser. No deployed function reads them yet. |
 | `SES_CONFIG_SET` / `FROM_ADDRESS` / `REPLY_TO` / `APP_BASE_URL` | `notifier` | Email delivery settings |
 
 The deploy scripts default to region `ap-south-1` and the `indifferent-fun` project prefix. Override the values in the scripts if you deploy elsewhere.
