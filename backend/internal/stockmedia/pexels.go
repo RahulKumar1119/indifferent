@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 )
 
 const (
@@ -158,11 +157,7 @@ func pexelsQuota(h http.Header) *Quota {
 	if !ok {
 		return nil
 	}
-	q := &Quota{Remaining: int(remaining)}
-	if reset, ok := headerInt(h, "X-Ratelimit-Reset"); ok && reset > 0 {
-		q.ResetAt = time.Unix(reset, 0)
-	}
-	return q
+	return &Quota{Remaining: remaining, ResetAt: headerUnix(h, "X-Ratelimit-Reset")}
 }
 
 type pexelsPhoto struct {

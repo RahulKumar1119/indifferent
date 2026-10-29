@@ -178,8 +178,9 @@ func (p *Pixabay) quota(h http.Header) *Quota {
 	if !ok {
 		return nil
 	}
-	q := &Quota{Remaining: int(remaining)}
-	if reset, ok := headerInt(h, "X-RateLimit-Reset"); ok && reset >= 0 {
+	q := &Quota{Remaining: remaining}
+	// headerInt bounds the value, so the multiplication cannot overflow.
+	if reset, ok := headerInt(h, "X-RateLimit-Reset"); ok {
 		q.ResetAt = p.now().Add(time.Duration(reset) * time.Second)
 	}
 	return q
