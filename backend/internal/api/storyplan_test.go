@@ -232,6 +232,22 @@ func decodeErr(t *testing.T, resp events.APIGatewayProxyResponse) models.APIErro
 	return e
 }
 
+// bodyRetryAfter is details.retryAfter from an error body, as the header text.
+// A page on another origin cannot read the Retry-After header, so the body must
+// carry the same number.
+func bodyRetryAfter(t *testing.T, resp events.APIGatewayProxyResponse) string {
+	t.Helper()
+	var e struct {
+		Details struct {
+			RetryAfter int `json:"retryAfter"`
+		} `json:"details"`
+	}
+	if err := json.Unmarshal([]byte(resp.Body), &e); err != nil {
+		t.Fatalf("not an API error: %s", resp.Body)
+	}
+	return fmt.Sprint(e.Details.RetryAfter)
+}
+
 func decodePlan(t *testing.T, resp events.APIGatewayProxyResponse) StoryPlanResponse {
 	t.Helper()
 	var p StoryPlanResponse
@@ -501,6 +517,9 @@ func TestStoryPlans_RateLimit(t *testing.T) {
 		}
 		if resp.Headers["Retry-After"] == "" || resp.Headers["Retry-After"] == "0" {
 			t.Errorf("Retry-After = %q", resp.Headers["Retry-After"])
+		}
+		if got := bodyRetryAfter(t, resp); got != resp.Headers["Retry-After"] {
+			t.Errorf("body retryAfter = %s, header = %s: the page can only read the body", got, resp.Headers["Retry-After"])
 		}
 		if e.planner.calls() != 3 {
 			t.Errorf("the model ran %d times, want 3", e.planner.calls())
