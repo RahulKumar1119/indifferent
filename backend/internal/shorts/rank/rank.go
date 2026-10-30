@@ -228,14 +228,36 @@ type kimiMessage struct {
 	Content string `json:"content"`
 }
 
-// buildRequestBody builds the model-specific invocation payload.
+// defaultMaxTokens is the output budget Rank asks each model for. Kimi gets a
+// larger one because its hidden reasoning tokens count against the same limit
+// as the JSON it returns.
+func (s *Service) defaultMaxTokens() int {
+	switch s.Model {
+	case ModelClaude, ModelNovaPro:
+		return 2000
+	default:
+		return 8000
+	}
+}
+
+// defaultTemperature is the sampling temperature Rank uses: low, because the
+// answer is a selection, not prose.
+const defaultTemperature = 0.2
+
+// buildRequestBody builds the model-specific invocation payload with Rank's
+// own token budget and temperature.
 func (s *Service) buildRequestBody(prompt string) ([]byte, error) {
+	return s.buildRequestBodyWith(prompt, s.defaultMaxTokens(), defaultTemperature)
+}
+
+// buildRequestBodyWith builds the model-specific invocation payload.
+func (s *Service) buildRequestBodyWith(prompt string, maxTokens int, temperature float64) ([]byte, error) {
 	switch s.Model {
 	case ModelClaude:
 		return json.Marshal(claudeRequest{
 			AnthropicVersion: "bedrock-2023-05-31",
-			MaxTokens:        2000,
-			Temperature:      0.2,
+			MaxTokens:        maxTokens,
+			Temperature:      temperature,
 			Messages: []claudeMessage{
 				{Role: "user", Content: prompt},
 			},
@@ -245,18 +267,62 @@ func (s *Service) buildRequestBody(prompt string) ([]byte, error) {
 			Messages: []novaMessage{
 				{Role: "user", Content: []novaContentBlock{{Text: prompt}}},
 			},
-			InferenceConfig: novaInferenceConfig{MaxTokens: 2000, Temperature: 0.2},
+			InferenceConfig: novaInferenceConfig{MaxTokens: maxTokens, Temperature: temperature},
 		})
 	default: // Kimi (default)
 		return json.Marshal(kimiRequest{
 			Messages: []kimiMessage{
 				{Role: "user", Content: prompt},
 			},
-			// Larger budget accounts for Kimi K3's hidden reasoning tokens on top of the JSON output.
-			MaxTokens:   8000,
-			Temperature: 0.2,
+			MaxTokens:   maxTokens,
+			Temperature: temperature,
 		})
 	}
+}
+
+// CompleteOptions tunes one Complete call. Zero values take the same defaults
+// Rank uses.
+type CompleteOptions struct {
+	// MaxTokens bounds the model's output. For Kimi it also covers hidden
+	// reasoning tokens, so leave generous headroom above the JSON you expect.
+	MaxTokens int
+	// Temperature is the sampling temperature. Zero means the default (0.2);
+	// to ask for exactly zero, pass a very small positive value.
+	Temperature float64
+}
+
+// Complete sends one prompt to the configured model and returns its raw text
+// answer. It lets other pipelines reuse the model adapters Rank is built on
+// (Kimi, Nova Pro and Claude each have their own request and response shape)
+// without copying them. The answer is untrusted text: callers must parse and
+// validate it, as Rank does.
+func (s *Service) Complete(ctx context.Context, prompt string, opts CompleteOptions) (string, error) {
+	maxTokens := opts.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = s.defaultMaxTokens()
+	}
+	temperature := opts.Temperature
+	if temperature <= 0 {
+		temperature = defaultTemperature
+	}
+	body, err := s.buildRequestBodyWith(prompt, maxTokens, temperature)
+	if err != nil {
+		return "", fmt.Errorf("failed to build request body: %w", err)
+	}
+	out, err := s.Client.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
+		ModelId:     aws.String(string(s.Model)),
+		Body:        body,
+		ContentType: aws.String("application/json"),
+		Accept:      aws.String("application/json"),
+	})
+	if err != nil {
+		return "", fmt.Errorf("bedrock InvokeModel failed: %w", err)
+	}
+	text, err := s.extractText(out.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read model response: %w", err)
+	}
+	return text, nil
 }
 
 // novaResponse maps the Nova Pro response location output.message.content[0].text.
@@ -346,6 +412,11 @@ func parseSegments(text string) []rawSegment {
 	}
 	return raw
 }
+
+// ExtractJSON returns the outermost JSON object in a model response, or "" when
+// there is none. It is the exported form of the helper Rank uses, for other
+// pipelines that read JSON out of a model answer.
+func ExtractJSON(text string) string { return extractJSON(text) }
 
 // extractJSON pulls the outermost JSON object out of a model response that may
 // be wrapped in markdown code fences or surrounded by prose. It returns the
