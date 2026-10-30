@@ -85,6 +85,16 @@ type APIHandler struct {
 	PreviewRenderer SlidePreviewRenderer
 	PreviewLimiter  PreviewLimiter
 	PreviewCache    PreviewCache
+
+	// StoryPlanner backs the /story-plans endpoints (issue #191). Nil disables
+	// them (they answer 503 and /story-plans/limits reports enabled=false), so
+	// the API can be deployed before the feature is switched on.
+	StoryPlanner StoryPlanner
+	// StoryPlansPerHour overrides the per-user hourly allowance of plans. Zero
+	// uses the default (20).
+	StoryPlansPerHour int
+	// StoryPlanNow overrides the clock for the allowance window, for tests.
+	StoryPlanNow func() time.Time
 }
 
 // corsHeaders returns the standard CORS headers for all responses.
@@ -155,6 +165,10 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleListShortsJobs)
 	case req.HTTPMethod == "GET" && req.Path == "/shorts/limits":
 		return h.handleGetShortsLimits(ctx, req)
+	case req.HTTPMethod == "GET" && req.Path == "/story-plans/limits":
+		return h.handleGetStoryPlanLimits(), nil
+	case isStoryPlanPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handleStoryPlans)
 	case isThumbnailPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleThumbnails)
 	case isMultipartPath(req.Path):

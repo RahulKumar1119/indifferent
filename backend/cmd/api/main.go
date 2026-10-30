@@ -10,13 +10,16 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/rahul/indifferent/backend/internal/api"
 	"github.com/rahul/indifferent/backend/internal/auth"
 	appconfig "github.com/rahul/indifferent/backend/internal/config"
+	"github.com/rahul/indifferent/backend/internal/shorts/rank"
 	"github.com/rahul/indifferent/backend/internal/slidegen"
 	"github.com/rahul/indifferent/backend/internal/storage"
+	"github.com/rahul/indifferent/backend/internal/storyplan"
 )
 
 func main() {
@@ -82,6 +85,18 @@ func main() {
 		UsersTable:   usersTable,
 	}
 
+	// Story planning (issue #191). Off unless STORY_PLAN_ENABLED is true or 1:
+	// the endpoints then answer 503 and nothing calls Bedrock, so this binary
+	// can be deployed before the feature is switched on, and switched off again
+	// by clearing the variable. PLANNING_MODEL takes the same values as
+	// RANKING_MODEL (kimi, nova, claude); it defaults to kimi, the model whose
+	// latency and Hindi output were measured.
+	var storyPlanner api.StoryPlanner
+	if appconfig.Enabled(os.Getenv("STORY_PLAN_ENABLED")) {
+		model := rank.ModelFromString(os.Getenv("PLANNING_MODEL"))
+		storyPlanner = storyplan.NewService(rank.NewService(bedrockruntime.NewFromConfig(awsCfg), model), string(model))
+	}
+
 	// Create API handler
 	handler := &api.APIHandler{
 		AuthService:           authService,
@@ -100,6 +115,7 @@ func main() {
 		// Optional, off unless S3_ACCELERATE is true or 1.
 		S3Accelerate:    appconfig.S3Accelerate(),
 		PreviewRenderer: slidegen.NewNativeRenderer(),
+		StoryPlanner:    storyPlanner,
 	}
 
 	// Start Lambda

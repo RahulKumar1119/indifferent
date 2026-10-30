@@ -280,6 +280,7 @@ DynamoDB is single-table per concern, with composite `PK`/`SK` keys:
 | `indifferent-fun-projects` | Quiz project | `USER#<userId>` | `PROJECT#<projectId>` | Design, voice, status, S3 keys, branding, watermark, linked shorts job IDs |
 | `indifferent-fun-projects` | Shorts job | `USER#<userId>` | `SHORTS#<jobId>` | Source metadata, status, progress, transcript key, ranked segments, clips, caption style, edits |
 | `indifferent-fun-projects` | Thumbnail set | `USER#<userId>` | `THUMBS#<jobId>` | Generation, stage, progress, three suggestions, selection |
+| `indifferent-fun-projects` | Story plan | `USER#<userId>` | `STORYPLAN#<planId>` | One item per planning attempt: status (`pending`, `ready`, `failed`), model, story length, detected script, error code, and the plan as JSON. The story text is never stored. `planId` is a UUIDv7, so the sort key orders by creation time |
 
 S3 layout (`indifferent-fun-assets`):
 
@@ -522,6 +523,8 @@ Generate the JWT secret with `openssl rand -hex 32`.
 | `RANKING_MODEL` | `shorts-rank` | `kimi` (default), `nova`, or `claude` |
 | `THUMBNAIL_MODEL` | `thumbnails` | Bedrock vision model ID |
 | `PEXELS_API_KEY` / `PIXABAY_API_KEY` | Story2Shorts stock search (`backend/internal/stockmedia`) | Provider API keys. Either one alone is enough; a missing key leaves that provider out. Pexels has paused new key issuance, so Pixabay alone is the working setup for new accounts. Backend only, never sent to the browser. No deployed function reads them yet. |
+| `STORY_PLAN_ENABLED` | API | Switch for the Story2Shorts planner (`/story-plans`). `true` or `1` turns it on; unset or anything else leaves it off, so the routes answer `503` and nothing calls Bedrock. It is the kill switch. |
+| `PLANNING_MODEL` | API | Model for the planner: `kimi` (default, the one measured), `nova` or `claude`. Same values as `RANKING_MODEL`. Needs `bedrock:InvokeModel`, which the shared Lambda role already has. |
 | `SES_CONFIG_SET` / `FROM_ADDRESS` / `REPLY_TO` / `APP_BASE_URL` | `notifier` | Email delivery settings |
 
 The deploy scripts default to region `ap-south-1` and the `indifferent-fun` project prefix. Override the values in the scripts if you deploy elsewhere.
@@ -629,6 +632,21 @@ All `/projects`, `/settings` and `/shorts` routes require `Authorization: Bearer
 Sources up to 16 MB upload with one presigned PUT, the URL returned by `POST /shorts`. Larger sources use the multipart routes: 16 MB parts, five at a time, each retried on its own. Finished parts are saved in the browser, so a reload or a dropped connection continues from the last finished part when the same file is chosen again.
 
 Part uploads can go through S3 Transfer Acceleration (`<bucket>.s3-accelerate.amazonaws.com`) for users far from ap-south-1. It is controlled by the `S3_ACCELERATE` environment variable on the API Lambda: `true` or `1` turns it on, unset or anything else leaves it off (the default, and the kill switch). The bucket must have acceleration enabled first. Cost: uploads through acceleration are charged $0.04/GB via US, EU and Japan edge locations and $0.08/GB via other edge locations, and are not charged when AWS judges the transfer not faster. The regional endpoint is free for inbound data. Single PUTs (16 MB and under) and all server-side S3 calls stay on the regional endpoint. If a network blocks the accelerate host, the browser asks for regular URLs (`accelerate: false`) for the rest of that upload.
+
+### Story plans
+
+Story2Shorts phase 2 (issue #191). A story goes in; a plan comes out: a hook, then 2 to 10 scenes of at most 90 seconds in total, each with narration, a duration, an English visual description, English stock-search keywords and a preferred media type (`photo` or `video`). Turned on by `STORY_PLAN_ENABLED`; off, the routes below answer `503`.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/story-plans/limits` | What the planner accepts (story length, scene and length limits, plans per hour). No sign-in needed. `enabled` says whether the planner is on |
+| POST | `/story-plans` | Plan a video from `{story}`. Answers `201` with the plan. The call is synchronous: typically 5 to 10 seconds, the slowest of 34 measured calls took 14 seconds, and it is cut off at 25 |
+| GET | `/story-plans/:id` | Read a stored plan back. Another user's plan is `404` |
+
+- **Language.** Narration and the hook stay in the story's own language and script and are never translated. Keywords and descriptions are always English, because Pexels and Pixabay return nothing for Hindi.
+- **Limits.** The story must be 30 to 5,000 characters (characters, not bytes). Each user gets 20 plans an hour, failed attempts included; past that the answer is `429` with `Retry-After`.
+- **Errors.** `400` bad story, `429` over the hourly allowance, `502` the model's answer was not usable, `503` model busy or planner off, `504` model too slow. All but `400` and `429` are worth retrying.
+- **Privacy.** The story is sent to the model and not stored or logged; only its length is.
 
 ### AI thumbnails
 
