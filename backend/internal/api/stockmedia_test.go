@@ -367,6 +367,9 @@ func TestStockSearch_FailureCodes(t *testing.T) {
 			if tc.retry && resp.Headers["Retry-After"] != "45" {
 				t.Errorf("Retry-After = %q, want 45", resp.Headers["Retry-After"])
 			}
+			if tc.retry && bodyRetryAfter(t, resp) != "45" {
+				t.Errorf("body retryAfter = %s, want 45: the page can only read the body", bodyRetryAfter(t, resp))
+			}
 			if strings.Contains(resp.Body, "pexels:") || strings.Contains(resp.Body, "HTTP 503") {
 				t.Errorf("provider detail leaked: %s", resp.Body)
 			}
@@ -401,6 +404,9 @@ func TestStockSearch_PerUserAllowance(t *testing.T) {
 	resp := e.get(t, "/stock-media/search", "user1", q)
 	if resp.StatusCode != 429 || decodeErr(t, resp).Code != "RATE_LIMITED" || resp.Headers["Retry-After"] == "" {
 		t.Fatalf("status %d %s %v", resp.StatusCode, resp.Body, resp.Headers)
+	}
+	if got := bodyRetryAfter(t, resp); got != resp.Headers["Retry-After"] {
+		t.Errorf("body retryAfter = %s, header = %s: the page can only read the body", got, resp.Headers["Retry-After"])
 	}
 	if fs.searchCount() != 3 {
 		t.Errorf("the service ran %d times, want 3: the refused search must not reach it", fs.searchCount())

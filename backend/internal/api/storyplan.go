@@ -238,10 +238,9 @@ func (h *APIHandler) handleCreateStoryPlan(ctx context.Context, req events.APIGa
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Could not create the plan. Please try again."), nil
 	}
 	if limited {
-		resp := errorResponse(http.StatusTooManyRequests, "RATE_LIMITED",
-			fmt.Sprintf("You can create %d plans an hour. Try again later.", h.storyPlansPerHour()))
-		resp.Headers["Retry-After"] = strconv.Itoa(maxInt(1, int(retryAfter.Seconds())))
-		return resp, nil
+		return tooManyRequests("RATE_LIMITED",
+			fmt.Sprintf("You can create %d plans an hour. Try again later.", h.storyPlansPerHour()),
+			maxInt(1, int(retryAfter.Seconds()))), nil
 	}
 
 	planID, err := newStoryPlanID(now)
