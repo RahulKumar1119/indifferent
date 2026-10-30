@@ -79,3 +79,46 @@ func TestLive_InvalidKeyIsAnAuthError(t *testing.T) {
 		t.Errorf("pixabay with a bogus key: err = %v, want ErrAuth", err)
 	}
 }
+
+// TestLive_GetByIDRoundTrip looks up, by id, assets a search just returned, and
+// checks the lookup agrees with the search. This is how a saved plan reopens its
+// chosen media: it keeps only {provider, type, id}.
+func TestLive_GetByIDRoundTrip(t *testing.T) {
+	s := liveService(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	for _, name := range s.Providers() {
+		for _, typ := range []MediaType{MediaPhoto, MediaVideo} {
+			t.Run(string(name)+"/"+string(typ), func(t *testing.T) {
+				res, err := s.Search(ctx, name, SearchParams{Query: "mountain lake", Type: typ, PerPage: 5})
+				if err != nil || len(res.Assets) == 0 {
+					t.Fatalf("search: %v (%d assets)", err, len(res.Assets))
+				}
+				want := res.Assets[0]
+				got, err := s.Get(ctx, name, typ, want.ID)
+				if err != nil {
+					t.Fatalf("Get(%s): %v", want.ID, err)
+				}
+				if got.ID != want.ID || got.Type != typ || got.Width != want.Width || got.Height != want.Height {
+					t.Errorf("lookup disagrees with search:\n got  %s %dx%d\n want %s %dx%d", got.ID, got.Width, got.Height, want.ID, want.Width, want.Height)
+				}
+				if got.Credit == "" || got.PageURL == "" || got.MediaURL == "" {
+					t.Errorf("incomplete asset: %+v", got)
+				}
+				if typ == MediaVideo && got.PlayURL == "" {
+					t.Error("a video needs a preview file")
+				}
+				if err := ValidateAsset(got); err != nil {
+					t.Errorf("the looked-up asset fails validation: %v", err)
+				}
+				t.Logf("%s %s %dx%d play=%v", got.describe(), got.Orientation, got.Width, got.Height, got.PlayURL != "")
+			})
+		}
+	}
+	// A missing asset is a typed error, not a failure of the service.
+	for _, name := range s.Providers() {
+		if _, err := s.Get(ctx, name, MediaVideo, "1"); !errors.Is(err, ErrNotFound) {
+			t.Errorf("%s: video 1: err = %v, want ErrNotFound", name, err)
+		}
+	}
+}

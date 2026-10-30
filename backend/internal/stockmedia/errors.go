@@ -34,6 +34,9 @@ var (
 	// ErrUnavailable means the provider failed or could not be reached. It is
 	// the only kind that is reasonable to retry.
 	ErrUnavailable = errors.New("stock media provider unavailable")
+	// ErrNotFound means the provider has no asset with the requested id, for
+	// example because it was removed after the user chose it.
+	ErrNotFound = errors.New("stock media asset not found")
 	// ErrBadResponse means the provider answered with something unusable.
 	ErrBadResponse = errors.New("stock media provider returned an unusable response")
 	// ErrAllProvidersFailed means every queried provider returned an error.
@@ -50,6 +53,7 @@ type ErrorKind string
 // Provider failure kinds.
 const (
 	KindBadRequest  ErrorKind = "bad_request"
+	KindNotFound    ErrorKind = "not_found"
 	KindAuth        ErrorKind = "auth"
 	KindRateLimited ErrorKind = "rate_limited"
 	KindUnavailable ErrorKind = "unavailable"
@@ -86,6 +90,8 @@ func (e *ProviderError) Is(target error) bool {
 	switch e.Kind {
 	case KindBadRequest:
 		return target == ErrBadRequest
+	case KindNotFound:
+		return target == ErrNotFound
 	case KindAuth:
 		return target == ErrAuth
 	case KindRateLimited:

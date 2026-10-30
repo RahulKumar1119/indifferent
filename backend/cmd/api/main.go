@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +19,7 @@ import (
 	appconfig "github.com/rahul/indifferent/backend/internal/config"
 	"github.com/rahul/indifferent/backend/internal/shorts/rank"
 	"github.com/rahul/indifferent/backend/internal/slidegen"
+	"github.com/rahul/indifferent/backend/internal/stockmedia"
 	"github.com/rahul/indifferent/backend/internal/storage"
 	"github.com/rahul/indifferent/backend/internal/storyplan"
 )
@@ -97,6 +99,19 @@ func main() {
 		storyPlanner = storyplan.NewService(rank.NewService(bedrockruntime.NewFromConfig(awsCfg), model), string(model))
 	}
 
+	// Stock media search (issue #192). Built from PEXELS_API_KEY and
+	// PIXABAY_API_KEY: either alone is enough, and with neither set the
+	// /stock-media routes answer 503 instead of failing at startup, so the API
+	// deploys before the keys exist. The variable stays a true nil interface in
+	// that case, which the handlers check.
+	var stockMedia api.StockMedia
+	if svc, err := stockmedia.NewServiceFromEnv(); err == nil {
+		stockMedia = svc
+		log.Printf("stock media enabled providers=%v", svc.Providers())
+	} else if !errors.Is(err, stockmedia.ErrNotConfigured) {
+		log.Fatalf("stock media: %v", err)
+	}
+
 	// Create API handler
 	handler := &api.APIHandler{
 		AuthService:           authService,
@@ -116,6 +131,7 @@ func main() {
 		S3Accelerate:    appconfig.S3Accelerate(),
 		PreviewRenderer: slidegen.NewNativeRenderer(),
 		StoryPlanner:    storyPlanner,
+		StockMedia:      stockMedia,
 	}
 
 	// Start Lambda

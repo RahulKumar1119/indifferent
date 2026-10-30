@@ -21,6 +21,18 @@ type Scene struct {
 	// from the narration's length; the real length is known once the speech is
 	// synthesised.
 	Duration float64 `json:"duration"`
+	// Media is the stock asset the user picked for this scene, or nil while none
+	// is picked. It holds a reference and never a URL: Pixabay forbids keeping
+	// its URLs and Pexels video links are signed, so the API looks the asset up
+	// again each time a plan is opened.
+	Media *MediaRef `json:"media,omitempty"`
+}
+
+// MediaRef names a stock asset without any URL.
+type MediaRef struct {
+	Provider string `json:"provider"` // "pexels" or "pixabay"
+	Type     string `json:"type"`     // MediaPhoto or MediaVideo
+	ID       string `json:"id"`       // the provider's numeric id
 }
 
 // SearchQuery joins the scene's strongest keywords into one stock-search query

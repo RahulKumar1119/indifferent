@@ -161,6 +161,54 @@ func isPixabayKeyError(pe *ProviderError) bool {
 		strings.Contains(strings.ToLower(pe.Err.Error()), "api key")
 }
 
+// Get implements Provider. Pixabay looks an asset up with the same endpoints as
+// a search plus an id parameter. A video that does not exist is HTTP 404; an
+// image that does not exist is HTTP 200 with no hits. Both are ErrNotFound.
+func (p *Pixabay) Get(ctx context.Context, typ MediaType, id string) (Asset, error) {
+	if err := validateAssetID(id); err != nil {
+		return Asset{}, err
+	}
+	path := "/api/"
+	switch typ {
+	case MediaPhoto:
+	case MediaVideo:
+		path = "/api/videos/"
+	default:
+		return Asset{}, fmt.Errorf("%w: type must be %q or %q", ErrInvalidParams, MediaPhoto, MediaVideo)
+	}
+	q := url.Values{}
+	q.Set("key", p.key.reveal())
+	q.Set("id", id)
+	req, err := http.NewRequest(http.MethodGet, p.base+path+"?"+q.Encode(), nil)
+	if err != nil {
+		return Asset{}, &ProviderError{Provider: ProviderPixabay, Kind: KindBadRequest, Err: errors.New("building request failed")}
+	}
+	var body struct {
+		Hits []json.RawMessage `json:"hits"`
+	}
+	if _, err := getJSON(ctx, p.client, ProviderPixabay, p.key, req, &body); err != nil {
+		var pe *ProviderError
+		if errors.As(err, &pe) && isPixabayKeyError(pe) {
+			pe.Kind = KindAuth
+		}
+		return Asset{}, asNotFound(err)
+	}
+	if len(body.Hits) == 0 {
+		return Asset{}, &ProviderError{Provider: ProviderPixabay, Kind: KindNotFound, Status: http.StatusOK, Err: errors.New("no asset with that id")}
+	}
+	var a Asset
+	var ok bool
+	if typ == MediaVideo {
+		a, ok = decodePixabayVideo(body.Hits[0])
+	} else {
+		a, ok = decodePixabayPhoto(body.Hits[0])
+	}
+	if !ok {
+		return Asset{}, &ProviderError{Provider: ProviderPixabay, Kind: KindBadResponse, Status: http.StatusOK, Err: errors.New("the asset could not be read")}
+	}
+	return a, nil
+}
+
 func pixabayAttributionText(t MediaType) string {
 	if t == MediaVideo {
 		return "Videos provided by Pixabay"
@@ -292,12 +340,14 @@ func decodePixabayVideo(raw json.RawMessage) (Asset, bool) {
 		return Asset{}, false
 	}
 	author := cleanText(v.User, 100)
+	play, _ := pickPreviewRendition(renditions)
 	return Asset{
 		Provider:    ProviderPixabay,
 		ID:          strconv.FormatInt(v.ID, 10),
 		Type:        MediaVideo,
 		PageURL:     v.PageURL,
 		PreviewURL:  r.Thumbnail,
+		PlayURL:     play.URL,
 		MediaURL:    r.URL,
 		Format:      r.Format,
 		Width:       r.Width,
