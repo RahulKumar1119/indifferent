@@ -115,3 +115,25 @@ func cleanText(s string, max int) string {
 	}
 	return s
 }
+
+// maxAssetIDDigits bounds an asset id. Both providers use positive integers;
+// 18 digits is below the int64 limit, so an id can always be parsed.
+const maxAssetIDDigits = 18
+
+// validateAssetID checks that id looks like a provider asset id: 1 to 18 ASCII
+// digits and nothing else. Ids go into request paths and query strings, so
+// anything else is refused before it can reach a URL.
+func validateAssetID(id string) error {
+	if id == "" || len(id) > maxAssetIDDigits {
+		return fmt.Errorf("%w: asset id must be 1 to %d digits", ErrInvalidParams, maxAssetIDDigits)
+	}
+	for i := 0; i < len(id); i++ {
+		if id[i] < '0' || id[i] > '9' {
+			return fmt.Errorf("%w: asset id must be digits only", ErrInvalidParams)
+		}
+	}
+	return nil
+}
+
+// ValidAssetID reports whether id has the shape of a provider asset id.
+func ValidAssetID(id string) bool { return validateAssetID(id) == nil }

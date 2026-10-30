@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -95,6 +96,14 @@ type APIHandler struct {
 	StoryPlansPerHour int
 	// StoryPlanNow overrides the clock for the allowance window, for tests.
 	StoryPlanNow func() time.Time
+
+	// StockMedia backs the /stock-media endpoints (issue #192). Nil disables
+	// them (503), which is the case when neither PEXELS_API_KEY nor
+	// PIXABAY_API_KEY is set.
+	StockMedia StockMedia
+	// StockLimiter caps searches per user; nil takes the default (120 an hour).
+	StockLimiter     *PreviewLimiter
+	stockLimiterOnce sync.Once
 }
 
 // corsHeaders returns the standard CORS headers for all responses.
@@ -169,6 +178,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleGetStoryPlanLimits(), nil
 	case isStoryPlanPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleStoryPlans)
+	case isStockMediaPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handleStockMedia)
 	case isThumbnailPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleThumbnails)
 	case isMultipartPath(req.Path):

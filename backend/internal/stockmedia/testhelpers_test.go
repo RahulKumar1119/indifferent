@@ -112,6 +112,27 @@ type stubProvider struct {
 	mu    sync.Mutex
 	calls []SearchParams
 	fn    func(p SearchParams, n int) (SearchResult, error)
+
+	// getFn answers Get; nil means every lookup is ErrNotFound.
+	getFn    func(typ MediaType, id string, n int) (Asset, error)
+	getCalls int
+}
+
+func (s *stubProvider) Get(_ context.Context, typ MediaType, id string) (Asset, error) {
+	s.mu.Lock()
+	s.getCalls++
+	n, fn := s.getCalls, s.getFn
+	s.mu.Unlock()
+	if fn == nil {
+		return Asset{}, &ProviderError{Provider: s.name, Kind: KindNotFound, Status: 404}
+	}
+	return fn(typ, id, n)
+}
+
+func (s *stubProvider) getCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.getCalls
 }
 
 func (s *stubProvider) Name() ProviderName { return s.name }

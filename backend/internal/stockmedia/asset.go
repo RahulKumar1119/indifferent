@@ -73,21 +73,25 @@ type SearchParams struct {
 // not be kept: Pixabay forbids permanent hotlinking and Pexels video links are
 // signed. PreviewURL is for showing search results only.
 type Asset struct {
-	Provider    ProviderName `json:"provider"`
-	ID          string       `json:"id"`
-	Type        MediaType    `json:"type"`
-	PageURL     string       `json:"pageUrl"`
-	PreviewURL  string       `json:"previewUrl,omitempty"`
-	MediaURL    string       `json:"mediaUrl"`
-	Format      string       `json:"format"` // MIME type, e.g. video/mp4
-	Width       int          `json:"width"`
-	Height      int          `json:"height"`
-	Duration    float64      `json:"duration,omitempty"` // seconds; video only
-	Orientation Orientation  `json:"orientation"`
-	Alt         string       `json:"alt,omitempty"`
-	Author      string       `json:"author"`
-	AuthorURL   string       `json:"authorUrl,omitempty"`
-	Credit      string       `json:"credit"` // ready-to-show credit line
+	Provider   ProviderName `json:"provider"`
+	ID         string       `json:"id"`
+	Type       MediaType    `json:"type"`
+	PageURL    string       `json:"pageUrl"`
+	PreviewURL string       `json:"previewUrl,omitempty"`
+	// PlayURL is a small video file for previewing a clip in the browser: the
+	// lightest rendition that is still sharp on a phone. Video only. It is a
+	// provider URL like MediaURL and is not to be kept.
+	PlayURL     string      `json:"playUrl,omitempty"`
+	MediaURL    string      `json:"mediaUrl"`
+	Format      string      `json:"format"` // MIME type, e.g. video/mp4
+	Width       int         `json:"width"`
+	Height      int         `json:"height"`
+	Duration    float64     `json:"duration,omitempty"` // seconds; video only
+	Orientation Orientation `json:"orientation"`
+	Alt         string      `json:"alt,omitempty"`
+	Author      string      `json:"author"`
+	AuthorURL   string      `json:"authorUrl,omitempty"`
+	Credit      string      `json:"credit"` // ready-to-show credit line
 }
 
 // Attribution is the provider credit to display next to results.
@@ -231,6 +235,33 @@ func pickRendition(rs []rendition, limit int) (rendition, bool) {
 	default:
 		return rendition{}, false
 	}
+}
+
+// previewMinLongSide is the shortest longer side a preview rendition may have.
+// A 640 pixel clip is sharp at phone width and roughly a tenth the size of the
+// 1080p file the render uses.
+const previewMinLongSide = 640
+
+// pickPreviewRendition chooses the file to play when a user previews a clip:
+// the smallest usable rendition whose longer side is at least previewMinLongSide,
+// or the largest one when every rendition is smaller than that.
+func pickPreviewRendition(rs []rendition) (rendition, bool) {
+	var best rendition
+	var have bool
+	for _, r := range rs {
+		if r.URL == "" || r.Width <= 0 || r.Height <= 0 || !allowedFormats[r.Format] {
+			continue
+		}
+		switch {
+		case !have:
+			best, have = r, true
+		case best.longSide() < previewMinLongSide && r.longSide() > best.longSide():
+			best = r // still below the floor: any bigger one is better
+		case r.longSide() >= previewMinLongSide && (best.longSide() < previewMinLongSide || r.pixels() < best.pixels()):
+			best = r // at or above the floor: the smallest such one
+		}
+	}
+	return best, have
 }
 
 // scaleToLongSide returns the size with the same aspect ratio whose longer

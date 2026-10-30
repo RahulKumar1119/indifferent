@@ -20,12 +20,13 @@ before relying on a point marked *(excerpt)*.
 | Default limits are 200 requests per hour and 20,000 per month. Higher limits are free if the API terms are met, shown by a demo with attribution. Working around the limit ends API access. | `service.go`: 429s and an empty quota start a cooldown; no retry loop. |
 | `X-Ratelimit-Remaining` and `X-Ratelimit-Reset` (UNIX time) come back on successful responses only, never on a 429. | `pexels.go` `pexelsQuota`; `service.go` `noteQuota` waits before the next call. |
 | **As of 2026-10-29, Pexels is not issuing new API keys.** The API page says issuance is paused and cannot be requested, with no reopening date (a third-party post dates it to about 30 September). Existing keys keep working. Rate-limit increases are paused too, so the default limits are the only ones available. | The service runs on Pixabay alone when there is no Pexels key (`NewServiceFromEnv` omits a provider without one). Do not assume a Pexels key can be replaced if it is lost or revoked. The Pexels code is tested against documentation fixtures only; the live checks have not been run for lack of a key. |
-| Show a prominent link to Pexels whenever you make API requests, for example "Photos provided by Pexels". | Every `SearchResult` carries `Attribution` (text and URL). Showing it is the UI's job (#192, #194). |
+| Show a prominent link to Pexels whenever you make API requests, for example "Photos provided by Pexels". | Every `SearchResult` carries `Attribution` (text and URL). The API passes it on as `attributions[]` (`/stock-media/search`, `/stock-media/assets`, `/story-plans/:id`); the UI shows it (#192). |
 | Credit photographers when possible, for example "Photo by John Doe on Pexels", linked to the photo page. | `Asset.Credit`, `Asset.Author`, `Asset.AuthorURL`, `Asset.PageURL`. |
 | Do not copy or replicate Pexels' core functionality. | Product rule, not code: Story2Shorts uses stock as scene media, not as a browsable library. Keep it that way in #192. |
 | Photo and video search take `orientation` (landscape, portrait, square). `per_page` is at most 80. Video endpoints live under `/v1/videos/`. | `pexels.go`; the older `/videos/` path is deprecated and unused. |
 | Videos come as several `video_files`, each with its own size. | `pickRendition`: the largest file whose longer side is at most 1920px. |
-| Video file links are tokenised CDN URLs (Vimeo). The documentation does not say how long they last. | Treated as not durable: copy the file at confirmation (#193). Vimeo hosts are on the URL allowlist for this reason. |
+| Video file links are tokenised CDN URLs (Vimeo). The documentation does not say how long they last. | Treated as not durable: copy the file at confirmation (#193). Vimeo hosts are on the URL allowlist for this reason. Plans store only the id, and the API looks the asset up again on every read (#192). |
+| Single photos and videos can be fetched by id: `/v1/photos/:id` and `/v1/videos/videos/:id`. A missing id is a 404. | `Pexels.Get`. Tested against documentation fixtures only; not run live (no key). |
 
 ### Pixabay ([API documentation](https://pixabay.com/api/docs/))
 
@@ -41,6 +42,7 @@ before relying on a point marked *(excerpt)*.
 | Page size is 3 to 200; at most 500 results are reachable per query. `q` is at most 100 characters. | `MinPerPage`, `MaxQueryRunes`; `Total` reports the reachable count. |
 | Without full API access an image is at most 1280px (`largeImageURL`). `fullHDURL` (1920px), `imageURL` and `vectorURL` need an account approved for full API access, requested at <https://pixabay.com/api/request_full_access/>. **Our current key does not have it:** `fullHDURL` was on 0 of 20 live hits (2026-10-29). A 1280px photo scaled to a 1920px-tall frame is enlarged 1.5 times, which looks soft. | `decodePixabayPhoto` uses `fullHDURL` when present, else `largeImageURL`, so approval needs no code change. `MinLongSide` is 1280 so default-access photos are kept. Requesting access is an account-owner action, tracked in #194. |
 | `large` video may be empty (no 4K version). | `pickRendition` ignores renditions with no URL. |
+| A single item is fetched with `id=`. Observed live 2026-10-29: an id that no longer exists answers HTTP 404 for videos but **HTTP 200 with an empty `hits` list for images**; a malformed id answers 400. | `Pixabay.Get` maps both "missing" shapes to `ErrNotFound`, and `validateAssetID` rejects malformed ids before any request. The result is cached 24h like a search (`TestLive_GetByIDRoundTrip`). |
 | `lang` accepts a fixed list; `safesearch` filters to all-ages content. | `safesearch=true` is always sent, since results end up in public videos. |
 
 ## Content licenses

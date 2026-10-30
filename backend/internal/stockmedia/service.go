@@ -177,6 +177,7 @@ func (s *Service) searchOne(ctx context.Context, prov Provider, p SearchParams, 
 			sortByOrientation(alt.Assets, p.Orientation)
 			alt.Cached = false
 			s.cache.Set(key, alt, s.ttl[name])
+			s.seedAssets(name, alt.Assets)
 			return alt, nil
 		} else if err != nil && ctx.Err() != nil {
 			return SearchResult{}, ctx.Err()
@@ -184,7 +185,23 @@ func (s *Service) searchOne(ctx context.Context, prov Provider, p SearchParams, 
 	}
 
 	s.cache.Set(key, res, s.ttl[name])
+	s.seedAssets(name, res.Assets)
 	return res, nil
+}
+
+// seedAssets stores each validated search result as a lookup result too. A
+// search and a lookup decode the same fields with the same code, so what a
+// search returned is what Get would return. Seeding means a user who picks an
+// asset they have just seen costs no provider call, which matters because the
+// providers' limits are shared by every user of the site.
+func (s *Service) seedAssets(name ProviderName, assets []Asset) {
+	for _, a := range assets {
+		s.cache.Set(assetCacheKey(name, a.Type, a.ID), SearchResult{Assets: []Asset{a}}, assetCacheTTL(name))
+	}
+}
+
+func assetCacheKey(name ProviderName, typ MediaType, id string) string {
+	return fmt.Sprintf("get|%s|%s|%s", name, typ, id)
 }
 
 // finish validates and orders a provider's assets in place.
@@ -377,3 +394,127 @@ func defaultCooldown(name ProviderName) time.Duration {
 	}
 	return pixabayCooldown
 }
+
+// assetCacheTTL is how long a looked-up asset is kept. A user editing a plan
+// opens the same few assets again and again, and Pixabay's terms require
+// requests to be cached for 24 hours. An asset the provider removes is
+// therefore still served for up to a day; the render phase checks the file is
+// really there (CheckAvailable) before it copies it.
+func assetCacheTTL(name ProviderName) time.Duration {
+	if name == ProviderPexels {
+		return pexelsCacheTTL
+	}
+	return pixabayCacheTTL
+}
+
+// Get fetches one asset by provider and id, for the places a plan refers to an
+// asset it chose earlier. A plan stores only the provider, the type and the id,
+// never a URL, because Pixabay forbids permanent hotlinking and Pexels video
+// links are signed; Get returns fresh URLs.
+//
+// The asset is validated like a search result. One that fails validation is
+// reported as ErrNotFound, because to the caller it is not usable, and the
+// reason is logged. Lookups share the search cache, so repeated reads of the
+// same asset cost no provider calls, and a provider in a rate-limit cooldown is
+// not called.
+func (s *Service) Get(ctx context.Context, name ProviderName, typ MediaType, id string) (Asset, error) {
+	prov, ok := s.byName[name]
+	if !ok {
+		return Asset{}, fmt.Errorf("%w: %q", ErrNotConfigured, name)
+	}
+	if typ != MediaPhoto && typ != MediaVideo {
+		return Asset{}, fmt.Errorf("%w: type must be %q or %q", ErrInvalidParams, MediaPhoto, MediaVideo)
+	}
+	if err := validateAssetID(id); err != nil {
+		return Asset{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return Asset{}, err
+	}
+
+	key := assetCacheKey(name, typ, id)
+	if hit, ok := s.cache.Get(key); ok && len(hit.Assets) == 1 {
+		return hit.Assets[0], nil
+	}
+	if err := s.checkCooldown(name); err != nil {
+		s.logf("stockmedia_get_skipped provider=%s reason=cooldown", name)
+		return Asset{}, err
+	}
+
+	a, err := prov.Get(ctx, typ, id)
+	if err != nil {
+		s.noteError(name, err)
+		return Asset{}, err
+	}
+	if verr := validateAsset(a, s.policy, s.minLongSide); verr != nil {
+		var ia *InvalidAssetError
+		reason := "invalid"
+		if errors.As(verr, &ia) {
+			reason = ia.Reason
+		}
+		s.logf("stockmedia_get_rejected provider=%s type=%s asset=%s reason=%s", name, typ, id, reason)
+		return Asset{}, &ProviderError{Provider: name, Kind: KindNotFound, Err: fmt.Errorf("the asset cannot be used (%s)", reason)}
+	}
+	s.logf("stockmedia_get provider=%s type=%s cached=false", name, typ)
+	s.cache.Set(key, SearchResult{Assets: []Asset{a}}, assetCacheTTL(name))
+	return a, nil
+}
+
+// AssetRef names one asset without any URL: all a plan stores about a choice.
+type AssetRef struct {
+	Provider ProviderName `json:"provider"`
+	Type     MediaType    `json:"type"`
+	ID       string       `json:"id"`
+}
+
+// Valid reports whether the reference is well formed.
+func (r AssetRef) Valid() bool {
+	return (r.Provider == ProviderPexels || r.Provider == ProviderPixabay) &&
+		(r.Type == MediaPhoto || r.Type == MediaVideo) && ValidAssetID(r.ID)
+}
+
+// AssetResult is the outcome of looking up one reference.
+type AssetResult struct {
+	Ref   AssetRef
+	Asset *Asset // set on success
+	Err   error  // set on failure; Asset is nil
+}
+
+// GetMany looks up several references concurrently and returns the outcomes in
+// the order given. One failing lookup does not affect the others, so a plan with
+// one removed asset still opens. At most maxConcurrentGets run at once.
+func (s *Service) GetMany(ctx context.Context, refs []AssetRef) []AssetResult {
+	out := make([]AssetResult, len(refs))
+	sem := make(chan struct{}, maxConcurrentGets)
+	var wg sync.WaitGroup
+	for i, ref := range refs {
+		out[i].Ref = ref
+		if !ref.Valid() {
+			out[i].Err = fmt.Errorf("%w: malformed asset reference", ErrInvalidParams)
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				out[i].Err = ctx.Err()
+				return
+			}
+			a, err := s.Get(ctx, ref.Provider, ref.Type, ref.ID)
+			if err != nil {
+				out[i].Err = err
+				return
+			}
+			out[i].Asset = &a
+		}()
+	}
+	wg.Wait()
+	return out
+}
+
+// maxConcurrentGets bounds parallel lookups. A plan has at most ten scenes, and
+// the providers' limits are per key, so a few at a time is plenty.
+const maxConcurrentGets = 4

@@ -17,6 +17,9 @@ var (
 	// ErrModelTimeout means the model did not answer in time. It wraps with
 	// ErrModelFailed.
 	ErrModelTimeout = errors.New("the planning model took too long")
+	// ErrInvalidEdit means a user's edit to a plan was rejected. The message is
+	// safe to show to the user.
+	ErrInvalidEdit = errors.New("invalid edit")
 	// ErrInvalidPlan means the model answered but nothing usable could be made
 	// of it: not JSON, no valid scenes, or a plan outside the limits that
 	// repair could not fix. Asking again often works, since the model's answer

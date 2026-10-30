@@ -3,6 +3,7 @@ package stockmedia
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -29,6 +30,10 @@ type Provider interface {
 	Name() ProviderName
 	// Search runs one request for already-normalized parameters.
 	Search(ctx context.Context, p SearchParams) (SearchResult, error)
+	// Get fetches one asset by its provider id. A missing asset is ErrNotFound.
+	// It returns the asset as the provider describes it, without Service's
+	// validation, which Service.Get applies.
+	Get(ctx context.Context, typ MediaType, id string) (Asset, error)
 }
 
 // Pexels searches the Pexels API (https://www.pexels.com/api/documentation/).
@@ -140,6 +145,54 @@ func (p *Pexels) Search(ctx context.Context, params SearchParams) (SearchResult,
 	return res, nil
 }
 
+// Get implements Provider.
+//
+// Photos come from /v1/photos/:id and videos from /v1/videos/videos/:id
+// (the path really does repeat "videos"; it is the documented one).
+func (p *Pexels) Get(ctx context.Context, typ MediaType, id string) (Asset, error) {
+	if err := validateAssetID(id); err != nil {
+		return Asset{}, err
+	}
+	path := "/v1/photos/" + id
+	if typ == MediaVideo {
+		path = "/v1/videos/videos/" + id
+	} else if typ != MediaPhoto {
+		return Asset{}, fmt.Errorf("%w: type must be %q or %q", ErrInvalidParams, MediaPhoto, MediaVideo)
+	}
+	req, err := http.NewRequest(http.MethodGet, p.base+path, nil)
+	if err != nil {
+		return Asset{}, &ProviderError{Provider: ProviderPexels, Kind: KindBadRequest, Err: fmt.Errorf("building request failed")}
+	}
+	req.Header.Set("Authorization", p.key.reveal())
+
+	var raw json.RawMessage
+	if _, err := getJSON(ctx, p.client, ProviderPexels, p.key, req, &raw); err != nil {
+		return Asset{}, asNotFound(err)
+	}
+	var a Asset
+	var ok bool
+	if typ == MediaVideo {
+		a, ok = decodePexelsVideo(raw)
+	} else {
+		a, ok = decodePexelsPhoto(raw)
+	}
+	if !ok {
+		return Asset{}, &ProviderError{Provider: ProviderPexels, Kind: KindBadResponse, Status: http.StatusOK, Err: fmt.Errorf("the asset could not be read")}
+	}
+	return a, nil
+}
+
+// asNotFound turns a provider's HTTP 404 into a not-found error. For a search a
+// 404 means a wrong path (a bug), but for a lookup by id it means the asset is
+// gone, which callers must tell apart from "try again later".
+func asNotFound(err error) error {
+	var pe *ProviderError
+	if errors.As(err, &pe) && pe.Status == http.StatusNotFound {
+		pe.Kind = KindNotFound
+	}
+	return err
+}
+
 func pexelsAttributionText(t MediaType) string {
 	if t == MediaVideo {
 		return "Videos provided by Pexels"
@@ -247,12 +300,14 @@ func decodePexelsVideo(raw json.RawMessage) (Asset, bool) {
 		return Asset{}, false
 	}
 	author := cleanText(v.User.Name, 100)
+	play, _ := pickPreviewRendition(renditions)
 	return Asset{
 		Provider:    ProviderPexels,
 		ID:          strconv.FormatInt(v.ID, 10),
 		Type:        MediaVideo,
 		PageURL:     v.URL,
 		PreviewURL:  v.Image,
+		PlayURL:     play.URL,
 		MediaURL:    r.URL,
 		Format:      r.Format,
 		Width:       r.Width,

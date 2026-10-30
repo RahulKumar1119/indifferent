@@ -102,7 +102,12 @@ func newSPEnv(t *testing.T) *spEnv {
 					return nil, err
 				}
 			}
-			e.items[key(str(in.Item["PK"]), str(in.Item["SK"]))] = in.Item
+			k := key(str(in.Item["PK"]), str(in.Item["SK"]))
+			if err := checkPutCondition(in, e.items[k]); err != nil {
+				e.puts = e.puts[:len(e.puts)-1] // a refused write is not a write
+				return nil, err
+			}
+			e.items[k] = in.Item
 			return &dynamodb.PutItemOutput{}, nil
 		},
 		getItemFunc: func(_ context.Context, in *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
@@ -111,7 +116,7 @@ func newSPEnv(t *testing.T) *spEnv {
 			if e.getErr != nil {
 				return nil, e.getErr
 			}
-			return &dynamodb.GetItemOutput{Item: e.items[key(str(in.Key["PK"]), str(in.Key["SK"]))]}, nil
+			return &dynamodb.GetItemOutput{Item: copyItem(e.items[key(str(in.Key["PK"]), str(in.Key["SK"]))])}, nil
 		},
 		queryFunc: func(_ context.Context, in *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 			e.mu.Lock()
@@ -125,7 +130,7 @@ func newSPEnv(t *testing.T) *spEnv {
 			var out []map[string]dbtypes.AttributeValue
 			for _, it := range e.items {
 				if str(it["PK"]) == pk && str(it["SK"]) >= lo && str(it["SK"]) <= hi {
-					out = append(out, it)
+					out = append(out, copyItem(it))
 				}
 			}
 			// DynamoDB returns the range in sort-key order.
@@ -141,6 +146,55 @@ func newSPEnv(t *testing.T) *spEnv {
 	h.StoryPlanNow = func() time.Time { return e.now }
 	e.h = h
 	return e
+}
+
+// checkPutCondition enforces the two condition expressions the story plan code
+// uses, the way DynamoDB does, so tests of concurrent edits are about real
+// behaviour. An unrecognised expression fails the test loudly instead of being
+// ignored.
+func checkPutCondition(in *dynamodb.PutItemInput, existing map[string]dbtypes.AttributeValue) error {
+	if in.ConditionExpression == nil {
+		return nil
+	}
+	fail := &dbtypes.ConditionalCheckFailedException{Message: aws.String("The conditional request failed")}
+	rev := func() (string, bool) {
+		if existing == nil {
+			return "", false
+		}
+		v, ok := existing["revision"].(*dbtypes.AttributeValueMemberN)
+		if !ok {
+			return "", false
+		}
+		return v.Value, true
+	}
+	switch aws.ToString(in.ConditionExpression) {
+	case "#rev = :prev":
+		want := in.ExpressionAttributeValues[":prev"].(*dbtypes.AttributeValueMemberN).Value
+		if have, ok := rev(); !ok || have != want {
+			return fail
+		}
+	case "attribute_not_exists(#rev)":
+		if _, ok := rev(); ok {
+			return fail
+		}
+	default:
+		panic("test table does not understand condition: " + aws.ToString(in.ConditionExpression))
+	}
+	return nil
+}
+
+// copyItem hands out a copy, as DynamoDB does: what a reader holds must not
+// change when another writer later replaces attributes in the table. Attribute
+// values are replaced, never edited in place, so a shallow copy is enough.
+func copyItem(in map[string]dbtypes.AttributeValue) map[string]dbtypes.AttributeValue {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]dbtypes.AttributeValue, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 func sortBySK(items []map[string]dbtypes.AttributeValue) {
@@ -652,7 +706,10 @@ func TestStoryPlans_OtherRoutesAndMethods(t *testing.T) {
 		want         int
 	}{
 		{"DELETE", "/story-plans/" + uuid.NewString(), 404},
-		{"PUT", "/story-plans/" + uuid.NewString(), 404},
+		{"PATCH", "/story-plans/" + uuid.NewString(), 404},
+		{"PUT", "/story-plans", 404},
+		{"PUT", "/story-plans/not-a-plan-id", 404},
+		{"PUT", "/story-plans/limits", 404},
 		{"GET", "/story-plans", 404},
 		{"GET", "/story-plans/", 404},
 		{"POST", "/story-plans/" + uuid.NewString(), 404},

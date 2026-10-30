@@ -18,6 +18,7 @@ import (
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/stockmedia"
 	"github.com/rahul/indifferent/backend/internal/storyplan"
 )
 
@@ -74,14 +75,33 @@ type CreateStoryPlanRequest struct {
 
 // StoryPlanResponse is a stored plan as the API returns it. Plan is present
 // only when Status is "ready"; ErrorCode only when it is "failed".
+//
+// Revision counts the saves of the plan, starting at 1. A PUT must send the
+// revision it read, so two open tabs cannot silently overwrite each other.
 type StoryPlanResponse struct {
 	PlanID    string          `json:"planId"`
 	Status    string          `json:"status"`
 	Model     string          `json:"model,omitempty"`
+	Revision  int             `json:"revision"`
 	Plan      *storyplan.Plan `json:"plan,omitempty"`
 	ErrorCode string          `json:"errorCode,omitempty"`
 	CreatedAt string          `json:"createdAt"`
 	UpdatedAt string          `json:"updatedAt"`
+	// Media holds, for each scene that has a pick, the asset as it is now
+	// (fresh preview URLs) or why it cannot be shown. Index i is scene i; a
+	// scene with no pick has a nil entry. Omitted when the plan has no picks or
+	// stock search is not configured.
+	Media []*StockAssetItem `json:"media,omitempty"`
+	// MediaAttributions are the credits to show for the assets in Media.
+	MediaAttributions []StockAttribution `json:"mediaAttributions,omitempty"`
+}
+
+// UpdateStoryPlanRequest is the body of PUT /story-plans/:id. Scenes[i] edits
+// scene i, and there must be exactly one entry per scene.
+type UpdateStoryPlanRequest struct {
+	// Revision is the revision the edit was made against.
+	Revision int                   `json:"revision"`
+	Scenes   []storyplan.SceneEdit `json:"scenes"`
 }
 
 // StoryPlanLimits tells the page what the planner accepts, so the form never
@@ -106,6 +126,7 @@ type storyPlanRecord struct {
 	Script     string
 	ErrorCode  string
 	LatencyMs  int64
+	Revision   int
 	Plan       *storyplan.Plan
 	CreatedAt  string
 	UpdatedAt  string
@@ -167,6 +188,8 @@ func (h *APIHandler) handleStoryPlans(ctx context.Context, req events.APIGateway
 		return h.handleCreateStoryPlan(ctx, req, claims)
 	case req.HTTPMethod == "GET" && storyPlanIDFromPath(req.Path) != "":
 		return h.handleGetStoryPlan(ctx, req, claims)
+	case req.HTTPMethod == "PUT" && storyPlanIDFromPath(req.Path) != "":
+		return h.handleUpdateStoryPlan(ctx, req, claims)
 	}
 	return errorResponse(http.StatusNotFound, "NOT_FOUND", "Route not found"), nil
 }
@@ -260,6 +283,7 @@ func (h *APIHandler) handleCreateStoryPlan(ctx context.Context, req events.APIGa
 	}
 
 	rec.Status = storyPlanReady
+	rec.Revision = 1
 	rec.Plan = &res.Plan
 	if err := h.putStoryPlan(ctx, rec); err != nil {
 		log.Printf("story_plan_save_failed user=%s plan=%s err=%v", claims.UserID, rec.PlanID, err)
@@ -323,7 +347,177 @@ func (h *APIHandler) handleGetStoryPlan(ctx context.Context, req events.APIGatew
 	}
 	rec := itemToStoryPlan(out.Item)
 	rec.UserID = claims.UserID
-	return jsonResponse(http.StatusOK, rec.response()), nil
+	resp := rec.response()
+	h.attachMedia(ctx, &resp)
+	return jsonResponse(http.StatusOK, resp), nil
+}
+
+// attachMedia fills resp.Media with the current details of each chosen asset.
+// It never fails the request: an asset that cannot be looked up is reported as
+// such in its entry, so a plan always opens. A plan with no picks costs no
+// lookups.
+func (h *APIHandler) attachMedia(ctx context.Context, resp *StoryPlanResponse) {
+	if h.StockMedia == nil || resp.Plan == nil {
+		return
+	}
+	var refs []stockmedia.AssetRef
+	var at []int // scene index of each ref
+	for i, sc := range resp.Plan.Scenes {
+		if sc.Media == nil {
+			continue
+		}
+		ref := stockmedia.AssetRef{Provider: stockmedia.ProviderName(sc.Media.Provider), Type: stockmedia.MediaType(sc.Media.Type), ID: sc.Media.ID}
+		if !ref.Valid() {
+			continue
+		}
+		refs = append(refs, ref)
+		at = append(at, i)
+	}
+	if len(refs) == 0 {
+		return
+	}
+	items, atts := h.resolveAssets(ctx, refs)
+	resp.Media = make([]*StockAssetItem, len(resp.Plan.Scenes))
+	for k, item := range items {
+		item := item
+		resp.Media[at[k]] = &item
+	}
+	resp.MediaAttributions = atts
+}
+
+// handleUpdateStoryPlan saves a user's edits: narration and the stock asset
+// chosen for each scene. The story plan stays the user's own: edits are held to
+// the same rules as the model's output (storyplan.ApplyEdits).
+//
+// The write is conditional on the revision the edit was made against, so a
+// stale edit gets 409 and the page can reload instead of overwriting newer work.
+// A newly chosen asset is looked up first, so only references that resolve are
+// stored; a reference that was already in the plan is kept without a lookup, so
+// editing narration never depends on a stock provider being reachable.
+func (h *APIHandler) handleUpdateStoryPlan(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	id := storyPlanIDFromPath(req.Path)
+	if !validStoryPlanID(id) {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Plan not found"), nil
+	}
+	id = strings.ToLower(id)
+	if len(req.Body) > storyPlanMaxBodyBytes {
+		return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", "The request is too large"), nil
+	}
+	var body UpdateStoryPlanRequest
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	}
+
+	out, err := h.DB.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(h.TableName),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + claims.UserID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: storyPlanPrefix + id},
+		},
+	})
+	if err != nil {
+		log.Printf("story_plan_read_failed user=%s plan=%s err=%v", claims.UserID, id, err)
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Could not read the plan"), nil
+	}
+	if len(out.Item) == 0 {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Plan not found"), nil
+	}
+	rec := itemToStoryPlan(out.Item)
+	rec.UserID = claims.UserID
+	if rec.Status != storyPlanReady || rec.Plan == nil {
+		return errorResponse(http.StatusConflict, "NOT_READY", "This plan has nothing to edit"), nil
+	}
+	if body.Revision != rec.Revision {
+		return errorResponse(http.StatusConflict, "STALE_REVISION", "This plan was changed somewhere else. Reload it and try again."), nil
+	}
+
+	script := storyplan.Script(rec.Script)
+	edited, err := storyplan.ApplyEdits(*rec.Plan, body.Scenes, script)
+	if err != nil {
+		var ee *storyplan.EditError
+		if errors.As(err, &ee) {
+			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", ee.Reason), nil
+		}
+		return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", "Those changes cannot be applied"), nil
+	}
+
+	if resp := h.verifyNewPicks(ctx, *rec.Plan, edited); resp != nil {
+		return *resp, nil
+	}
+
+	prev := rec.Revision
+	rec.Plan = &edited
+	rec.Revision = prev + 1
+	rec.UpdatedAt = h.storyPlanNow().UTC().Format(time.RFC3339)
+	item, err := storyPlanToItem(rec)
+	if err != nil {
+		return errorResponse(http.StatusInternalServerError, "INTERNAL_ERROR", "Could not save the plan"), nil
+	}
+	put := &dynamodb.PutItemInput{
+		TableName:                aws.String(h.TableName),
+		Item:                     item,
+		ExpressionAttributeNames: map[string]string{"#rev": "revision"},
+	}
+	if prev == 0 {
+		// A plan saved before revisions existed has no revision attribute, and
+		// "revision = 0" is false for a missing attribute.
+		put.ConditionExpression = aws.String("attribute_not_exists(#rev)")
+	} else {
+		put.ConditionExpression = aws.String("#rev = :prev")
+		put.ExpressionAttributeValues = map[string]dbtypes.AttributeValue{
+			":prev": &dbtypes.AttributeValueMemberN{Value: strconv.Itoa(prev)},
+		}
+	}
+	_, err = h.DB.PutItem(ctx, put)
+	if err != nil {
+		var cf *dbtypes.ConditionalCheckFailedException
+		if errors.As(err, &cf) {
+			return errorResponse(http.StatusConflict, "STALE_REVISION", "This plan was changed somewhere else. Reload it and try again."), nil
+		}
+		log.Printf("story_plan_update_failed user=%s plan=%s err=%v", claims.UserID, id, err)
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Could not save the plan. Please try again."), nil
+	}
+	resp := rec.response()
+	h.attachMedia(ctx, &resp)
+	return jsonResponse(http.StatusOK, resp), nil
+}
+
+// verifyNewPicks checks every media reference that is new in edited (absent
+// from before, or different) against the provider, and returns an error
+// response if one cannot be used. References unchanged from before are not
+// looked up. It returns nil when all is well.
+func (h *APIHandler) verifyNewPicks(ctx context.Context, before, edited storyplan.Plan) *events.APIGatewayProxyResponse {
+	var refs []stockmedia.AssetRef
+	var scene []int
+	for i, sc := range edited.Scenes {
+		if sc.Media == nil {
+			continue
+		}
+		if old := before.Scenes[i].Media; old != nil && *old == *sc.Media {
+			continue
+		}
+		refs = append(refs, stockmedia.AssetRef{Provider: stockmedia.ProviderName(sc.Media.Provider), Type: stockmedia.MediaType(sc.Media.Type), ID: sc.Media.ID})
+		scene = append(scene, i+1)
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+	if h.StockMedia == nil {
+		r := errorResponse(http.StatusServiceUnavailable, "UNAVAILABLE", "Stock media is not available yet, so a new picture cannot be chosen")
+		return &r
+	}
+	for k, res := range h.StockMedia.GetMany(ctx, refs) {
+		switch {
+		case res.Asset != nil:
+		case errors.Is(res.Err, stockmedia.ErrNotFound):
+			r := errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", fmt.Sprintf("Scene %d: that picture is no longer available. Choose another.", scene[k]))
+			return &r
+		default:
+			r := errorResponse(http.StatusServiceUnavailable, "PLAN_UNAVAILABLE", "The photo library could not confirm that choice. Please try again.")
+			return &r
+		}
+	}
+	return nil
 }
 
 func (r storyPlanRecord) response() StoryPlanResponse {
@@ -331,6 +525,7 @@ func (r storyPlanRecord) response() StoryPlanResponse {
 		PlanID:    r.PlanID,
 		Status:    r.Status,
 		Model:     r.Model,
+		Revision:  r.Revision,
 		Plan:      r.Plan,
 		ErrorCode: r.ErrorCode,
 		CreatedAt: r.CreatedAt,
@@ -448,6 +643,9 @@ func storyPlanToItem(r storyPlanRecord) (map[string]dbtypes.AttributeValue, erro
 	if r.LatencyMs > 0 {
 		item["latencyMs"] = &dbtypes.AttributeValueMemberN{Value: strconv.FormatInt(r.LatencyMs, 10)}
 	}
+	if r.Revision > 0 {
+		item["revision"] = &dbtypes.AttributeValueMemberN{Value: strconv.Itoa(r.Revision)}
+	}
 	if r.Plan != nil {
 		b, err := json.Marshal(r.Plan)
 		if err != nil {
@@ -490,6 +688,7 @@ func itemToStoryPlan(item map[string]dbtypes.AttributeValue) storyPlanRecord {
 		Status:     str("status"),
 		Model:      str("model"),
 		StoryRunes: count("storyRunes"),
+		Revision:   count("revision"),
 		Script:     str("script"),
 		ErrorCode:  str("errorCode"),
 		LatencyMs:  millis("latencyMs"),
