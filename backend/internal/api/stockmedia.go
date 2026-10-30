@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -127,6 +128,18 @@ func (h *APIHandler) stockLimiter() *PreviewLimiter {
 	return h.StockLimiter
 }
 
+// tooManyRequests is a 429 that says how long to wait in the Retry-After header
+// and in the body (details.retryAfter, seconds). The body copy is what the page
+// reads: the page and the API are on different origins, and the API does not
+// list Retry-After in Access-Control-Expose-Headers, so a script cannot see the
+// header.
+func tooManyRequests(code, message string, seconds int) events.APIGatewayProxyResponse {
+	body, _ := json.Marshal(models.APIError{Code: code, Message: message, Details: map[string]int{"retryAfter": seconds}})
+	resp := events.APIGatewayProxyResponse{StatusCode: http.StatusTooManyRequests, Headers: corsHeaders(), Body: string(body)}
+	resp.Headers["Retry-After"] = strconv.Itoa(seconds)
+	return resp
+}
+
 func isStockMediaPath(path string) bool {
 	return path == "/stock-media/search" || path == "/stock-media/assets"
 }
@@ -186,9 +199,7 @@ func (h *APIHandler) handleStockSearch(ctx context.Context, req events.APIGatewa
 	}
 
 	if allowed, retry := h.stockLimiter().allow(claims.UserID); !allowed {
-		resp := errorResponse(http.StatusTooManyRequests, "RATE_LIMITED", "You are searching too quickly. Wait a moment and try again.")
-		resp.Headers["Retry-After"] = strconv.Itoa(maxInt(1, int(retry.Seconds())))
-		return resp, nil
+		return tooManyRequests("RATE_LIMITED", "You are searching too quickly. Wait a moment and try again.", maxInt(1, int(retry.Seconds()))), nil
 	}
 
 	var out StockSearchResponse
@@ -343,14 +354,12 @@ func stockSearchFailure(err error) events.APIGatewayProxyResponse {
 	case errors.Is(err, stockmedia.ErrNotConfigured):
 		return errorResponse(http.StatusServiceUnavailable, "UNAVAILABLE", "Stock media search is not available yet")
 	case errors.Is(err, stockmedia.ErrRateLimited):
-		resp := errorResponse(http.StatusTooManyRequests, "PROVIDER_RATE_LIMITED", "The photo libraries are busy right now. Try again in a minute.")
 		var pe *stockmedia.ProviderError
 		retry := 60
 		if errors.As(err, &pe) && pe.RetryAfter > 0 {
 			retry = maxInt(1, int(pe.RetryAfter.Seconds()))
 		}
-		resp.Headers["Retry-After"] = strconv.Itoa(retry)
-		return resp
+		return tooManyRequests("PROVIDER_RATE_LIMITED", "The photo libraries are busy right now. Try again in a minute.", retry)
 	case errors.Is(err, context.Canceled):
 		return errorResponse(http.StatusRequestTimeout, "CANCELED", "The search was canceled")
 	case errors.Is(err, context.DeadlineExceeded):
