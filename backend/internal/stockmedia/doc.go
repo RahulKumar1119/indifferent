@@ -17,7 +17,8 @@
 //
 //   - Pixabay requires search requests to be cached for 24 hours and forbids
 //     permanent hotlinking, so callers must copy a chosen asset into our own
-//     storage and never keep a provider URL.
+//     storage and never keep a provider URL. The default cache lives in one
+//     process; package stockcache shares it between containers (WithCache).
 //   - Pexels and Pixabay both ask that results shown to users credit the
 //     provider; every SearchResult carries the text and link to show.
 //   - Pixabay passes its API key in the URL query string. Nothing in this
