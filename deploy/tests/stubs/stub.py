@@ -32,6 +32,7 @@ MUTATING = {
     ("logs", "create-log-group"), ("logs", "put-retention-policy"),
     ("ecs", "register-task-definition"),
     ("lambda", "update-function-configuration"),
+    ("dynamodb", "create-table"), ("dynamodb", "update-time-to-live"), ("dynamodb", "put-item"),
     ("stepfunctions", "create-state-machine"), ("stepfunctions", "update-state-machine"),
     ("docker", "login"), ("docker", "build"), ("docker", "push"),
 }
@@ -98,6 +99,65 @@ def allowed(policies, action, resource):
     return False
 
 
+def dynamodb_stock_cache(w, op, rest, q):
+    """The stock-cache table (deploy/setup-stock-cache.sh, flush-stockmedia-cache.sh).
+    World key "stock_cache": None, or {"status", "keys", "billing", "ttl": {"status",
+    "attr"}, "items": {pk: item}}. Answers in the text the CLI prints for the queries
+    used. Returns True when it handled the call; False for anything it does not
+    model, which the caller then records as unhandled (a test failure)."""
+    t = w.get("stock_cache")
+    if op == "create-table":
+        if t is not None:
+            err("ResourceInUseException", "Table already exists")
+        attrs = rest[rest.index("--attribute-definitions") + 1]
+        keys = rest[rest.index("--key-schema") + 1]
+        assert attrs == "AttributeName=PK,AttributeType=S", attrs
+        assert keys == "AttributeName=PK,KeyType=HASH", keys
+        w["stock_cache"] = {"status": "ACTIVE", "keys": [["PK", "HASH"]], "billing": flag(rest, "--billing-mode"),
+                            "ttl": {"status": "DISABLED", "attr": None}, "items": {}}
+        save(w)
+        out("CREATING")
+        return True
+    if t is None:
+        # describe-table is how a script asks whether the table exists; the others cannot work without it.
+        if op in ("describe-table", "wait", "describe-time-to-live", "update-time-to-live", "get-item", "put-item"):
+            err("ResourceNotFoundException", "Requested resource not found")
+        return False
+    if op == "wait":
+        out("")
+        return True
+    if op == "describe-table" and q == "Table.TableStatus":
+        out(t["status"])
+        return True
+    if op == "describe-table" and q == "Table.KeySchema[].[AttributeName,KeyType]":
+        out("\n".join("\t".join(k) for k in t["keys"]))
+        return True
+    if op == "describe-time-to-live" and q == "TimeToLiveDescription.[TimeToLiveStatus,AttributeName]":
+        out("%s\t%s" % (t["ttl"]["status"], t["ttl"]["attr"] or "None"))
+        return True
+    if op == "update-time-to-live":
+        spec = dict(kv.split("=") for kv in flag(rest, "--time-to-live-specification").split(","))
+        assert spec["Enabled"] == "true", spec
+        t["ttl"] = {"status": "ENABLED", "attr": spec["AttributeName"]}
+        save(w)
+        out(spec["AttributeName"])
+        return True
+    if op == "get-item" and q == "Item.epoch.S":
+        pk = json.loads(flag(rest, "--key"))["PK"]["S"]
+        item = t["items"].get(pk)
+        w.setdefault("stock_cache_reads", []).append({"pk": pk, "consistent": "--consistent-read" in rest})
+        save(w)
+        out(item["epoch"]["S"] if item and "epoch" in item else "None")
+        return True
+    if op == "put-item":
+        item = json.loads(flag(rest, "--item"))
+        t["items"][item["PK"]["S"]] = item
+        save(w)
+        out("")
+        return True
+    return False
+
+
 def aws(argv):
     svc, op = argv[0], argv[1]
     rest = argv[2:]
@@ -139,6 +199,11 @@ def aws(argv):
             size = flag(rest, "--transition-default-minimum-object-size", "all_storage_classes_128K")
             w["lifecycle"] = {"TransitionDefaultMinimumObjectSize": size, "Rules": cfg["Rules"]}
             return save(w)
+
+    if svc == "dynamodb" and flag(rest, "--table-name") == "indifferent-fun-stock-cache":
+        if dynamodb_stock_cache(w, op, rest, q):
+            return
+        # not modelled: fall through to the unhandled path at the end of aws()
 
     if (svc, op) == ("dynamodb", "describe-table"):
         return out("ACTIVE") if w["table"] else err("ResourceNotFoundException", "Requested resource not found")
@@ -250,7 +315,7 @@ def aws(argv):
             if w.get("simulator") == "denied":
                 return err("AccessDenied", "User is not authorized to perform: iam:%s" % op, rc=254)
             req = json.loads(read_file_arg(flag(rest, "--cli-input-json")))
-            policies = [json.loads(p) for p in req["PolicyInputList"]]
+            policies = [json.loads(p) for p in req.get("PolicyInputList", [])]
             if op == "simulate-principal-policy":
                 r = w["roles"][req["PolicySourceArn"].rsplit("/", 1)[-1]]
                 policies += r["base"] + list(r["policies"].values())
