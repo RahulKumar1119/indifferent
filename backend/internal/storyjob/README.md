@@ -182,7 +182,13 @@ turns a failure into a silent success:
 - **The finished file is checked before the job is called completed**: a picture
   stream, a sound stream, 1080x1920, and a length within half a second of the
   plan. FFmpeg exiting 0 is not proof of a good video.
-- **Ids are validated as UUIDs** before they go into any storage key.
+- **Ids are validated before they go into any storage key.** A job id must be a
+  UUID (this system makes them). A user id must be 1 to 64 of letters, digits,
+  `-` and `_`, because it is **not always a UUID**: a user who signs in with
+  Google has Google's own numeric id (about 21 digits) and only a password signup
+  gets a UUID. The first version of the worker accepted only UUIDs and would have
+  refused every Google user's job with exit 2; it was found while building the
+  API, which is the first code to start a job with a real user's id.
 - **No path is escaped inside an FFmpeg filter.** FFmpeg runs in the work
   directory and the captions file is named relatively. A test uses a directory
   called `it's a: odd dir [x]`.
