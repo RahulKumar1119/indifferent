@@ -1,0 +1,319 @@
+{
+  "Comment": "Story2Shorts video: run the render task (Fargate Spot, then on-demand), read the job record to see how it ended, and notify. The worker (cmd/storyrender) writes the job's progress and end state itself, so no Lambda is needed to track it. Exit 0 does not mean success: a failed job exits 0 so it is not retried, so the record is read after the task.",
+  "StartAt": "RunOnSpot",
+  "States": {
+    "RunOnSpot": {
+      "Type": "Task",
+      "Comment": "Exit 1 (a temporary failure, or a Spot interruption) is retried here. A timeout is not retried on Spot: a task that ran the full time is stuck, and the next attempt is on-demand.",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "TimeoutSeconds": 1200,
+      "Parameters": {
+        "Cluster": "${EcsClusterArn}",
+        "TaskDefinition": "${StoryRenderTaskDefArn}",
+        "CapacityProviderStrategy": [
+          { "CapacityProvider": "FARGATE_SPOT", "Weight": 1 }
+        ],
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ["${SubnetIds}"],
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": ["${SecurityGroupId}"]
+          }
+        },
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "story-render",
+              "Environment": [
+                { "Name": "USER_ID", "Value.$": "$.userId" },
+                { "Name": "JOB_ID", "Value.$": "$.jobId" }
+              ]
+            }
+          ]
+        }
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": ["States.Timeout"],
+          "MaxAttempts": 0
+        },
+        {
+          "ErrorEquals": ["ECS.AmazonECSException", "States.TaskFailed"],
+          "IntervalSeconds": 20,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.spotError",
+          "Next": "RunOnDemand"
+        }
+      ],
+      "Next": "ReadJob"
+    },
+    "RunOnDemand": {
+      "Type": "Task",
+      "Comment": "Spot could not finish the job (no capacity, repeated interruptions, or a timeout). One more go on on-demand capacity.",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "TimeoutSeconds": 1200,
+      "Parameters": {
+        "Cluster": "${EcsClusterArn}",
+        "TaskDefinition": "${StoryRenderTaskDefArn}",
+        "CapacityProviderStrategy": [
+          { "CapacityProvider": "FARGATE", "Weight": 1 }
+        ],
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ["${SubnetIds}"],
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": ["${SecurityGroupId}"]
+          }
+        },
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "story-render",
+              "Environment": [
+                { "Name": "USER_ID", "Value.$": "$.userId" },
+                { "Name": "JOB_ID", "Value.$": "$.jobId" }
+              ]
+            }
+          ]
+        }
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "ReadJob"
+    },
+    "ReadJob": {
+      "Type": "Task",
+      "Comment": "The task exited cleanly, which means the job reached an end state. Read it with a consistent read to find out which. getItem on a missing key answers {} with no Item, so the response is kept whole and IsJobThere? looks before anything reads into it: a path that is not there raises States.Runtime, which a Catch cannot handle. A job has at most 10 scenes, so the whole record is a few tens of KB, well under the 256 KB limit on state.",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "${JobsTable}",
+        "ConsistentRead": true,
+        "Key": {
+          "PK": { "S.$": "States.Format('USER#{}', $.userId)" },
+          "SK": { "S.$": "States.Format('STORYVIDEO#{}', $.jobId)" }
+        }
+      },
+      "ResultPath": "$.read",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Comment": "The read itself failed (permissions, throttling that outlasted the SDK's retries). The job's outcome is already recorded by the worker; there is nobody to tell.",
+          "ResultPath": "$.readError",
+          "Next": "Gone"
+        }
+      ],
+      "Next": "IsJobThere?"
+    },
+    "IsJobThere?": {
+      "Type": "Choice",
+      "Comment": "A job deleted while it ran, or a record with no status, goes to Gone. Neither needs an email.",
+      "Choices": [
+        {
+          "And": [
+            { "Variable": "$.read.Item", "IsPresent": true },
+            { "Variable": "$.read.Item.status", "IsPresent": true },
+            { "Variable": "$.read.Item.status.S", "IsPresent": true }
+          ],
+          "Next": "HowDidItEnd?"
+        }
+      ],
+      "Default": "Gone"
+    },
+    "HowDidItEnd?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.read.Item.status.S",
+          "StringEquals": "completed",
+          "Next": "NotifyCompleted"
+        },
+        {
+          "Variable": "$.read.Item.status.S",
+          "StringEquals": "failed",
+          "Next": "NotifyFailed"
+        }
+      ],
+      "Default": "StillRunning"
+    },
+    "StillRunning": {
+      "Type": "Pass",
+      "Comment": "The task exited 0 but the job is still queued, preparing, narrating or rendering. The worker only exits 0 once the job has ended, so this should not happen: it means something else changed the record. Mark it failed so the user is not left waiting. MarkFailed will not overwrite an end state.",
+      "Result": {
+        "Error": "NotFinished",
+        "Cause": "The render task ended before the job was finished."
+      },
+      "ResultPath": "$.error",
+      "Next": "MarkFailed"
+    },
+    "MarkFailed": {
+      "Type": "Task",
+      "Comment": "Retries ran out, or the task ended without finishing. Mark the job failed. A reason the worker already saved is kept (if_not_exists); otherwise a generic one is used. It is conditional on the job existing and not having ended, so it never overwrites a completed job, a cancel, or a failure the worker already recorded, and never recreates a deleted job.",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${JobsTable}",
+        "Key": {
+          "PK": { "S.$": "States.Format('USER#{}', $.userId)" },
+          "SK": { "S.$": "States.Format('STORYVIDEO#{}', $.jobId)" }
+        },
+        "UpdateExpression": "SET #status = :failed, #error = if_not_exists(#error, :message), #errorCode = if_not_exists(#errorCode, :code), #failedStage = if_not_exists(#failedStage, #status), #updatedAt = :now",
+        "ConditionExpression": "attribute_exists(PK) AND #status <> :completed AND #status <> :failed",
+        "ExpressionAttributeNames": {
+          "#status": "status",
+          "#error": "error",
+          "#errorCode": "errorCode",
+          "#failedStage": "failedStage",
+          "#updatedAt": "updatedAt"
+        },
+        "ExpressionAttributeValues": {
+          ":failed": { "S": "failed" },
+          ":completed": { "S": "completed" },
+          ":message": { "S": "Something went wrong on our side while making the video. Try again." },
+          ":code": { "S": "INTERNAL" },
+          ":now": { "S.$": "$$.State.EnteredTime" }
+        }
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": ["DynamoDB.ConditionalCheckFailedException"],
+          "Comment": "The job is gone or has already ended (completed, cancelled, or failed with its own reason). Leave it as it is.",
+          "ResultPath": "$.markError",
+          "Next": "ReadJobAgain"
+        }
+      ],
+      "Next": "NotifyFailed"
+    },
+    "ReadJobAgain": {
+      "Type": "Task",
+      "Comment": "MarkFailed was refused because the job had already ended or is gone. Read how, so a job that in fact completed is reported as completed and a cancel is not reported at all.",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "${JobsTable}",
+        "ConsistentRead": true,
+        "Key": {
+          "PK": { "S.$": "States.Format('USER#{}', $.userId)" },
+          "SK": { "S.$": "States.Format('STORYVIDEO#{}', $.jobId)" }
+        }
+      },
+      "ResultPath": "$.read",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.readError",
+          "Next": "Gone"
+        }
+      ],
+      "Next": "IsJobStillThere?"
+    },
+    "IsJobStillThere?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            { "Variable": "$.read.Item", "IsPresent": true },
+            { "Variable": "$.read.Item.status", "IsPresent": true },
+            { "Variable": "$.read.Item.status.S", "IsPresent": true }
+          ],
+          "Next": "EndedHow?"
+        }
+      ],
+      "Default": "Gone"
+    },
+    "EndedHow?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.read.Item.status.S",
+          "StringEquals": "completed",
+          "Next": "NotifyCompleted"
+        },
+        {
+          "Variable": "$.read.Item.status.S",
+          "StringEquals": "failed",
+          "Next": "NotifyFailed"
+        }
+      ],
+      "Default": "Gone"
+    },
+    "NotifyCompleted": {
+      "Type": "Task",
+      "Comment": "Best-effort email. Any failure here continues to NotifyEnd; the job outcome is already recorded.",
+      "Resource": "${NotifierArn}",
+      "Parameters": {
+        "kind": "story",
+        "outcome": "completed",
+        "userId.$": "$.userId",
+        "jobId.$": "$.jobId",
+        "executionId.$": "$$.Execution.Id"
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": ["Throttled"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 4,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.notifyError",
+          "Next": "NotifyEnd"
+        }
+      ],
+      "End": true
+    },
+    "NotifyFailed": {
+      "Type": "Task",
+      "Comment": "Best-effort email. Any failure here continues to NotifyEnd; the job outcome is already recorded. The notifier skips a job the user cancelled.",
+      "Resource": "${NotifierArn}",
+      "Parameters": {
+        "kind": "story",
+        "outcome": "failed",
+        "userId.$": "$.userId",
+        "jobId.$": "$.jobId",
+        "executionId.$": "$$.Execution.Id"
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": ["Throttled"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 4,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.notifyError",
+          "Next": "NotifyEnd"
+        }
+      ],
+      "End": true
+    },
+    "NotifyEnd": {
+      "Type": "Pass",
+      "End": true
+    },
+    "Gone": {
+      "Type": "Pass",
+      "Comment": "The job no longer exists or was ended by someone else in a way that needs no email. Nothing more to do.",
+      "End": true
+    }
+  }
+}

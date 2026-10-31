@@ -1,7 +1,7 @@
-// Package notifier sends one email when a quiz-video or AI Shorts job finishes
-// or fails. It runs as the last state of both Step Functions pipelines, after
-// the job's final status has been written, and is wrapped in a Catch there:
-// whatever happens in this package, a job's outcome never changes.
+// Package notifier sends one email when a quiz-video, AI Shorts or Story2Shorts
+// job finishes or fails. It runs as the last state of each Step Functions
+// pipeline, after the job's final status has been written, and is wrapped in a
+// Catch there: whatever happens in this package, a job's outcome never changes.
 package notifier
 
 import (
@@ -37,7 +37,7 @@ type DynamoDBAPI interface {
 }
 
 // Input is the event the state machines pass to the notifier. Exactly one of
-// ProjectID (kind "quiz") or JobID (kind "shorts") is used. ExecutionID is the
+// ProjectID (kind "quiz") or JobID (kinds "shorts" and "story") is used. ExecutionID is the
 // Step Functions execution ARN ($$.Execution.Id).
 type Input struct {
 	Kind        string `json:"kind"`
@@ -59,7 +59,7 @@ type Result struct {
 type Notifier struct {
 	DB            DynamoDBAPI
 	Mailer        Mailer
-	ProjectsTable string // jobs: PK=USER#<id>, SK=PROJECT#<id> | SHORTS#<id>
+	ProjectsTable string // jobs: PK=USER#<id>, SK=PROJECT#<id> | SHORTS#<id> | STORYVIDEO#<id>
 	UsersTable    string // profiles: PK=USER#<id>, SK=PROFILE
 	BaseURL       string // site origin used for links, for example https://indifferent.fun
 	Now           func() time.Time
@@ -110,11 +110,20 @@ func (n *Notifier) Handle(ctx context.Context, in Input) (Result, error) {
 		// The record moved on (for example the job was reset for a retry).
 		return n.skip(in, "status_mismatch"), nil
 	}
-	if in.Kind == KindShorts && in.Outcome == OutcomeFailed && stringAttr(job, "errorCode") == "CANCELLED" {
+	if (in.Kind == KindShorts || in.Kind == KindStory) && in.Outcome == OutcomeFailed && stringAttr(job, "errorCode") == "CANCELLED" {
 		return n.skip(in, "cancelled_by_user"), nil
 	}
 
-	content, err := Render(in.Kind, in.Outcome, stringAttr(job, "name"), id, n.BaseURL)
+	// The email's link is made from this id. For a story video it is the plan's,
+	// not the job's: the page that shows the video is the plan's page.
+	linkID := id
+	if in.Kind == KindStory {
+		if linkID = stringAttr(job, "planId"); linkID == "" {
+			return n.skip(in, "no_plan"), nil
+		}
+	}
+
+	content, err := Render(in.Kind, in.Outcome, stringAttr(job, "name"), linkID, n.BaseURL)
 	if err != nil {
 		return Result{}, &SendFailed{Err: err}
 	}
@@ -184,12 +193,17 @@ func validate(in Input) (string, error) {
 			return "", errors.New("jobId is required for kind shorts")
 		}
 		return "SHORTS#" + in.JobID, nil
+	case KindStory:
+		if in.JobID == "" {
+			return "", errors.New("jobId is required for kind story")
+		}
+		return "STORYVIDEO#" + in.JobID, nil
 	}
 	return "", fmt.Errorf("unknown kind %q", in.Kind)
 }
 
 func jobID(in Input) string {
-	if in.Kind == KindShorts {
+	if in.Kind == KindShorts || in.Kind == KindStory {
 		return in.JobID
 	}
 	return in.ProjectID
