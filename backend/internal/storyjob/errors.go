@@ -24,6 +24,10 @@ const (
 	CodeNarrationTooLong = "NARRATION_TOO_LONG"
 	// CodeInternal: something on our side broke.
 	CodeInternal = "INTERNAL"
+	// CodeTimedOut: the worker ran out of its time. A run that was still going
+	// after the whole allowance is stuck, not slow, and running it again on the
+	// same inputs would most likely stick again, so this is final.
+	CodeTimedOut = "TIMED_OUT"
 )
 
 // StepError is a failure of one step of a job.

@@ -246,9 +246,16 @@ func (r *Runner) end(ctx context.Context, job *Job, err error) (Outcome, error) 
 			// The user ended the job. Nothing to retry.
 			return OutcomeCancelled, cause
 		}
-		// The process was told to stop (a Spot interruption, a deploy) or ran
-		// out of time. The job is not finished and not failed: ask to be run
-		// again. Exiting cleanly here would tell Step Functions it succeeded.
+		if errors.Is(cause, context.DeadlineExceeded) {
+			// Out of time. Asking for a retry here would run the same stuck
+			// render again on every Spot attempt and then on-demand, an hour
+			// of compute for nothing. Say so, and stop.
+			return r.fail(ctx, job, &StepError{Code: CodeTimedOut, Err: cause,
+				Message: "Making the video took too long and was stopped. Try again, or shorten the story."})
+		}
+		// The process was told to stop (a Spot interruption, a deploy). The job
+		// is not finished and not failed: ask to be run again. Exiting cleanly
+		// here would tell Step Functions it succeeded.
 		return OutcomeRetry, cause
 	}
 	return r.fail(ctx, job, err)

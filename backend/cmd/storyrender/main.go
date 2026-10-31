@@ -32,9 +32,16 @@ import (
 )
 
 // taskTimeout is the longest one attempt may run. The state machine's own task
-// timeout is longer, so this is what normally ends a stuck render, with the
-// reason logged and the job left to be run again.
-const taskTimeout = 25 * time.Minute
+// timeout (1200 s, in pipeline/statemachine.json) is five minutes longer, so
+// this is what ends a stuck render: the runner marks the job failed with a
+// reason the user can read, and exits 0 so the task is not run again. If the
+// state machine's timeout came first, the task would be killed with nothing
+// saved, and retried on Spot and then on-demand.
+//
+// 15 minutes is a ceiling chosen before any render has run on Fargate. The
+// storyjob_timing log line records the real times; change this and the state
+// machine's timeout together, keeping the state machine's the longer.
+const taskTimeout = 15 * time.Minute
 
 func main() {
 	os.Exit(run())

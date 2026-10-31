@@ -423,14 +423,68 @@ func TestRun_AProcessThatIsToldToStopAsksToBeRunAgainAndNeverReportsSuccess(t *t
 	}
 }
 
-func TestRun_ProcessTimeoutIsAlsoARetryNotAFailure(t *testing.T) {
+// A stop signal and running out of time look alike to the code (the context
+// ends) and differ in what should happen. A signal means the machine went away,
+// so run again. A deadline means the job itself ran the whole allowance and is
+// stuck: retrying would run it again on each Spot attempt and then on-demand.
+func TestRun_RunningOutOfTimeIsAFinalFailureWithAReasonTheUserCanRead(t *testing.T) {
+	stage := map[string]func(e *env) (*Runner, *memStore){
+		"while rendering": func(e *env) (*Runner, *memStore) {
+			st := newStore(e.jobWith(2))
+			return e.runner(st, &fakeRenderer{block: true}), st
+		},
+		"while a download hangs": func(e *env) (*Runner, *memStore) {
+			e.deps.Assets = stalled{e.assets}
+			st := newStore(e.jobWith(2))
+			return e.runner(st, &fakeRenderer{}), st
+		},
+	}
+	for name, setup := range stage {
+		t.Run(name, func(t *testing.T) {
+			e := newEnv(t)
+			r, st := setup(e)
+			ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+			defer cancel()
+			out, err := r.Run(ctx, "u1", "j1")
+			got := st.current()
+			if out != OutcomeFailed || err == nil {
+				t.Fatalf("outcome %v err %v: a stuck job must not be run again", out, err)
+			}
+			if got.Status != StatusFailed || got.ErrorCode != CodeTimedOut {
+				t.Errorf("job = status %q code %q", got.Status, got.ErrorCode)
+			}
+			if !strings.Contains(got.Error, "too long") || strings.Contains(got.Error, "deadline") || strings.Contains(got.Error, "context") {
+				t.Errorf("the user is told %q", got.Error)
+			}
+			if got.FailedStage == "" {
+				t.Error("the stage it was in was not recorded")
+			}
+			if ExitCode(out) != 0 {
+				t.Error("a final failure must exit 0, or Step Functions retries it")
+			}
+		})
+	}
+}
+
+// The deadline must not hide a cancel that happened first.
+func TestRun_ACancelThatArrivesBeforeTheDeadlineStaysACancel(t *testing.T) {
 	e := newEnv(t)
 	st := newStore(e.jobWith(2))
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	rend := &fakeRenderer{block: true, started: make(chan struct{})}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	out, _ := e.runner(st, &fakeRenderer{block: true}).Run(ctx, "u1", "j1")
-	if out != OutcomeRetry || Terminal(st.current().Status) {
-		t.Errorf("outcome %v job %+v", out, st.current())
+	go func() {
+		<-rend.started
+		st.mu.Lock()
+		st.job.Status, st.job.Error, st.job.ErrorCode = StatusFailed, "Cancelled.", "CANCELLED"
+		st.mu.Unlock()
+	}()
+	out, _ := e.runner(st, rend).Run(ctx, "u1", "j1")
+	if out != OutcomeCancelled {
+		t.Errorf("outcome %v", out)
+	}
+	if got := st.current(); got.ErrorCode != "CANCELLED" {
+		t.Errorf("the cancel was overwritten: %+v", got)
 	}
 }
 
