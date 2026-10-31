@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/rahul/indifferent/backend/internal/stockmedia"
 	"github.com/rahul/indifferent/backend/internal/storyplan"
@@ -75,7 +76,7 @@ func copyOne(ctx context.Context, d Deps, job *Job, n int, pick storyplan.MediaR
 
 	local := filepath.Join(d.WorkDir, fmt.Sprintf("scene-%02d-media%s", n, ext))
 	defer os.Remove(local)
-	if err := download(ctx, d, asset, local); err != nil {
+	if err := download(ctx, d, n, asset, local); err != nil {
 		return nil, mediaError(n, provider, err)
 	}
 
@@ -99,7 +100,24 @@ func copyOne(ctx context.Context, d Deps, job *Job, n int, pick storyplan.MediaR
 	}, nil
 }
 
-func download(ctx context.Context, d Deps, asset stockmedia.Asset, path string) error {
+// download fetches the asset's file to path, trying again under d.Retry when the
+// provider's CDN fails or the transfer breaks off. Only that kind of failure is
+// retried: a file that is gone, invalid, or too big would fail the same way
+// again, and a full scratch disk is ours. A retry starts the file over, so a
+// partial first attempt is never kept.
+//
+// A failed scene would otherwise end the whole task, and the state machine
+// would start it again from the top after a wait. Retrying here costs seconds
+// instead of a container start.
+func download(ctx context.Context, d Deps, scene int, asset stockmedia.Asset, path string) error {
+	return d.Retry.Do(ctx, func(ctx context.Context, _ int) error {
+		return downloadOnce(ctx, d, asset, path)
+	}, func(attempt int, wait time.Duration, err error) {
+		d.logf("storyjob scene=%d media=download_retry attempt=%d wait_ms=%d: %v", scene, attempt, wait.Milliseconds(), err)
+	})
+}
+
+func downloadOnce(ctx context.Context, d Deps, asset stockmedia.Asset, path string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("%w: %v", errScratch, err)
