@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "verify:picker": "node e2e/picker-verification.mjs",
+    "verify:story-video": "node e2e/story-video-verification.mjs",
     "seo:generate": "node scripts/seo-files.mjs",
     "verify:seo": "node scripts/seo-files.mjs --check"
   },

@@ -7,6 +7,7 @@ import {
   LucideCheck,
   LucideCircleX,
   LucideClock,
+  LucideDownload,
   LucideFilm,
   LucideImage,
   LucideLoader2,
@@ -30,6 +31,7 @@ export const STORY_ICONS = provideLucideIcons(
   LucideCheck,
   LucideCircleX,
   LucideClock,
+  LucideDownload,
   LucideFilm,
   LucideImage,
   LucideLoader2,
@@ -175,4 +177,70 @@ export async function settle(fixture: { detectChanges(): void; whenStable(): Pro
   fixture.detectChanges();
   await fixture.whenStable();
   fixture.detectChanges();
+}
+
+// ---------------------------------------------------------------------------
+// The video made from a plan.
+
+import { StoryVideoService } from './story-video.service';
+import { StoryVideo, StoryVideoLimits } from './story-video.models';
+
+export const VIDEO_LIMITS: StoryVideoLimits = {
+  enabled: true,
+  maxActive: 2,
+  perDay: 10,
+  maxSeconds: 90,
+  voices: { en: ['Joanna', 'Matthew', 'Amy', 'Brian', 'Aditi'], hi: ['Aditi'] },
+};
+
+export function video(over: Partial<StoryVideo> = {}): StoryVideo {
+  return {
+    jobId: 'job-1',
+    planId: 'plan-1',
+    planRevision: 1,
+    status: 'queued',
+    progress: 0,
+    language: 'en',
+    voice: 'Joanna',
+    caption: { preset: 'bold' },
+    createdAt: '2026-10-31T10:00:00Z',
+    updatedAt: '2026-10-31T10:00:00Z',
+    ...over,
+  };
+}
+
+export const rendering = (over: Partial<StoryVideo> = {}) => video({ status: 'rendering', progress: 62, totalSeconds: 41.2, ...over });
+
+export const completed = (over: Partial<StoryVideo> = {}) =>
+  video({ status: 'completed', progress: 100, totalSeconds: 41.2, completedAt: '2026-10-31T10:03:00Z', ...over });
+
+export const failed = (over: Partial<StoryVideo> = {}) =>
+  video({
+    status: 'failed',
+    progress: 25,
+    failedStage: 'preparing',
+    errorCode: 'INTERNAL',
+    error: 'Something went wrong on our side while making the video. Try again.',
+    ...over,
+  });
+
+export const cancelledVideo = (over: Partial<StoryVideo> = {}) =>
+  failed({ errorCode: 'CANCELLED', error: 'You cancelled this video.', failedStage: 'rendering', ...over });
+
+export type VideoServiceSpy = jasmine.SpyObj<StoryVideoService>;
+
+/** A video service that knows no videos for the plan and has the limits. */
+export function videoServiceSpy(): VideoServiceSpy {
+  const spy = jasmine.createSpyObj<StoryVideoService>('StoryVideoService', [
+    'getLimits',
+    'create',
+    'get',
+    'listForPlan',
+    'cancel',
+    'remove',
+    'download',
+  ]);
+  spy.getLimits.and.returnValue(of(VIDEO_LIMITS));
+  spy.listForPlan.and.returnValue(of({ videos: [], hasMore: false }));
+  return spy;
 }

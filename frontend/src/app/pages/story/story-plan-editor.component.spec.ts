@@ -17,10 +17,14 @@ import {
   searchResponse,
   serviceSpy,
   settle,
+  videoServiceSpy,
+  VideoServiceSpy,
 } from './story-plan-fixtures.spec';
+import { StoryVideoService } from './story-video.service';
 
 describe('StoryPlanEditorComponent', () => {
   let service: ServiceSpy;
+  let videoService: VideoServiceSpy;
   let fixture: ComponentFixture<StoryPlanEditorComponent>;
   let el: HTMLElement;
 
@@ -32,7 +36,7 @@ describe('StoryPlanEditorComponent', () => {
     });
     await TestBed.configureTestingModule({
       imports: [StoryPlanEditorComponent],
-      providers: [provideRouter([]), routeFor('plan-1'), { provide: StoryPlanService, useValue: service }, STORY_ICONS],
+      providers: [provideRouter([]), routeFor('plan-1'), { provide: StoryPlanService, useValue: service }, { provide: StoryVideoService, useValue: videoService }, STORY_ICONS],
     }).compileComponents();
     fixture = TestBed.createComponent(StoryPlanEditorComponent);
     el = fixture.nativeElement;
@@ -41,6 +45,7 @@ describe('StoryPlanEditorComponent', () => {
 
   beforeEach(() => {
     service = serviceSpy();
+    videoService = videoServiceSpy();
     service.search.and.returnValue(of(searchResponse()));
   });
 
@@ -217,7 +222,7 @@ describe('StoryPlanEditorComponent', () => {
       TestBed.overrideComponent(StoryPlanEditorComponent, { remove: { imports: [NavbarComponent] }, add: { imports: [NavbarStub] } });
       await TestBed.configureTestingModule({
         imports: [StoryPlanEditorComponent],
-        providers: [provideRouter([]), routeFor('plan-1'), { provide: StoryPlanService, useValue: service }, STORY_ICONS],
+        providers: [provideRouter([]), routeFor('plan-1'), { provide: StoryPlanService, useValue: service }, { provide: StoryVideoService, useValue: videoService }, STORY_ICONS],
       }).compileComponents();
       fixture = TestBed.createComponent(StoryPlanEditorComponent);
       el = fixture.nativeElement;
@@ -542,6 +547,109 @@ describe('StoryPlanEditorComponent', () => {
 
     it('announces the save state politely', () => {
       expect(el.querySelector('[data-testid="save-status"]')!.getAttribute('role')).toBe('status');
+    });
+  });
+
+  describe('making the video from the plan', () => {
+    const panel = () => el.querySelector('app-story-video-panel') as HTMLElement | null;
+    const makeButton = () => panel()?.querySelector<HTMLButtonElement>('[data-testid="make"]') ?? null;
+    const blocker = () => panel()?.querySelector('[data-testid="blocker"]')?.textContent ?? '';
+
+    it('does not claim the video is unavailable any more', async () => {
+      await create();
+      expect(text()).not.toContain('not available yet');
+      expect(text()).toContain('make the video below the last scene');
+    });
+
+    it('puts the panel after the last scene and its credits, for this plan and revision, in its language', async () => {
+      await create(planRecord({ revision: 4 }));
+      expect(panel()).toBeTruthy();
+      const order = Array.from(el.querySelectorAll('app-story-scene-card, app-story-attribution, app-story-video-panel')).map((n) => n.tagName.toLowerCase());
+      expect(order).toEqual(['app-story-scene-card', 'app-story-scene-card', 'app-story-scene-card', 'app-story-attribution', 'app-story-video-panel']);
+      expect(videoService.listForPlan).toHaveBeenCalledOnceWith('plan-1');
+    });
+
+    it('is not shown for a plan that cannot be opened', async () => {
+      await create(httpError(404, 'NOT_FOUND'));
+      expect(panel()).toBeNull();
+      expect(videoService.listForPlan).not.toHaveBeenCalled();
+    });
+
+    it('waits for a picture on every scene, and says which scene has none', async () => {
+      await create();
+      expect(blocker()).toBe('Scene 3 has no picture. Choose one, then save.');
+      expect(makeButton()!.disabled).toBeTrue();
+    });
+
+    it('can make the video once every scene has a saved picture', async () => {
+      const rec = planRecord();
+      rec.plan!.scenes[2].media = { provider: 'pixabay', type: 'photo', id: '303' };
+      await create(rec);
+      expect(blocker()).toBe('');
+      expect(makeButton()!.disabled).toBeFalse();
+    });
+
+    describe('with every picture chosen', () => {
+      let rec: StoryPlanRecord;
+      beforeEach(async () => {
+        rec = planRecord();
+        rec.plan!.scenes[2].media = { provider: 'pixabay', type: 'photo', id: '303' };
+        await create(rec);
+      });
+
+      it('holds the button back while there are changes that are not saved, because the video uses the saved plan', async () => {
+        await type(1, 'A different first line.');
+        expect(blocker()).toContain('Save your changes first');
+        expect(makeButton()!.disabled).toBeTrue();
+        // Putting it back is no change, and the button comes back.
+        await type(1, 'The lighthouse stood alone on the cliff.');
+        expect(blocker()).toBe('');
+        expect(makeButton()!.disabled).toBeFalse();
+      });
+
+      it('lets it go ahead after the changes are saved, for the newer revision', async () => {
+        const saved = planRecord({ revision: 2 });
+        saved.plan!.scenes[2].media = { provider: 'pixabay', type: 'photo', id: '303' };
+        saved.plan!.scenes[0].narration = 'A different first line.';
+        service.save.and.returnValue(of(saved));
+        videoService.create.and.returnValue(of({
+          jobId: 'job-1', planId: 'plan-1', planRevision: 2, status: 'queued', progress: 0, language: 'en', voice: 'Joanna',
+          caption: { preset: 'bold' }, createdAt: '2026-10-31T10:00:00Z', updatedAt: '2026-10-31T10:00:00Z',
+        }));
+        await type(1, 'A different first line.');
+        saveButton().click();
+        await settle(fixture);
+        expect(blocker()).toBe('');
+        makeButton()!.click();
+        expect(videoService.create).toHaveBeenCalledOnceWith({ planId: 'plan-1', revision: 2, voice: 'Joanna', caption: { preset: 'bold' } });
+      });
+
+      it('reloads the plan when the panel says it changed somewhere else', async () => {
+        videoService.create.and.returnValue(throwError(() => httpError(409, 'STALE_REVISION')));
+        makeButton()!.click();
+        await settle(fixture);
+        service.get.calls.reset();
+        panel()!.querySelector<HTMLButtonElement>('[data-testid="problem"] button')!.click();
+        await settle(fixture);
+        expect(service.get).toHaveBeenCalledOnceWith('plan-1');
+      });
+    });
+
+    describe('after a video failed because of one picture', () => {
+      it('takes keyboard focus to the picture button of the scene the failure names', async () => {
+        videoService.listForPlan.and.returnValue(of({
+          hasMore: false,
+          videos: [{
+            jobId: 'job-1', planId: 'plan-1', planRevision: 1, status: 'failed', progress: 20, language: 'en', voice: 'Joanna',
+            caption: { preset: 'bold' }, errorCode: 'MEDIA_UNAVAILABLE', failedStage: 'preparing',
+            error: 'Scene 2: the picture is no longer available from Pexels. Choose another and make the video again.',
+            createdAt: '2026-10-31T10:00:00Z', updatedAt: '2026-10-31T10:00:00Z',
+          }],
+        }));
+        await create();
+        panel()!.querySelector<HTMLButtonElement>('[data-testid="go-to-scene"]')!.click();
+        expect(document.activeElement!.id).toBe('scene-2-choose');
+      });
     });
   });
 });
