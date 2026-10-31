@@ -87,7 +87,11 @@ func run() int {
 	}
 	// Stock search keys come from the environment (see stockmedia.NewServiceFromEnv).
 	// A missing key is a deployment mistake, not something the user can fix.
-	stock, err := stockmedia.NewServiceFromEnv()
+	//
+	// Nobody is waiting on this worker, and a failed attempt costs a whole task
+	// restart, so it tries harder than the interactive API does.
+	retry := stockmedia.BatchRetryPolicy()
+	stock, err := stockmedia.NewServiceFromEnv(stockmedia.WithRetry(retry))
 	if err != nil {
 		log.Printf("storyrender: stock media is not configured: %v", err)
 		return 1
@@ -101,6 +105,7 @@ func run() int {
 		Prober:   prober,
 		Bucket:   bucket,
 		WorkDir:  workDir(),
+		Retry:    retry,
 	}
 	runner := &storyjob.Runner{
 		Deps:  deps,

@@ -15,17 +15,24 @@ import (
 
 // fakeAssets stands in for the stock layer.
 type fakeAssets struct {
-	mu        sync.Mutex
-	assets    map[string]stockmedia.Asset // by "provider:type:id"
-	getErr    map[string]error
-	dlErr     map[string]error
-	dlBytes   map[string]string
+	mu      sync.Mutex
+	assets  map[string]stockmedia.Asset // by "provider:type:id"
+	getErr  map[string]error
+	dlErr   map[string]error
+	dlBytes map[string]string
+	// dlSeq gives, per asset, the outcome of its first downloads in order: an
+	// error fails that call, nil lets it through. Once used up, dlErr applies.
+	dlSeq map[string][]error
+	// dlPartial is written before a failing download returns, as a transfer that
+	// breaks off leaves part of the file behind.
+	dlPartial map[string]string
 	gets      []string
 	downloads []string
 }
 
 func newAssets() *fakeAssets {
-	return &fakeAssets{assets: map[string]stockmedia.Asset{}, getErr: map[string]error{}, dlErr: map[string]error{}, dlBytes: map[string]string{}}
+	return &fakeAssets{assets: map[string]stockmedia.Asset{}, getErr: map[string]error{}, dlErr: map[string]error{}, dlBytes: map[string]string{},
+		dlSeq: map[string][]error{}, dlPartial: map[string]string{}}
 }
 
 func ref(provider, typ, id string) string { return provider + ":" + typ + ":" + id }
@@ -62,9 +69,16 @@ func (f *fakeAssets) Download(_ context.Context, a stockmedia.Asset, w io.Writer
 	k := ref(string(a.Provider), string(a.Type), a.ID)
 	f.downloads = append(f.downloads, k)
 	err := f.dlErr[k]
+	if seq := f.dlSeq[k]; len(seq) > 0 {
+		err, f.dlSeq[k] = seq[0], seq[1:]
+	}
 	content, ok := f.dlBytes[k]
+	partial := f.dlPartial[k]
 	f.mu.Unlock()
 	if err != nil {
+		if partial != "" {
+			_, _ = io.WriteString(w, partial)
+		}
 		return 0, err
 	}
 	if !ok {

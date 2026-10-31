@@ -56,6 +56,9 @@ type Deps struct {
 	Bucket string
 	// WorkDir is a scratch directory with room for the largest stock clip.
 	WorkDir string
+	// Retry governs the download of a stock file. The zero value never retries.
+	// Provider lookups are retried inside Assets (see stockmedia.WithRetry).
+	Retry stockmedia.RetryPolicy
 	// Logf receives progress notes. It defaults to log.Printf.
 	Logf func(format string, args ...any)
 }
