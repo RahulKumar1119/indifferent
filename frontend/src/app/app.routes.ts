@@ -57,6 +57,17 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'story',
+    loadComponent: () => import('./pages/story/story-plan-page.component').then((m) => m.StoryPlanPageComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'story/:id',
+    loadComponent: () => import('./pages/story/story-plan-editor.component').then((m) => m.StoryPlanEditorComponent),
+    canActivate: [authGuard],
+    canDeactivate: [(component: { canLeave(): boolean }) => component.canLeave()],
+  },
+  {
     path: 'shorts',
     loadComponent: () =>
       import('./pages/shorts/shorts-upload.component').then((m) => m.ShortsUploadComponent),
