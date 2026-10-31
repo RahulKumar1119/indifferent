@@ -19,6 +19,7 @@ import (
 	appconfig "github.com/rahul/indifferent/backend/internal/config"
 	"github.com/rahul/indifferent/backend/internal/shorts/rank"
 	"github.com/rahul/indifferent/backend/internal/slidegen"
+	"github.com/rahul/indifferent/backend/internal/stockcache"
 	"github.com/rahul/indifferent/backend/internal/stockmedia"
 	"github.com/rahul/indifferent/backend/internal/storage"
 	"github.com/rahul/indifferent/backend/internal/storyplan"
@@ -107,8 +108,11 @@ func main() {
 	// /stock-media routes answer 503 instead of failing at startup, so the API
 	// deploys before the keys exist. The variable stays a true nil interface in
 	// that case, which the handlers check.
+	//
+	// STOCK_CACHE_TABLE, when set, adds a cache shared by every container (see
+	// package stockcache); unset, each container keeps its own.
 	var stockMedia api.StockMedia
-	if svc, err := stockmedia.NewServiceFromEnv(); err == nil {
+	if svc, err := stockmedia.NewServiceFromEnv(stockcache.ServiceOptions(dbClient, os.Getenv, log.Printf)...); err == nil {
 		stockMedia = svc
 		log.Printf("stock media enabled providers=%v", svc.Providers())
 	} else if !errors.Is(err, stockmedia.ErrNotConfigured) {
