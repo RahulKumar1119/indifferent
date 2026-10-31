@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -174,5 +176,28 @@ func TestPartURLExpiration(t *testing.T) {
 	}
 	if PartURLExpiration <= UploadURLExpiration {
 		t.Errorf("part URLs must outlive the single PUT window of %v", UploadURLExpiration)
+	}
+}
+
+func TestPutFileInput_StreamsTheFileRatherThanBufferingIt(t *testing.T) {
+	body := strings.NewReader("hello")
+	in := putFileInput("b", "k.mp4", body, "video/mp4")
+	if *in.Bucket != "b" || *in.Key != "k.mp4" || *in.ContentType != "video/mp4" {
+		t.Errorf("input = %+v", in)
+	}
+	// A seekable body lets the SDK sign the request and retry it; a bare
+	// reader would fail on the first retry.
+	if _, ok := in.Body.(io.ReadSeeker); !ok {
+		t.Errorf("body %T is not seekable", in.Body)
+	}
+	if in.Body != body {
+		t.Error("the body was copied instead of passed through")
+	}
+}
+
+func TestPutFile_AMissingFileIsAnErrorBeforeAnyRequest(t *testing.T) {
+	c := &S3Client{}
+	if err := c.PutFile(context.Background(), "b", "k", "/no/such/file.mp4", "video/mp4"); err == nil {
+		t.Error("no error for a file that does not exist")
 	}
 }
