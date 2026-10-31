@@ -166,15 +166,34 @@ func (s *PollyNarrationService) SynthesizeText(ctx context.Context, text string,
 
 // synthesizeRaw performs the actual Polly synthesis with retry logic.
 func (s *PollyNarrationService) synthesizeRaw(ctx context.Context, text string, voiceID string) ([]byte, error) {
-	voice := types.VoiceId(voiceID)
-
-	input := &polly.SynthesizeSpeechInput{
+	return s.synthesize(ctx, &polly.SynthesizeSpeechInput{
 		OutputFormat: types.OutputFormatMp3,
-		VoiceId:      voice,
+		VoiceId:      types.VoiceId(voiceID),
 		Engine:       types.EngineStandard,
 		Text:         &text,
-	}
+	})
+}
 
+// SynthesizeMarks returns Polly's word speech marks for text: one JSON object
+// per line, each with the word's start time in milliseconds and its byte
+// offsets in text. It asks for the same voice and engine as SynthesizeText, so
+// the times describe exactly the audio that call produces. Retries like
+// SynthesizeText does.
+func (s *PollyNarrationService) SynthesizeMarks(ctx context.Context, text string, voiceID string) ([]byte, error) {
+	if !IsValidVoice(voiceID) {
+		return nil, fmt.Errorf("unsupported voice ID: %s", voiceID)
+	}
+	return s.synthesize(ctx, &polly.SynthesizeSpeechInput{
+		OutputFormat:    types.OutputFormatJson,
+		SpeechMarkTypes: []types.SpeechMarkType{types.SpeechMarkTypeWord},
+		VoiceId:         types.VoiceId(voiceID),
+		Engine:          types.EngineStandard,
+		Text:            &text,
+	})
+}
+
+// synthesize calls Polly with retries and returns the whole response body.
+func (s *PollyNarrationService) synthesize(ctx context.Context, input *polly.SynthesizeSpeechInput) ([]byte, error) {
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
@@ -191,13 +210,13 @@ func (s *PollyNarrationService) synthesizeRaw(ctx context.Context, text string, 
 			continue
 		}
 
-		audioBytes, err := io.ReadAll(output.AudioStream)
+		body, err := io.ReadAll(output.AudioStream)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to read audio stream: %w", err)
 			continue
 		}
 
-		return audioBytes, nil
+		return body, nil
 	}
 
 	return nil, fmt.Errorf("polly synthesis failed after %d attempts: %w", maxRetries+1, lastErr)

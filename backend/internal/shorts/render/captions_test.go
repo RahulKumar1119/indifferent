@@ -103,3 +103,32 @@ func TestBuildASS_EscapesBraces(t *testing.T) {
 		t.Error("unescaped braces would open an override block")
 	}
 }
+
+func TestBuildCaptions_PicksTheFormatTheShortsRendererDoes(t *testing.T) {
+	words := []models.Word{{Text: "one", Start: 0, End: 0.4}, {Text: "two", Start: 0.4, End: 0.8}}
+	for _, preset := range []string{"", "bold", "minimal", "clean"} {
+		doc, ext := BuildCaptions(words, models.CaptionStyle{Preset: preset}, nil)
+		if ext != ".srt" || doc != BuildSRT(words, 0) {
+			t.Errorf("preset %q: ext %q, want .srt with BuildSRT's output", preset, ext)
+		}
+	}
+	k := models.CaptionStyle{Preset: "karaoke"}
+	doc, ext := BuildCaptions(words, k, nil)
+	if ext != ".ass" || doc != BuildASS(words, 0, k) {
+		t.Errorf("karaoke: ext %q, want .ass with BuildASS's output", ext)
+	}
+}
+
+func TestSubtitlesFilter_MatchesWhatTheShortsRendererBurns(t *testing.T) {
+	if got := SubtitlesFilter("/w/c.ass", models.CaptionStyle{Preset: "karaoke"}); got != "subtitles=/w/c.ass" {
+		t.Errorf("karaoke filter = %q", got)
+	}
+	style := models.CaptionStyle{Preset: "minimal", Position: "top"}
+	want := "subtitles=/w/c.srt:force_style='" + ResolveForceStyle(style) + "'"
+	if got := SubtitlesFilter("/w/c.srt", style); got != want {
+		t.Errorf("filter = %q, want %q", got, want)
+	}
+	if !IsKaraoke(models.CaptionStyle{Preset: "karaoke"}) || IsKaraoke(models.CaptionStyle{}) {
+		t.Error("IsKaraoke is wrong")
+	}
+}

@@ -28,36 +28,57 @@ const (
 // clip is trimmed to [segmentStart, ...]. Transcript word order is preserved.
 // (Requirement 4.4)
 func BuildSRT(words []models.Word, segmentStart float64) string {
-	var b strings.Builder
-	index := 1
+	return buildSRT(words, segmentStart, nil)
+}
 
+// BuildSRTBreaks is BuildSRT with hard cue breaks: breakBefore[i] set means
+// word i starts a new cue even when the previous one has room. A story video
+// uses it so no cue runs across a change of scene.
+func BuildSRTBreaks(words []models.Word, segmentStart float64, breakBefore []bool) string {
+	return buildSRT(words, segmentStart, breakBefore)
+}
+
+func buildSRT(words []models.Word, segmentStart float64, breakBefore []bool) string {
+	var b strings.Builder
+	for n, c := range groupCues(words, breakBefore) {
+		start := shift(words[c.from].Start, segmentStart)
+		end := shift(words[c.to-1].End, segmentStart)
+		texts := make([]string, 0, c.to-c.from)
+		for k := c.from; k < c.to; k++ {
+			texts = append(texts, words[k].Text)
+		}
+		fmt.Fprintf(&b, "%d\n%s --> %s\n%s\n\n", n+1, formatTimestamp(start), formatTimestamp(end), strings.Join(texts, " "))
+	}
+	return b.String()
+}
+
+// cue is the half-open range [from, to) of words shown together.
+type cue struct{ from, to int }
+
+// groupCues splits words into caption cues of up to maxWordsPerCue words and
+// about maxCueDuration seconds. A word with breakBefore set always starts a
+// new cue. With no breaks the grouping is exactly the historical one.
+func groupCues(words []models.Word, breakBefore []bool) []cue {
+	var cues []cue
 	i := 0
 	for i < len(words) {
 		cueStart := words[i].Start
-		cueEnd := words[i].End
-		texts := []string{words[i].Text}
 		j := i + 1
-		for j < len(words) && len(texts) < maxWordsPerCue {
+		for j < len(words) && j-i < maxWordsPerCue {
+			if j < len(breakBefore) && breakBefore[j] {
+				break
+			}
 			// Stop this cue if adding the next word would push its span past
 			// the per-cue duration cap.
 			if words[j].End-cueStart > maxCueDuration {
 				break
 			}
-			texts = append(texts, words[j].Text)
-			cueEnd = words[j].End
 			j++
 		}
-
-		start := shift(cueStart, segmentStart)
-		end := shift(cueEnd, segmentStart)
-
-		fmt.Fprintf(&b, "%d\n%s --> %s\n%s\n\n", index, formatTimestamp(start), formatTimestamp(end), strings.Join(texts, " "))
-
-		index++
+		cues = append(cues, cue{i, j})
 		i = j
 	}
-
-	return b.String()
+	return cues
 }
 
 // shift moves an absolute time into clip-relative time, clamped to >= 0.
