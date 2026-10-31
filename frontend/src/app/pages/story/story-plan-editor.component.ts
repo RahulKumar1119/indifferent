@@ -33,6 +33,8 @@ import { StockAsset, StoryPlanRecord } from './story-plan.models';
 import { StoryPlanService } from './story-plan.service';
 import { StoryProblemComponent } from './story-problem.component';
 import { StorySceneCardComponent } from './story-scene-card.component';
+import { StoryVideoPanelComponent } from './story-video-panel.component';
+import { videoBlocker } from './story-video-blockers';
 
 /**
  * The plan for one story: the hook, then each scene with its narration and its
@@ -52,6 +54,7 @@ import { StorySceneCardComponent } from './story-scene-card.component';
     StoryMediaPickerComponent,
     StoryProblemComponent,
     StorySceneCardComponent,
+    StoryVideoPanelComponent,
   ],
   styles: [
     `
@@ -89,8 +92,8 @@ import { StorySceneCardComponent } from './story-scene-card.component';
         @if (rec.plan; as plan) {
           <h1 #heading tabindex="-1" class="serif mt-4 text-4xl font-medium leading-tight sm:text-5xl">Your video plan</h1>
           <p class="mt-3 max-w-2xl text-[hsl(var(--muted-foreground))]">
-            Check each scene, change the narration, and choose a picture for it. Saving keeps your plan. Turning it into
-            a video is not available yet.
+            Check each scene, change the narration, and choose a picture for it. Saving keeps your plan. When it looks
+            right, make the video below the last scene.
           </p>
 
           <section class="mt-6 rounded-2xl border border-[hsl(var(--border))] p-4 sm:p-5" aria-labelledby="hook-label">
@@ -137,6 +140,15 @@ import { StorySceneCardComponent } from './story-scene-card.component';
           <div class="mt-6">
             <app-story-attribution [attributions]="rec.mediaAttributions ?? []" />
           </div>
+
+          <app-story-video-panel
+            [planId]="rec.planId"
+            [revision]="rec.revision"
+            [language]="plan.language"
+            [blocker]="videoReason()"
+            (planChanged)="load()"
+            (goToScene)="focusScene($event)"
+          />
 
           <div
             class="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3"
@@ -222,6 +234,12 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
     const rec = this.record();
     const pending = this.pending();
     return (rec?.plan?.scenes ?? []).map((_, i) => sceneMediaView(rec!, i, pending[i]));
+  });
+
+  /** Why a video cannot be made from this plan yet; empty when it can. */
+  protected readonly videoReason = computed(() => {
+    const rec = this.record();
+    return rec ? videoBlocker(rec, this.dirty()) : '';
   });
 
   private heading = viewChild<{ nativeElement: HTMLElement }>('heading');
@@ -321,6 +339,11 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
     this.pending.update((p) => withRemoval(rec, p, index));
     // The button that was pressed is about to disappear: keep focus in the scene.
     afterNextRender(() => this.document.getElementById(`scene-${index + 1}-choose`)?.focus(), { injector: this.injector });
+  }
+
+  /** Moves to a scene's picture button, for a failure that choosing another picture fixes. */
+  protected focusScene(sceneNumber: number): void {
+    this.document.getElementById(`scene-${sceneNumber}-choose`)?.focus();
   }
 
   protected isEdited(index: number): boolean {

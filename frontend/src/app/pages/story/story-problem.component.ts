@@ -8,7 +8,8 @@ import { StoryPlanProblem } from './story-plan-problem';
  * meaning; colour never does.
  *
  * Announced at once (role="alert") for failures, politely (role="status") for
- * a limit the user has to wait out.
+ * a limit the user has to wait out, or when `polite` says the page is only
+ * reporting something that already happened (a failure from an earlier visit).
  */
 @Component({
   selector: 'app-story-problem',
@@ -18,7 +19,7 @@ import { StoryPlanProblem } from './story-plan-problem';
   template: `
     <div
       class="flex items-start gap-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4"
-      [attr.role]="problem().kind === 'rate_limited' || problem().kind === 'disabled' ? 'status' : 'alert'"
+      [attr.role]="polite() || problem().kind === 'rate_limited' || problem().kind === 'disabled' ? 'status' : 'alert'"
       data-testid="problem"
       [attr.data-kind]="problem().kind"
     >
@@ -46,6 +47,7 @@ import { StoryPlanProblem } from './story-plan-problem';
 })
 export class StoryProblemComponent {
   readonly problem = input.required<StoryPlanProblem>();
+  readonly polite = input(false);
   /** Text for a button under the message; none when empty. */
   readonly actionLabel = input<string>('');
   readonly action = output<void>();
