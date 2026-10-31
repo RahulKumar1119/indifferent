@@ -8,10 +8,12 @@
 // media, calls these functions and runs the command.
 //
 // Why the narration sets the timeline: the plan's scene durations are
-// estimates at 2.5 words a second. Measured against Amazon Polly (English,
-// Joanna), a 16-word scene is spoken in 4.4 seconds, not the planned 6.4, and
-// Hindi (Aditi) runs about 2.25 words a second. Only the audio itself says how
-// long a scene lasts, so the plan's durations are ignored at render time.
+// estimates at 2.5 words a second. Measured against Amazon Polly, English
+// (Joanna) is spoken much faster than that: a 17-word scene took 4.5 seconds,
+// not the planned 6.8. Hindi (Aditi) came close to the estimate in the two
+// sentences measured (16 words in 6.2 s, 13 in 5.2 s). Only the audio itself
+// says how long a scene lasts, so the plan's durations are ignored at render
+// time.
 package storyvideo
 
 import (
@@ -66,7 +68,7 @@ type Timeline struct {
 
 // TooLongError means the narration, once spoken, does not fit in
 // MaxTotalSeconds. The plan was within the limit by estimate, but speech can
-// run longer than the estimate (Hindi does), so this is found here.
+// run longer than the estimate, so this is found here.
 type TooLongError struct {
 	Seconds float64
 	Max     float64

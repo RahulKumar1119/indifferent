@@ -105,9 +105,10 @@ func TestBuildTimeline_RefusesWhatCannotBeRendered(t *testing.T) {
 	}
 }
 
-func TestBuildTimeline_Hindi_RunsLongerThanThePlanEstimated(t *testing.T) {
-	// The plan allowed 90 seconds by estimate; Hindi speech can exceed it, and
-	// that must surface as a clear error, never a silently truncated video.
+func TestBuildTimeline_SpeechThatRunsLongerThanThePlanEstimatedIsRefused(t *testing.T) {
+	// The plan allowed 90 seconds by estimate; spoken, it can exceed that (a
+	// slow voice, long words), and that must surface as a clear error, never a
+	// silently truncated video.
 	long := make([]float64, 10)
 	for i := range long {
 		long[i] = 9.0
