@@ -28,6 +28,11 @@ set -euo pipefail
 #   6. Task definition  indifferent-fun-story-render (a new revision only if it changed)
 #   7. State machine    indifferent-fun-story-pipeline, rendered by the same Go code
 #                       the tests check (backend/cmd/storypipeline), validated by AWS
+#   8. API Lambda       STORYVIDEO_STATE_MACHINE_ARN merged into indifferent-fun-api's
+#                       environment (every other variable written back as it was; the
+#                       environment holds secrets and is never printed), and one
+#                       permission added to its role: states:StopExecution on this
+#                       state machine's executions
 #
 # The script works in two phases. Phase 1 only reads, and finds every reason to
 # refuse (a missing prerequisite, a lifecycle rule that could delete the videos, a
@@ -38,12 +43,16 @@ set -euo pipefail
 # Usage:
 #   bash deploy/setup-storyvideo.sh            # dry run: read-only calls, prints the plan
 #   bash deploy/setup-storyvideo.sh --apply    # makes the changes
+#   bash deploy/setup-storyvideo.sh --unwire-api [--apply]
+#                                              # removes ONLY STORYVIDEO_STATE_MACHINE_ARN from the
+#                                              # API Lambda (POST /story-videos then answers 503)
 #
 # Order of deployment:
 #   1. bash deploy/setup-notifications.sh --apply   (redeploys the notifier; this
 #      slice added kind "story". --apply of THIS script refuses to go on without it)
 #   2. bash deploy/setup-storyvideo.sh              (read the plan)
 #   3. bash deploy/setup-storyvideo.sh --apply
+#   4. deploy the API code (the script prints the commands; it does not do it)
 #
 # Safety:
 #   - Idempotent: every step checks current state first; re-running changes nothing
@@ -57,6 +66,10 @@ set -euo pipefail
 #     /tmp/<name>-before-<timestamp>.json first.
 #   - Image tags are immutable and are the git commit, so an old task definition
 #     revision still points at the exact image it was made with.
+#   - The API Lambda's environment is the one thing here that holds secrets. It is read
+#     and written back through a private file (mode 700 directory, removed on exit),
+#     guarded by the function's revision id, with the command's own output suppressed
+#     (--query), and the script prints counts, never values. Only one key is added.
 #   - Needs: aws, docker (apply only), go, python3, git.
 #
 # Environment overrides:
@@ -70,6 +83,8 @@ set -euo pipefail
 # Undo (see also the saved files):
 #   aws stepfunctions delete-state-machine --state-machine-arn <arn of indifferent-fun-story-pipeline>
 #   aws ecs deregister-task-definition --task-definition indifferent-fun-story-render:<revision>
+#   bash deploy/setup-storyvideo.sh --unwire-api --apply
+#   aws iam delete-role-policy --role-name indifferent-fun-lambda-role --policy-name indifferent-fun-story-api-permissions
 #   aws iam delete-role-policy --role-name indifferent-fun-sfn-role --policy-name indifferent-fun-story-sfn-permissions
 #   aws iam delete-role-policy --role-name indifferent-fun-story-render-task-role --policy-name indifferent-fun-story-render-permissions
 #   aws iam delete-role-policy --role-name indifferent-fun-story-render-exec-role --policy-name indifferent-fun-story-render-secrets
@@ -85,12 +100,18 @@ set -euo pipefail
 
 # Arguments first, so a typo is refused before anything is asked of AWS.
 APPLY=false
-if [ "${1:-}" = "--apply" ]; then
-  APPLY=true
-elif [ -n "${1:-}" ]; then
-  echo "Unknown argument: $1 (use --apply or no argument)" >&2
-  exit 1
-fi
+UNWIRE=false
+for arg in "$@"; do
+  case "$arg" in
+    "") ;; # an empty argument is no argument, as before
+    --apply) APPLY=true ;;
+    --unwire-api) UNWIRE=true ;;
+    *)
+      echo "Unknown argument: $arg (use --apply, --unwire-api, or no argument)" >&2
+      exit 1
+      ;;
+  esac
+done
 
 REGION="ap-south-1"
 PROJECT="indifferent-fun"
@@ -104,6 +125,9 @@ VPC_ID="${SHORTS_VPC_ID:-vpc-1369b878}"
 SUBNET_IDS="${SHORTS_SUBNET_IDS:-subnet-f01f6e8b,subnet-880ef0e3,subnet-7bf7d837}"
 NOTIFIER="${PROJECT}-notifier"
 SFN_ROLE_NAME="${PROJECT}-sfn-role"
+API_FUNCTION="${PROJECT}-api"
+API_ROLE_NAME="${PROJECT}-lambda-role"
+API_ENV_KEY="STORYVIDEO_STATE_MACHINE_ARN"
 
 FAMILY="${PROJECT}-story-render"
 CONTAINER="story-render"
@@ -131,6 +155,7 @@ TASKDEF_ARN="arn:aws:ecs:${REGION}:${ACCOUNT_ID}:task-definition/${FAMILY}"
 NOTIFIER_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${NOTIFIER}"
 TABLE_ARN="arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${TABLE}"
 SFN_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${SFN_ROLE_NAME}"
+API_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${API_ROLE_NAME}"
 EXEC_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${EXEC_ROLE_NAME}"
 TASK_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${TASK_ROLE_NAME}"
 SM_ARN="arn:aws:states:${REGION}:${ACCOUNT_ID}:stateMachine:${SM_NAME}"
@@ -148,6 +173,9 @@ if $APPLY; then
   echo "MODE: apply (changes will be made in account ${ACCOUNT_ID}, ${REGION})"
 else
   echo "MODE: dry run (read-only; nothing will be created or changed)"
+fi
+if $UNWIRE; then
+  echo "      --unwire-api: only ${API_ENV_KEY} on ${API_FUNCTION} is looked at; nothing else is."
 fi
 echo
 
@@ -351,11 +379,95 @@ def main():
             sys.exit(2)
         sys.exit(1 if wrong else 0)
 
+    # apienv ...: the API Lambda's configuration holds secrets (the JWT secret, the
+    # OAuth secrets). These commands read it from a private file and write the
+    # environment to another; they print a status and counts, never a name that is
+    # not ours and never a value that is not ours.
+    #   apienv ready CONFIG                   exit 0 when no update is in progress
+    #   apienv revision CONFIG                prints the revision id
+    #   apienv status CONFIG KEY VALUE        exit 0 when KEY already is VALUE, 3 when it is missing or different
+    #   apienv present CONFIG KEY             exit 0 when KEY is set
+    #   apienv merge CONFIG KEY VALUE OUT     OUT is the --environment document: every other variable as it was
+    #   apienv unmerge CONFIG KEY OUT         the same without KEY
+    if cmd == "apienv":
+        sub, cfg = sys.argv[2], load(sys.argv[3])
+        env = dict((cfg.get("Environment") or {}).get("Variables") or {})
+        if sub == "ready":
+            st = cfg.get("LastUpdateStatus", "Successful")
+            if st == "InProgress":
+                sys.stderr.write("the function is still being updated (LastUpdateStatus %s); try again in a minute\n" % st)
+                sys.exit(4)
+            sys.exit(0)
+        if sub == "revision":
+            print(cfg["RevisionId"])
+            sys.exit(0)
+        key = sys.argv[4]
+        if sub == "present":
+            sys.exit(0 if key in env else 3)
+        if sub == "status":
+            sys.exit(0 if env.get(key) == sys.argv[5] else 3)
+        if sub in ("merge", "unmerge"):
+            if sub == "merge":
+                env[key] = sys.argv[5]
+                out = sys.argv[6]
+            else:
+                if key not in env:
+                    sys.exit(3)
+                del env[key]
+                out = sys.argv[5]
+            with open(out, "w") as f:
+                json.dump({"Variables": env}, f)
+            print("kept %d other variable(s) as they were" % (len(env) - (1 if sub == "merge" else 0)))
+            sys.exit(0)
+
     sys.exit("unknown command %s" % cmd)
 
 
 main()
 PY
+
+# ===========================================================================
+# The API Lambda's environment (used by phase 1 and 2, and by --unwire-api).
+#
+# update-function-configuration REPLACES the whole environment, and this one holds
+# secrets (the JWT secret, the OAuth secrets). So it is read into a file in this
+# script's private temporary directory (mode 700, removed on exit), merged there,
+# and written back from there. Nothing from it reaches the screen: --query keeps
+# the command's own answer (which echoes the environment) from being printed, and
+# the helpers print only counts. --revision-id makes the write fail, instead of
+# overwriting, if the function changed since it was read.
+# ===========================================================================
+API_ARN_VALUE="$SM_ARN"
+
+# read_api_config writes the function's configuration to $TMP/api-config.json.
+read_api_config() {
+  (umask 077 && aws lambda get-function-configuration --function-name "$API_FUNCTION" --region "$REGION" \
+    --output json >"$TMP/api-config.json" 2>"$TMP/api-config.err") ||
+    fail "could not read the configuration of ${API_FUNCTION} (does it exist? is this account right?). Run deploy/setup.sh first."
+  python3 "$TMP/helpers.py" apienv ready "$TMP/api-config.json" || fail "${API_FUNCTION} cannot be changed right now."
+}
+
+# write_api_env sends $TMP/api-env.json, guarded by the revision that was read.
+write_api_env() {
+  local rev
+  rev=$(python3 "$TMP/helpers.py" apienv revision "$TMP/api-config.json")
+  aws lambda update-function-configuration --function-name "$API_FUNCTION" --region "$REGION" \
+    --revision-id "$rev" --environment "file://${TMP}/api-env.json" --query 'LastModified' --output text
+  aws lambda wait function-updated --function-name "$API_FUNCTION" --region "$REGION"
+}
+
+if $UNWIRE; then
+  echo "=== Remove ${API_ENV_KEY} from ${API_FUNCTION} ==="
+  read_api_config
+  if python3 "$TMP/helpers.py" apienv present "$TMP/api-config.json" "$API_ENV_KEY"; then
+    (umask 077 && python3 "$TMP/helpers.py" apienv unmerge "$TMP/api-config.json" "$API_ENV_KEY" "$TMP/api-env.json")
+    act "remove ${API_ENV_KEY} from the environment of ${API_FUNCTION} (the other variables are written back as they were)" write_api_env
+    echo "POST /story-videos then answers 503 (the other story video routes keep working)."
+  else
+    echo "${API_ENV_KEY} is not set on ${API_FUNCTION}; nothing to do."
+  fi
+  exit 0
+fi
 
 # ===========================================================================
 # PHASE 1: CHECK. Read-only (a dry run stops after the plan). Every reason to
@@ -400,7 +512,11 @@ aws iam get-role --role-name "$SFN_ROLE_NAME" >/dev/null 2>&1 ||
 aws lambda get-function-configuration --function-name "$NOTIFIER" --region "$REGION" --query 'FunctionName' --output text >/dev/null 2>&1 ||
   fail "Lambda ${NOTIFIER} does not exist. Run deploy/setup-notifications.sh --apply first."
 
-echo "Bucket, table, cluster (FARGATE + FARGATE_SPOT), security group ${SECURITY_GROUP_ID}, ${SUBNETS_FOUND} subnets, ${SFN_ROLE_NAME} and ${NOTIFIER}: found."
+aws iam get-role --role-name "$API_ROLE_NAME" >/dev/null 2>&1 ||
+  fail "role ${API_ROLE_NAME} (the API Lambda's) does not exist. Run deploy/setup.sh first."
+read_api_config
+
+echo "Bucket, table, cluster (FARGATE + FARGATE_SPOT), security group ${SECURITY_GROUP_ID}, ${SUBNETS_FOUND} subnets, ${SFN_ROLE_NAME}, ${NOTIFIER}, ${API_FUNCTION} and ${API_ROLE_NAME}: found."
 
 # The state machine sends the job to the notifier with kind "story". A notifier
 # deployed before this slice answers 'unknown kind' and no email would ever be
@@ -625,6 +741,44 @@ cat >"$TMP/sim-sfn.json" <<EOF
 EOF
 sim "Step Functions role ${SFN_ROLE_NAME}" "$TMP/sim-sfn.json"
 
+# The API Lambda's role (deploy/setup.sh) already reads and writes the table and
+# the bucket, and may start executions of any ${PROJECT}-* state machine. What it
+# lacks is stopping one: states:StopExecution is authorised on the EXECUTION, an
+# ARN of the form ...:execution:<machine>:<name>, and setup.sh grants it only on
+# ...:stateMachine:..., which never matches. (The Service Authorization
+# Reference lists StartExecution under the state machine and StopExecution under
+# the execution.) This adds it, for this state machine's executions only.
+cat >"$TMP/api-policy.json" <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "StopStoryVideoExecutions",
+    "Effect": "Allow",
+    "Action": "states:StopExecution",
+    "Resource": "arn:aws:states:${REGION}:${ACCOUNT_ID}:execution:${SM_NAME}:*"
+  }]
+}
+EOF
+# Simulated as the role's existing policies plus this one, so the checks that
+# the rest is already granted (and that the new grant is narrow) are real.
+cat >"$TMP/sim-api.json" <<EOF
+{
+  "role": "${API_ROLE_ARN}",
+  "policy_files": ["${TMP}/api-policy.json"],
+  "checks": [
+    {"actions": ["states:StartExecution"], "resource": "${SM_ARN}", "allow": true},
+    {"actions": ["states:StopExecution"], "resource": "arn:aws:states:${REGION}:${ACCOUNT_ID}:execution:${SM_NAME}:01939f6c-8a40-7e21-b2c4-aa11bb22cc33", "allow": true},
+    {"actions": ["states:StopExecution"], "resource": "arn:aws:states:${REGION}:${ACCOUNT_ID}:execution:some-other-machine:01939f6c-8a40-7e21-b2c4-aa11bb22cc33", "allow": false},
+    {"actions": ["s3:GetObject"], "resource": "arn:aws:s3:::${BUCKET}/${OUT_PREFIX}u/j/video.mp4", "allow": true},
+    {"actions": ["s3:DeleteObjectVersion"], "resource": "arn:aws:s3:::${BUCKET}/${OUT_PREFIX}u/j/video.mp4", "allow": true},
+    {"actions": ["s3:DeleteObjectVersion"], "resource": "arn:aws:s3:::${BUCKET}/${WORK_PREFIX}u/j/scene-01-voice.mp3", "allow": true},
+    {"actions": ["s3:ListBucketVersions"], "resource": "arn:aws:s3:::${BUCKET}", "allow": true},
+    {"actions": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query"], "resource": "${TABLE_ARN}", "allow": true}
+  ]
+}
+EOF
+sim "API Lambda role ${API_ROLE_NAME}" "$TMP/sim-api.json"
+
 # ---------------------------------------------------------------------------
 echo
 echo "=== 3. S3 lifecycle: expire ${WORK_PREFIX} in ${BUCKET} ==="
@@ -725,6 +879,23 @@ else
   echo "The state machine does not exist yet; it will be created."
 fi
 
+# ---------------------------------------------------------------------------
+echo
+echo "=== 7. API Lambda environment: ${API_ENV_KEY} on ${API_FUNCTION} ==="
+if python3 "$TMP/helpers.py" apienv status "$TMP/api-config.json" "$API_ENV_KEY" "$API_ARN_VALUE"; then
+  API_ENV_ACTION=same
+  echo "${API_ENV_KEY} is already set to this state machine."
+else
+  (umask 077 && python3 "$TMP/helpers.py" apienv merge "$TMP/api-config.json" "$API_ENV_KEY" "$API_ARN_VALUE" "$TMP/api-env.json")
+  if python3 "$TMP/helpers.py" apienv present "$TMP/api-config.json" "$API_ENV_KEY"; then
+    API_ENV_ACTION=change
+    echo "${API_ENV_KEY} is set to something else; it will be changed."
+  else
+    API_ENV_ACTION=add
+    echo "${API_ENV_KEY} is not set; it will be added."
+  fi
+fi
+
 # ===========================================================================
 # PHASE 2: CHANGE. Nothing below runs a command in a dry run: act prints the
 # plan instead. Order: what the others depend on first (keys, roles), the state
@@ -788,6 +959,8 @@ ensure_role "$TASK_ROLE_NAME" "Story video task: its own files, its job record, 
 put_policy "$TASK_ROLE_NAME" "${PROJECT}-story-render-permissions" "$TMP/task-policy.json" "S3 on two prefixes, DynamoDB get/update on one table, Polly"
 
 put_policy "$SFN_ROLE_NAME" "${PROJECT}-story-sfn-permissions" "$TMP/sfn-policy.json" "pass the two roles, DynamoDB get/update on the table"
+
+put_policy "$API_ROLE_NAME" "${PROJECT}-story-api-permissions" "$TMP/api-policy.json" "stop executions of the story state machine"
 
 if $APPLY && $IAM_CHANGED; then
   echo "Waiting for IAM to propagate (10s)..."
@@ -909,6 +1082,15 @@ case "$SM_ACTION" in
     ;;
 esac
 
+# --- API Lambda environment (last: the state machine it names exists by now)
+echo
+echo "--- API Lambda environment ${API_ENV_KEY}"
+if [ "$API_ENV_ACTION" = same ]; then
+  echo "Up to date."
+else
+  act "set ${API_ENV_KEY} on ${API_FUNCTION} (every other variable is written back as it was; undo: bash deploy/setup-storyvideo.sh --unwire-api --apply)" write_api_env
+fi
+
 # ---------------------------------------------------------------------------
 echo
 if $APPLY; then
@@ -921,10 +1103,14 @@ cat <<EOF
 State machine: ${SM_ARN}
 Task definition family: ${FAMILY}   Image: ${IMAGE}
 
-Not done here (slice 3c, the API routes):
-  - STORYVIDEO_STATE_MACHINE_ARN on the API Lambda (merge it into the existing
-    environment, as setup-shorts.sh does for SHORTS_STATE_MACHINE_ARN)
-  - states:StartExecution / states:StopExecution on the state machine for the API Lambda's role
+Still to do by hand: deploy the API code. The routes are in the code, and the
+environment variable above only switches the create route on once they are live:
+  cd backend && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o /tmp/bootstrap ./cmd/api
+  (cd /tmp && zip -j api.zip bootstrap)
+  aws lambda update-function-code --function-name ${API_FUNCTION} --zip-file fileb:///tmp/api.zip --region ${REGION}
+(code only; this does not touch the environment variables). To switch the create
+route off again: bash deploy/setup-storyvideo.sh --unwire-api --apply
+
 Nothing has run on Fargate yet: the first real job will show the real render time.
 The 'storyjob_timing' line in /ecs/${PROJECT}-story-render has the numbers. The worker's own
 deadline (15 minutes) and the state machine's (20) were chosen before any measurement.

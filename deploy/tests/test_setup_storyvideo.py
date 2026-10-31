@@ -29,6 +29,37 @@ ACCT = "123456789012"
 PREFIX = "/indifferent-fun/story-render"
 
 
+# What the API Lambda's environment holds. The script must carry all of it through
+# untouched and print none of it.
+API_SECRETS = {
+    "JWT_SECRET": "jwt-TEST-SECRET-71c9e0d4",
+    "GOOGLE_CLIENT_SECRET": "GOCSPX-TEST-SECRET-a83f21",
+    "PIXABAY_API_KEY": "api-pbx-TEST-SECRET-44be09",
+}
+API_PLAIN = {
+    "GOOGLE_CLIENT_ID": "1234.apps.googleusercontent.com",
+    "DYNAMODB_TABLE": "indifferent-fun-projects",
+    "S3_BUCKET": "indifferent-fun-assets",
+    "STATE_MACHINE_ARN": "arn:aws:states:ap-south-1:%s:stateMachine:indifferent-fun-pipeline" % ACCT,
+    "SHORTS_STATE_MACHINE_ARN": "arn:aws:states:ap-south-1:%s:stateMachine:indifferent-fun-shorts-pipeline" % ACCT,
+}
+STORY_SM_ARN = "arn:aws:states:ap-south-1:%s:stateMachine:indifferent-fun-story-pipeline" % ACCT
+
+
+def api_role_policy():
+    """The policy deploy/setup.sh gives the API Lambda's role, as it is there."""
+    return {"Statement": [
+        {"Effect": "Allow", "Action": ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:UpdateItem"],
+         "Resource": "arn:aws:dynamodb:ap-south-1:*:table/indifferent-fun-*"},
+        {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion", "s3:HeadObject", "s3:RestoreObject"],
+         "Resource": "arn:aws:s3:::indifferent-fun-assets/*"},
+        {"Effect": "Allow", "Action": ["s3:ListBucket", "s3:ListBucketVersions"], "Resource": "arn:aws:s3:::indifferent-fun-assets"},
+        {"Effect": "Allow", "Action": ["polly:SynthesizeSpeech"], "Resource": "*"},
+        {"Effect": "Allow", "Action": ["states:StartExecution", "states:StopExecution"],
+         "Resource": "arn:aws:states:ap-south-1:*:stateMachine:indifferent-fun-*"},
+    ]}
+
+
 def shorts_sfn_policy():
     """What setup-shorts.sh and setup-notifications.sh already gave the Step Functions role."""
     return {"Statement": [
@@ -52,7 +83,11 @@ def base_world():
         "sg": "sg-0abc1234", "subnets": ["subnet-f01f6e8b", "subnet-880ef0e3", "subnet-7bf7d837"],
         "notifier": {"exists": True, "knows_story": True},
         "ssm": {},
-        "roles": {"indifferent-fun-sfn-role": {"attached": [], "policies": {}, "base": [shorts_sfn_policy()]}},
+        "roles": {
+            "indifferent-fun-sfn-role": {"attached": [], "policies": {}, "base": [shorts_sfn_policy()]},
+            "indifferent-fun-lambda-role": {"attached": [], "policies": {}, "base": [api_role_policy()]},
+        },
+        "api": {"exists": True, "revision": "rev-1", "status": "Successful", "env": dict(API_SECRETS, **API_PLAIN)},
         "lifecycle": {"TransitionDefaultMinimumObjectSize": "varies_by_storage_class", "Rules": [
             {"ID": "temp-cleanup", "Status": "Enabled", "Filter": {"Prefix": "temp/"}, "Expiration": {"Days": 1}}]},
         "ecr": {"exists": False, "mutable": None, "scan": None, "images": [], "policy": None},
@@ -121,12 +156,30 @@ class Base(unittest.TestCase):
         self.assertEqual([c["argv"] for c in calls if c.get("unhandled")], [], "the script made a call the stub does not know")
         return r
 
+    def mutant(self, old, new):
+        """Runs a copy of the script with one policy line changed, to show the checks can fail."""
+        with open(SCRIPT) as f:
+            src = f.read()
+        self.assertEqual(src.count(old), 1, "the line to mutate is not unique: %r" % old)
+        path = os.path.join(DEPLOY, ".mutant-%d.sh" % os.getpid())
+        with open(path, "w") as f:
+            f.write(src.replace(old, new))
+        self.addCleanup(os.unlink, path)
+        return self.run_script("--apply", script=path)
+
     def assertNothingChanged(self, r):
         self.assertEqual(r.ops(), [], "something was changed:\n" + r.text)
 
     def assertNoLeak(self, r, secret=SECRET):
         blob = r.text + json.dumps([c["argv"] for c in r.calls]) + json.dumps([c["files"] for c in r.calls])
         self.assertNotIn(secret, blob, "the secret appears in output, a command line, or a file passed to a command")
+
+
+def api_leaks(case, r):
+    """Fails if any value from the API Lambda's environment appears where it must not."""
+    blob = r.text + json.dumps([c["argv"] for c in r.calls]) + json.dumps([c["files"] for c in r.calls])
+    for name, value in API_SECRETS.items():
+        case.assertNotIn(value, blob, "%s from the API Lambda's environment leaked" % name)
 
 
 def idx(ops, op):
@@ -156,10 +209,10 @@ class DryRun(Base):
         ops = [c["op"] for c in r.calls]
         self.assertIn("stepfunctions validate-state-machine-definition", ops)
         # one call per check: 9 on the task role and 2 on the execution role (their
-        # policies are simulated on their own), 7 on the Step Functions role (its
-        # existing policies plus the new one)
+        # policies are simulated on their own), 7 on the Step Functions role and 8 on
+        # the API Lambda's (their existing policies plus the new one)
         self.assertEqual(ops.count("iam simulate-custom-policy"), 11)
-        self.assertEqual(ops.count("iam simulate-principal-policy"), 7)
+        self.assertEqual(ops.count("iam simulate-principal-policy"), 15)
         self.assertIn("ok   allows ecs:RunTask", r.out)
         self.assertIn("ok   denies s3:DeleteObject", r.out)
 
@@ -178,7 +231,7 @@ class Apply(Base):
         self.assertEqual(w["ssm"], {PREFIX + "/PIXABAY_API_KEY": "SecureString"})
         self.assertEqual(w["ssm_values"][PREFIX + "/PIXABAY_API_KEY"], SECRET)
         # roles and policies
-        self.assertEqual(set(w["roles"]) - {"indifferent-fun-sfn-role"}, {"indifferent-fun-story-render-exec-role", "indifferent-fun-story-render-task-role"})
+        self.assertEqual(set(w["roles"]) - {"indifferent-fun-sfn-role", "indifferent-fun-lambda-role"}, {"indifferent-fun-story-render-exec-role", "indifferent-fun-story-render-task-role"})
         self.assertEqual(w["roles"]["indifferent-fun-story-render-exec-role"]["attached"], ["AmazonECSTaskExecutionRolePolicy"])
         self.assertIn("indifferent-fun-story-sfn-permissions", w["roles"]["indifferent-fun-sfn-role"]["policies"])
         # lifecycle
@@ -214,7 +267,7 @@ class Apply(Base):
         ops = r.ops()
         order = ["ssm put-parameter", "iam create-role", "iam put-role-policy", "s3api put-bucket-lifecycle-configuration",
                  "ecr create-repository", "docker push", "logs create-log-group", "ecs register-task-definition",
-                 "stepfunctions create-state-machine"]
+                 "stepfunctions create-state-machine", "lambda update-function-configuration"]
         for a, b in zip(order, order[1:]):
             self.assertLess(idx(ops, a), idx(ops, b), "%s should come before %s: %s" % (a, b, ops))
         # the image is pushed only after the repository exists and was built
@@ -388,6 +441,9 @@ class RefusalsHappenBeforeAnyChange(Base):
             "a subnet": (lambda w: w.update(subnets=w["subnets"][:2]), "subnets"),
             "step functions role": (lambda w: w["roles"].pop("indifferent-fun-sfn-role"), "setup.sh"),
             "notifier": (lambda w: w["notifier"].update(exists=False), "setup-notifications.sh"),
+            "api function": (lambda w: w["api"].update(exists=False), "setup.sh"),
+            "api role": (lambda w: w["roles"].pop("indifferent-fun-lambda-role"), "setup.sh"),
+            "api function being updated": (lambda w: w["api"].update(status="InProgress"), "still being updated"),
         }
         for name, (mutate, hint) in cases.items():
             for mode in ("--apply", ""):
@@ -492,16 +548,6 @@ class Permissions(Base):
         self.assertEqual(r.rc, 0, r.text)
         self.assertIn("NOT checked", r.out)
 
-    def mutant(self, old, new):
-        """Runs a copy of the script with one policy line changed, to show the checks can fail."""
-        src = open(SCRIPT).read()
-        self.assertEqual(src.count(old), 1, "the line to mutate is not unique: %r" % old)
-        path = os.path.join(DEPLOY, ".mutant-%d.sh" % os.getpid())
-        with open(path, "w") as f:
-            f.write(src.replace(old, new))
-        self.addCleanup(os.unlink, path)
-        return self.run_script("--apply", script=path)
-
     def test_the_checks_have_teeth_a_task_policy_that_reaches_the_whole_bucket_fails(self):
         r = self.mutant('"arn:aws:s3:::${BUCKET}/${WORK_PREFIX}*",', '"arn:aws:s3:::${BUCKET}/*",')
         self.assertNotEqual(r.rc, 0, r.text)
@@ -520,6 +566,209 @@ class Permissions(Base):
         self.assertNotEqual(r.rc, 0, r.text)
         self.assertIn("FAIL allows dynamodb:UpdateItem", r.out)
         self.assertNothingChanged(r)
+
+
+class ApiWiring(Base):
+    KEY = "STORYVIDEO_STATE_MACHINE_ARN"
+
+    def env(self):
+        return self.world["api"]["env"]
+
+    def test_apply_adds_the_one_variable_and_writes_every_other_back_as_it_was(self):
+        before = dict(self.env())
+        r = self.run_script("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        after = self.env()
+        self.assertEqual(after.pop(self.KEY), STORY_SM_ARN)
+        self.assertEqual(after, before, "another variable was changed, lost or added")
+        self.assertIn("kept %d other variable(s) as they were" % len(before), r.out)
+        self.assertEqual(r.ops().count("lambda update-function-configuration"), 1)
+
+    def test_the_environment_travels_in_a_private_file_guarded_by_the_revision_and_is_never_printed(self):
+        r = self.run_script("--apply")
+        upd = [c for c in r.calls if c["op"] == "lambda update-function-configuration"][0]
+        argv = upd["argv"]
+        self.assertEqual(argv[argv.index("--revision-id") + 1], "rev-1", "the write must be guarded by the revision that was read")
+        self.assertEqual(argv[argv.index("--query") + 1], "LastModified", "without --query the command prints the whole environment")
+        (info,) = upd["fileinfo"].values()
+        self.assertEqual((info["mode"], info["dirmode"]), (0o600, 0o700))
+        self.assertFalse(os.path.exists(info["path"]), "the file with the secrets was left behind")
+        api_leaks(self, r)
+
+    def test_nothing_from_the_environment_reaches_the_screen_in_any_mode_or_failure(self):
+        runs = [self.run_script(), self.run_script("--apply"), self.run_script("--unwire-api"), self.run_script("--unwire-api", "--apply")]
+        w = base_world()
+        w["api"]["race"] = True
+        runs.append(self.run_script("--apply", world=w))  # fails with PreconditionFailed
+        w = base_world()
+        w["api"]["exists"] = False
+        runs.append(self.run_script("--apply", world=w))
+        for r in runs:
+            api_leaks(self, r)
+        self.assertNotEqual(runs[-2].rc, 0)
+
+    def test_a_dry_run_says_what_it_would_do_and_changes_nothing(self):
+        before = copy.deepcopy(self.world)
+        r = self.run_script()
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertNothingChanged(r)
+        self.assertEqual(self.world, before)
+        self.assertIn("%s is not set; it will be added." % self.KEY, r.out)
+        self.assertIn("[dry-run] would: set %s on indifferent-fun-api" % self.KEY, r.out)
+
+    def test_it_is_set_once_and_a_second_apply_leaves_the_function_alone(self):
+        self.run_script("--apply")
+        rev = self.world["api"]["revision"]
+        r = self.run_script("--apply")
+        self.assertNothingChanged(r)
+        self.assertEqual(self.world["api"]["revision"], rev)
+        self.assertIn("is already set to this state machine", r.out)
+
+    def test_a_different_value_is_changed_and_nothing_else(self):
+        w = base_world()
+        w["api"]["env"][self.KEY] = "arn:aws:states:ap-south-1:%s:stateMachine:old" % ACCT
+        before = {k: v for k, v in w["api"]["env"].items() if k != self.KEY}
+        r = self.run_script("--apply", world=w)
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertIn("is set to something else; it will be changed", r.out)
+        self.assertEqual(self.env()[self.KEY], STORY_SM_ARN)
+        self.assertEqual({k: v for k, v in self.env().items() if k != self.KEY}, before)
+
+    def test_a_function_with_no_environment_gets_just_the_one(self):
+        w = base_world()
+        w["api"]["env"] = None
+        r = self.run_script("--apply", world=w)
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertEqual(self.env(), {self.KEY: STORY_SM_ARN})
+
+    def test_a_function_changed_by_someone_else_in_the_meantime_is_not_overwritten(self):
+        w = base_world()
+        w["api"]["race"] = True
+        before = dict(w["api"]["env"])
+        r = self.run_script("--apply", world=w)
+        self.assertNotEqual(r.rc, 0, "the write went through over a change it had not read")
+        self.assertEqual(self.env(), before)
+        self.assertIn("Revision Id", r.err)
+        # Running it again reads the new revision and succeeds.
+        self.world["api"]["race"] = False
+        r = self.run_script("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertIn(self.KEY, self.env())
+
+    def test_the_environment_is_changed_last_after_the_state_machine_it_names_exists(self):
+        r = self.run_script("--apply")
+        self.assertEqual(r.ops()[-1], "lambda update-function-configuration")
+        self.assertLess(idx(r.ops(), "stepfunctions create-state-machine"), idx(r.ops(), "lambda update-function-configuration"))
+
+    def test_the_new_permission_is_one_statement_and_only_for_this_machines_executions(self):
+        r = self.run_script("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        pol = self.world["roles"]["indifferent-fun-lambda-role"]["policies"]["indifferent-fun-story-api-permissions"]
+        self.assertEqual(pol["Statement"], [{
+            "Sid": "StopStoryVideoExecutions", "Effect": "Allow", "Action": "states:StopExecution",
+            "Resource": "arn:aws:states:ap-south-1:%s:execution:indifferent-fun-story-pipeline:*" % ACCT}])
+        # The simulator confirmed the whole path the API takes, on the real policy from setup.sh.
+        for line in ["allows states:StartExecution on " + STORY_SM_ARN,
+                     "allows states:StopExecution on arn:aws:states:ap-south-1:%s:execution:indifferent-fun-story-pipeline:" % ACCT,
+                     "denies states:StopExecution on arn:aws:states:ap-south-1:%s:execution:some-other-machine:" % ACCT,
+                     "allows s3:DeleteObjectVersion on arn:aws:s3:::indifferent-fun-assets/storyvideo/",
+                     "allows s3:DeleteObjectVersion on arn:aws:s3:::indifferent-fun-assets/storyvideo-work/"]:
+            self.assertIn(line, r.out)
+
+    def test_the_grant_that_setup_sh_already_gave_does_not_cover_stopping_an_execution(self):
+        # Why the new permission exists: StopExecution is authorised on the execution,
+        # and setup.sh grants it on ...:stateMachine:... only. This is the matcher the
+        # tests use, on the real statement.
+        import sys
+
+        sys.path.insert(0, STUBS)
+        try:
+            import stub
+        finally:
+            sys.path.remove(STUBS)
+        base = [api_role_policy()]
+        self.assertTrue(stub.allowed(base, "states:StartExecution", STORY_SM_ARN))
+        self.assertFalse(stub.allowed(base, "states:StopExecution", "arn:aws:states:ap-south-1:%s:execution:indifferent-fun-story-pipeline:abc" % ACCT))
+        # ... and the new statement is what allows it.
+        new = {"Statement": [{"Effect": "Allow", "Action": "states:StopExecution",
+                              "Resource": "arn:aws:states:ap-south-1:%s:execution:indifferent-fun-story-pipeline:*" % ACCT}]}
+        self.assertTrue(stub.allowed(base + [new], "states:StopExecution", "arn:aws:states:ap-south-1:%s:execution:indifferent-fun-story-pipeline:abc" % ACCT))
+
+    def test_the_policy_is_actually_attached_not_only_simulated(self):
+        r = self.mutant('put_policy "$API_ROLE_NAME" "${PROJECT}-story-api-permissions" "$TMP/api-policy.json" "stop executions of the story state machine"\n', "")
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertEqual(self.world["roles"]["indifferent-fun-lambda-role"]["policies"], {}, "the mutant should have attached nothing")
+        # ... which is what the normal run is checked for:
+        self.run_script("--apply")
+        self.assertIn("indifferent-fun-story-api-permissions", self.world["roles"]["indifferent-fun-lambda-role"]["policies"])
+
+    def test_an_api_role_that_cannot_do_what_the_routes_need_is_caught_before_any_change(self):
+        for name, drop in {"delete a version": "s3:DeleteObjectVersion", "read the table": "dynamodb:Query", "presign a download": "s3:GetObject"}.items():
+            with self.subTest(missing=name):
+                w = base_world()
+                pol = w["roles"]["indifferent-fun-lambda-role"]["base"][0]
+                for st in pol["Statement"]:
+                    st["Action"] = [a for a in st["Action"] if a != drop]
+                r = self.run_script("--apply", world=w)
+                self.assertNotEqual(r.rc, 0, r.text)
+                self.assertIn("FAIL allows " + drop, r.out)
+                self.assertNothingChanged(r)
+
+    # --unwire-api
+
+    def test_unwire_removes_only_that_variable(self):
+        self.run_script("--apply")
+        keep = {k: v for k, v in self.env().items() if k != self.KEY}
+        r = self.run_script("--unwire-api", "--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertEqual(self.env(), keep)
+        self.assertEqual(r.ops(), ["lambda update-function-configuration"], "it must touch nothing else")
+        self.assertIn("kept %d other variable(s) as they were" % len(keep), r.out)
+
+    def test_unwire_is_a_dry_run_by_default_and_a_no_op_when_the_variable_is_not_set(self):
+        self.run_script("--apply")
+        before = copy.deepcopy(self.world)
+        r = self.run_script("--unwire-api")
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertNothingChanged(r)
+        self.assertEqual(self.world, before)
+        self.assertIn("[dry-run] would: remove " + self.KEY, r.out)
+        self.run_script("--unwire-api", "--apply")
+        r = self.run_script("--unwire-api", "--apply")
+        self.assertNothingChanged(r)
+        self.assertIn("nothing to do", r.out)
+
+    def test_unwire_needs_the_function_and_runs_nothing_else(self):
+        w = base_world()
+        w["api"]["exists"] = False
+        r = self.run_script("--unwire-api", "--apply", world=w)
+        self.assertNotEqual(r.rc, 0)
+        self.assertNothingChanged(r)
+        # With the variable absent and with it present, in a dry run and a real one,
+        # it looks at the function and at nothing else.
+        for present in (False, True):
+            for mode in ([], ["--apply"]):
+                w = base_world()
+                if present:
+                    w["api"]["env"][self.KEY] = STORY_SM_ARN
+                r = self.run_script("--unwire-api", *mode, world=w)
+                self.assertEqual(r.rc, 0, r.text)
+                ops = {c["op"] for c in r.calls}
+                self.assertEqual(ops - {"sts get-caller-identity", "lambda get-function-configuration", "lambda update-function-configuration", "lambda wait"}, set(),
+                                 "unwire (variable present=%s, mode=%s) went beyond the function: %s" % (present, mode, sorted(ops)))
+
+    def test_unwire_does_not_overwrite_a_change_made_in_the_meantime(self):
+        self.run_script("--apply")
+        self.world["api"]["race"] = True
+        before = dict(self.env())
+        r = self.run_script("--unwire-api", "--apply")
+        self.assertNotEqual(r.rc, 0)
+        self.assertEqual(self.env(), before)
+
+    def test_an_unknown_flag_next_to_a_known_one_is_still_refused(self):
+        r = self.run_script("--apply", "--unwire")
+        self.assertEqual(r.rc, 1)
+        self.assertEqual(r.calls, [])
 
 
 class StateMachine(Base):

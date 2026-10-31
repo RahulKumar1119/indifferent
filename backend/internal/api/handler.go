@@ -97,6 +97,19 @@ type APIHandler struct {
 	// StoryPlanNow overrides the clock for the allowance window, for tests.
 	StoryPlanNow func() time.Time
 
+	// StoryVideoStateMachineARN starts the story video pipeline (issue #193).
+	// Empty disables making a video (POST /story-videos answers 503); reading,
+	// cancelling and deleting existing videos still work, so the API can be
+	// deployed before the pipeline exists.
+	StoryVideoStateMachineARN string
+	// StoryVideoMaxActive and StoryVideosPerDay override the per-user limits on
+	// videos in the making and on videos started in 24 hours. Zero uses the
+	// defaults (2 and 10).
+	StoryVideoMaxActive int
+	StoryVideosPerDay   int
+	// StoryVideoNow overrides the clock for the limits, for tests.
+	StoryVideoNow func() time.Time
+
 	// StockMedia backs the /stock-media endpoints (issue #192). Nil disables
 	// them (503), which is the case when neither PEXELS_API_KEY nor
 	// PIXABAY_API_KEY is set.
@@ -176,6 +189,10 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleGetShortsLimits(ctx, req)
 	case req.HTTPMethod == "GET" && req.Path == "/story-plans/limits":
 		return h.handleGetStoryPlanLimits(), nil
+	case req.HTTPMethod == "GET" && req.Path == "/story-videos/limits":
+		return h.handleGetStoryVideoLimits(), nil
+	case isStoryVideoPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handleStoryVideos)
 	case isStoryPlanPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleStoryPlans)
 	case isStockMediaPath(req.Path):

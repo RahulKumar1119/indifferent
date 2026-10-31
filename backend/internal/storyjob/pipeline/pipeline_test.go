@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/rahul/indifferent/backend/internal/storyjob"
 )
 
 func params() Params {
@@ -283,7 +285,7 @@ func TestMachine_MarkFailedKeepsTheWorkersReasonAndNeverOverwritesAnEnd(t *testi
 		}
 	}
 	// The same condition the worker's own store uses: the record exists, and has not ended.
-	if p["ConditionExpression"] != "attribute_exists(PK) AND #status <> :completed AND #status <> :failed" {
+	if p["ConditionExpression"] != storyjob.NotEndedCondition {
 		t.Errorf("condition = %v", p["ConditionExpression"])
 	}
 	// DynamoDB rejects an expression name or value that is listed and not used.

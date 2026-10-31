@@ -19,8 +19,9 @@ import json
 import os
 import sys
 
-WORLD = os.environ["STUB_WORLD"]
-CALLS = os.environ["STUB_CALLS"]
+# Unset when this file is imported (a test uses the IAM matcher), set when it runs.
+WORLD = os.environ.get("STUB_WORLD")
+CALLS = os.environ.get("STUB_CALLS")
 
 # Operations that change something. Everything else must be read-only.
 MUTATING = {
@@ -30,6 +31,7 @@ MUTATING = {
     ("ecr", "create-repository"), ("ecr", "put-lifecycle-policy"),
     ("logs", "create-log-group"), ("logs", "put-retention-policy"),
     ("ecs", "register-task-definition"),
+    ("lambda", "update-function-configuration"),
     ("stepfunctions", "create-state-machine"), ("stepfunctions", "update-state-machine"),
     ("docker", "login"), ("docker", "build"), ("docker", "push"),
 }
@@ -102,10 +104,20 @@ def aws(argv):
     w = load()
     mutating = (svc, op) in MUTATING
     files = {}
+    # Files that carry a secret (a stock key, the API Lambda's whole environment)
+    # are not copied into the call log, so the log can be searched for secrets.
+    # Their location and permissions are recorded instead: that they sit in a
+    # private place is part of what the tests check.
+    secret_file_ops = {("ssm", "put-parameter"), ("lambda", "update-function-configuration")}
+    fileinfo = {}
     for a in rest:
-        if a.startswith("file://") and os.path.isfile(a[7:]) and (svc, op) != ("ssm", "put-parameter"):
-            files[a] = open(a[7:]).read()
-    record("aws", argv, "%s %s" % (svc, op), mutating, files)
+        if a.startswith("file://") and os.path.isfile(a[7:]):
+            if (svc, op) in secret_file_ops:
+                st, dst = os.stat(a[7:]), os.stat(os.path.dirname(a[7:]))
+                fileinfo[a] = {"path": a[7:], "mode": st.st_mode & 0o777, "dirmode": dst.st_mode & 0o777}
+            else:
+                files[a] = open(a[7:]).read()
+    record("aws", argv, "%s %s" % (svc, op), mutating, files, fileinfo=fileinfo)
     q = flag(rest, "--query")
     acct = w["account"]
 
@@ -153,6 +165,42 @@ def aws(argv):
         return out(len(have))
 
     if svc == "lambda":
+        fn = flag(rest, "--function-name")
+        if op == "wait":
+            return out("")
+        if fn == "indifferent-fun-api":
+            api = w["api"]
+            if not api["exists"]:
+                return err("ResourceNotFoundException", "Function not found: arn:aws:lambda:ap-south-1:%s:function:%s" % (acct, fn))
+
+            def config():
+                cfg = {"FunctionName": fn, "RevisionId": api["revision"], "LastUpdateStatus": api.get("status", "Successful"), "Runtime": "provided.al2023"}
+                if api["env"] is not None:
+                    cfg["Environment"] = {"Variables": api["env"]}
+                return cfg
+
+            if op == "get-function-configuration":
+                text = json.dumps(config())
+                if api.get("race"):  # somebody else changes the function right after we read it
+                    api["revision"] = "rev-raced"
+                    save(w)
+                return out(text)
+            if op == "update-function-configuration":
+                rev = flag(rest, "--revision-id")
+                if rev is not None and rev != api["revision"]:
+                    return err("PreconditionFailedException", "The Revision Id provided does not match the latest Revision Id. Call the GetFunction/GetAlias API to retrieve the latest Revision Id")
+                env = json.loads(read_file_arg(flag(rest, "--environment")))
+                if set(env) != {"Variables"} or not all(isinstance(v, str) for v in env["Variables"].values()):
+                    return err("InvalidParameterValueException", "bad environment")
+                api["env"] = env["Variables"]
+                api["revision"] = "rev-%d" % (api.get("updates", 0) + 2)  # any new value, so a stale read is refused
+                api["updates"] = api.get("updates", 0) + 1
+                save(w)
+                # The real CLI prints the whole configuration, environment included,
+                # unless --query narrows it. The script must narrow it.
+                if q == "LastModified":
+                    return out("2026-10-31T12:00:00.000+0000")
+                return out(json.dumps(config()))
         n = w["notifier"]
         if op == "get-function-configuration":
             return out("indifferent-fun-notifier") if n["exists"] else err("ResourceNotFoundException", "Function not found")
@@ -338,4 +386,5 @@ def main():
     {"aws": aws, "docker": docker, "git": git}[tool](argv)
 
 
-main()
+if __name__ == "__main__":
+    main()

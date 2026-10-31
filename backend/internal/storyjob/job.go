@@ -130,6 +130,17 @@ func WorkKey(userID, jobID string, n int, name string) string {
 	return fmt.Sprintf("%s%s/%s/scene-%02d-%s", WorkPrefix, userID, jobID, n, name)
 }
 
+// JobPrefixes are the only storage locations one job owns: the finished video
+// and the working files. Each ends in '/', so job "ab" never matches job "abc".
+// Deleting a job is confined to these, and a test requires every key the
+// worker writes (WorkKey, OutputKey) to be under one of them.
+func JobPrefixes(userID, jobID string) []string {
+	return []string{
+		fmt.Sprintf("%s%s/%s/", OutputPrefix, userID, jobID),
+		fmt.Sprintf("%s%s/%s/", WorkPrefix, userID, jobID),
+	}
+}
+
 // OutputKey is the key of the finished video.
 func OutputKey(userID, jobID string) string {
 	return fmt.Sprintf("%s%s/%s/video.mp4", OutputPrefix, userID, jobID)
@@ -181,6 +192,16 @@ func VoiceFor(language, requested string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("the voice %q cannot narrate a story in %q: choose %s", requested, language, strings.Join(allowed, ", "))
+}
+
+// Languages lists the languages a story can be narrated in, sorted.
+func Languages() []string {
+	langs := make([]string, 0, len(voicesByLanguage))
+	for l := range voicesByLanguage {
+		langs = append(langs, l)
+	}
+	sort.Strings(langs)
+	return langs
 }
 
 // Voices lists the voices a story in a language can use, default first.
