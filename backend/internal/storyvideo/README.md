@@ -125,6 +125,13 @@ Shorter clips loop; longer ones are cut. Both are tested with real renders.
 Media that is unavailable at render time is the worker's concern (slice 3),
 which fails the job with a reason.
 
+## Verified on the production FFmpeg
+
+The render image (`cmd/storyrender/Dockerfile`) uses Alpine's FFmpeg, 6.1.2. The
+numbers above were taken on 4.4.2. The whole test suite, including every
+real-render test, was run inside the built image and passed. Only the speed and
+memory figures are from the developer machine.
+
 ## What is tested
 
 `go test ./internal/storyvideo/` runs real FFmpeg renders and reads the result:
