@@ -16,7 +16,7 @@ func TestParseProbe_ReadsAClipAPhotoAndAudio(t *testing.T) {
 	}{
 		"a portrait clip": {
 			`{"streams":[{"codec_type":"video","width":1080,"height":1920,"duration":"12.500000","nb_frames":"375"},{"codec_type":"audio","duration":"12.5"}],"format":{"duration":"12.520000"}}`,
-			MediaInfo{Width: 1080, Height: 1920, Duration: 12.5, HasVideo: true},
+			MediaInfo{Width: 1080, Height: 1920, Duration: 12.5, HasVideo: true, HasAudio: true},
 		},
 		"a clip with the length only on the container": {
 			`{"streams":[{"codec_type":"video","width":1920,"height":1080,"duration":"N/A","nb_frames":"N/A"}],"format":{"duration":"9.000000"}}`,
@@ -32,11 +32,11 @@ func TestParseProbe_ReadsAClipAPhotoAndAudio(t *testing.T) {
 		},
 		"narration audio": {
 			`{"streams":[{"codec_type":"audio","duration":"4.388500"}],"format":{"duration":"4.388500"}}`,
-			MediaInfo{Duration: 4.3885},
+			MediaInfo{Duration: 4.3885, HasAudio: true},
 		},
 		"audio with the length only on the container": {
 			`{"streams":[{"codec_type":"audio"}],"format":{"duration":"2.664500"}}`,
-			MediaInfo{Duration: 2.6645},
+			MediaInfo{Duration: 2.6645, HasAudio: true},
 		},
 		// ffprobe reads a text file named photo.jpg as a 0x0 video stream.
 		"a stream with no size is not a picture": {

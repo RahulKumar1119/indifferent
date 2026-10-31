@@ -2,7 +2,6 @@ package storyjob
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,11 +57,7 @@ func NarrateScenes(ctx context.Context, d Deps, job *Job, progress Progress) err
 	}
 	tl, err := storyvideo.BuildTimeline(seconds)
 	if err != nil {
-		var tooLong *storyvideo.TooLongError
-		if errors.As(err, &tooLong) {
-			return &StepError{Code: CodeNarrationTooLong, Message: tooLong.UserMessage(), Err: err}
-		}
-		return internalError(0, err)
+		return wrapTimelineError(err)
 	}
 	job.TotalSeconds = tl.Total
 	return nil

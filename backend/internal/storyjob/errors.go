@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/rahul/indifferent/backend/internal/stockmedia"
+	"github.com/rahul/indifferent/backend/internal/storyvideo"
 )
 
 // Failure codes. They are stored on the job and read by the UI.
@@ -103,3 +104,6 @@ func IsRetryable(err error) bool {
 	}
 	return err != nil
 }
+
+// asTooLong finds a *storyvideo.TooLongError in err.
+func asTooLong(err error, target **storyvideo.TooLongError) bool { return errors.As(err, target) }

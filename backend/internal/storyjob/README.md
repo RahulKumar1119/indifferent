@@ -2,8 +2,10 @@
 
 Issue #193. A story video is made in three stages: **copy** the chosen pictures
 into our storage, **narrate** each scene, **render** (package `storyvideo`).
-This package holds the job record and the first two stages. The worker that
-runs all three, the state machine and the API routes come in a later slice.
+This package holds the job record, the stages, and the runner that drives them
+(`Runner.Run`). `cmd/storyrender` is the Fargate task that calls it. The state
+machine, status and notification wiring, API routes and deploy scripts come in
+the next slices.
 
 Both stages are safe to run again. A render on Fargate Spot can be interrupted
 and started again by Step Functions; a stage that finds its output already in
@@ -128,10 +130,85 @@ Two sentences each, standard engine, `ap-south-1`, storage in memory:
 English is spoken much faster than the planner assumes; Hindi is close to it.
 That is why scene length is never taken from the plan.
 
-## Not done in this slice
+## The worker (`cmd/storyrender`)
 
-- The worker, state machine, status and notification wiring, API routes, and
-  the deploy scripts that would create the lifecycle rule for
-  `storyvideo-work/`.
-- Rendering from these inputs (package `storyvideo` has the command builder).
+`Runner.Run(ctx, userID, jobID)` loads the job, moves it through `preparing`,
+`narrating` and `rendering`, saves what each stage made (so a restart resumes),
+uploads the video, and writes the end state on the job record. A thin `main`
+wires the real AWS clients and the stock-media service to it. The task reads
+`USER_ID`, `JOB_ID`, `S3_BUCKET`, `DYNAMODB_TABLE`, the stock keys
+(`PEXELS_API_KEY` / `PIXABAY_API_KEY`) and optionally `WORK_DIR`.
+
+### The exit code is the contract with the state machine
+
+| Outcome | Exit | Meaning | What the state machine should do |
+|---|---|---|---|
+| completed | 0 | Video stored, record says `completed` | Notify, done |
+| failed | 0 | The user must fix something; the reason is on the record | Notify the failure. **Do not retry** |
+| cancelled | 0 | The user deleted or cancelled the job | Stop, no email |
+| retry | 1 | Temporary failure, or the process was told to stop | Run the task again |
+| bad start | 2 | Missing or malformed `USER_ID` / `JOB_ID` / config | A retry cannot fix it |
+
+Three consequences the state machine must respect, because getting them wrong
+turns a failure into a silent success:
+
+- **Exit 0 does not mean success.** A failed job exits 0 so Step Functions does
+  not retry something hopeless. The state machine has to read the job record's
+  `status` after the task to tell completed from failed from cancelled.
+- **SIGTERM exits 1.** ECS sends it on a Spot interruption. Exiting 0 there
+  would tell Step Functions the job succeeded when it was cut off. A test
+  pins this.
+- **A retry's reason is saved on the record** (`error`, `errorCode`,
+  `failedStage`), with the status left at the stage that failed. If Step
+  Functions runs out of retries the user still sees why, in words, and the
+  state machine can mark the job failed with that message.
+
+### Safety properties
+
+- **A deleted job is never brought back and an ended job is never overwritten.**
+  Every write is conditional on the record existing and not being `completed` or
+  `failed`. A slow worker cannot undo a cancel.
+- **A cancel stops the work.** The worker re-reads the job's status every 10
+  seconds and stops FFmpeg when the job is gone or has ended.
+- **A failed progress write is logged, not fatal.** The one write error that
+  does stop the run is learning the job was deleted.
+- **The finished file is checked before the job is called completed**: a picture
+  stream, a sound stream, 1080x1920, and a length within half a second of the
+  plan. FFmpeg exiting 0 is not proof of a good video.
+- **Ids are validated as UUIDs** before they go into any storage key.
+- **No path is escaped inside an FFmpeg filter.** FFmpeg runs in the work
+  directory and the captions file is named relatively. A test uses a directory
+  called `it's a: odd dir [x]`.
+- **Captions need fonts.** The worker checks at start-up and fails loudly; with
+  no font libass draws nothing and the video would have no captions and no error.
+
+### One line to size and cost a render
+
+On success the worker logs a line like
+
+    storyjob_timing job=... scenes=3 prepare=0.2s narrate=0.2s render=18.0s upload=0.0s video_seconds=10.5 output_bytes=282730
+
+This is how the real time and cost on Fargate Spot are measured. **Nothing has
+been run on Fargate yet**: the figures in `storyvideo/README.md` are from a
+developer machine.
+
+## Verified in the production image
+
+The `Dockerfile` in `cmd/storyrender` uses Alpine's FFmpeg, which is a different
+major version from the one on a developer machine (6.1.2 against 4.4.2). The
+whole `storyvideo` and `storyjob` suites, including every real-render and
+end-to-end test, were compiled statically and run **inside the built image**:
+97 tests in `storyjob` and 41 in `storyvideo` (top level, not counting subtests), none failed and none skipped. To repeat it:
+
+    docker build -f cmd/storyrender/Dockerfile -t story-render-local backend/
+    CGO_ENABLED=0 go test -c -o /tmp/t/storyjob.test ./internal/storyjob
+    docker run --rm --entrypoint sh -v /tmp/t:/t:ro -v $PWD/internal/storyjob:/src:ro -w /src \
+        story-render-local -c '/t/storyjob.test -test.v'
+
+## Not done
+
+- The state machine, the status and notification wiring for this job type, the
+  API routes, and the deploy scripts (including the lifecycle rule that expires
+  `storyvideo-work/` and the ECS task definition, IAM permissions and image push).
+- Running anything on Fargate, or against real DynamoDB or S3.
 - The UI.

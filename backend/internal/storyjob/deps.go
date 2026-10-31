@@ -19,6 +19,7 @@ type Files interface {
 	PutFile(ctx context.Context, bucket, key, path, contentType string) error
 	PutObject(ctx context.Context, bucket, key string, data []byte, contentType string) error
 	HeadObject(ctx context.Context, bucket, key string) (bool, error)
+	DownloadToFile(ctx context.Context, bucket, key, path string) error
 }
 
 // Narrator makes the voice. *narrator.PollyNarrationService satisfies it.
@@ -34,6 +35,8 @@ type MediaInfo struct {
 	Duration float64
 	// HasVideo is true when the file has a picture stream. A still image counts.
 	HasVideo bool
+	// HasAudio is true when the file has a sound stream.
+	HasAudio bool
 }
 
 // Prober reads the real properties of a file. FFprobe satisfies it. The
