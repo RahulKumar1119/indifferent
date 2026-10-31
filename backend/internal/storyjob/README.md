@@ -211,7 +211,7 @@ The `Dockerfile` in `cmd/storyrender` uses Alpine's FFmpeg, which is a different
 major version from the one on a developer machine (6.1.2 against 4.4.2). The
 whole `storyvideo` and `storyjob` suites, including every real-render and
 end-to-end test, were compiled statically and run **inside the built image**:
-98 tests in `storyjob` and 41 in `storyvideo` (top level, not counting subtests), none failed and none skipped. To repeat it:
+105 tests in `storyjob` and 41 in `storyvideo` (top level, not counting subtests), none failed and none skipped. To repeat it:
 
     docker build -f cmd/storyrender/Dockerfile -t story-render-local backend/
     CGO_ENABLED=0 go test -c -o /tmp/t/storyjob.test ./internal/storyjob
@@ -262,6 +262,143 @@ tracks the job.
   would break the JSON. `cmd/storypipeline` prints the result, and the deploy
   script uses it, so the tests and the deployed definition share one renderer.
 
+## The API (`internal/api/storyvideo.go`)
+
+| Route | What it does |
+|---|---|
+| `GET /story-videos/limits` | Public. `{enabled, maxActive, perDay, maxSeconds, voices: {en: [...], hi: [...]}}` |
+| `POST /story-videos` | Make a video. Body `{planId, revision, voice?, caption?}`. 202 with the job's view |
+| `GET /story-videos[?planId=]` | The user's videos, newest first: `{videos: [...], hasMore}`. At most 20, read from the newest 100 |
+| `GET /story-videos/{id}` | One job's view (a consistent read, so progress never goes backwards) |
+| `POST /story-videos/{id}/cancel` | End a video that is being made. 200 with the view |
+| `GET /story-videos/{id}/download` | `{url, filename, expiresInSeconds}` for a finished video. 15 minute link |
+| `DELETE /story-videos/{id}` | Remove a finished or cancelled video and its files. 204 |
+
+Every route but the first needs sign-in. Another user's id, an id that does not
+exist and an id that is not a UUID all answer 404 with the same body.
+
+**The view** (what the page is built on). It is not the record: no storage key, no
+scene text, no internal error.
+
+    {
+      "jobId", "planId", "planRevision",
+      "status": "queued" | "preparing" | "narrating" | "rendering" | "completed" | "failed",
+      "progress": 0-100, "language", "voice", "caption": {preset, fontSize, color, highlight, position},
+      "totalSeconds"?,                                  // once known
+      "error"?, "errorCode"?, "failedStage"?,           // only when status is "failed"
+      "createdAt", "updatedAt", "completedAt"?
+    }
+
+`errorCode` is `CANCELLED` when the user cancelled, `START_FAILED` when the
+pipeline could not be started, `TIMED_OUT`, or one of the worker's codes (see
+"Failures"). `error` is a sentence for the user. While a job is still going it
+shows no error even if the worker saved the reason of an attempt it will retry.
+
+**Errors** are `{code, message}` (and `details` where noted):
+
+| HTTP | `code` | When |
+|---|---|---|
+| 400 | `MISSING_PICTURES` | A scene has no picture. The message names the scenes |
+| 400 | `UNSUPPORTED_LANGUAGE` | The story is not in English or Hindi |
+| 400 | `VALIDATION_ERROR` | Voice cannot read this language, or the caption style is invalid |
+| 404 | `NOT_FOUND` | No such plan or video, or not yours |
+| 409 | `NOT_READY` | The plan is not finished, or the video is not finished (download) |
+| 409 | `STALE_REVISION` | The plan changed since the page read it. Reload |
+| 409 | `ALREADY_RUNNING` | A video is already being made from this plan. `details.jobId` is that video |
+| 409 | `TOO_MANY_ACTIVE` | Two videos are already being made |
+| 409 | `STILL_RUNNING` | Delete of a video that has not ended. Cancel it first |
+| 429 | `RATE_LIMITED` | Ten started in 24 hours. `details.retryAfter` is the seconds until the oldest leaves the window |
+| 503 | `UNAVAILABLE` | `STORYVIDEO_STATE_MACHINE_ARN` is not set. Only create answers this |
+
+### How create works, and why in this order
+
+1. The plan is read from the user's own record. The client sends only its id and
+   the revision it was looking at; a different revision is refused, so the video
+   is the one the user approved.
+2. Everything the user can fix is checked next (a picture for every scene, the
+   language, the voice, the caption style), because it costs nothing and spends
+   no allowance.
+3. Then the limits, then the job is written (`attribute_not_exists(PK)`), and only
+   then is the execution started, named after the job id.
+4. If the start fails the job is marked failed (`START_FAILED`), not left queued.
+   A start that timed out may still have started; marking the job ended also
+   stops that execution, because the worker finds its record ended.
+
+### Cancel
+
+The record is changed first, with `storyjob.NotEndedCondition`, the one condition
+the worker's store and the state machine's `MarkFailed` also use. That makes
+three things true at once: a video that finished is never overwritten by a late
+cancel, a slow worker never undoes a cancel, and a deleted job is never
+recreated. The worker notices within about 10 seconds and stops FFmpeg, and the
+notifier sends nothing for `CANCELLED`. Stopping the execution comes second and
+is best effort. Cancelling a job that has ended is not an error: it answers with
+its current state. So does a cancel that loses the race to the worker.
+
+### Decisions
+
+- **Paths** follow `/story-plans`: a plural noun, the id below it, and an action
+  suffix only for the two actions that are not create/read/delete.
+- **Limits: two in the making per user, ten started per 24 hours, one per plan.**
+  Each video is a 2 vCPU Fargate task and the Spot quota in this account was 30
+  vCPU. A cancelled or failed video counts towards the ten, since it used Polly and
+  a task. Other limits (stock search, plans) are per hour; this one is per day
+  because a video is the expensive step.
+- **A second create for a plan that already has a video in the making is a 409
+  that names the video, not a 200 that returns it.** A 200 would hide that the
+  voice or caption just sent was ignored. The page can offer to cancel the other.
+- **The 24 hour window is a key range on the job id**, which is a UUIDv7 and
+  sorts by time, so no index or scan is needed (the plans do the same).
+- **The active limit is not race-free.** It is a query followed by a put, and
+  DynamoDB cannot condition a put on a count of other items. Two creates sent at
+  the same instant by one user can both pass. The overshoot is bounded by how many
+  a user can send inside one request, and the day limit is checked on the same
+  read. Making it strict needs a counter item updated in a transaction; for a
+  cost limit that was not worth it.
+- **A job untouched for two hours stops counting as active.** The longest honest
+  run is about 80 minutes (three Spot attempts and one on-demand, each cut off at
+  20), so a job older than two hours lost its execution without being marked
+  failed. It would otherwise hold its owner at the limit for ever.
+- **Delete of a video that has not ended is refused (409).** Cancel changes the
+  record at once and the worker stops within seconds, but a delete during that
+  time could leave a file that the worker was in the middle of uploading, where no
+  record points and no lifecycle rule expires. Cancel-then-delete is what a page
+  does anyway. The window that remains is a script that cancels and deletes in the
+  same few seconds.
+- **Delete removes the files first and the record last**, so a failed cleanup
+  leaves the record and can be retried. The bucket is versioned, so a plain delete
+  only hides a file; every version and marker under the job's two prefixes
+  (`JobPrefixes`) is removed. A test requires every key the worker writes to be
+  under one of those prefixes.
+- **A download link is made only for the job's own output key**, recomputed from
+  the ids, never for whatever the record names. A completed record whose file is
+  gone answers 404 instead of a link that returns an error page.
+
+### Known gaps
+
+- **Nothing reconciles a job whose execution died without marking it failed.**
+  The state machine catches every error and ends by reading the record, so this
+  needs something outside it (an operator stopping an execution, for one). The job
+  stays "rendering"; it stops counting against the limit after two hours; the user
+  can cancel it and delete it. A sweeper that asks Step Functions about old
+  non-terminal jobs would close it.
+- **Deleting a video gives its place in the daily allowance back**, because the
+  allowance counts the records that exist. Create, cancel, delete, repeat is
+  limited by the active limit, not the daily one.
+- **The IAM grant that `deploy/setup.sh` gave the API role does not cover
+  stopping an execution.** `states:StopExecution` is authorised on the
+  *execution* (`...:execution:<machine>:<name>`), and `setup.sh` grants it on
+  `...:stateMachine:...`, which never matches
+  ([Service Authorization Reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_stepfunctions.html)).
+  The deploy script adds the grant for this state machine. **The shorts cancel,
+  the shorts delete and the quiz project delete call `StopExecution` and ignore
+  the result (`_, _ =`), so they very likely have never stopped an execution:**
+  the record says cancelled or is gone while the render task runs to the end,
+  which is cost for nothing. Not changed here (a one-line addition to the same
+  kind of grant would cover them; it is the user's call). Also in the shorts
+  cancel: it overwrites the record with an unconditional `PutItem`, which can
+  undo a job that just finished.
+
 ## Deploying it (`deploy/setup-storyvideo.sh`)
 
 Order:
@@ -271,6 +408,8 @@ Order:
    script checks this with an invalid test invocation and refuses to go on.
 2. `bash deploy/setup-storyvideo.sh` and read the plan.
 3. `bash deploy/setup-storyvideo.sh --apply`.
+4. Deploy the API code (the script prints the three commands; it does not run
+   them). Until then the new environment variable does nothing.
 
 It works in two phases: everything that can refuse (a missing prerequisite, a
 lifecycle rule that could delete the videos, a wrong IAM permission, an old
@@ -283,6 +422,20 @@ the ECR repository and the image (tagged with the git commit, immutable, the 10
 newest kept); the log group; the task definition (a new revision only when
 something changed); and the state machine (the old definition is saved first).
 Running it again changes nothing. It prints the undo command for each change.
+
+It also wires the API Lambda: `STORYVIDEO_STATE_MACHINE_ARN` is added to the
+function's environment, and one statement to its role (`states:StopExecution` on
+this state machine's executions; `StartExecution`, the table and the bucket were
+already covered, and the simulator checks that on the role's real policy). The
+environment holds secrets, and `update-function-configuration` replaces all of
+it, so it is handled with care: read into a private file (mode 700 directory,
+removed on exit), merged there, written back with `--revision-id` so a change
+made in between makes the write fail instead of being overwritten, and the
+command's own output (which echoes the environment) suppressed with `--query`.
+Only counts are printed. `bash deploy/setup-storyvideo.sh --unwire-api --apply`
+removes that one variable again (create then answers 503; reading, cancelling and
+deleting keep working). API Gateway needs no change: `deploy/setup-apigateway.sh`
+sends every path to the Lambda through a single `{proxy+}` route.
 
 `storyvideo-work/` is expired after 7 days, noncurrent versions after 1 day
 (the bucket is versioned), and the delete markers that leaves behind are removed.
@@ -302,16 +455,29 @@ Checked:
   record, a record with no status and a status of the wrong type all reach `Gone`,
   and that Spot falls to on-demand once its retries are used. This found the missing-record
   failure above, which the structural tests had passed.
+- **The API routes**, against an in-memory table that enforces what the code relies
+  on (the conditional update, key ranges, limits, projections, and that no
+  expression placeholder is unused). It covers ownership on every route, the
+  cancel condition, a cancel that races a finishing worker, a failed start, the
+  limits and their boundaries, and that no response carries a storage key, scene
+  text or a saved retry reason. 33 mutations of the API code were each caught by
+  a test (two gaps were closed on the way: a failed plan that still has scenes,
+  and listing for another user); one more is equivalent. A numeric Google user id
+  is used throughout, and the ids the pipeline is started with are fed to the
+  worker's own validator.
 - **The deploy script, end to end, against a stateful stand-in for the `aws`,
-  `docker` and `git` commands**: `python3 -m unittest discover -s deploy/tests -v`.
+  `docker` and `git` commands**: `python3 -m unittest discover -s deploy/tests -v`
+  (53 tests).
   The stand-in keeps a model of the account, so the tests check what is left
   behind, not just which calls were made: that a dry run changes nothing, that
   every refusal happens before the first change, that a second `--apply` makes no
   change, that the key never appears in output, a command line or the task
   definition, that the existing lifecycle rules and the size setting survive the
   merge, that a new commit gets a new image and revision while the old revision keeps its
-  image, and that the policy checks can fail (three mutated policies are caught).
-  13 mutations of the script were each caught by a test.
+  image, that the policy checks can fail (three mutated policies are caught), that
+  the API Lambda's environment keeps every other variable, is never printed and
+  travels in a private file guarded by the revision, and that `--unwire-api`
+  touches nothing else. 28 mutations of the script were each caught by a test.
 - **The runner's deadline and SIGTERM handling**, and that the worker and
   state-machine time limits stay ordered.
 
@@ -337,16 +503,25 @@ Not checked, and what that leaves open:
   security group that allows only egress 443, and the stock keys arriving through
   SSM. The first job will show all of these.
 - **No real email was sent.** The notifier's `story` kind is tested with fakes.
-- The permissions of the temporary file that carries a key to SSM are not tested
-  (it is in a private temporary directory and removed straight away).
+- **The API was not exercised against real DynamoDB, Step Functions, S3 or API
+  Gateway.** The conditional update and the key-range query are checked against the
+  test table's model of them, which is as close as the model is. The one thing in the
+  update expression no test can show is that DynamoDB accepts `SET #failedStage =
+  #status` (copying a value inside one expression) next to the same name in the
+  condition; the worker's store and the state machine use the same shape.
+- **The deploy additions have not run against AWS**, with the same caveats as the
+  rest of the script. The ones that matter here: `update-function-configuration`
+  with `--revision-id` and `--query`, and the simulator's answer for
+  `states:StopExecution` on the real role.
+- **Presigned download links were not fetched.** The key they name is checked; that
+  the Lambda role's credentials can sign a read of it is checked only by the
+  simulator.
 
 ## Not done
 
-- The API routes: create a job from a confirmed plan and start the execution,
-  status, list, download, cancel (stop the execution and mark the job failed with
-  `CANCELLED`), delete, and a rate limit. They need `STORYVIDEO_STATE_MACHINE_ARN`
-  on the API Lambda and `states:StartExecution` / `states:StopExecution` on the
-  state machine for its role. The step update the state machine writes uses
-  millisecond timestamps where the worker writes whole seconds; both parse as
-  RFC 3339, but code that compares them should parse, not compare strings.
-- The UI.
+- The UI (slice 4): the page that makes the video, shows its progress, and offers
+  the download. The response shapes above are what it is built on.
+- The reconciler, and the other gaps listed under "Known gaps".
+- The step update the state machine writes uses millisecond timestamps where the
+  worker writes whole seconds; both parse as RFC 3339, but code that compares
+  them should parse, not compare strings.
