@@ -24,6 +24,13 @@ const (
 	CodeNarrationTooLong = "NARRATION_TOO_LONG"
 	// CodeInternal: something on our side broke.
 	CodeInternal = "INTERNAL"
+	// CodeCancelled is set by the API when the user cancels a job that has not
+	// ended. The notifier sends nothing for it, and the worker stops when it
+	// sees it.
+	CodeCancelled = "CANCELLED"
+	// CodeStartFailed is set by the API when the job was written but the
+	// pipeline could not be started, so it is not left queued for ever.
+	CodeStartFailed = "START_FAILED"
 	// CodeTimedOut: the worker ran out of its time. A run that was still going
 	// after the whole allowance is stuck, not slow, and running it again on the
 	// same inputs would most likely stick again, so this is final.

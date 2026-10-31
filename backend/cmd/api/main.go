@@ -38,6 +38,9 @@ func main() {
 	shortsStateMachineARN := os.Getenv("SHORTS_STATE_MACHINE_ARN")
 	// Optional: without it the thumbnail endpoints answer 503.
 	thumbnailStateMachineARN := os.Getenv("THUMBNAIL_STATE_MACHINE_ARN")
+	// Optional: without it POST /story-videos answers 503 and the other story
+	// video routes keep working (issue #193).
+	storyVideoStateMachineARN := os.Getenv("STORYVIDEO_STATE_MACHINE_ARN")
 	usersTable := os.Getenv("USERS_TABLE")
 	sessionTable := os.Getenv("SESSION_TABLE")
 
@@ -126,7 +129,8 @@ func main() {
 		StateMachineARN:       stateMachineARN,
 		ShortsStateMachineARN: shortsStateMachineARN,
 
-		ThumbnailStateMachineARN: thumbnailStateMachineARN,
+		ThumbnailStateMachineARN:  thumbnailStateMachineARN,
+		StoryVideoStateMachineARN: storyVideoStateMachineARN,
 		// Optional, off unless S3_ACCELERATE is true or 1.
 		S3Accelerate:    appconfig.S3Accelerate(),
 		PreviewRenderer: slidegen.NewNativeRenderer(),

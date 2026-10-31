@@ -63,6 +63,15 @@ func (s *DynamoStore) Status(ctx context.Context, userID, jobID string) (string,
 	return "", nil
 }
 
+// NotEndedCondition is the condition on every write to a job record that is not
+// the creation of it: the record exists, and nobody has ended it. The worker
+// uses it for each save, the API for a cancel, and the state machine's MarkFailed
+// repeats it (a test requires the same text). It is what makes "a slow worker
+// can never undo a cancel, a cancel can never overwrite a finished video, and
+// nothing brings a deleted job back" true. A write that uses it must set
+// #status, :completed and :failed.
+const NotEndedCondition = "attribute_exists(PK) AND #status <> :completed AND #status <> :failed"
+
 // Save writes the job's progress. It refuses to touch a job that is gone or
 // already ended, so a slow worker can never undo a cancel or bring a deleted
 // job back.
@@ -118,7 +127,7 @@ func (s *DynamoStore) write(ctx context.Context, j *Job, final bool) error {
 		UpdateExpression: aws.String(expr), ExpressionAttributeNames: names, ExpressionAttributeValues: vals,
 		// Alive, and not ended by someone else. A job the worker itself is
 		// finishing is still "running" at this point.
-		ConditionExpression: aws.String("attribute_exists(PK) AND #status <> :completed AND #status <> :failed"),
+		ConditionExpression: aws.String(NotEndedCondition),
 	})
 	if err == nil {
 		return nil
