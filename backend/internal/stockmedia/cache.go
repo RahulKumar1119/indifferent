@@ -1,6 +1,7 @@
 package stockmedia
 
 import (
+	"context"
 	"sort"
 	"sync"
 	"time"
@@ -12,11 +13,23 @@ import (
 // MemoryCache is the default. It lives inside one process, so on Lambda it is
 // shared only by invocations that reuse a warm container. That falls short of
 // Pixabay's rule that requests be cached for 24 hours across the whole
-// service, which needs a store shared by every container; implement this
-// interface over such a store for that (tracked in #194).
+// service, which needs a store shared by every container: see package
+// stockcache, which implements this interface over DynamoDB.
+//
+// A Cache must never make a search fail or wait long. An implementation that
+// cannot reach its store answers Get with a miss and drops a Set; the search
+// then goes to the provider as if there were no cache.
 type Cache interface {
-	Get(key string) (SearchResult, bool)
-	Set(key string, res SearchResult, ttl time.Duration)
+	Get(ctx context.Context, key string) (SearchResult, bool)
+	Set(ctx context.Context, key string, res SearchResult, ttl time.Duration)
+}
+
+// Seeder is implemented by a Cache that is slower to write than to read. The
+// service uses Seed, not Set, for entries it could recreate with one provider
+// call and that are worth keeping only close by: the per-asset entries it
+// derives from a search. A Cache without Seed has them stored with Set.
+type Seeder interface {
+	Seed(ctx context.Context, key string, res SearchResult, ttl time.Duration)
 }
 
 // DefaultCacheEntries bounds MemoryCache.
@@ -47,7 +60,7 @@ func NewMemoryCache(max int) *MemoryCache {
 
 // Get implements Cache. It returns a copy: callers may reorder or edit the
 // result without changing what is cached.
-func (c *MemoryCache) Get(key string) (SearchResult, bool) {
+func (c *MemoryCache) Get(_ context.Context, key string) (SearchResult, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	e, ok := c.entries[key]
@@ -62,7 +75,7 @@ func (c *MemoryCache) Get(key string) (SearchResult, bool) {
 }
 
 // Set implements Cache. A ttl of zero or less stores nothing.
-func (c *MemoryCache) Set(key string, res SearchResult, ttl time.Duration) {
+func (c *MemoryCache) Set(_ context.Context, key string, res SearchResult, ttl time.Duration) {
 	if ttl <= 0 {
 		return
 	}

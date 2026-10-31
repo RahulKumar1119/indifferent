@@ -156,7 +156,7 @@ func (s *Service) searchOne(ctx context.Context, prov Provider, p SearchParams, 
 	}
 	name := prov.Name()
 	key := cacheKey(name, p)
-	if hit, ok := s.cache.Get(key); ok {
+	if hit, ok := s.cache.Get(ctx, key); ok {
 		hit.Cached = true
 		s.logf("stockmedia_search provider=%s type=%s page=%d results=%d cached=true", name, p.Type, p.Page, len(hit.Assets))
 		return hit, nil
@@ -184,16 +184,16 @@ func (s *Service) searchOne(ctx context.Context, prov Provider, p SearchParams, 
 		if alt, err := s.searchOne(ctx, prov, relaxed, false); err == nil && len(alt.Assets) > 0 {
 			sortByOrientation(alt.Assets, p.Orientation)
 			alt.Cached = false
-			s.cache.Set(key, alt, s.ttl[name])
-			s.seedAssets(name, alt.Assets)
+			s.cache.Set(ctx, key, alt, s.ttl[name])
+			s.seedAssets(ctx, name, alt.Assets)
 			return alt, nil
 		} else if err != nil && ctx.Err() != nil {
 			return SearchResult{}, ctx.Err()
 		}
 	}
 
-	s.cache.Set(key, res, s.ttl[name])
-	s.seedAssets(name, res.Assets)
+	s.cache.Set(ctx, key, res, s.ttl[name])
+	s.seedAssets(ctx, name, res.Assets)
 	return res, nil
 }
 
@@ -202,9 +202,13 @@ func (s *Service) searchOne(ctx context.Context, prov Provider, p SearchParams, 
 // search returned is what Get would return. Seeding means a user who picks an
 // asset they have just seen costs no provider call, which matters because the
 // providers' limits are shared by every user of the site.
-func (s *Service) seedAssets(name ProviderName, assets []Asset) {
+func (s *Service) seedAssets(ctx context.Context, name ProviderName, assets []Asset) {
+	store := s.cache.Set
+	if sd, ok := s.cache.(Seeder); ok {
+		store = sd.Seed
+	}
 	for _, a := range assets {
-		s.cache.Set(assetCacheKey(name, a.Type, a.ID), SearchResult{Assets: []Asset{a}}, assetCacheTTL(name))
+		store(ctx, assetCacheKey(name, a.Type, a.ID), SearchResult{Assets: []Asset{a}}, assetCacheTTL(name))
 	}
 }
 
@@ -507,7 +511,7 @@ func (s *Service) Get(ctx context.Context, name ProviderName, typ MediaType, id 
 	}
 
 	key := assetCacheKey(name, typ, id)
-	if hit, ok := s.cache.Get(key); ok && len(hit.Assets) == 1 {
+	if hit, ok := s.cache.Get(ctx, key); ok && len(hit.Assets) == 1 {
 		return hit.Assets[0], nil
 	}
 	var a Asset
@@ -529,7 +533,7 @@ func (s *Service) Get(ctx context.Context, name ProviderName, typ MediaType, id 
 		return Asset{}, &ProviderError{Provider: name, Kind: KindNotFound, Err: fmt.Errorf("the asset cannot be used (%s)", reason)}
 	}
 	s.logf("stockmedia_get provider=%s type=%s cached=false", name, typ)
-	s.cache.Set(key, SearchResult{Assets: []Asset{a}}, assetCacheTTL(name))
+	s.cache.Set(ctx, key, SearchResult{Assets: []Asset{a}}, assetCacheTTL(name))
 	return a, nil
 }
 

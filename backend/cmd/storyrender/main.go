@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/polly"
 	"github.com/rahul/indifferent/backend/internal/narrator"
 	"github.com/rahul/indifferent/backend/internal/shorts/render"
+	"github.com/rahul/indifferent/backend/internal/stockcache"
 	"github.com/rahul/indifferent/backend/internal/stockmedia"
 	"github.com/rahul/indifferent/backend/internal/storage"
 	"github.com/rahul/indifferent/backend/internal/storyjob"
@@ -91,7 +92,11 @@ func run() int {
 	// Nobody is waiting on this worker, and a failed attempt costs a whole task
 	// restart, so it tries harder than the interactive API does.
 	retry := stockmedia.BatchRetryPolicy()
-	stock, err := stockmedia.NewServiceFromEnv(stockmedia.WithRetry(retry))
+	db := dynamodb.NewFromConfig(cfg)
+	// With STOCK_CACHE_TABLE set, lookups the API already made in the last day
+	// come from the shared cache instead of the provider.
+	stockOpts := append(stockcache.ServiceOptions(db, os.Getenv, log.Printf), stockmedia.WithRetry(retry))
+	stock, err := stockmedia.NewServiceFromEnv(stockOpts...)
 	if err != nil {
 		log.Printf("storyrender: stock media is not configured: %v", err)
 		return 1
@@ -109,7 +114,7 @@ func run() int {
 	}
 	runner := &storyjob.Runner{
 		Deps:  deps,
-		Store: &storyjob.DynamoStore{DB: dynamodb.NewFromConfig(cfg), Table: table},
+		Store: &storyjob.DynamoStore{DB: db, Table: table},
 		Renderer: &storyjob.VideoRenderer{
 			Fetch: s3, Bucket: bucket, FFmpeg: storyvideo.FFmpeg{}, Prober: prober, Logf: log.Printf,
 		},
