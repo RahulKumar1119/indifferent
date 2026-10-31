@@ -14,6 +14,9 @@ import (
 const (
 	KindQuiz   = "quiz"
 	KindShorts = "shorts"
+	// KindStory is a Story2Shorts video. The id it is given is the job's, and
+	// the link in the email is made from the id of the plan the job came from.
+	KindStory = "story"
 
 	OutcomeCompleted = "completed"
 	OutcomeFailed    = "failed"
@@ -84,6 +87,22 @@ func lookupCopy(kind, outcome string, hasName bool) (copyFor, bool) {
 			intro:   "Something went wrong while processing your video, so the job was not completed. Open it to see what happened and to try again if that is possible.",
 			button:  "Open the job",
 			path:    "/shorts/%s/progress",
+		}, true
+	case kind == KindStory && outcome == OutcomeCompleted:
+		return copyFor{
+			subject: "Your story video is ready",
+			heading: "Your video is ready",
+			intro:   "Your story has been made into a video. You can open it to watch and download it.",
+			button:  "Open your video",
+			path:    "/story/%s",
+		}, true
+	case kind == KindStory && outcome == OutcomeFailed:
+		return copyFor{
+			subject: "Your story video could not be finished",
+			heading: "Your video did not finish",
+			intro:   "Something went wrong while making your video, so it was not completed. Open your plan to see what happened and to try again if that is possible.",
+			button:  "Open your plan",
+			path:    "/story/%s",
 		}, true
 	}
 	return copyFor{}, false
