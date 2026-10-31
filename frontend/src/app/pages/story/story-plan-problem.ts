@@ -14,7 +14,11 @@ export type ProblemKind =
   | 'stale' // 409 STALE_REVISION: the plan changed elsewhere
   | 'not_ready' // 409 NOT_READY
   | 'not_found' // 404
-  | 'offline'; // no response at all
+  | 'offline' // no response at all
+  // The three below are for the video made from a plan (story-video-problem.ts).
+  | 'already_running' // 409 ALREADY_RUNNING: a video is being made from this plan
+  | 'too_many_active' // 409 TOO_MANY_ACTIVE: the user's limit of videos at once
+  | 'still_running'; // 409 STILL_RUNNING: delete needs a cancel first
 
 /** A failure the page can show: what happened, and what to do next. */
 export interface StoryPlanProblem {
@@ -26,6 +30,8 @@ export interface StoryPlanProblem {
   retryAfterSeconds?: number;
   /** True when trying the same thing again can work (after any wait). */
   retryable: boolean;
+  /** The video a conflict is about, when the API names it (ALREADY_RUNNING). */
+  jobId?: string;
 }
 
 /** "1 second", "45 seconds", "3 minutes", "1 hour 5 minutes". Rounds up. */

@@ -13,7 +13,7 @@ import {
 
 // The page reports every failure inline (see describeProblem), so the global
 // error toast would only say the same thing twice.
-const INLINE_ERRORS = () => new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true);
+export const INLINE_ERRORS = () => new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true);
 
 /**
  * Story2Shorts API client: /story-plans and /stock-media. The browser talks
