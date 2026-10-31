@@ -88,3 +88,29 @@ func ResolveForceStyle(s models.CaptionStyle) string {
 func isKaraokeStyle(s models.CaptionStyle) bool {
 	return resolvedCaption(s).Preset == CaptionKaraoke
 }
+
+// IsKaraoke reports whether the style burns word-by-word ASS captions rather
+// than SRT.
+func IsKaraoke(s models.CaptionStyle) bool { return isKaraokeStyle(s) }
+
+// BuildCaptions builds the caption document for words in the style, and the
+// file extension it needs: ".ass" for karaoke, ".srt" for the other presets.
+// The style choice is the one the Shorts renderer makes. breakBefore, when
+// given, forces a new cue at a word (see BuildSRTBreaks). Times are used as
+// they are: pass words already relative to the start of the video.
+func BuildCaptions(words []models.Word, style models.CaptionStyle, breakBefore []bool) (doc, ext string) {
+	if isKaraokeStyle(style) {
+		return BuildASSBreaks(words, 0, style, breakBefore), ".ass"
+	}
+	return BuildSRTBreaks(words, 0, breakBefore), ".srt"
+}
+
+// SubtitlesFilter is the FFmpeg filter that burns the caption file at path.
+// path is put inside the filter expression, so it must already be safe there
+// (see storyvideo.escapeFilterPath).
+func SubtitlesFilter(path string, style models.CaptionStyle) string {
+	if isKaraokeStyle(style) {
+		return fmt.Sprintf("subtitles=%s", path)
+	}
+	return fmt.Sprintf("subtitles=%s:force_style='%s'", path, ResolveForceStyle(style))
+}

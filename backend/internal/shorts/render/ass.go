@@ -24,6 +24,15 @@ const (
 // emits ASS Dialogue lines whose per-word {\kf<centiseconds>} tags sweep the
 // highlight color across the cue. Times are relative to segmentStart.
 func BuildASS(words []models.Word, segmentStart float64, style models.CaptionStyle) string {
+	return buildASS(words, segmentStart, style, nil)
+}
+
+// BuildASSBreaks is BuildASS with hard cue breaks, like BuildSRTBreaks.
+func BuildASSBreaks(words []models.Word, segmentStart float64, style models.CaptionStyle, breakBefore []bool) string {
+	return buildASS(words, segmentStart, style, breakBefore)
+}
+
+func buildASS(words []models.Word, segmentStart float64, style models.CaptionStyle, breakBefore []bool) string {
 	r := resolvedCaption(style)
 	var b strings.Builder
 	fmt.Fprintf(&b, "[Script Info]\nScriptType: v4.00+\nPlayResX: %d\nPlayResY: %d\nWrapStyle: 2\nScaledBorderAndShadow: yes\n\n",
@@ -32,34 +41,19 @@ func BuildASS(words []models.Word, segmentStart float64, style models.CaptionSty
 	fmt.Fprintf(&b, "Style: Default,Arial,%d,%s,%s,&HFF000000,&H80000000,0,0,0,0,100,100,0,0,1,3,0,%d,40,40,90,1\n\n",
 		int(float64(r.FontSize)*assScale+0.5), hexToASS(r.Highlight), hexToASS("#9AA0A6"), captionAlignment(r))
 	b.WriteString("[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
-
-	i := 0
-	for i < len(words) {
-		cueStart := words[i].Start
-		cueEnd := words[i].End
-		texts := []string{words[i].Text}
-		j := i + 1
-		for j < len(words) && len(texts) < maxWordsPerCue {
-			if words[j].End-cueStart > maxCueDuration {
-				break
-			}
-			texts = append(texts, words[j].Text)
-			cueEnd = words[j].End
-			j++
-		}
+	for _, c := range groupCues(words, breakBefore) {
 		var parts []string
-		for k := i; k < j; k++ {
+		for k := c.from; k < c.to; k++ {
 			cs := int((words[k].End-words[k].Start)*100 + 0.5)
 			if cs < 1 {
 				cs = 1
 			}
 			parts = append(parts, fmt.Sprintf(`{\kf%d}%s`, cs, assEscape(words[k].Text)))
 		}
-		start := shift(cueStart, segmentStart)
-		end := shift(cueEnd, segmentStart)
+		start := shift(words[c.from].Start, segmentStart)
+		end := shift(words[c.to-1].End, segmentStart)
 		fmt.Fprintf(&b, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s\n",
 			formatASSTime(start), formatASSTime(end), strings.Join(parts, " "))
-		i = j
 	}
 	return b.String()
 }
