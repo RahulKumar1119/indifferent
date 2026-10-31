@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { PROVIDER_NAMES, StockProviderFailure } from './story-plan.models';
 
 /** Where the failed request came from; the same status reads differently in each. */
 export type ProblemContext = 'create' | 'load' | 'save' | 'search';
@@ -230,4 +231,51 @@ export function describeProblem(error: unknown, context: ProblemContext): StoryP
       }
       return problem('failed', 'Something went wrong on our side', 'Nothing was lost. Try again in a moment.', true);
   }
+}
+
+/** One sentence about providers that did not answer a search, for a notice above the results. */
+export interface FailureNotice {
+  text: string;
+  /** The longest wait among the providers that said to wait. */
+  retryAfterSeconds?: number;
+}
+
+/**
+ * Says which provider did not answer and why, so "Pexels is busy" never reads
+ * as "nothing matches". Null when every provider answered.
+ */
+export function describeProviderFailures(failures: StockProviderFailure[] | undefined): FailureNotice | null {
+  if (!failures?.length) return null;
+  let wait: number | undefined;
+  const parts = failures.map((f) => {
+    const name = PROVIDER_NAMES[f.provider] ?? f.provider;
+    if (f.reason === 'rate_limited') {
+      if (f.retryAfter && f.retryAfter > 0) wait = Math.max(wait ?? 0, f.retryAfter);
+      return f.retryAfter && f.retryAfter > 0 ? `${name} is busy (try again in ${formatWait(f.retryAfter)})` : `${name} is busy`;
+    }
+    if (f.reason === 'auth') return `${name} is not available on this site`;
+    return `${name} did not answer`;
+  });
+  const notice: FailureNotice = { text: `${parts.join('. ')}.` };
+  if (wait !== undefined) notice.retryAfterSeconds = wait;
+  return notice;
+}
+
+/**
+ * A search that found nothing because every provider failed. This is a
+ * failure, not "no results", and the page must not say "nothing matches".
+ */
+export function problemFromFailures(failures: StockProviderFailure[]): StoryPlanProblem {
+  const waits = failures.filter((f) => f.reason === 'rate_limited');
+  if (waits.length === failures.length) {
+    const wait = Math.max(0, ...waits.map((f) => f.retryAfter ?? 0));
+    return problem(
+      'rate_limited',
+      'The photo libraries are busy',
+      `Search again ${wait > 0 ? `in ${formatWait(wait)}` : 'in a little while'}. You can keep editing the narration meanwhile.`,
+      true,
+      wait > 0 ? wait : undefined,
+    );
+  }
+  return problem('failed', "Couldn't reach the photo libraries", 'Try the search again in a moment.', true);
 }

@@ -1,5 +1,13 @@
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
-import { describeProblem, formatWait, ProblemContext, ProblemKind, retryAfterSeconds } from './story-plan-problem';
+import {
+  describeProblem,
+  describeProviderFailures,
+  formatWait,
+  problemFromFailures,
+  ProblemContext,
+  ProblemKind,
+  retryAfterSeconds,
+} from './story-plan-problem';
 
 function failure(status: number, code = '', message = '', details?: unknown, headers?: Record<string, string>) {
   return new HttpErrorResponse({
@@ -138,5 +146,62 @@ describe('describeProblem', () => {
     expect(describeProblem(err, 'create').kind).toBe('timeout');
     const bad = new HttpErrorResponse({ status: 400, error: null });
     expect(describeProblem(bad, 'search').message).toBe('Check what you entered and try again.');
+  });
+});
+
+describe('describeProviderFailures', () => {
+  it('has nothing to say when every provider answered', () => {
+    expect(describeProviderFailures(undefined)).toBeNull();
+    expect(describeProviderFailures([])).toBeNull();
+  });
+
+  it('names the provider and how long to wait', () => {
+    const n = describeProviderFailures([{ provider: 'pexels', reason: 'rate_limited', retryAfter: 45 }])!;
+    expect(n.text).toBe('Pexels is busy (try again in 45 seconds).');
+    expect(n.retryAfterSeconds).toBe(45);
+  });
+
+  it('says a provider is busy even without a wait time', () => {
+    expect(describeProviderFailures([{ provider: 'pixabay', reason: 'rate_limited' }])!.text).toBe('Pixabay is busy.');
+  });
+
+  it('says what happened for other reasons, in plain words', () => {
+    expect(describeProviderFailures([{ provider: 'pexels', reason: 'unavailable' }])!.text).toBe('Pexels did not answer.');
+    expect(describeProviderFailures([{ provider: 'pexels', reason: 'other' }])!.text).toBe('Pexels did not answer.');
+    expect(describeProviderFailures([{ provider: 'pexels', reason: 'auth' }])!.text).toBe('Pexels is not available on this site.');
+  });
+
+  it('covers several providers and waits for the longest', () => {
+    const n = describeProviderFailures([
+      { provider: 'pexels', reason: 'rate_limited', retryAfter: 30 },
+      { provider: 'pixabay', reason: 'rate_limited', retryAfter: 90 },
+    ])!;
+    expect(n.text).toContain('Pexels is busy');
+    expect(n.text).toContain('Pixabay is busy');
+    expect(n.retryAfterSeconds).toBe(90);
+  });
+});
+
+describe('problemFromFailures', () => {
+  it('is a wait, with the longest time, when every provider is rate limited', () => {
+    const p = problemFromFailures([
+      { provider: 'pexels', reason: 'rate_limited', retryAfter: 30 },
+      { provider: 'pixabay', reason: 'rate_limited', retryAfter: 120 },
+    ]);
+    expect(p.kind).toBe('rate_limited');
+    expect(p.title).toBe('The photo libraries are busy');
+    expect(p.message).toContain('in 2 minutes');
+    expect(p.retryAfterSeconds).toBe(120);
+  });
+
+  it('is a failure, never "no results", when providers are down', () => {
+    const p = problemFromFailures([{ provider: 'pixabay', reason: 'unavailable' }]);
+    expect(p.kind).toBe('failed');
+    expect(p.title).toBe("Couldn't reach the photo libraries");
+    expect(p.retryable).toBeTrue();
+  });
+
+  it('is a failure when the reasons are mixed', () => {
+    expect(problemFromFailures([{ provider: 'pexels', reason: 'rate_limited' }, { provider: 'pixabay', reason: 'other' }]).kind).toBe('failed');
   });
 });

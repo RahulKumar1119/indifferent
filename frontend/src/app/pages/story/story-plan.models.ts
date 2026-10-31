@@ -172,3 +172,31 @@ export function mediaKey(ref: Pick<MediaRef, 'provider' | 'type' | 'id'>): strin
 export function toMediaRef(a: Pick<StockAsset, 'provider' | 'type' | 'id'>): MediaRef {
   return { provider: a.provider, type: a.type, id: a.id };
 }
+
+/** Longest search the API accepts (stockmedia.MaxQueryRunes). */
+export const MAX_QUERY_CHARS = 100;
+
+/**
+ * Characters as a person counts them, not UTF-16 units: the API limits are in
+ * characters, and one Devanagari letter or emoji must not count twice.
+ */
+export function charCount(text: string): number {
+  return Array.from(text).length;
+}
+
+/**
+ * The search a scene starts with: its three strongest keywords, cut at
+ * MAX_QUERY_CHARS. Mirrors storyplan.Scene.SearchQuery, because the providers
+ * match every word and a short query of the best terms finds more.
+ */
+export function sceneSearchQuery(scene: Pick<PlanScene, 'keywords'>): string {
+  let out = '';
+  for (const keyword of scene.keywords.slice(0, 3)) {
+    const next = out ? ` ${keyword}` : keyword;
+    if (charCount(out) + charCount(next) > MAX_QUERY_CHARS) break;
+    out += next;
+  }
+  return out;
+}
+
+export const PROVIDER_NAMES: Record<StockProvider, string> = { pexels: 'Pexels', pixabay: 'Pixabay' };

@@ -7,6 +7,7 @@ Allow: /
 Disallow: /dashboard
 Disallow: /projects
 Disallow: /new
+Disallow: /story
 Disallow: /shorts$
 Disallow: /shorts/
 Disallow: /account

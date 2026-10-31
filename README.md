@@ -656,6 +656,7 @@ Story2Shorts phase 2 (issue #191). A story goes in; a plan comes out: a hook, th
 - **Waiting time on `429`.** Every `429` from these routes gives the seconds to wait twice: in the `Retry-After` header and in the body as `details.retryAfter`. Use the body in a browser; the page and the API are on different origins and the API does not expose `Retry-After` to scripts.
 - **Errors.** `400` bad story, `429` over the hourly allowance, `502` the model's answer was not usable, `503` model busy or planner off, `504` model too slow. All but `400` and `429` are worth retrying.
 - **Privacy.** The story is sent to the model and not stored or logged; only its length is.
+- **Screens (phase 3, issue #192).** Signed-in pages at `/story` (paste a story) and `/story/:id` (the plan: edit each scene's narration, choose, replace or remove its picture with a search of Pexels and Pixabay through this API, then save). They are not linked from the navigation yet, so they are reachable by address only until the planner is switched on. Both are blocked in `robots.txt` and marked `noindex`. The code is in `frontend/src/app/pages/story/`; `describeProblem` there holds the wording for every failure the API can return, so a screen never shows a bare status code. Saving sends the revision the page loaded; if the plan changed elsewhere the page keeps the user's edits on screen, says nothing was saved, and offers to reload.
 
 ### AI thumbnails
 

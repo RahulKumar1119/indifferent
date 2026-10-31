@@ -157,7 +157,7 @@ export async function check() {
     const blocked = disallows.find((rule) => matchesRule(rule, route));
     if (blocked) fail(`robots.txt rule "Disallow: ${blocked}" blocks the indexed page ${route}.`);
   }
-  for (const privateRoute of ['/dashboard', '/projects/1', '/new', '/shorts', '/shorts/abc/clips', '/account', '/profile', '/settings', '/auth/callback']) {
+  for (const privateRoute of ['/dashboard', '/projects/1', '/new', '/story', '/story/abc', '/shorts', '/shorts/abc/clips', '/account', '/profile', '/settings', '/auth/callback']) {
     if (!disallows.some((rule) => matchesRule(rule, privateRoute))) fail(`robots.txt does not block the signed-in page ${privateRoute}.`);
   }
 
