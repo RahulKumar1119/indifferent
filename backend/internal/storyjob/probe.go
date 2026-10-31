@@ -58,6 +58,9 @@ func ParseProbe(out []byte) (MediaInfo, error) {
 	var info MediaInfo
 	still := false // the picture stream is a single frame: an image, not a clip
 	for _, s := range parsed.Streams {
+		if s.CodecType == "audio" {
+			info.HasAudio = true
+		}
 		// A stream with no size is not a picture. ffprobe reports a text file
 		// named photo.jpg as a 0x0 "video" stream, so the size is checked here
 		// and no caller has to remember to.

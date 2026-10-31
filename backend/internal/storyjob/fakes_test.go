@@ -117,6 +117,16 @@ func (f *fakeFiles) HeadObject(_ context.Context, bucket, key string) (bool, err
 	return ok, nil
 }
 
+func (f *fakeFiles) DownloadToFile(_ context.Context, bucket, key, path string) error {
+	f.mu.Lock()
+	data, ok := f.files[bucket+"/"+key]
+	f.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("no such object %s", key)
+	}
+	return writeFile(path, data)
+}
+
 func (f *fakeFiles) has(bucket, key string) bool { _, ok := f.files[bucket+"/"+key]; return ok }
 
 // fakeNarrator stands in for Polly.
@@ -126,6 +136,9 @@ type fakeNarrator struct {
 	marksErr error
 	marks    func(text string) string
 	audio    []byte
+	// audioFor gives the audio bytes to return for a text, so a test can supply
+	// real sound; any other text gets a small stand-in.
+	audioFor map[string][]byte
 	calls    []string
 }
 
@@ -135,6 +148,9 @@ func (f *fakeNarrator) SynthesizeText(_ context.Context, text, voice string) ([]
 	f.calls = append(f.calls, "audio:"+voice+":"+text)
 	if f.audioErr != nil {
 		return nil, f.audioErr
+	}
+	if a, ok := f.audioFor[text]; ok {
+		return a, nil
 	}
 	return append([]byte("MP3:"), []byte(text)...), nil
 }
