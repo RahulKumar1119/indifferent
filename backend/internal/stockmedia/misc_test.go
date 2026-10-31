@@ -71,27 +71,27 @@ func TestMemoryCache_BoundEvictionAndTTL(t *testing.T) {
 	res := SearchResult{Assets: []Asset{{ID: "1"}}}
 
 	for i := 0; i < 50; i++ {
-		c.Set(fmt.Sprintf("k%d", i), res, time.Hour+time.Duration(i)*time.Second)
+		c.Set(context.Background(), fmt.Sprintf("k%d", i), res, time.Hour+time.Duration(i)*time.Second)
 	}
 	if n := c.Len(); n > 10 {
 		t.Errorf("cache holds %d entries, bound is 10", n)
 	}
 	// The newest entries outlive the oldest, so the newest must still be there.
-	if _, ok := c.Get("k49"); !ok {
+	if _, ok := c.Get(context.Background(), "k49"); !ok {
 		t.Error("the newest entry was evicted")
 	}
 
-	c.Set("zero", res, 0)
-	c.Set("neg", res, -time.Second)
-	if _, ok := c.Get("zero"); ok {
+	c.Set(context.Background(), "zero", res, 0)
+	c.Set(context.Background(), "neg", res, -time.Second)
+	if _, ok := c.Get(context.Background(), "zero"); ok {
 		t.Error("ttl 0 must store nothing")
 	}
-	if _, ok := c.Get("neg"); ok {
+	if _, ok := c.Get(context.Background(), "neg"); ok {
 		t.Error("negative ttl must store nothing")
 	}
 
 	clock.Advance(3 * time.Hour)
-	if _, ok := c.Get("k49"); ok {
+	if _, ok := c.Get(context.Background(), "k49"); ok {
 		t.Error("expired entry returned")
 	}
 	if c.Len() > 10 {
@@ -105,10 +105,10 @@ func TestMemoryCache_BoundEvictionAndTTL(t *testing.T) {
 func TestMemoryCache_OverwriteDoesNotEvict(t *testing.T) {
 	c := NewMemoryCache(2)
 	r := SearchResult{}
-	c.Set("a", r, time.Hour)
-	c.Set("b", r, time.Hour)
-	c.Set("a", r, time.Hour) // replacing must not push anything out
-	if _, ok := c.Get("b"); !ok {
+	c.Set(context.Background(), "a", r, time.Hour)
+	c.Set(context.Background(), "b", r, time.Hour)
+	c.Set(context.Background(), "a", r, time.Hour) // replacing must not push anything out
+	if _, ok := c.Get(context.Background(), "b"); !ok {
 		t.Error("overwriting an existing key evicted another entry")
 	}
 }
