@@ -32,7 +32,8 @@ var (
 	// ErrBadRequest means the provider rejected the request itself.
 	ErrBadRequest = errors.New("stock media provider rejected the request")
 	// ErrUnavailable means the provider failed or could not be reached. It is
-	// the only kind that is reasonable to retry.
+	// the one kind a retry policy tries again whatever the provider said (see
+	// RetryPolicy).
 	ErrUnavailable = errors.New("stock media provider unavailable")
 	// ErrNotFound means the provider has no asset with the requested id, for
 	// example because it was removed after the user chose it.
@@ -104,9 +105,11 @@ func (e *ProviderError) Is(target error) bool {
 	return false
 }
 
-// Retryable reports whether trying the same request again later could work.
-// Rate limiting is not retryable here: waiting out the cooldown is the
-// service's job, and hammering a limited API is how keys get revoked.
+// Retryable reports whether trying the same request again could work whatever
+// the provider said. Rate limiting is not retryable in this sense: how long to
+// wait is the provider's to say, so it is left to RetryPolicy, which retries a
+// 429 only when the provider named a short wait, and to the service's cooldown.
+// Hammering a limited API is how keys get revoked.
 func (e *ProviderError) Retryable() bool { return e.Kind == KindUnavailable }
 
 // ProviderFailure records which provider failed in a multi-provider search.

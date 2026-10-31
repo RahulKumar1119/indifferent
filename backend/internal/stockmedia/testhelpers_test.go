@@ -23,11 +23,12 @@ const (
 // point at example hosts. Tests of the real policy use defaultURLPolicy.
 func allowAnyHost(ProviderName, *url.URL) error { return nil }
 
-// testService builds a Service over the given providers with logging off and
-// the host policy relaxed.
+// testService builds a Service over the given providers with logging off, the
+// host policy relaxed and retries off, so a test that counts provider calls
+// counts attempts. Tests of retrying use retryService.
 func testService(t *testing.T, providers ...Provider) *Service {
 	t.Helper()
-	s, err := NewService(providers, WithLogger(func(string, ...any) {}), WithURLPolicy(allowAnyHost))
+	s, err := NewService(providers, WithLogger(func(string, ...any) {}), WithURLPolicy(allowAnyHost), WithRetry(RetryPolicy{}))
 	if err != nil {
 		t.Fatal(err)
 	}

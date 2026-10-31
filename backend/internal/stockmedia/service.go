@@ -47,6 +47,10 @@ type Service struct {
 	minLongSide    int
 	logf           func(format string, args ...any)
 	now            func() time.Time
+	retry          RetryPolicy
+	// sleep waits between retries. Nil means really wait; tests replace it to
+	// move a fake clock instead.
+	sleep func(context.Context, time.Duration) error
 
 	mu       sync.Mutex
 	cooldown map[ProviderName]time.Time
@@ -72,6 +76,10 @@ func WithLogger(f func(format string, args ...any)) Option { return func(s *Serv
 // WithClock replaces time.Now, for tests.
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
 
+// WithRetry replaces DefaultRetryPolicy, which applies to Search and Get. Use
+// BatchRetryPolicy for background work. The zero RetryPolicy turns retries off.
+func WithRetry(p RetryPolicy) Option { return func(s *Service) { s.retry = p } }
+
 // NewService returns a Service over the given providers. At least one is
 // required; the order given is the order results from several providers are
 // interleaved in.
@@ -87,6 +95,7 @@ func NewService(providers []Provider, opts ...Option) (*Service, error) {
 		minLongSide: MinLongSide,
 		logf:        log.Printf,
 		now:         time.Now,
+		retry:       DefaultRetryPolicy(),
 		cooldown:    make(map[ProviderName]time.Time),
 	}
 	for _, p := range providers {
@@ -152,23 +161,22 @@ func (s *Service) searchOne(ctx context.Context, prov Provider, p SearchParams, 
 		s.logf("stockmedia_search provider=%s type=%s page=%d results=%d cached=true", name, p.Type, p.Page, len(hit.Assets))
 		return hit, nil
 	}
-	if err := s.checkCooldown(name); err != nil {
-		s.logf("stockmedia_search_skipped provider=%s reason=cooldown", name)
-		return SearchResult{}, err
-	}
-
-	res, err := prov.Search(ctx, p)
-	if res.Quota != nil {
-		s.noteQuota(name, res.Quota)
-	}
+	var res SearchResult
+	err := s.callProvider(ctx, name, "search", func(ctx context.Context) error {
+		var err error
+		res, err = prov.Search(ctx, p)
+		if res.Quota != nil {
+			s.noteQuota(name, res.Quota)
+		}
+		return err
+	})
 	if err != nil {
-		s.noteError(name, err)
 		return SearchResult{}, err
 	}
 
 	s.finish(&res, p)
-	s.logf("stockmedia_search provider=%s type=%s page=%d queryLen=%d orientation=%s results=%d skipped=%d cached=false",
-		name, p.Type, p.Page, len([]rune(p.Query)), p.Orientation, len(res.Assets), res.Skipped)
+	s.logf("stockmedia_search provider=%s type=%s page=%d queryLen=%d orientation=%s results=%d skipped=%d cached=false%s",
+		name, p.Type, p.Page, len([]rune(p.Query)), p.Orientation, len(res.Assets), res.Skipped, s.quotaFields(res.Quota))
 
 	if allowRelax && res.filtered && len(res.Assets) == 0 && p.Page == 1 {
 		relaxed := p
@@ -345,15 +353,81 @@ func (s *Service) checkCooldown(name ProviderName) error {
 	return nil
 }
 
-// noteError starts a cooldown after a rate-limit response. Other errors do
-// not: an outage is retried by the caller, and the provider is not being
-// asked to slow down.
-func (s *Service) noteError(name ProviderName, err error) {
+// callProvider makes one provider call, trying it again under the retry policy
+// when that is safe. op names the call ("search" or "get") in logs.
+//
+// Each attempt first checks the provider is not cooling down, and afterwards
+// records a rate-limit response or a failure. A call that fails after more than
+// one attempt, or succeeds after a failure, says so in the logs, because a
+// provider that needs retries is one to watch even when no user saw an error.
+func (s *Service) callProvider(ctx context.Context, name ProviderName, op string, call func(ctx context.Context) error) error {
+	policy := s.retry
+	policy.now, policy.sleep = s.now, s.sleep
+	started := s.now()
+	attempts := 0
+	err := policy.Do(ctx, func(actx context.Context, attempt int) error {
+		attempts = attempt
+		if err := s.checkCooldown(name); err != nil {
+			s.logf("stockmedia_%s_skipped provider=%s reason=cooldown attempt=%d", op, name, attempt)
+			return err
+		}
+		err := call(actx)
+		if err != nil {
+			// A retry is cut off by what is left of the call's time budget. That
+			// is the provider being slow, not the caller giving up.
+			if actx.Err() != nil && ctx.Err() == nil && errors.Is(err, actx.Err()) {
+				err = &ProviderError{Provider: name, Kind: KindUnavailable, Err: errors.New("request timed out")}
+			}
+			s.noteError(name, op, attempt, err)
+		}
+		return err
+	}, func(attempt int, wait time.Duration, err error) {
+		s.logf("stockmedia_retry provider=%s op=%s attempt=%d wait_ms=%d%s", name, op, attempt, wait.Milliseconds(), errorFields(err))
+	})
+	switch {
+	case err == nil && attempts > 1:
+		s.logf("stockmedia_recovered provider=%s op=%s attempts=%d elapsed_ms=%d", name, op, attempts, s.now().Sub(started).Milliseconds())
+	case err != nil && attempts > 1 && ctx.Err() == nil:
+		s.logf("stockmedia_gave_up provider=%s op=%s attempts=%d elapsed_ms=%d%s", name, op, attempts, s.now().Sub(started).Milliseconds(), errorFields(err))
+	}
+	return err
+}
+
+// errorFields describes a provider failure for a log line: its kind, HTTP
+// status, and how long the provider asked callers to wait. A ProviderError's
+// text never holds a URL or key, and is quoted here so a provider's own words
+// cannot add fields or lines to the log.
+func errorFields(err error) string {
+	var pe *ProviderError
+	if !errors.As(err, &pe) {
+		return fmt.Sprintf(" kind=other err=%q", err.Error())
+	}
+	return fmt.Sprintf(" kind=%s status=%d retry_after_s=%d err=%q", pe.Kind, pe.Status, int(pe.RetryAfter.Seconds()), pe.Error())
+}
+
+// quotaFields is what a provider said about its rate limit, as log fields, or
+// nothing when it said nothing. Watching Remaining fall is how a quota running
+// out is noticed before the first refusal.
+func (s *Service) quotaFields(q *Quota) string {
+	if q == nil {
+		return ""
+	}
+	out := fmt.Sprintf(" quota_remaining=%d", q.Remaining)
+	if !q.ResetAt.IsZero() {
+		out += fmt.Sprintf(" quota_reset_s=%d", max(0, int(q.ResetAt.Sub(s.now()).Seconds())))
+	}
+	return out
+}
+
+// noteError logs a provider failure and starts a cooldown after a rate-limit
+// response. Other errors start none: the provider is not asking us to slow
+// down, and whether to try again is the retry policy's call.
+func (s *Service) noteError(name ProviderName, op string, attempt int, err error) {
 	var pe *ProviderError
 	if !errors.As(err, &pe) {
 		return
 	}
-	s.logf("stockmedia_provider_error provider=%s kind=%s status=%d", name, pe.Kind, pe.Status)
+	s.logf("stockmedia_provider_error provider=%s op=%s attempt=%d%s", name, op, attempt, errorFields(err))
 	if pe.Kind != KindRateLimited {
 		return
 	}
@@ -436,14 +510,13 @@ func (s *Service) Get(ctx context.Context, name ProviderName, typ MediaType, id 
 	if hit, ok := s.cache.Get(key); ok && len(hit.Assets) == 1 {
 		return hit.Assets[0], nil
 	}
-	if err := s.checkCooldown(name); err != nil {
-		s.logf("stockmedia_get_skipped provider=%s reason=cooldown", name)
-		return Asset{}, err
-	}
-
-	a, err := prov.Get(ctx, typ, id)
+	var a Asset
+	err := s.callProvider(ctx, name, "get", func(ctx context.Context) error {
+		var err error
+		a, err = prov.Get(ctx, typ, id)
+		return err
+	})
 	if err != nil {
-		s.noteError(name, err)
 		return Asset{}, err
 	}
 	if verr := validateAsset(a, s.policy, s.minLongSide); verr != nil {
