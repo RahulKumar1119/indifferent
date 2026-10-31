@@ -62,9 +62,10 @@ step. The worker should log when it falls back.
 
 The plan estimates 2.5 words a second. Real Polly narration (English, Joanna)
 spoke eight scenes of 16 to 18 words in 4.2 to 4.7 seconds each, where the plan
-would have said 6.4 to 7.2. One Hindi sample (6 words, Aditi) took 2.66 seconds including a short lead
-in, about 2.25 words a second. So a plan is not trusted for timing, and a video
-can come out longer or shorter than planned.
+would have said 6.4 to 7.2. Hindi (Aditi) came close to the estimate in the two
+sentences measured on 2026-10-31: 16 words took 6.2 seconds and 13 took 5.2
+(about 2.5 words a second). So the speed depends on the language, and a plan is
+not trusted for timing: a video can come out longer or shorter than planned.
 
 The limit is therefore checked after narration (`TooLongError`, 90 seconds, the
 longest AI Shorts clip): a video that runs over is refused with a message

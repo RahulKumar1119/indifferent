@@ -108,6 +108,29 @@ func putObjectWithMetadataInput(bucket, key string, data []byte, contentType str
 	}
 }
 
+// PutFile uploads a local file to S3 without reading it into memory, for large
+// files such as stock clips and rendered videos. The file stays open for the
+// call so the SDK can seek it to sign and to retry.
+func (c *S3Client) PutFile(ctx context.Context, bucket, key, path, contentType string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = c.client.PutObject(ctx, putFileInput(bucket, key, f, contentType))
+	return err
+}
+
+// putFileInput builds the PutObject request for PutFile.
+func putFileInput(bucket, key string, body io.ReadSeeker, contentType string) *s3.PutObjectInput {
+	return &s3.PutObjectInput{
+		Bucket:      aws.String(bucket),
+		Key:         aws.String(key),
+		Body:        body,
+		ContentType: aws.String(contentType),
+	}
+}
+
 // DeleteObject removes an object from S3 at the specified bucket and key.
 func (c *S3Client) DeleteObject(ctx context.Context, bucket, key string) error {
 	_, err := c.client.DeleteObject(ctx, &s3.DeleteObjectInput{
