@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { environment } from '../../../environments/environment';
+import { AdsConversionService } from '../../core/services/ads-conversion.service';
 import { AuthService, DEFAULT_POST_AUTH_PATH, sanitizeNextPath } from '../../core/services/auth.service';
 import { ROBOTS_NOINDEX, setPageSeo, setRobots } from '../../shared/seo';
 
@@ -153,6 +154,7 @@ export class LoginComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly document = inject(DOCUMENT);
+  private readonly ads = inject(AdsConversionService);
 
   isSignupMode = false;
   email = '';
@@ -177,6 +179,9 @@ export class LoginComponent implements OnInit {
     });
     // The sign-in form has nothing to read; keep it out of search results.
     setRobots(this.document, ROBOTS_NOINDEX);
+    // The click on "Continue with Google" is a Google Ads conversion. Load the
+    // Google tag now so it is ready by then instead of after a first interaction.
+    this.ads.prepare();
     this.route.queryParamMap.subscribe((params) => {
       this.isSignupMode = params.get('mode') === 'signup';
       this.postAuthPath = sanitizeNextPath(params.get('next'));
@@ -200,7 +205,15 @@ export class LoginComponent implements OnInit {
 
     // Remembered across the Google round-trip; the callback consumes it.
     this.authService.setPostLoginNext(this.postAuthPath);
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    // Leaving the page would cancel the conversion request, so the redirect
+    // waits until Google has confirmed it (or a short timeout passes).
+    this.ads.trackSignInClick(() => this.redirectTo(url));
+  }
+
+  /** Leaves the app. A method of its own so tests can observe it. */
+  protected redirectTo(url: string): void {
+    window.location.href = url;
   }
 
   submitPasswordForm(): void {

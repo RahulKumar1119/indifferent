@@ -168,7 +168,7 @@ export class PrivacyComponent implements OnInit {
       title: 'Services that receive your data',
       items: [
         'Amazon Web Services: hosting (Amplify), storage (S3), database (DynamoDB), compute (Lambda and Fargate), workflows (Step Functions), speech (Polly and Transcribe), AI models (Bedrock), face detection (Rekognition), email (SES) and monitoring (CloudWatch).',
-        'Google: sign-in with Google, Google Analytics, Google AdSense and Google Fonts, which serves the site typefaces.',
+        'Google: sign-in with Google, Google Analytics, Google Ads conversion measurement, Google AdSense and Google Fonts, which serves the site typefaces.',
         'ImprovMX: forwards email sent to support@indifferent.fun to the developer.',
         'jsDelivr: serves the video engine for the watermark tool.',
         'GitHub: hosts the public issue tracker linked from the contact page. If you post there, GitHub’s policy applies.',
@@ -192,6 +192,7 @@ export class PrivacyComponent implements OnInit {
         'Preferences: local storage also holds your theme, the progress of an upload in flight, an upload speed estimate used for time estimates, and some profile settings.',
         'Google Analytics sets cookies to measure how the site is used. It loads after your first scroll, click, touch or key press, or after three seconds.',
         'Amazon CloudWatch RUM sets cookies to record sessions, errors and page performance.',
+        'Google Ads: when you click “Continue with Google”, the Google tag tells Google Ads that the click happened, so we can measure which ads lead to sign-ins. We send no name or email with it. The tag can set cookies for this, and it loads together with Google Analytics.',
         'Google AdSense: the site includes the AdSense script. Where Google shows ads, Google and its partners can use cookies and similar technologies to show and measure them.',
         'There is no cookie banner at the moment. You can block or delete cookies in your browser settings. The tools keep working without them.',
       ],

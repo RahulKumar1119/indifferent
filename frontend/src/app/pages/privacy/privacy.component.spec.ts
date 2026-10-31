@@ -62,6 +62,7 @@ describe('PrivacyComponent', () => {
       'Amazon SES',
       'CloudWatch RUM',
       'Google Analytics',
+      'Google Ads',
       'Google AdSense',
       'Google Fonts',
       'ImprovMX',
@@ -94,6 +95,14 @@ describe('PrivacyComponent', () => {
     expect(text).toContain('We do not sell your content');
     expect(text).toContain('There is no cookie banner at the moment');
     expect(text).toContain('refresh token in local storage, not in a cookie');
+  });
+
+  it('discloses the Google Ads conversion on the sign-in click, and what it does not send', () => {
+    const text = render().textContent!;
+
+    expect(text).toContain('Google Ads conversion measurement');
+    expect(text).toContain('when you click “Continue with Google”');
+    expect(text).toContain('We send no name or email with it');
   });
 
   it('says the watermark tool keeps files in the browser, and what its one request is', () => {
