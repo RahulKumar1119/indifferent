@@ -28,6 +28,8 @@ type fakeDB struct {
 	items   map[string]map[string]dbtypes.AttributeValue
 	updates []*dynamodb.UpdateItemInput
 	getErr  error
+	// metricsClaimErr, when set, fails the metrics claim (and nothing else).
+	metricsClaimErr error
 }
 
 func newFakeDB() *fakeDB { return &fakeDB{items: map[string]map[string]dbtypes.AttributeValue{}} }
@@ -85,6 +87,14 @@ func (f *fakeDB) UpdateItem(_ context.Context, in *dynamodb.UpdateItemInput, _ .
 	cur := sv(item, "notifiedExecution")
 	expr := *in.UpdateExpression
 	switch {
+	case strings.HasPrefix(expr, "SET metricsExecution"):
+		if f.metricsClaimErr != nil {
+			return nil, f.metricsClaimErr
+		}
+		if cur := sv(item, "metricsExecution"); cur != "" && cur == exec {
+			return nil, fail
+		}
+		item["metricsExecution"] = str(exec)
 	case strings.HasPrefix(expr, "SET notifiedExecution"):
 		if cur != "" && cur == exec {
 			return nil, fail
