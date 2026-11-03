@@ -23,6 +23,7 @@ import (
 	"github.com/rahul/indifferent/backend/internal/auth"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/storage"
+	"github.com/rahul/indifferent/backend/internal/storymetrics"
 )
 
 // Valid templates for project creation.
@@ -117,6 +118,10 @@ type APIHandler struct {
 	// StockLimiter caps searches per user; nil takes the default (120 an hour).
 	StockLimiter     *PreviewLimiter
 	stockLimiterOnce sync.Once
+	// Metrics records the Story2Shorts success metrics (issue #194) as CloudWatch
+	// embedded-metric lines. Nil records nothing, and recording never fails a
+	// request.
+	Metrics *storymetrics.Emitter
 }
 
 // corsHeaders returns the standard CORS headers for all responses.

@@ -487,6 +487,7 @@ func (h *APIHandler) handleCreateStoryVideo(ctx context.Context, req events.APIG
 		log.Printf("story_video_put_failed user=%s job=%s err=%v", claims.UserID, jobID, err)
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Could not start the video. Please try again."), nil
 	}
+	h.Metrics.VideoStarted()
 
 	// The execution is named after the job, so a repeated start is refused by
 	// Step Functions instead of making a second render, and the execution to stop
@@ -503,8 +504,12 @@ func (h *APIHandler) handleCreateStoryVideo(ctx context.Context, req events.APIG
 		// failed also stops that: the worker finds the record ended and stops.
 		endCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
-		if _, eerr := h.endStoryVideo(endCtx, claims.UserID, jobID, storyjob.CodeStartFailed, storyVideoStartFailedMessage, h.storyVideoNow()); eerr != nil {
+		// The state machine never ran, so the notifier will not see this job:
+		// the failure is recorded here, and the notifier ignores START_FAILED.
+		if changed, eerr := h.endStoryVideo(endCtx, claims.UserID, jobID, storyjob.CodeStartFailed, storyVideoStartFailedMessage, h.storyVideoNow()); eerr != nil {
 			log.Printf("story_video_start_mark_failed user=%s job=%s err=%v", claims.UserID, jobID, eerr)
+		} else if changed {
+			h.Metrics.VideoFailed(storyjob.CodeStartFailed)
 		}
 		return errorResponse(http.StatusInternalServerError, "PIPELINE_ERROR", "Could not start the video. Please try again."), nil
 	}
@@ -606,6 +611,9 @@ func (h *APIHandler) handleCancelStoryVideo(ctx context.Context, claims *models.
 		return jsonResponse(http.StatusOK, storyVideoView(*j)), nil
 	}
 
+	// Cancelling stops the execution, so the notifier may never see this job:
+	// the cancel is recorded here, and the notifier ignores CANCELLED.
+	h.Metrics.VideoCancelled()
 	h.stopStoryVideoExecution(ctx, claims.UserID, id)
 
 	j.FailedStage, j.Status = j.Status, storyjob.StatusFailed

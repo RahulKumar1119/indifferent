@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/rahul/indifferent/backend/internal/notifyprefs"
+	"github.com/rahul/indifferent/backend/internal/storymetrics"
 )
 
 // Attributes the notifier writes on the job item (projects table).
@@ -22,6 +23,16 @@ const (
 	attrNotifiedExecution = "notifiedExecution"
 	attrNotifiedAt        = "notifiedAt"
 	attrNotifyMessageID   = "notifyMessageId"
+	// attrMetricsExecution holds the execution whose outcome has been counted in
+	// the metrics (see recordStoryOutcome).
+	attrMetricsExecution = "metricsExecution"
+
+	// The two failure codes the API records itself (storyjob.CodeCancelled and
+	// storyjob.CodeStartFailed). They are spelled out here because this Lambda
+	// should not import storyjob, which pulls in the renderer; a test in
+	// story_metrics_test.go fails if they ever differ.
+	codeCancelled   = "CANCELLED"
+	codeStartFailed = "START_FAILED"
 )
 
 // Result statuses returned to Step Functions and written to the log.
@@ -63,6 +74,9 @@ type Notifier struct {
 	UsersTable    string // profiles: PK=USER#<id>, SK=PROFILE
 	BaseURL       string // site origin used for links, for example https://indifferent.fun
 	Now           func() time.Time
+	// Metrics records how Story2Shorts videos end (issue #194). Nil records
+	// nothing. See recordStoryOutcome for why it is here and not in the worker.
+	Metrics *storymetrics.Emitter
 }
 
 // Handle processes one notification request.
@@ -80,6 +94,12 @@ func (n *Notifier) Handle(ctx context.Context, in Input) (Result, error) {
 		return Result{}, &SendFailed{Err: err}
 	}
 	id := jobID(in)
+
+	// Before the checks that skip the email: whether a video finished does not
+	// depend on whether its owner wants mail about it.
+	if in.Kind == KindStory {
+		n.recordStoryOutcome(ctx, in, sortKey)
+	}
 
 	profile, err := n.getItem(ctx, n.UsersTable, "USER#"+in.UserID, "PROFILE")
 	if err != nil {
@@ -164,6 +184,78 @@ func (n *Notifier) Handle(ctx context.Context, in Input) (Result, error) {
 	n.recordMessageID(ctx, in.UserID, sortKey, in.ExecutionID, messageID)
 	log.Printf("notify result=sent kind=%s outcome=%s user=%s id=%s messageId=%s", in.Kind, in.Outcome, in.UserID, id, messageID)
 	return Result{Status: StatusSent}, nil
+}
+
+// recordStoryOutcome counts a Story2Shorts video that has finished or failed, for
+// the completion rate, the failure rate and the generation time.
+//
+// It is done here because every way a video can end passes through this Lambda
+// once: the worker finishing or failing it, and also the state machine marking
+// it failed when the worker never got to say (a crash, a stopped Spot task,
+// retries that ran out). The worker cannot report those. This path is the only
+// one that sees them all.
+//
+// It does not count what the API already has: a cancel stops the execution, and
+// a start that failed never began one, so neither may reach here, and if one
+// does it must not be counted twice.
+//
+// Step Functions runs this Lambda again when sending the email is throttled, so
+// an execution is counted once, with the same kind of conditional write the
+// email uses to avoid sending twice. Nothing in here may stop the email: a
+// problem is logged and the metric is skipped.
+func (n *Notifier) recordStoryOutcome(ctx context.Context, in Input, sortKey string) {
+	if n.Metrics == nil {
+		return
+	}
+	job, err := n.getItem(ctx, n.ProjectsTable, "USER#"+in.UserID, sortKey)
+	if err != nil {
+		log.Printf("notify metrics_skipped reason=load_failed kind=%s id=%s err=%v", in.Kind, in.JobID, err)
+		return
+	}
+	if job == nil || stringAttr(job, "status") != in.Outcome {
+		return // gone, or the record has moved on since this was sent
+	}
+	code := stringAttr(job, "errorCode")
+	if in.Outcome == OutcomeFailed && (code == codeCancelled || code == codeStartFailed) {
+		return // the API counted these when they happened
+	}
+	claimed, err := n.claimMetrics(ctx, in.UserID, sortKey, in.ExecutionID)
+	if err != nil {
+		log.Printf("notify metrics_skipped reason=claim_failed kind=%s id=%s err=%v", in.Kind, in.JobID, err)
+		return
+	}
+	if !claimed {
+		return // an earlier run of this execution counted it
+	}
+	if in.Outcome == OutcomeFailed {
+		n.Metrics.VideoFailed(code)
+		return
+	}
+	secs, ok := storymetrics.Seconds(stringAttr(job, "createdAt"), stringAttr(job, "completedAt"))
+	n.Metrics.VideoCompleted(secs, ok)
+}
+
+// claimMetrics records that this execution's outcome has been counted. It
+// succeeds only if the item exists and this execution has not claimed it.
+func (n *Notifier) claimMetrics(ctx context.Context, userID, sortKey, executionID string) (bool, error) {
+	_, err := n.DB.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:        aws.String(n.ProjectsTable),
+		Key:              key("USER#"+userID, sortKey),
+		UpdateExpression: aws.String("SET " + attrMetricsExecution + " = :exec"),
+		ConditionExpression: aws.String("attribute_exists(PK) AND (attribute_not_exists(" + attrMetricsExecution +
+			") OR " + attrMetricsExecution + " <> :exec)"),
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":exec": &dbtypes.AttributeValueMemberS{Value: executionID},
+		},
+	})
+	if err != nil {
+		var cond *dbtypes.ConditionalCheckFailedException
+		if errors.As(err, &cond) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (n *Notifier) skip(in Input, reason string) Result {

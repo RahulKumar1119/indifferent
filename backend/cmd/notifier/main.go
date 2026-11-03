@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/rahul/indifferent/backend/internal/notifier"
+	"github.com/rahul/indifferent/backend/internal/storymetrics"
 )
 
 const (
@@ -53,6 +54,9 @@ func main() {
 		ProjectsTable: projectsTable,
 		UsersTable:    usersTable,
 		BaseURL:       baseURL,
+		// How story videos end, for the completion and failure rates (issue #194).
+		// Embedded metric lines on stdout; see storymetrics.
+		Metrics: storymetrics.New(os.Stdout),
 	}
 
 	lambda.Start(n.Handle)
