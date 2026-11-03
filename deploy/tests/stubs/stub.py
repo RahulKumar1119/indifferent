@@ -33,6 +33,7 @@ MUTATING = {
     ("ecs", "register-task-definition"),
     ("lambda", "update-function-configuration"),
     ("dynamodb", "create-table"), ("dynamodb", "update-time-to-live"), ("dynamodb", "put-item"),
+    ("cloudwatch", "put-dashboard"),
     ("stepfunctions", "create-state-machine"), ("stepfunctions", "update-state-machine"),
     ("docker", "login"), ("docker", "build"), ("docker", "push"),
 }
@@ -96,6 +97,39 @@ def allowed(policies, action, resource):
         for st in doc.get("Statement", []):
             if st.get("Effect") == "Allow" and match_any(st["Action"], action, fold=True) and match_any(st["Resource"], resource):
                 return True
+    return False
+
+
+def cloudwatch_dashboard(w, op, rest, q):
+    """CloudWatch dashboards (deploy/setup-story-metrics.sh). World key "dashboards":
+    {name: body_text}. "dashboard_warnings" are returned by put-dashboard as the
+    real service does. Returns True when it handled the call."""
+    name = flag(rest, "--dashboard-name")
+    boards = w.setdefault("dashboards", {})
+    if op == "get-dashboard" and q == "DashboardBody":
+        if w.get("dashboard_read_error"):
+            err("AccessDenied", "User is not authorized to perform: cloudwatch:GetDashboard")
+        if name not in boards:
+            err("ResourceNotFound", "The specified dashboard does not exist.", rc=254)
+        out(boards[name])  # --output text prints the body string as it is
+        return True
+    if op == "put-dashboard" and q == "DashboardValidationMessages":
+        import re
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,255}", name or ""):
+            err("InvalidParameterInput", "The dashboard name is invalid.")
+        body = read_file_arg(flag(rest, "--dashboard-body"))
+        try:
+            doc = json.loads(body)
+        except ValueError:
+            err("InvalidParameterInput", "The dashboard body is not valid JSON.")
+        if not isinstance(doc.get("widgets"), list):
+            err("InvalidParameterInput", "The dashboard body has no widgets.")
+        if w.get("dashboard_errors"):
+            err("InvalidParameterInput", "The dashboard body is invalid: " + "; ".join(w["dashboard_errors"]))
+        boards[name] = body
+        save(w)
+        out(json.dumps(w.get("dashboard_warnings", [])))
+        return True
     return False
 
 
@@ -202,6 +236,11 @@ def aws(argv):
 
     if svc == "dynamodb" and flag(rest, "--table-name") == "indifferent-fun-stock-cache":
         if dynamodb_stock_cache(w, op, rest, q):
+            return
+        # not modelled: fall through to the unhandled path at the end of aws()
+
+    if svc == "cloudwatch":
+        if cloudwatch_dashboard(w, op, rest, q):
             return
         # not modelled: fall through to the unhandled path at the end of aws()
 
