@@ -22,6 +22,7 @@ import (
 	"github.com/rahul/indifferent/backend/internal/stockcache"
 	"github.com/rahul/indifferent/backend/internal/stockmedia"
 	"github.com/rahul/indifferent/backend/internal/storage"
+	"github.com/rahul/indifferent/backend/internal/storymetrics"
 	"github.com/rahul/indifferent/backend/internal/storyplan"
 )
 
@@ -135,6 +136,10 @@ func main() {
 
 		ThumbnailStateMachineARN:  thumbnailStateMachineARN,
 		StoryVideoStateMachineARN: storyVideoStateMachineARN,
+		// The Story2Shorts success metrics (issue #194), as CloudWatch embedded
+		// metric lines on stdout. Not through log, whose timestamp prefix would
+		// make the line invalid.
+		Metrics: storymetrics.New(os.Stdout),
 		// Optional, off unless S3_ACCELERATE is true or 1.
 		S3Accelerate:    appconfig.S3Accelerate(),
 		PreviewRenderer: slidegen.NewNativeRenderer(),

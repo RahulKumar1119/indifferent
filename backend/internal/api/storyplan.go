@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/stockmedia"
+	"github.com/rahul/indifferent/backend/internal/storymetrics"
 	"github.com/rahul/indifferent/backend/internal/storyplan"
 )
 
@@ -270,6 +271,10 @@ func (h *APIHandler) handleCreateStoryPlan(ctx context.Context, req events.APIGa
 	if genErr != nil {
 		rec.Status = storyPlanFailed
 		rec.ErrorCode = storyPlanErrorCode(genErr)
+		if !errors.Is(genErr, context.Canceled) {
+			// A person who closed the tab says nothing about the planner.
+			h.Metrics.PlanFailed()
+		}
 		// Record the outcome with a context that outlives a cancelled request, so
 		// the attempt is not left looking like it is still running.
 		saveCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -288,6 +293,7 @@ func (h *APIHandler) handleCreateStoryPlan(ctx context.Context, req events.APIGa
 		log.Printf("story_plan_save_failed user=%s plan=%s err=%v", claims.UserID, rec.PlanID, err)
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "The plan was made but could not be saved. Please try again."), nil
 	}
+	h.Metrics.PlanReady()
 	return jsonResponse(http.StatusCreated, rec.response()), nil
 }
 
@@ -445,6 +451,7 @@ func (h *APIHandler) handleUpdateStoryPlan(ctx context.Context, req events.APIGa
 	}
 
 	prev := rec.Revision
+	beforePlan := rec.Plan
 	rec.Plan = &edited
 	rec.Revision = prev + 1
 	rec.UpdatedAt = h.storyPlanNow().UTC().Format(time.RFC3339)
@@ -476,6 +483,7 @@ func (h *APIHandler) handleUpdateStoryPlan(ctx context.Context, req events.APIGa
 		log.Printf("story_plan_update_failed user=%s plan=%s err=%v", claims.UserID, id, err)
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Could not save the plan. Please try again."), nil
 	}
+	h.Metrics.PlanEdited(planEdits(*beforePlan, edited))
 	resp := rec.response()
 	h.attachMedia(ctx, &resp)
 	return jsonResponse(http.StatusOK, resp), nil
@@ -701,4 +709,29 @@ func itemToStoryPlan(item map[string]dbtypes.AttributeValue) storyPlanRecord {
 		}
 	}
 	return rec
+}
+
+// planEdits counts what a save changed, scene by scene, for the metrics. Both
+// plans have the same scenes (ApplyEdits requires one edit per scene), so scenes
+// are compared by position. A picture is compared by what it refers to.
+func planEdits(before, after storyplan.Plan) storymetrics.Edits {
+	var c storymetrics.Edits
+	for i := range after.Scenes {
+		if i >= len(before.Scenes) {
+			break
+		}
+		was, now := before.Scenes[i].Media, after.Scenes[i].Media
+		switch {
+		case was == nil && now != nil:
+			c.Chosen++
+		case was != nil && now == nil:
+			c.Removed++
+		case was != nil && now != nil && *was != *now:
+			c.Replaced++
+		}
+		if before.Scenes[i].Narration != after.Scenes[i].Narration {
+			c.Narration++
+		}
+	}
+	return c
 }

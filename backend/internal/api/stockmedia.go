@@ -215,6 +215,7 @@ func (h *APIHandler) handleStockSearch(ctx context.Context, req events.APIGatewa
 		out.Assets = toStockAssets(res.Assets)
 		out.Attributions = []StockAttribution{attributionOf(res.Provider, res.Attribution)}
 		out.HasMore = hasMore(res, params)
+		h.recordStockSearch(params, len(res.Assets) > 0, true)
 		return jsonResponse(http.StatusOK, out), nil
 	}
 
@@ -232,6 +233,7 @@ func (h *APIHandler) handleStockSearch(ctx context.Context, req events.APIGatewa
 	for _, f := range multi.Failures {
 		out.Failures = append(out.Failures, failureOf(f.Provider, f.Err))
 	}
+	h.recordStockSearch(params, len(out.Assets) > 0, len(multi.Failures) == 0)
 	return jsonResponse(http.StatusOK, out), nil
 }
 
@@ -453,4 +455,15 @@ func attributionForProvider(provider string, typ stockmedia.MediaType) StockAttr
 		return StockAttribution{Provider: provider, Text: noun + " provided by Pixabay", URL: "https://pixabay.com"}
 	}
 	return StockAttribution{Provider: provider, Text: noun + " provided by Pexels", URL: "https://www.pexels.com"}
+}
+
+// recordStockSearch counts a search for the coverage metric. Only the first page
+// counts (the next pages are the same search read further), and only a search
+// that every provider asked answered: an empty answer from one provider while
+// the other failed says nothing about whether stock media exists.
+func (h *APIHandler) recordStockSearch(p stockmedia.SearchParams, found, complete bool) {
+	if !complete || p.Page > 1 {
+		return
+	}
+	h.Metrics.StockSearch(found)
 }
