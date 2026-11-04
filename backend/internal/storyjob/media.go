@@ -40,6 +40,7 @@ var extensions = map[string]string{
 // forever: each download has its own deadline.
 func CopyMedia(ctx context.Context, d Deps, job *Job, progress Progress) error {
 	total := len(job.Scenes)
+	throttleLeft := d.ThrottleBudget
 	for i := range job.Scenes {
 		n := i + 1
 		s := &job.Scenes[i]
@@ -53,7 +54,7 @@ func CopyMedia(ctx context.Context, d Deps, job *Job, progress Progress) error {
 				continue
 			}
 		}
-		media, err := copyOne(ctx, d, job, n, s.Pick)
+		media, err := copyOne(ctx, d, job, n, s.Pick, &throttleLeft)
 		if err != nil {
 			return err
 		}
@@ -63,7 +64,7 @@ func CopyMedia(ctx context.Context, d Deps, job *Job, progress Progress) error {
 	return nil
 }
 
-func copyOne(ctx context.Context, d Deps, job *Job, n int, pick storyplan.MediaRef) (*Media, error) {
+func copyOne(ctx context.Context, d Deps, job *Job, n int, pick storyplan.MediaRef, throttleLeft *time.Duration) (*Media, error) {
 	provider := pick.Provider
 	asset, err := d.Assets.Get(ctx, stockmedia.ProviderName(pick.Provider), stockmedia.MediaType(pick.Type), pick.ID)
 	if err != nil {
@@ -76,7 +77,7 @@ func copyOne(ctx context.Context, d Deps, job *Job, n int, pick storyplan.MediaR
 
 	local := filepath.Join(d.WorkDir, fmt.Sprintf("scene-%02d-media%s", n, ext))
 	defer os.Remove(local)
-	if err := download(ctx, d, n, asset, local); err != nil {
+	if err := download(ctx, d, n, asset, local, throttleLeft); err != nil {
 		return nil, mediaError(n, provider, err)
 	}
 
@@ -109,12 +110,37 @@ func copyOne(ctx context.Context, d Deps, job *Job, n int, pick storyplan.MediaR
 // A failed scene would otherwise end the whole task, and the state machine
 // would start it again from the top after a wait. Retrying here costs seconds
 // instead of a container start.
-func download(ctx context.Context, d Deps, scene int, asset stockmedia.Asset, path string) error {
-	return d.Retry.Do(ctx, func(ctx context.Context, _ int) error {
-		return downloadOnce(ctx, d, asset, path)
-	}, func(attempt int, wait time.Duration, err error) {
-		d.logf("storyjob scene=%d media=download_retry attempt=%d wait_ms=%d: %v", scene, attempt, wait.Milliseconds(), err)
-	})
+//
+// A file host that is still throttling (429) after that round is given the
+// longer d.ThrottleWaits, one after another, each followed by another round,
+// while *throttleLeft (the job's remaining allowance, when d.ThrottleBudget is
+// set) covers the wait. On 2026-11-04 Pixabay's photo host answered 429 to the
+// worker for about three minutes; the task's own retries were over in seconds
+// and the state machine's in under three minutes, and a try five minutes later
+// worked.
+func download(ctx context.Context, d Deps, scene int, asset stockmedia.Asset, path string, throttleLeft *time.Duration) error {
+	for i := 0; ; i++ {
+		err := d.Retry.Do(ctx, func(ctx context.Context, _ int) error {
+			return downloadOnce(ctx, d, asset, path)
+		}, func(attempt int, wait time.Duration, err error) {
+			d.logf("storyjob scene=%d media=download_retry attempt=%d wait_ms=%d: %v", scene, attempt, wait.Milliseconds(), err)
+		})
+		if err == nil || !errors.Is(err, stockmedia.ErrThrottled) || i >= len(d.ThrottleWaits) {
+			return err
+		}
+		wait := d.ThrottleWaits[i]
+		if d.ThrottleBudget > 0 {
+			if wait > *throttleLeft {
+				d.logf("storyjob scene=%d media=throttled no_wait_left: %v", scene, err)
+				return err
+			}
+			*throttleLeft -= wait
+		}
+		d.logf("storyjob scene=%d media=throttled wait_s=%d: %v", scene, int(wait.Seconds()), err)
+		if serr := d.sleep(ctx, wait); serr != nil {
+			return serr
+		}
+	}
 }
 
 func downloadOnce(ctx context.Context, d Deps, asset stockmedia.Asset, path string) error {

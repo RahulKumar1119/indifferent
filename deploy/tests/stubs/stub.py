@@ -317,7 +317,12 @@ def aws(argv):
     if svc == "ssm":
         name = flag(rest, "--name")
         if op == "get-parameter":
-            return out(w["ssm"][name]) if name in w["ssm"] else err("ParameterNotFound", "Parameter not found")
+            if name not in w["ssm"]:
+                return err("ParameterNotFound", "Parameter not found")
+            if "--with-decryption" in rest:
+                assert q == "Parameter.Value", q
+                return out(w.get("ssm_values", {}).get(name, "ssm-TEST-SECRET-" + name.rsplit("/", 1)[-1]))
+            return out(w["ssm"][name])
         if op == "put-parameter":
             value = read_file_arg(flag(rest, "--value"))
             w["ssm"][name] = flag(rest, "--type")

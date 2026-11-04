@@ -96,7 +96,9 @@ func (s *Service) CheckAvailable(ctx context.Context, a Asset) error {
 
 	switch {
 	case resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusPartialContent:
-	case resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests:
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return fmt.Errorf("%w: %w: %w: %s answered HTTP %d", ErrAssetUnavailable, ErrUnavailable, ErrThrottled, a.describe(), resp.StatusCode)
+	case resp.StatusCode >= 500:
 		return fmt.Errorf("%w: %w: %s answered HTTP %d", ErrAssetUnavailable, ErrUnavailable, a.describe(), resp.StatusCode)
 	default:
 		return fmt.Errorf("%w: %s answered HTTP %d", ErrAssetUnavailable, a.describe(), resp.StatusCode)

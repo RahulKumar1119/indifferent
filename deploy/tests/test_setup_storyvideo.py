@@ -634,12 +634,44 @@ class ApiWiring(Base):
         self.assertEqual(self.env()[self.KEY], STORY_SM_ARN)
         self.assertEqual({k: v for k, v in self.env().items() if k != self.KEY}, before)
 
-    def test_a_function_with_no_environment_gets_just_the_one(self):
+    def test_a_function_with_no_environment_gets_the_state_machine_and_the_stock_key(self):
         w = base_world()
         w["api"]["env"] = None
         r = self.run_script("--apply", world=w)
         self.assertEqual(r.rc, 0, r.text)
-        self.assertEqual(self.env(), {self.KEY: STORY_SM_ARN})
+        self.assertEqual(self.env(), {self.KEY: STORY_SM_ARN, "PIXABAY_API_KEY": SECRET})
+        self.assertNoLeak(r)
+
+    def test_a_missing_stock_key_is_added_from_the_ssm_parameter_the_worker_uses(self):
+        w = base_world()
+        del w["api"]["env"]["PIXABAY_API_KEY"]
+        w["ssm"][PREFIX + "/PIXABAY_API_KEY"] = "SecureString"
+        w.setdefault("ssm_values", {})[PREFIX + "/PIXABAY_API_KEY"] = "pbx-TEST-SECRET-from-ssm-3c1d"
+        self.write_env("PIXABAY_API_KEY=a-different-key-in-env\n")
+        r = self.run_script("--apply", world=w)
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertEqual(self.env()["PIXABAY_API_KEY"], "pbx-TEST-SECRET-from-ssm-3c1d")
+        self.assertIn("PIXABAY_API_KEY: not set; it will be added", r.out)
+        self.assertNoLeak(r, "pbx-TEST-SECRET-from-ssm-3c1d")
+        dec = [c["argv"] for c in r.calls if c["argv"][:2] == ["ssm", "get-parameter"] and "--with-decryption" in c["argv"]]
+        self.assertTrue(dec, "the key is read from SSM")
+        for c in r.calls:
+            self.assertNotIn("pbx-TEST-SECRET-from-ssm-3c1d", json.dumps(c["argv"]), "the key must never be an argument")
+
+    def test_a_stock_key_the_api_already_has_is_never_overwritten(self):
+        r = self.run_script("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertEqual(self.env()["PIXABAY_API_KEY"], API_SECRETS["PIXABAY_API_KEY"])
+        self.assertIn("PIXABAY_API_KEY: set to a different key than the worker's; left as it is.", r.out)
+
+    def test_only_a_missing_stock_key_still_triggers_an_update(self):
+        w = base_world()
+        w["api"]["env"][self.KEY] = STORY_SM_ARN
+        del w["api"]["env"]["PIXABAY_API_KEY"]
+        r = self.run_script("--apply", world=w)
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertEqual(self.env()["PIXABAY_API_KEY"], SECRET)
+        self.assertEqual(self.world["api"].get("updates"), 1)
 
     def test_a_function_changed_by_someone_else_in_the_meantime_is_not_overwritten(self):
         w = base_world()

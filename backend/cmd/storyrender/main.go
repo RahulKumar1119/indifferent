@@ -111,6 +111,11 @@ func run() int {
 		Bucket:   bucket,
 		WorkDir:  workDir(),
 		Retry:    retry,
+		// A throttled file host (Pixabay's photos, behind Cloudflare) is sat out
+		// for up to 2 min 20 s per scene and 4 min per job, well inside the
+		// worker's 15 minute deadline (a measured render took 36 s).
+		ThrottleWaits:  []time.Duration{20 * time.Second, 40 * time.Second, 80 * time.Second},
+		ThrottleBudget: 4 * time.Minute,
 	}
 	runner := &storyjob.Runner{
 		Deps:  deps,

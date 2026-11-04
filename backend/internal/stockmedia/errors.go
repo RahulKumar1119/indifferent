@@ -46,6 +46,11 @@ var (
 	ErrInvalidAsset = errors.New("invalid stock media asset")
 	// ErrAssetUnavailable means an asset's file could not be fetched.
 	ErrAssetUnavailable = errors.New("stock media asset unavailable")
+	// ErrThrottled is joined with ErrAssetUnavailable and ErrUnavailable when
+	// the host serving a file answered 429. Pixabay's photo files sit behind
+	// Cloudflare, which does this for minutes at a time and gives no wait (or
+	// "Retry-After: 0"), so a caller with time to spare can sit it out.
+	ErrThrottled = errors.New("stock media file host is throttling downloads")
 )
 
 // ErrorKind classifies a provider failure.

@@ -61,7 +61,9 @@ func (s *Service) Download(ctx context.Context, a Asset, w io.Writer) (int64, er
 
 	switch {
 	case resp.StatusCode == http.StatusOK:
-	case resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests:
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return 0, fmt.Errorf("%w: %w: %w: %s answered HTTP %d", ErrAssetUnavailable, ErrUnavailable, ErrThrottled, a.describe(), resp.StatusCode)
+	case resp.StatusCode >= 500:
 		return 0, fmt.Errorf("%w: %w: %s answered HTTP %d", ErrAssetUnavailable, ErrUnavailable, a.describe(), resp.StatusCode)
 	default:
 		return 0, fmt.Errorf("%w: %s answered HTTP %d", ErrAssetUnavailable, a.describe(), resp.StatusCode)

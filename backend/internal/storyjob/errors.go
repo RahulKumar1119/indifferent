@@ -74,6 +74,9 @@ func mediaError(scene int, provider string, err error) error {
 	case errors.Is(err, stockmedia.ErrInvalidAsset):
 		return &StepError{Scene: scene, Code: CodeMediaInvalid, Err: err,
 			Message: fmt.Sprintf("Scene %d: the chosen picture can't be used. Choose another and make the video again.", scene)}
+	case errors.Is(err, stockmedia.ErrThrottled):
+		return &StepError{Scene: scene, Code: CodeMediaTemporary, Retryable: true, Err: err,
+			Message: fmt.Sprintf("Scene %d: %s is limiting downloads right now. Try again in a few minutes.", scene, name)}
 	case errors.Is(err, stockmedia.ErrRateLimited), errors.Is(err, stockmedia.ErrUnavailable),
 		errors.Is(err, stockmedia.ErrCoolingDown), errors.Is(err, context.DeadlineExceeded):
 		return &StepError{Scene: scene, Code: CodeMediaTemporary, Retryable: true, Err: err,
