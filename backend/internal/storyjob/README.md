@@ -91,6 +91,7 @@ change.
 | `MEDIA_UNAVAILABLE` | The provider removed the picture, or its file is gone | no | Scene 2: the picture is no longer available from Pixabay. Choose another and make the video again. |
 | `MEDIA_INVALID` | The asset fails validation, or the file is not a readable picture | no | Scene 2: the chosen picture can't be used. Choose another and make the video again. |
 | `MEDIA_TEMPORARY` | The provider or its CDN did not answer, rate limited us, or timed out, and the worker's own retries (up to 4 lookups, 4 downloads) did not rescue it | yes | Scene 2: Pixabay did not answer. Try again in a few minutes. |
+| `MEDIA_TEMPORARY` (throttled) | The file host answered 429 for the whole job, even after the longer download waits below | yes | Scene 2: Pixabay is limiting downloads right now. Try again in a few minutes. |
 | `NARRATION_FAILED` | Polly failed or returned no usable audio; a scene has no text | yes (no for empty text) | Scene 1: the voice could not be made. Try again in a few minutes. |
 | `NARRATION_TOO_LONG` | Spoken, the video runs over 90 seconds | no | The narration runs 94 seconds, over the 90 second limit. Shorten the narration in the plan and try again. |
 | `INTERNAL` | Our storage or scratch disk failed | yes | Scene 2: something went wrong on our side. Try again. |
@@ -101,6 +102,19 @@ never as a problem with the picture.
 
 Nothing waits on a provider forever: a stalled download ends at the caller's
 deadline and is reported as retryable.
+
+**A throttled file host is sat out.** Pixabay serves its photo files through
+Cloudflare, which answers `429` for minutes at a time with no `Retry-After`
+(seen for about three minutes on 2026-11-04). The provider-lookup and the
+per-download retries (`stockmedia.RetryPolicy`) are over in seconds, too soon to
+outlast it, so after a whole round of download retries still returns `429` the
+worker waits longer and tries the round again: 20 s, then 40 s, then 80 s
+(`Deps.ThrottleWaits`), capped at 4 minutes total across all scenes of a job
+(`Deps.ThrottleBudget`), inside the worker's 15 minute deadline. A `429` carries
+`stockmedia.ErrThrottled`, which is what tells these waits apart from an ordinary
+outage; a 5xx gets the short retries only. If the host is still throttling after
+that, the scene fails as `MEDIA_TEMPORARY` and the state machine will try the
+job again later.
 
 ## Narrating (`NarrateScenes`)
 

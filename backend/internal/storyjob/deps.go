@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"time"
 
 	"github.com/rahul/indifferent/backend/internal/stockmedia"
 )
@@ -59,8 +60,33 @@ type Deps struct {
 	// Retry governs the download of a stock file. The zero value never retries.
 	// Provider lookups are retried inside Assets (see stockmedia.WithRetry).
 	Retry stockmedia.RetryPolicy
+	// ThrottleWaits are further waits, in order, for a file host that is still
+	// answering 429 (stockmedia.ErrThrottled) after a whole round of Retry. Such
+	// throttling lasts minutes, longer than Retry waits, and a failed scene
+	// costs a task restart. Nil means no further waits.
+	ThrottleWaits []time.Duration
+	// ThrottleBudget caps the total of those waits over one CopyMedia call, so
+	// several throttled scenes cannot use up the worker's deadline. Zero means
+	// no cap beyond ThrottleWaits.
+	ThrottleBudget time.Duration
+	// Sleep waits for d or until ctx ends. Nil means a real timer. A seam for tests.
+	Sleep func(ctx context.Context, d time.Duration) error
 	// Logf receives progress notes. It defaults to log.Printf.
 	Logf func(format string, args ...any)
+}
+
+func (d Deps) sleep(ctx context.Context, wait time.Duration) error {
+	if d.Sleep != nil {
+		return d.Sleep(ctx, wait)
+	}
+	t := time.NewTimer(wait)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 func (d Deps) logf(format string, args ...any) {
