@@ -132,6 +132,9 @@ func TestCheckAvailable_Failures(t *testing.T) {
 			if errors.Is(err, ErrUnavailable) != tc.unavailable {
 				t.Errorf("errors.Is(err, ErrUnavailable) = %v, want %v (%v)", !tc.unavailable, tc.unavailable, err)
 			}
+			if errors.Is(err, ErrThrottled) != (tc.name == "throttled") {
+				t.Errorf("errors.Is(err, ErrThrottled) = %v for %q (%v)", !(tc.name == "throttled"), tc.name, err)
+			}
 			if strings.Contains(err.Error(), "vimeo.com") || strings.Contains(err.Error(), "?s=") {
 				t.Errorf("error contains the URL: %v", err)
 			}

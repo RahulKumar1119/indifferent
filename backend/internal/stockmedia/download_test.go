@@ -214,6 +214,10 @@ func TestDownload_FailureCases(t *testing.T) {
 			if got := errors.Is(err, ErrUnavailable); got != c.retry {
 				t.Errorf("retryable = %v, want %v (err: %v)", got, c.retry, err)
 			}
+			// Only a 429 is throttling, which the video worker sits out for longer.
+			if got := errors.Is(err, ErrThrottled); got != (c.name == "rate limited") {
+				t.Errorf("throttled = %v for %q (err: %v)", got, c.name, err)
+			}
 			if strings.Contains(err.Error(), "vimeo.com/external") || strings.Contains(err.Error(), "s=abc") {
 				t.Errorf("the error contains the URL: %v", err)
 			}
