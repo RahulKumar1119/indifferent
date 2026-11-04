@@ -1,7 +1,10 @@
 # Pexels and Pixabay: what the terms require
 
-Written for issue #190 (Story2Shorts phase 1) and checked on 2026-10-29. Terms
-change, so #194 repeats this review before launch. This is an engineering
+Written for issue #190 (Story2Shorts phase 1) and checked on 2026-10-29, and
+re-read on 2026-11-04 for #194. The result of that second reading, set against
+what the product does, is in [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md), which also
+lists what could and could not be fetched. Terms change, so they must be read
+again before the first public or commercial launch. This is an engineering
 summary, not legal advice.
 
 **How each source was read.** The two API documentation pages were fetched and
@@ -68,18 +71,28 @@ before relying on a point marked *(excerpt)*.
 - Not allowed in misleading or deceptive ways (reported by secondary sources;
   confirm on the license page).
 
+**Re-read on 2026-11-04.** Nothing in the tables above was contradicted by what could
+be fetched. What was added: Pexels' help article lists its rules for content (identifiable
+people must not appear in a bad light, no selling unaltered copies, no implied endorsement by
+people or brands, no use in a trade-mark or business name); Pixabay's current summary adds that
+content may be used for free without attribution, and that recognisable trademarks, logos or
+brands cannot be used commercially in relation to goods and services. Still **not fetched** (HTTP
+403): the full Pexels License and Terms of Service and Pixabay's full Content License and Terms.
+
 ## What this means for Story2Shorts
 
 1. **Attribution is optional in the licenses but required by the API terms**
    (both providers ask that results shown to users credit the provider). Show
    `Attribution` wherever search results are displayed. In a finished video,
-   credit is not required by either license; decide the product wording in #194.
+   credit is not required by either license; #194 decided not to add one and the
+   video panel says where each picture's credit is (see LAUNCH_CHECKLIST.md).
 2. **Copy, never link.** A confirmed asset is copied into our bucket (#193) and
    rendered from there. The provider URL is discarded.
 3. **No standalone downloads.** Users must not be able to download a stock asset
    by itself. Only the rendered video is offered. Add a test for this in #193.
 4. **Recognisable people, brands and homes are the user's responsibility to
-   avoid, and ours to warn about.** User-facing guidance belongs in #194.
+   avoid, and ours to warn about.** Done in #194: a note in the picture picker and
+   section 05 of the Terms of Service.
 5. **Hindi cannot be searched; keywords must be English.** Pexels' `locale`
    list and Pixabay's `lang` list have no Hindi, and this was checked live on
    Pixabay (2026-10-29): Hindi-only queries returned **0 results** for 5 of 5
@@ -96,18 +109,16 @@ before relying on a point marked *(excerpt)*.
 
 ## Not yet done (tracked)
 
-- Giving the video worker the shared cache: its task definition needs `STOCK_CACHE_TABLE` and its task role `GetItem` and `PutItem` on the cache table (`deploy/setup-storyvideo.sh`; #194). The code already reads the variable.
-- UI attribution and "do not use recognisable people or brands" guidance
-  (#192, #194).
-- Asset copy into S3 on confirmation, and a test that stock files are never
-  offered standalone (#193).
-- Live check against the real APIs: `live_test.go`, behind the `live` build
-  tag, needs real keys and is not run in CI. Pixabay passed on 2026-10-29.
-  **Pexels is unverified against the live API**, because Pexels is not issuing
-  new keys (see above). Until someone with an existing key runs
-  `go test -tags live ./internal/stockmedia/`, treat the Pexels decoding as
-  matching its documentation but not confirmed.
-- Decide whether to add a third source for portrait video, since Pixabay's
-  video results are mostly landscape and Pexels may stay closed. `Provider` is
-  an interface, so a new source is one file; the issue names only Pexels and
-  Pixabay, so this needs a product decision first.
+- Giving the video worker the shared cache: its task definition needs `STOCK_CACHE_TABLE` and its
+  task role `GetItem` and `PutItem` on the cache table (`deploy/setup-storyvideo.sh`; #194). The code
+  already reads the variable.
+- Live check against the real APIs: `live_test.go`, behind the `live` build tag, needs real keys and is
+  not run in CI. Pixabay passed on 2026-10-29 and again on 2026-11-04. **Pexels is unverified against
+  the live API**, because Pexels is not issuing new keys (see above). Until someone with an existing
+  key runs `go test -tags live ./internal/stockmedia/`, treat the Pexels decoding as matching its
+  documentation but not confirmed.
+- Decide whether to add a third source for portrait video, since Pixabay's video results are mostly
+  landscape and Pexels may stay closed. `Provider` is an interface, so a new source is one file; the
+  issue names only Pexels and Pixabay, so this needs a product decision first.
+- The open points about licensing, privacy and accounts, all owner decisions, are in
+  [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md).
