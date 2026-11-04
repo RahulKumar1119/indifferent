@@ -802,5 +802,51 @@ class StateMachine(Base):
         self.assertEqual(json.loads(self.world["sm"]), json.loads(want))
 
 
+class StockCache(Base):
+    """The worker shares the API's stock-media cache when deploy/setup-stock-cache.sh has made the table."""
+    TABLE = {"status": "ACTIVE", "keys": [["PK", "HASH"]], "billing": "PAY_PER_REQUEST",
+             "ttl": {"status": "ENABLED", "attr": "expiresAt"}, "items": {}}
+    def task_env(self):
+        c = self.world["taskdefs"][-1]["containerDefinitions"][0]
+        return {e["name"]: e["value"] for e in c["environment"]}
+    def task_policy(self):
+        return self.world["roles"]["indifferent-fun-story-render-task-role"]["policies"]["indifferent-fun-story-render-permissions"]
+    def test_with_the_table_the_worker_gets_its_name_and_get_and_put_on_that_table_only(self):
+        self.world["stock_cache"] = copy.deepcopy(self.TABLE)
+        r = self.run_script("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertEqual(self.task_env().get("STOCK_CACHE_TABLE"), "indifferent-fun-stock-cache")
+        st = [s for s in self.task_policy()["Statement"] if s.get("Sid") == "ShareTheStockCache"]
+        self.assertEqual(len(st), 1)
+        self.assertEqual(sorted(st[0]["Action"]), ["dynamodb:GetItem", "dynamodb:PutItem"])
+        self.assertEqual(st[0]["Resource"], "arn:aws:dynamodb:ap-south-1:%s:table/indifferent-fun-stock-cache" % ACCT)
+    def test_without_the_table_nothing_about_the_cache_is_added_and_it_says_how_to_get_it(self):
+        r = self.run_script("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertNotIn("STOCK_CACHE_TABLE", self.task_env())
+        self.assertNotIn("ShareTheStockCache", json.dumps(self.task_policy()))
+        self.assertIn("setup-stock-cache.sh --apply", r.out)
+    def test_a_dry_run_says_which_it_is_and_changes_nothing(self):
+        self.world["stock_cache"] = copy.deepcopy(self.TABLE)
+        r = self.run_script()
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertIn("will share it", r.out)
+        self.assertNothingChanged(r)
+    def test_the_table_made_later_is_picked_up_by_running_the_script_again(self):
+        r = self.run_script("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        self.world["stock_cache"] = copy.deepcopy(self.TABLE)
+        r = self.run_script("--apply", world=self.world)
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertEqual(len(self.world["taskdefs"]), 2, "a new revision is needed for the new variable")
+        self.assertEqual(self.task_env().get("STOCK_CACHE_TABLE"), "indifferent-fun-stock-cache")
+        self.assertIn("ShareTheStockCache", json.dumps(self.task_policy()))
+    def test_the_checks_have_teeth_a_cache_grant_that_can_delete_fails(self):
+        self.world["stock_cache"] = copy.deepcopy(self.TABLE)
+        r = self.mutant('"Action": ["dynamodb:GetItem", "dynamodb:PutItem"],\n      "Resource": "${STOCK_CACHE_ARN}"',
+                        '"Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"],\n      "Resource": "${STOCK_CACHE_ARN}"')
+        self.assertNotEqual(r.rc, 0, r.text)
+        self.assertIn("FAIL denies dynamodb:DeleteItem", r.out)
+        self.assertNothingChanged(r)
 if __name__ == "__main__":
     unittest.main()

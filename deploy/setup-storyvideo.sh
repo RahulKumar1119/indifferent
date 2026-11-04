@@ -15,7 +15,8 @@ set -euo pipefail
 #                       created from deploy/.env if missing. The keys never go in
 #                       the task definition, a command line, or this script's output.
 #   2. IAM              task role (S3 on two prefixes, DynamoDB get/update on one
-#                       table, Polly), task execution role (ECR, logs, the stock-key
+#                       table, Polly, and get/put on the stock-cache table when
+#                       deploy/setup-stock-cache.sh has created it), task execution role (ECR, logs, the stock-key
 #                       parameters), and additions to the Step Functions role. Every
 #                       policy is checked with the IAM policy simulator BEFORE any
 #                       role or policy is created or changed
@@ -154,6 +155,12 @@ CLUSTER_ARN="arn:aws:ecs:${REGION}:${ACCOUNT_ID}:cluster/${CLUSTER}"
 TASKDEF_ARN="arn:aws:ecs:${REGION}:${ACCOUNT_ID}:task-definition/${FAMILY}"
 NOTIFIER_ARN="arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${NOTIFIER}"
 TABLE_ARN="arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${TABLE}"
+# The stock-media cache table that deploy/setup-stock-cache.sh creates and the API
+# already uses (backend/internal/stockcache). Optional: when it exists the worker
+# gets the table name and read/write on that one table, so it shares the API's
+# 24 hours of cached searches instead of asking the providers again.
+STOCK_CACHE_TABLE="${PROJECT}-stock-cache"
+STOCK_CACHE_ARN="arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${STOCK_CACHE_TABLE}"
 SFN_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${SFN_ROLE_NAME}"
 API_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${API_ROLE_NAME}"
 EXEC_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${EXEC_ROLE_NAME}"
@@ -302,7 +309,7 @@ def main():
             "environment": [
                 {"name": "S3_BUCKET", "value": e["BUCKET"]},
                 {"name": "DYNAMODB_TABLE", "value": e["TABLE"]},
-            ],
+            ] + ([{"name": "STOCK_CACHE_TABLE", "value": e["STOCK_CACHE_VALUE"]}] if e.get("STOCK_CACHE_VALUE") else []),
             "secrets": secrets,
             "logConfiguration": {
                 "logDriver": "awslogs",
@@ -483,6 +490,13 @@ aws s3api head-bucket --bucket "$BUCKET" --region "$REGION" >/dev/null 2>&1 ||
 aws dynamodb describe-table --table-name "$TABLE" --region "$REGION" --query 'Table.TableStatus' --output text >/dev/null 2>&1 ||
   fail "table ${TABLE} does not exist or is not accessible. Run deploy/setup.sh first."
 
+USE_STOCK_CACHE=false
+if aws dynamodb describe-table --table-name "$STOCK_CACHE_TABLE" --region "$REGION" --query 'Table.TableStatus' --output text >/dev/null 2>&1; then
+  USE_STOCK_CACHE=true
+  echo "Stock cache table ${STOCK_CACHE_TABLE} exists: the worker will share it (STOCK_CACHE_TABLE, GetItem and PutItem on that table)."
+else
+  echo "Stock cache table ${STOCK_CACHE_TABLE} not found: the worker keeps its own in-memory cache. Run deploy/setup-stock-cache.sh --apply, then this script again, to share it."
+fi
 CLUSTER_STATUS=$(aws ecs describe-clusters --clusters "$CLUSTER" --region "$REGION" --query 'clusters[0].status' --output text 2>/dev/null || true)
 CLUSTER_PROVIDERS=$(aws ecs describe-clusters --clusters "$CLUSTER" --region "$REGION" --query 'clusters[0].capacityProviders' --output text 2>/dev/null || true)
 [ "$CLUSTER_STATUS" = "ACTIVE" ] || fail "ECS cluster ${CLUSTER} is not active (${CLUSTER_STATUS:-missing}). Run deploy/setup-shorts.sh first."
@@ -606,6 +620,26 @@ EOF
 
 # The task: only what the worker calls (see backend/cmd/storyrender). It has no
 # s3:ListBucket because the worker treats a 403 on HeadObject as "not there".
+CACHE_STATEMENT=""
+CACHE_CHECKS=""
+if $USE_STOCK_CACHE; then
+  CACHE_STATEMENT=$(cat <<EOS
+,
+    {
+      "Sid": "ShareTheStockCache",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem"],
+      "Resource": "${STOCK_CACHE_ARN}"
+    }
+EOS
+)
+  CACHE_CHECKS=$(cat <<EOS
+,
+    {"actions": ["dynamodb:GetItem", "dynamodb:PutItem"], "resource": "${STOCK_CACHE_ARN}", "allow": true},
+    {"actions": ["dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:Scan"], "resource": "${STOCK_CACHE_ARN}", "allow": false}
+EOS
+)
+fi
 cat >"$TMP/task-policy.json" <<EOF
 {
   "Version": "2012-10-17",
@@ -630,7 +664,7 @@ cat >"$TMP/task-policy.json" <<EOF
       "Effect": "Allow",
       "Action": "polly:SynthesizeSpeech",
       "Resource": "*"
-    }
+    }${CACHE_STATEMENT}
   ]
 }
 EOF
@@ -707,7 +741,7 @@ cat >"$TMP/sim-task.json" <<EOF
     {"actions": ["s3:GetObject"], "resource": "arn:aws:s3:::${BUCKET}/storyvideo-other/x", "allow": false},
     {"actions": ["s3:DeleteObject"], "resource": "arn:aws:s3:::${BUCKET}/${OUT_PREFIX}u/j/video.mp4", "allow": false},
     {"actions": ["dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:Query"], "resource": "${TABLE_ARN}", "allow": false},
-    {"actions": ["dynamodb:GetItem"], "resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${PROJECT}-users", "allow": false}
+    {"actions": ["dynamodb:GetItem"], "resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${PROJECT}-users", "allow": false}${CACHE_CHECKS}
   ]
 }
 EOF
@@ -836,6 +870,7 @@ echo
 echo "=== 5. Task definition ${FAMILY} ==="
 IMAGE="$IMAGE" CONTAINER="$CONTAINER" BUCKET="$BUCKET" TABLE="$TABLE" REGION="$REGION" LOG_GROUP="$LOG_GROUP" \
   SSM_PREFIX="$SSM_PREFIX" ACCOUNT_ID="$ACCOUNT_ID" SECRET_NAMES="$SECRET_NAMES" \
+  STOCK_CACHE_VALUE="$($USE_STOCK_CACHE && echo "$STOCK_CACHE_TABLE" || true)" \
   python3 "$TMP/helpers.py" containers "$TMP/containers.json"
 
 TASKDEF_UPTODATE=false
