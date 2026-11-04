@@ -124,7 +124,7 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
                 </p>
               }
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
             <div role="group" aria-label="What to look for" class="flex gap-2">
               <button
                 type="button"
@@ -169,6 +169,24 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
               }
             }
           </p>
+
+          @if (phase() === 'ready') {
+            <div class="mb-4" data-testid="picker-care">
+              <app-story-attribution [attributions]="attributions()" />
+              <p class="max-w-prose text-sm text-[hsl(var(--muted-foreground))]">
+                Check each picture before you choose it. Avoid visible logos or brand names, people who could be recognised shown in a bad
+                light or as if they back something, and private homes.
+              </p>
+              <a
+                href="/terms#stock"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex min-h-11 items-center text-sm underline underline-offset-2 hover:text-[hsl(var(--foreground))]"
+                data-testid="picker-terms"
+                >What the terms say<span class="sr-only"> (opens in a new tab)</span></a
+              >
+            </div>
+          }
 
           @if (problem(); as p) {
             <app-story-problem
@@ -288,9 +306,6 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
               </div>
             }
 
-            <div class="mt-4">
-              <app-story-attribution [attributions]="attributions()" />
-            </div>
           }
         </div>
       </div>

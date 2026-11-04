@@ -9,6 +9,7 @@
     "test": "ng test",
     "verify:picker": "node e2e/picker-verification.mjs",
     "verify:story-video": "node e2e/story-video-verification.mjs",
+    "verify:story-licensing": "node e2e/story-licensing-verification.mjs",
     "seo:generate": "node scripts/seo-files.mjs",
     "verify:seo": "node scripts/seo-files.mjs --check"
   },

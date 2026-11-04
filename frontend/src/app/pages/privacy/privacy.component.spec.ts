@@ -49,6 +49,74 @@ describe('PrivacyComponent', () => {
     ]);
   });
 
+  it('says Story videos is being introduced, so the page does not claim it is live', () => {
+    expect(render().textContent!).toContain('A fourth, Story videos, is being introduced and may not be available to every account yet');
+  });
+
+  describe('Story videos', () => {
+    const text = () => render().textContent!.replace(/\s+/g, ' ');
+
+    it('says the story is sent to Bedrock, is not kept, and that the plan made from it is', () => {
+      const t = text();
+      expect(t).toContain('the story you write is sent to a language model on Amazon Bedrock');
+      expect(t).toContain('We keep the plan and not the story, and only the story’s length is recorded');
+      expect(t).toContain('The plan’s narration lines can follow your own wording closely, and they are kept');
+      expect(t).toContain('The story itself is not kept');
+    });
+
+    it('says what Pexels and Pixabay receive, and what the browser loads from them directly', () => {
+      const t = text();
+      expect(t).toContain('our server sends the search words (the scene’s keywords, or what you type) to Pexels and Pixabay, without your name, email or account');
+      expect(t).toContain('Your browser then loads the preview pictures and clips directly from those services and the networks they use');
+      expect(t).toContain('they can see your IP address and browser details');
+      expect(t).toContain('Pexels and Pixabay: the photo and clip libraries behind Story videos');
+    });
+
+    it('says only the narration text goes to Polly and the pictures go to no recognition service', () => {
+      const t = text();
+      expect(t).toContain('Only the narration text goes to Polly');
+      expect(t).toContain('The pictures and clips are not sent to any image or face recognition service');
+    });
+
+    it('states retention as the storage rules implement it, and admits plans have no delete button', () => {
+      const t = text();
+      expect(t).toContain('the narration audio are working files, so they go after 7 days');
+      expect(t).toContain('The finished video stays until you delete it, and deleting it removes the video, its working files and its record');
+      expect(t).toContain('Story plans stay until you ask us to remove them. The app has no button to delete a plan yet');
+      expect(t).toContain('A story plan can be removed on request');
+    });
+
+    it('says the metrics, logs and cache hold no personal data, and no more than that', () => {
+      const t = text();
+      expect(t).toContain('They carry no name, email, account id or story text');
+      expect(t).toContain('Technical logs record account and job ids and error details, not your story text');
+      expect(t).toContain('holds what Pexels and Pixabay returned, not who searched');
+      expect(t).not.toMatch(/no logs|logs nothing|anonymous/i);
+    });
+
+    it('includes story videos in the emails it describes', () => {
+      expect(text()).toContain('when a quiz video, a Shorts job or a story video finishes or fails');
+    });
+
+    it('uses no em dash and no emoji', () => {
+      const raw = render().textContent!;
+      expect(raw).not.toContain('\u2014');
+      expect(raw).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+    });
+  });
+
+  it('keeps the section numbers that the text refers to (section 03, section 07, section 12)', () => {
+    const page = render();
+    const numberOf = (id: string) => page.querySelector(`section#${id} h2 span:first-child`)!.textContent!.trim();
+    expect(numberOf('tools')).toBe('03');
+    expect(numberOf('cookies')).toBe('07');
+    expect(numberOf('contact')).toBe('12');
+    const t = page.textContent!;
+    expect(t).toContain('see section 03');
+    expect(t).toContain('Section 07 describes them');
+    expect(t).toContain('the address in section 12');
+  });
+
   it('names every service that touches user data', () => {
     const text = render().textContent!;
 
@@ -60,6 +128,8 @@ describe('PrivacyComponent', () => {
       'Amazon Bedrock',
       'Amazon Rekognition',
       'Amazon SES',
+      'Pexels',
+      'Pixabay',
       'CloudWatch RUM',
       'Google Analytics',
       'Google Ads',

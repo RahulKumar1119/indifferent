@@ -102,6 +102,70 @@ describe('StoryMediaPickerComponent', () => {
     expect(text()).toContain('Photos provided by Pixabay');
   });
 
+  describe('crediting the libraries and the care note', () => {
+    const care = () => el.querySelector<HTMLElement>('[data-testid="picker-care"]');
+
+    it('puts the credit above the results, where it is seen without scrolling', async () => {
+      await openFor();
+      const credit = el.querySelector('[data-testid="attribution"]')!;
+      const results = el.querySelector('[data-testid="results"]')!;
+      expect(credit.compareDocumentPosition(results) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(el.querySelectorAll('[data-testid="attribution"]').length).toBe(1);
+    });
+
+    it('credits the libraries when a search found nothing, because they were still asked', async () => {
+      service.search.and.returnValue(of(searchResponse({ assets: [] })));
+      await openFor();
+      expect(el.querySelector('[data-testid="empty"]')).not.toBeNull();
+      expect(el.querySelector('[data-testid="attribution"]')!.textContent).toContain('Photos provided by Pixabay');
+    });
+
+    it('keeps the credit when more results are added', async () => {
+      service.search.and.returnValue(of(searchResponse({ hasMore: true })));
+      await openFor();
+      service.search.and.returnValue(of(searchResponse({ assets: [asset({ id: '310' })], page: 2, hasMore: false })));
+      button(/Show more results/).click();
+      await settle(fixture);
+      expect(el.querySelectorAll('[data-testid="attribution"]').length).toBe(1);
+      expect(care()).not.toBeNull();
+    });
+
+    it('asks people to check a picture for logos, recognisable people and private homes', async () => {
+      await openFor();
+      const note = care()!.textContent!.replace(/\s+/g, ' ');
+      expect(note).toContain('Check each picture before you choose it');
+      expect(note).toContain('logos or brand names');
+      expect(note).toContain('people who could be recognised');
+      expect(note).toContain('private homes');
+    });
+
+    it('links to the part of the terms that says more, in a new tab, safely', async () => {
+      await openFor();
+      const link = el.querySelector<HTMLAnchorElement>('[data-testid="picker-terms"]')!;
+      expect(link.getAttribute('href')).toBe('/terms#stock');
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toContain('noopener');
+      expect(link.textContent).toContain('(opens in a new tab)');
+    });
+
+    it('does not block anything: there is no box to tick and the buttons work', async () => {
+      await openFor();
+      expect(care()!.querySelector('input')).toBeNull();
+      expect(button(/Use this photo/).disabled).toBeFalse();
+    });
+
+    it('says nothing while it is still searching, or when the search failed', async () => {
+      const pending = new Subject<StockSearchResponse>();
+      service.search.and.returnValue(pending);
+      await openFor();
+      expect(care()).toBeNull();
+      pending.error(httpError(502, 'SEARCH_FAILED'));
+      await settle(fixture);
+      expect(problem()).not.toBeNull();
+      expect(care()).toBeNull();
+    });
+  });
+
   it('plays a clip with the browser\'s own controls, and does not start it by itself', async () => {
     service.search.and.returnValue(of(searchResponse({ assets: [asset({ id: '9', type: 'video' })] })));
     await openFor(clipScene);
