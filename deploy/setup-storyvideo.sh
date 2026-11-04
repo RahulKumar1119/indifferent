@@ -30,7 +30,9 @@ set -euo pipefail
 #   7. State machine    indifferent-fun-story-pipeline, rendered by the same Go code
 #                       the tests check (backend/cmd/storypipeline), validated by AWS
 #   8. API Lambda       STORYVIDEO_STATE_MACHINE_ARN merged into indifferent-fun-api's
-#                       environment (every other variable written back as it was; the
+#                       environment, with PIXABAY_API_KEY / PEXELS_API_KEY added when the
+#                       function lacks them (the picker's search needs them; a key it
+#                       already has is never overwritten) (every other variable written back as it was; the
 #                       environment holds secrets and is never printed), and one
 #                       permission added to its role: states:StopExecution on this
 #                       state machine's executions
@@ -396,6 +398,12 @@ def main():
     #   apienv present CONFIG KEY             exit 0 when KEY is set
     #   apienv merge CONFIG KEY VALUE OUT     OUT is the --environment document: every other variable as it was
     #   apienv unmerge CONFIG KEY OUT         the same without KEY
+    #   apienv plan CONFIG OUT KEY VALUE [NAME FILE]...
+    #                                         KEY is set to VALUE (added or changed); each NAME is
+    #                                         added from FILE (a private file) only when the function
+    #                                         does not have it, and never overwritten. Prints one line
+    #                                         per name, never a value. Exit 0 and write OUT when
+    #                                         something changes, 3 when nothing does.
     if cmd == "apienv":
         sub, cfg = sys.argv[2], load(sys.argv[3])
         env = dict((cfg.get("Environment") or {}).get("Variables") or {})
@@ -407,6 +415,34 @@ def main():
             sys.exit(0)
         if sub == "revision":
             print(cfg["RevisionId"])
+            sys.exit(0)
+        if sub == "plan":
+            out, key, value, pairs = sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7:]
+            changed = False
+            original = set(env)
+            if env.get(key) == value:
+                print("%s is already set to this state machine." % key)
+            else:
+                print("%s %s." % (key, "is set to something else; it will be changed" if key in env else "is not set; it will be added"))
+                env[key] = value
+                changed = True
+            for name, path in zip(pairs[0::2], pairs[1::2]):
+                with open(path) as f:
+                    secret = f.read().strip()
+                if name not in env:
+                    print("%s: not set; it will be added (the stock search needs it)." % name)
+                    env[name] = secret
+                    changed = True
+                elif env[name] == secret:
+                    print("%s: already set to the worker's key." % name)
+                else:
+                    print("%s: set to a different key than the worker's; left as it is." % name)
+            # Every variable the function had, other than KEY, is written back unchanged.
+            print("kept %d other variable(s) as they were" % len(original - {key}))
+            if not changed:
+                sys.exit(3)
+            with open(out, "w") as f:
+                json.dump({"Variables": env}, f)
             sys.exit(0)
         key = sys.argv[4]
         if sub == "present":
@@ -916,19 +952,27 @@ fi
 
 # ---------------------------------------------------------------------------
 echo
-echo "=== 7. API Lambda environment: ${API_ENV_KEY} on ${API_FUNCTION} ==="
-if python3 "$TMP/helpers.py" apienv status "$TMP/api-config.json" "$API_ENV_KEY" "$API_ARN_VALUE"; then
-  API_ENV_ACTION=same
-  echo "${API_ENV_KEY} is already set to this state machine."
-else
-  (umask 077 && python3 "$TMP/helpers.py" apienv merge "$TMP/api-config.json" "$API_ENV_KEY" "$API_ARN_VALUE" "$TMP/api-env.json")
-  if python3 "$TMP/helpers.py" apienv present "$TMP/api-config.json" "$API_ENV_KEY"; then
-    API_ENV_ACTION=change
-    echo "${API_ENV_KEY} is set to something else; it will be changed."
+echo "=== 7. API Lambda environment on ${API_FUNCTION}: ${API_ENV_KEY} and the stock keys ==="
+# The API searches the providers itself (GET /stock-media/search, the picker), so it
+# needs the same keys as the worker. Each comes from its SSM parameter when there is
+# one (what the worker uses), otherwise from the env file (step 1 creates the
+# parameter from it), through a private file: never an argument or the screen.
+KEY_ARGS=()
+for name in "${SECRET_NAMES_PRESENT[@]}"; do
+  kf="$TMP/apikey-${name}"
+  if aws ssm get-parameter --name "${SSM_PREFIX}/${name}" --with-decryption --region "$REGION" \
+    --query 'Parameter.Value' --output text 2>/dev/null | (umask 077 && cat >"$kf") && [ -s "$kf" ]; then
+    :
   else
-    API_ENV_ACTION=add
-    echo "${API_ENV_KEY} is not set; it will be added."
+    (umask 077 && printf '%s' "$(env_file_value "$name")" >"$kf")
   fi
+  KEY_ARGS+=("$name" "$kf")
+done
+if (umask 077 && python3 "$TMP/helpers.py" apienv plan "$TMP/api-config.json" "$TMP/api-env.json" \
+  "$API_ENV_KEY" "$API_ARN_VALUE" "${KEY_ARGS[@]}"); then
+  API_ENV_ACTION=change
+else
+  API_ENV_ACTION=same
 fi
 
 # ===========================================================================
@@ -1119,11 +1163,11 @@ esac
 
 # --- API Lambda environment (last: the state machine it names exists by now)
 echo
-echo "--- API Lambda environment ${API_ENV_KEY}"
+echo "--- API Lambda environment ${API_ENV_KEY} and stock keys"
 if [ "$API_ENV_ACTION" = same ]; then
   echo "Up to date."
 else
-  act "set ${API_ENV_KEY} on ${API_FUNCTION} (every other variable is written back as it was; undo: bash deploy/setup-storyvideo.sh --unwire-api --apply)" write_api_env
+  act "set ${API_ENV_KEY} on ${API_FUNCTION}, with any stock key it lacks (every other variable is written back as it was; undo for the state machine: bash deploy/setup-storyvideo.sh --unwire-api --apply)" write_api_env
 fi
 
 # ---------------------------------------------------------------------------
