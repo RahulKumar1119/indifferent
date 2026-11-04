@@ -173,6 +173,10 @@ const QUIET =
               <div class="mt-4 max-w-3xl" data-testid="done">
                 <h3 data-state-heading tabindex="-1" class="text-xl font-semibold">Your video is ready</h3>
                 <ng-container [ngTemplateOutlet]="finished" [ngTemplateOutletContext]="{ $implicit: v, latest: true }" />
+                <p class="mt-5 max-w-prose text-sm text-[hsl(var(--muted-foreground))]" data-testid="licence-note">
+                  This is the finished video only. The pictures and clips in it stay under the Pexels and Pixabay licences. Neither requires a
+                  credit in your video; the credit for each picture is under its scene above.
+                </p>
               </div>
               @if (showForm()) {
                 <div class="mt-8">

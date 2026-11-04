@@ -108,6 +108,9 @@ describe('StoryVideoPanelComponent', () => {
   // -------------------------------------------------------------------------
 
   describe('before any video', () => {
+    it('shows no licence note when there is no finished video to download', () => {
+      expect(q('licence-note')).toBeNull();
+    });
     beforeEach(() => mount());
 
     it('asks for the limits and for this plan\'s videos', () => {
@@ -681,6 +684,17 @@ describe('StoryVideoPanelComponent', () => {
     it('has no form until another version is asked for', () => {
       expect(q('make-form')).toBeNull();
       expect(q('another')).toBeTruthy();
+    });
+    it('says the download is the finished video only, under the libraries\' licences, with no credit required', () => {
+      const note = q('licence-note')!.textContent!.replace(/\s+/g, ' ');
+      expect(note).toContain('This is the finished video only');
+      expect(note).toContain('stay under the Pexels and Pixabay licences');
+      expect(note).toContain('Neither requires a credit in your video');
+      expect(note).toContain('the credit for each picture is under its scene above');
+    });
+    it('shows that note once, for the latest video, not again for each earlier one', async () => {
+      await mount({ videos: [completed({ jobId: 'job-9' }), completed({ jobId: 'job-8' })] });
+      expect(el.querySelectorAll('[data-testid="licence-note"]').length).toBe(1);
     });
 
     it('does not ask for a link until one is needed', () => {
