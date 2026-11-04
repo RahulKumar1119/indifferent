@@ -120,7 +120,7 @@ export class PrivacyComponent implements OnInit {
       n: '01',
       title: 'Who we are',
       body: [
-        'Indifferent (indifferent.fun) is three tools: the AI Shorts generator, the TXT to quiz video generator and a watermark tool. It is built and run by one developer and is in beta.',
+        'Indifferent (indifferent.fun) is three tools: the AI Shorts generator, the TXT to quiz video generator and a watermark tool. A fourth, Story videos, is being introduced and may not be available to every account yet. It is built and run by one developer and is in beta.',
         'This policy says what the tools collect, where it goes, how long it stays and how you remove it. If something is missing, write to us at the address in section 12.',
       ],
     },
@@ -134,6 +134,7 @@ export class PrivacyComponent implements OnInit {
         'Files you upload: TXT quiz files, and video or audio files for AI Shorts.',
         'What the tools make from them: transcripts, the moments chosen and their scores, rendered clips, quiz slides and videos, and thumbnails.',
         'Project records: names, the options you chose (voice, design, language, caption style, effects), status and timestamps.',
+        'For Story videos: the plan made from your story (a hook, narration lines, scene descriptions, search words, and the picture you chose for each scene), and each video’s voice, caption style, status and timestamps. The story itself is not kept: see section 03.',
         'Your notification preferences from Settings.',
         'Usage and technical data from Google Analytics and Amazon CloudWatch RUM: pages visited, errors and performance. Section 07 describes them.',
       ],
@@ -145,6 +146,9 @@ export class PrivacyComponent implements OnInit {
       items: [
         'TXT to quiz video: the text file is uploaded and read on our servers. Amazon Polly turns each question and answer into speech, and the slides and video are rendered on AWS. The file and the result are stored with your project so you can render again.',
         'AI Shorts: the video or audio file is uploaded to private storage. Amazon Transcribe produces the transcript. The transcript is sent to a language model on Amazon Bedrock, which picks the moments. Frames sampled from the video are sent to Amazon Rekognition to find faces. FFmpeg renders the clips. The thumbnail feature sends frames to Amazon Rekognition and Amazon Bedrock.',
+        'Story videos, the plan: the story you write is sent to a language model on Amazon Bedrock, which writes the plan. We keep the plan and not the story, and only the story’s length is recorded. The plan’s narration lines can follow your own wording closely, and they are kept.',
+        'Story videos, the pictures: when you search, our server sends the search words (the scene’s keywords, or what you type) to Pexels and Pixabay, without your name, email or account. Your browser then loads the preview pictures and clips directly from those services and the networks they use, so they can see your IP address and browser details, as any site you visit can.',
+        'Story videos, the video: the pictures and clips you chose are copied into our private storage, Amazon Polly speaks the narration, and FFmpeg renders the video on AWS. Only the narration text goes to Polly. The pictures and clips are not sent to any image or face recognition service.',
         'Watermark tool: images and video are processed inside your browser tab and are not uploaded. The first video export downloads a processing engine of about 30 MB from the jsDelivr CDN. That request does not include your file.',
       ],
       body: ['We do not sell your content, and we do not use it to train any model.'],
@@ -160,6 +164,9 @@ export class PrivacyComponent implements OnInit {
         'Uploaded source files move to archive storage after 30 days. Temporary working files are deleted after 7 days.',
         'Nothing else is deleted automatically. Projects, Shorts, clips and their records stay until you delete them.',
         'Deleting a project or a Short removes its stored files and its database record.',
+        'For Story videos, the pictures and clips copied from Pexels and Pixabay and the narration audio are working files, so they go after 7 days. The finished video stays until you delete it, and deleting it removes the video, its working files and its record.',
+        'Story plans stay until you ask us to remove them. The app has no button to delete a plan yet.',
+        'Counts of events, such as how many story plans were made or failed, are kept in Amazon CloudWatch to see how the tool is doing. They carry no name, email, account id or story text. Technical logs record account and job ids and error details, not your story text. A shared cache of picture search results holds what Pexels and Pixabay returned, not who searched.',
       ],
     },
     {
@@ -169,6 +176,7 @@ export class PrivacyComponent implements OnInit {
       items: [
         'Amazon Web Services: hosting (Amplify), storage (S3), database (DynamoDB), compute (Lambda and Fargate), workflows (Step Functions), speech (Polly and Transcribe), AI models (Bedrock), face detection (Rekognition), email (SES) and monitoring (CloudWatch).',
         'Google: sign-in with Google, Google Analytics, Google Ads conversion measurement, Google AdSense and Google Fonts, which serves the site typefaces.',
+        'Pexels and Pixabay: the photo and clip libraries behind Story videos. They receive the search words from our server, and your browser loads previews from them and the networks they use, as section 03 describes.',
         'ImprovMX: forwards email sent to support@indifferent.fun to the developer.',
         'jsDelivr: serves the video engine for the watermark tool.',
         'GitHub: hosts the public issue tracker linked from the contact page. If you post there, GitHub’s policy applies.',
@@ -179,7 +187,7 @@ export class PrivacyComponent implements OnInit {
       n: '06',
       title: 'Email',
       body: [
-        'We send an email through Amazon SES when a quiz video or a Shorts job finishes or fails. You can turn these off in Settings.',
+        'We send an email through Amazon SES when a quiz video, a Shorts job or a story video finishes or fails. You can turn these off in Settings.',
         'We send no marketing email, and the site has no newsletter.',
       ],
     },
@@ -206,7 +214,7 @@ export class PrivacyComponent implements OnInit {
       n: '08',
       title: 'Your choices',
       items: [
-        'Delete any project or Short from your library whenever you like.',
+        'Delete any project, Short or story video whenever you like. A story plan can be removed on request.',
         'Download your finished videos and clips at any time.',
         'Turn off completion emails in Settings, and sign out to remove the refresh token from your browser.',
         'To get a copy of your data, correct it, or have your account deleted, email support@indifferent.fun from the address on the account. These requests are handled by hand, because the app has no delete-account button yet.',

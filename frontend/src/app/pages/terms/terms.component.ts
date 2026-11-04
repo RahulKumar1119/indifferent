@@ -127,6 +127,7 @@ export class TermsComponent implements OnInit {
       title: 'The service',
       body: [
         'Indifferent offers three tools: the AI Shorts generator, which turns a long video or audio file into captioned vertical clips; the TXT to quiz video generator, which turns a text file of questions into a narrated video; and a watermark tool that runs in your browser.',
+        'A fourth tool, Story videos, is being introduced and may not be available to every account yet. You write a short story, check the plan the AI makes from it, choose a photo or clip from Pexels or Pixabay for each scene, and the service adds a narrator’s voice and captions to make a vertical video.',
         'The service is in beta and free to use. Features, limits and availability can change.',
       ],
     },
@@ -149,11 +150,32 @@ export class TermsComponent implements OnInit {
         'You keep ownership of what you upload, and of the transcripts, clips and videos made from it.',
         'You give us permission to store and process your content, and to pass it to the service providers named in the privacy policy, only to run the tools for you.',
         'You are responsible for having the rights to everything you upload, including footage, music, scripts, and recordings of other people. Do not upload content you are not allowed to copy or process.',
+        'The stories you write for Story videos are yours, and so are the plan, narration and video made from them. The photos and clips inside a story video are not: see “Pictures and clips from other libraries”.',
+      ],
+    },
+    {
+      id: 'stock',
+      n: '05',
+      title: 'Pictures and clips from other libraries',
+      body: ['Story videos use photos and video clips from Pexels and Pixabay. You choose every one, and we show where each one comes from.'],
+      items: [
+        'They stay with their creators and under the licences and terms of Pexels and Pixabay. Using one in your video gives you no more rights in it than those licences give.',
+        'The download is the finished video only. Do not take the pictures or clips out to sell, share or post on their own, or to put on other stock or wallpaper sites.',
+        'Neither library requires a credit in your video. The credit line for each picture is shown beside it if you want to give one.',
+        'You are responsible for the pictures you choose. Do not use a picture with a visible logo, brand or product to sell goods or services, or in a way that suggests the brand backs you.',
+        'Do not show a person who can be recognised in a bad or offensive light, or as if they support something, and do not use a picture in a misleading way.',
+        'Pictures of private homes and other property may need the owner’s permission. A picture being on Pexels or Pixabay does not mean that permission was given.',
+        'A library can remove a picture or change its rules. If a picture you chose is gone, you will need to choose another before the video can be made.',
+        'We cannot promise that a picture is free of other people’s rights. Check each one before you publish.',
+      ],
+      links: [
+        { label: 'Pexels licence', href: 'https://www.pexels.com/license/' },
+        { label: 'Pixabay content licence', href: 'https://pixabay.com/service/license-summary/' },
       ],
     },
     {
       id: 'acceptable-use',
-      n: '05',
+      n: '06',
       title: 'Acceptable use',
       items: [
         'Do not upload content that is illegal, harmful, or that infringes someone else’s rights.',
@@ -164,16 +186,17 @@ export class TermsComponent implements OnInit {
     },
     {
       id: 'output',
-      n: '06',
+      n: '07',
       title: 'Automatic output',
       body: [
         'Transcripts, the moments chosen, framing and narration are produced automatically and can be wrong. Captions may contain mistakes, and a clip may start or end in a place you would not choose.',
+        'In Story videos the plan, the scene wording and the voice are made automatically from your story, and a picture may not show what its scene describes.',
         'Check every clip, caption and narration before you publish it. You are responsible for what you publish.',
       ],
     },
     {
       id: 'limits',
-      n: '07',
+      n: '08',
       title: 'Limits and availability',
       items: [
         'The current limits for file size, length and number of clips are listed on each tool’s page, and they can change.',
@@ -183,13 +206,16 @@ export class TermsComponent implements OnInit {
     },
     {
       id: 'storage',
-      n: '08',
+      n: '09',
       title: 'Storage and deletion',
-      body: ['Your projects and Shorts stay in your account until you delete them. Deleting one removes its stored files and its record. The privacy policy lists what is kept, where, and for how long.'],
+      body: [
+        'Your projects and Shorts stay in your account until you delete them. Deleting one removes its stored files and its record. A story video can be deleted the same way. The privacy policy lists what is kept, where, and for how long.',
+        'Story plans cannot be deleted from the app yet. To have one removed, email support@indifferent.fun.',
+      ],
     },
     {
       id: 'termination',
-      n: '09',
+      n: '10',
       title: 'Ending your use',
       items: [
         'You can stop using the service at any time.',
@@ -199,16 +225,16 @@ export class TermsComponent implements OnInit {
     },
     {
       id: 'liability',
-      n: '10',
+      n: '11',
       title: 'Disclaimer and liability',
       body: ['The service is provided as it is, without warranties. As far as the law allows, we are not liable for indirect or consequential losses, lost profits or lost data. Keep copies of anything important.'],
     },
     {
       id: 'changes',
-      n: '11',
+      n: '12',
       title: 'Changes to these terms',
       body: ['We may update these terms. The date at the top shows the current version, and using the service after a change means you accept it.'],
     },
-    { id: 'contact', n: '12', title: 'Contact' },
+    { id: 'contact', n: '13', title: 'Contact' },
   ];
 }

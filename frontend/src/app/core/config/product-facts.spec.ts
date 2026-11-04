@@ -46,6 +46,11 @@ describe('legal date', () => {
     expect(date.getTime()).toBeLessThanOrEqual(Date.now());
   });
 
+  it('is not older than the Story videos text it was last changed for (2026-11-04)', () => {
+    // Change the date together with the text. This stops the text changing and the date staying behind.
+    expect(LEGAL_LAST_UPDATED >= '2026-11-04').toBeTrue();
+  });
+
   it('reads as a long date in English', () => {
     expect(legalUpdatedLabel()).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/);
   });
