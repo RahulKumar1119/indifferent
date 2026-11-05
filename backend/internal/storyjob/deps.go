@@ -2,6 +2,7 @@ package storyjob
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"time"
@@ -71,8 +72,41 @@ type Deps struct {
 	ThrottleBudget time.Duration
 	// Sleep waits for d or until ctx ends. Nil means a real timer. A seam for tests.
 	Sleep func(ctx context.Context, d time.Duration) error
+	// SaveProgress persists the job as it stands. CopyMedia calls it after each
+	// scene is copied, so a task that is restarted (a Spot interruption, or a
+	// retry after a throttled scene) skips the scenes already in storage instead
+	// of downloading every scene again and re-hitting the same throttle. Unlike
+	// the progress percent, which may not move between two scenes and so may not
+	// write, this writes once per copied scene. Nil means progress is not saved
+	// mid-step. A seam the runner fills in.
+	//
+	// It may return ErrJobGone or errStoppedElsewhere when the user has ended the
+	// job; CopyMedia then stops, so the worker does not keep copying for a job
+	// nobody is waiting on. Any other save error is not fatal (the copy already
+	// exists in storage, it is only not yet recorded), so it is logged and the
+	// step goes on.
+	SaveProgress func(ctx context.Context) error
 	// Logf receives progress notes. It defaults to log.Printf.
 	Logf func(format string, args ...any)
+}
+
+// saveProgress persists the job after a scene is copied. It returns an error
+// only when the job has ended and the step should stop; an ordinary save
+// failure is logged and swallowed.
+func (d Deps) saveProgress(ctx context.Context) error {
+	if d.SaveProgress == nil {
+		return nil
+	}
+	err := d.SaveProgress(ctx)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ErrJobGone), errors.Is(err, errStoppedElsewhere):
+		return err
+	default:
+		d.logf("storyjob save progress failed: %v", err)
+		return nil
+	}
 }
 
 func (d Deps) sleep(ctx context.Context, wait time.Duration) error {

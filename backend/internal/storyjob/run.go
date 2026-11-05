@@ -128,6 +128,11 @@ func (r *Runner) Run(ctx context.Context, userID, jobID string) (Outcome, error)
 	defer os.RemoveAll(workDir)
 	deps := r.Deps
 	deps.WorkDir = workDir
+	// Persist the job after each scene is copied, so a restart resumes from the
+	// scenes already in storage. This writes every copied scene, where the
+	// progress percent may not move between two of up to ten scenes and so may
+	// skip a write.
+	deps.SaveProgress = func(ctx context.Context) error { return r.Store.Save(ctx, job) }
 
 	timings := map[string]time.Duration{}
 	steps := []struct {
