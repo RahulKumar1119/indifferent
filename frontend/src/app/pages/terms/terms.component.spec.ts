@@ -28,20 +28,23 @@ describe('TermsComponent', () => {
     expect(page.textContent).not.toContain('January 2025');
   });
 
-  it('describes all three tools, not only the quiz generator', () => {
+  it('describes all four tools, not only the quiz generator', () => {
     const text = render().textContent!;
 
+    expect(text).toContain('Indifferent offers four tools');
     expect(text).toContain('the AI Shorts generator');
     expect(text).toContain('the TXT to quiz video generator');
+    expect(text).toContain('the Story to video generator');
     expect(text).toContain('a watermark tool that runs in your browser');
     expect(text).toContain('in beta and free to use');
   });
 
-  it('says Story videos is being introduced and may not be available to everyone, not that it is live', () => {
+  it('describes the Story to video generator as a live tool, without a not-yet-available hedge', () => {
     const text = render().textContent!;
 
-    expect(text).toContain('A fourth tool, Story videos, is being introduced and may not be available to every account yet');
     expect(text).toContain('choose a photo or clip from Pexels or Pixabay for each scene');
+    expect(text).not.toContain('being introduced');
+    expect(text).not.toContain('may not be available to every account yet');
   });
 
   it('covers content rights, automatic output, deletion and liability', () => {

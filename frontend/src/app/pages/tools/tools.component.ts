@@ -116,11 +116,21 @@ export class ToolsComponent implements OnInit {
       ctaLink: '/shorts',
       ctaLabel: 'Make shorts',
     },
+    {
+      icon: 'book-open',
+      badge: 'AI pipeline',
+      title: 'Story to Video',
+      text: 'A short story into a narrated vertical video with matching stock footage.',
+      points: ['Scenes planned from your story', 'Stock photos and clips from Pexels and Pixabay', '1080×1920 exports, up to 90 seconds'],
+      infoLink: '/features/story-video',
+      ctaLink: '/story',
+      ctaLabel: 'Make a story video',
+    },
   ];
 
   ngOnInit(): void {
     const url = 'https://indifferent.fun/tools';
-    const description = 'Free creator tools: in-browser image and video watermarking, TXT-to-quiz-video AI pipeline, and AI shorts generation.';
+    const description = 'Free creator tools: in-browser image and video watermarking, TXT-to-quiz-video AI pipeline, story-to-video AI pipeline, and AI shorts generation.';
     this.title.setTitle('Free Creator Tools | Indifferent');
     this.meta.updateTag({ name: 'description', content: description });
     this.meta.updateTag({ property: 'og:title', content: 'Free Creator Tools | Indifferent' });

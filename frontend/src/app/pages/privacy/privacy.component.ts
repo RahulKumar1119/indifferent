@@ -120,7 +120,7 @@ export class PrivacyComponent implements OnInit {
       n: '01',
       title: 'Who we are',
       body: [
-        'Indifferent (indifferent.fun) is three tools: the AI Shorts generator, the TXT to quiz video generator and a watermark tool. A fourth, Story videos, is being introduced and may not be available to every account yet. It is built and run by one developer and is in beta.',
+        'Indifferent (indifferent.fun) is four tools: the AI Shorts generator, the TXT to quiz video generator, the Story to video generator and a watermark tool. It is built and run by one developer and is in beta.',
         'This policy says what the tools collect, where it goes, how long it stays and how you remove it. If something is missing, write to us at the address in section 12.',
       ],
     },
