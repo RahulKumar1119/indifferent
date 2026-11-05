@@ -1,4 +1,4 @@
-import { PRODUCT_FACTS, durationLabel, joinAnd, joinOr, shortsOutputLabel } from './product-facts';
+import { PRODUCT_FACTS, durationLabel, joinAnd, joinOr, shortsOutputLabel, storyOutputLabel } from './product-facts';
 import { LEGAL_LAST_UPDATED, legalUpdatedLabel } from './legal';
 
 describe('product facts', () => {
@@ -29,6 +29,23 @@ describe('product facts', () => {
     expect([...PRODUCT_FACTS.quiz.voices]).toEqual(['Joanna', 'Matthew', 'Amy', 'Brian', 'Aditi']);
     // backend/internal/shorts/language.go
     expect([...PRODUCT_FACTS.shorts.languages]).toEqual(['Auto-detect', 'English (US)', 'English (India)', 'Hindi']);
+    // backend/internal/storyplan/limits.go
+    expect(PRODUCT_FACTS.story.minStoryChars).toBe(30);
+    expect(PRODUCT_FACTS.story.maxStoryChars).toBe(5000);
+    expect(PRODUCT_FACTS.story.minScenes).toBe(2);
+    expect(PRODUCT_FACTS.story.maxScenes).toBe(10);
+    expect(PRODUCT_FACTS.story.maxTotalSeconds).toBe(90);
+    // backend/internal/storyjob/job.go (voicesByLanguage)
+    expect([...PRODUCT_FACTS.story.voicesEn]).toEqual(['Joanna', 'Matthew', 'Amy', 'Brian', 'Aditi']);
+    expect([...PRODUCT_FACTS.story.voicesHi]).toEqual(['Aditi']);
+    // backend/internal/api/storyvideo.go (defaults)
+    expect(PRODUCT_FACTS.story.maxActive).toBe(2);
+    expect(PRODUCT_FACTS.story.perDay).toBe(10);
+  });
+
+  it('labels the story output the same way as Shorts', () => {
+    // Both are 1080x1920 vertical MP4s at 30 fps.
+    expect(storyOutputLabel()).toBe('1080×1920 MP4 (H.264 video, AAC audio, 30 fps)');
   });
 
   it('keeps the clip window inside a Shorts-sized clip', () => {

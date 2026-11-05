@@ -36,6 +36,24 @@ export const PRODUCT_FACTS = {
     designs: ['Classic', 'Modern', 'Education', 'Dark', 'Minimal', 'Neon'],
     outputLabel: '1080p MP4',
   },
+  story: {
+    minStoryChars: 30,
+    maxStoryChars: 5000,
+    minScenes: 2,
+    maxScenes: 10,
+    maxTotalSeconds: 90,
+    outputWidth: 1080,
+    outputHeight: 1920,
+    frameRate: 30,
+    /** Narration voices by language, from backend/internal/storyjob/job.go. */
+    voicesEn: ['Joanna', 'Matthew', 'Amy', 'Brian', 'Aditi'],
+    voicesHi: ['Aditi'],
+    /** Stock-media libraries the scenes draw from. */
+    stockLibraries: ['Pexels', 'Pixabay'],
+    /** How many videos one account may have rendering at once, and start per day. */
+    maxActive: 2,
+    perDay: 10,
+  },
   watermark: {
     imageFormats: ['JPG', 'PNG', 'WebP'],
     videoFormats: ['MP4', 'WebM', 'MOV'],
@@ -63,6 +81,12 @@ export function joinAnd(items: readonly string[]): string {
 /** "1080×1920 MP4 (H.264 video, AAC audio, 30 fps)" */
 export function shortsOutputLabel(): string {
   const s = PRODUCT_FACTS.shorts;
+  return `${s.outputWidth}×${s.outputHeight} MP4 (H.264 video, AAC audio, ${s.frameRate} fps)`;
+}
+
+/** "1080×1920 MP4 (H.264 video, AAC audio, 30 fps)" for the story video. */
+export function storyOutputLabel(): string {
+  const s = PRODUCT_FACTS.story;
   return `${s.outputWidth}×${s.outputHeight} MP4 (H.264 video, AAC audio, ${s.frameRate} fps)`;
 }
 
