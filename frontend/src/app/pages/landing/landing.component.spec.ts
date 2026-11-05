@@ -56,10 +56,10 @@ describe('LandingComponent', () => {
     expect(page.querySelector('a[href="/about"]')).not.toBeNull();
   });
 
-  it('links to the legal pages and to all three tools', () => {
+  it('links to the legal pages and to all four tools', () => {
     const page = render();
 
-    for (const href of ['/privacy', '/terms', '/features/txt-to-video-quiz', '/features/ai-shorts', '/features/watermark', '/shorts-maker', '/tools/add-watermark']) {
+    for (const href of ['/privacy', '/terms', '/features/txt-to-video-quiz', '/features/ai-shorts', '/features/story-video', '/features/watermark', '/shorts-maker', '/tools/add-watermark']) {
       expect(page.querySelector(`a[href="${href}"]`)).withContext(href).not.toBeNull();
     }
   });
@@ -83,6 +83,17 @@ describe('LandingComponent', () => {
     for (const voice of q.voices) expect(text).withContext(voice).toContain(voice);
     expect(text).toContain(`Text in ${w.fontChoices} typefaces`);
     expect(text).toContain([...w.imageFormats, ...w.videoFormats].join(', '));
+  });
+
+  it('shows the Story to video tool with its scene and stock facts', () => {
+    const page = render();
+    const text = page.textContent!;
+    const t = PRODUCT_FACTS.story;
+
+    expect(page.querySelector('a[href="/features/story-video"]')).not.toBeNull();
+    expect(text).toContain(`${t.minStoryChars} to ${t.maxStoryChars} characters, planned into ${t.minScenes} to ${t.maxScenes} scenes`);
+    for (const lib of t.stockLibraries) expect(text).withContext(lib).toContain(lib);
+    expect(text).toContain('Up to 90 seconds');
   });
 
   it('does not repeat claims the product cannot back up', () => {
@@ -135,7 +146,7 @@ describe('LandingComponent', () => {
     render();
     render();
 
-    for (const id of ['webpage', 'software-quiz', 'software-shorts', 'software-watermark', 'faq']) {
+    for (const id of ['webpage', 'software-quiz', 'software-shorts', 'software-story', 'software-watermark', 'faq']) {
       expect(document.head.querySelectorAll(`script[data-seo-id="${id}"]`).length).withContext(id).toBe(1);
     }
     const raw = Array.from(document.head.querySelectorAll('script[data-seo-id]'))

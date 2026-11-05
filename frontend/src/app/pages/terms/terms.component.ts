@@ -126,8 +126,8 @@ export class TermsComponent implements OnInit {
       n: '02',
       title: 'The service',
       body: [
-        'Indifferent offers three tools: the AI Shorts generator, which turns a long video or audio file into captioned vertical clips; the TXT to quiz video generator, which turns a text file of questions into a narrated video; and a watermark tool that runs in your browser.',
-        'A fourth tool, Story videos, is being introduced and may not be available to every account yet. You write a short story, check the plan the AI makes from it, choose a photo or clip from Pexels or Pixabay for each scene, and the service adds a narrator’s voice and captions to make a vertical video.',
+        'Indifferent offers four tools: the AI Shorts generator, which turns a long video or audio file into captioned vertical clips; the TXT to quiz video generator, which turns a text file of questions into a narrated video; the Story to video generator, described below; and a watermark tool that runs in your browser.',
+        'With the Story to video generator you write a short story, check the plan the AI makes from it, choose a photo or clip from Pexels or Pixabay for each scene, and the service adds a narrator’s voice and captions to make a vertical video.',
         'The service is in beta and free to use. Features, limits and availability can change.',
       ],
     },

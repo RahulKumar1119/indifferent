@@ -19,7 +19,7 @@ const HERO_STILL = '/screenshots/shorts-hero-still.png';
           Turn your content <span class="font-light italic">into anything.</span>
         </h1>
         <p class="mt-4 text-center text-[15.5px] text-[#6B6560] max-w-[60ch] mx-auto leading-relaxed">
-          One studio, three tools. Upload once and let AI do the tedious parts, or finish in your browser, free.
+          One studio, four tools. Upload once and let AI do the tedious parts, or finish in your browser, free.
         </p>
 
         <div class="mt-10 grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -65,6 +65,25 @@ const HERO_STILL = '/screenshots/shorts-hero-still.png';
               <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560] flex-1">Paste a text file → get a video.</p>
               <span class="mt-4 inline-flex items-center justify-center gap-1.5 h-14 md:h-auto w-full sm:w-auto px-6 md:py-2.5 rounded-full bg-[#1A1714] text-white text-[14px] font-semibold">
                 Create video
+              </span>
+            </div>
+          </a>
+
+          <!-- Story (1×1) -->
+          <a routerLink="/story"
+            class="picker-card card-lift rounded-[20px] border border-black/10 bg-white p-0 overflow-hidden flex flex-col hover:border-black/25 transition-colors">
+            <div class="w-full h-44 flex items-center justify-center bg-[#3A2A1E] text-[#EDE4DB]">
+              <svg lucideIcon="book-open" [size]="48" class="opacity-80" aria-hidden="true"></svg>
+            </div>
+            <div class="p-6 flex flex-col flex-1">
+              <span class="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">
+                <svg lucideIcon="book-open" [size]="14" class="picker-icon"></svg>
+                Story films
+              </span>
+              <h2 class="mt-1 font-semibold text-[18px]">Story to Video</h2>
+              <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560] flex-1">Paste a story → get a narrated video.</p>
+              <span class="mt-4 inline-flex items-center justify-center gap-1.5 h-14 md:h-auto w-full sm:w-auto px-6 md:py-2.5 rounded-full bg-[#1A1714] text-white text-[14px] font-semibold">
+                Make a story video
               </span>
             </div>
           </a>

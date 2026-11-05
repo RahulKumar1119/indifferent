@@ -49,8 +49,11 @@ describe('PrivacyComponent', () => {
     ]);
   });
 
-  it('says Story videos is being introduced, so the page does not claim it is live', () => {
-    expect(render().textContent!).toContain('A fourth, Story videos, is being introduced and may not be available to every account yet');
+  it('lists all four tools without a not-yet-available hedge on Story videos', () => {
+    const text = render().textContent!;
+    expect(text).toContain('is four tools: the AI Shorts generator, the TXT to quiz video generator, the Story to video generator and a watermark tool');
+    expect(text).not.toContain('being introduced');
+    expect(text).not.toContain('may not be available to every account yet');
   });
 
   describe('Story videos', () => {

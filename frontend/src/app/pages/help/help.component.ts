@@ -23,7 +23,7 @@ export const GENERAL_FAQ: FeatureFaq[] = [
   },
   {
     q: 'Do I need an account?',
-    a: 'The AI Shorts generator and the TXT to quiz video generator need you to sign in with Google. The watermark tool needs no account.',
+    a: 'The AI Shorts generator, the TXT to quiz video generator and the Story to video generator need you to sign in with Google. The watermark tool needs no account.',
   },
   {
     q: 'How long are my files kept?',
@@ -61,7 +61,7 @@ export const GENERAL_FAQ: FeatureFaq[] = [
         <a routerLink="/" class="inline-flex items-center min-h-[44px] text-[13px] text-[#6B6560] hover:text-[#1A1714]">← Indifferent</a>
         <h1 class="serif mt-4 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2.2rem,5vw,3.4rem)]">Help and FAQ</h1>
         <p class="mt-4 text-[16.5px] leading-relaxed text-[#3E3A33]">
-          Answers about the three tools, your files and your account. Each tool also has a page with its exact limits and a step-by-step guide.
+          Answers about the four tools, your files and your account. Each tool also has a page with its exact limits and a step-by-step guide.
         </p>
         <nav aria-label="Sections" class="mt-6 flex flex-wrap gap-2">
           @for (s of sections; track s.id) {
@@ -114,7 +114,7 @@ export class HelpComponent implements OnInit {
     setPageSeo(this.document, {
       title: 'Help and FAQ | Indifferent',
       description:
-        'Answers about the AI Shorts generator, the TXT to quiz video generator and the watermark tool: limits, file formats, fixes, privacy and your account.',
+        'Answers about the AI Shorts generator, the TXT to quiz video generator, the Story to video generator and the watermark tool: limits, file formats, fixes, privacy and your account.',
       canonical: 'https://indifferent.fun/help',
     });
   }
