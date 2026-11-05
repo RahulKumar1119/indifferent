@@ -59,6 +59,12 @@ func CopyMedia(ctx context.Context, d Deps, job *Job, progress Progress) error {
 			return err
 		}
 		s.Media = media
+		// Record the copy before moving on. A task that is restarted after a
+		// later scene is throttled then skips this one (the already_copied path
+		// above) instead of downloading it again and re-hitting the throttle.
+		if err := d.saveProgress(ctx); err != nil {
+			return err
+		}
 		progress.report(n, total)
 	}
 	return nil

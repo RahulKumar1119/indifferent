@@ -288,3 +288,68 @@ func TestCopyMedia_ACancelDuringALongWaitStopsAtOnce(t *testing.T) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
 }
+
+func TestCopyMedia_SavesAfterEachSceneSoARestartSkipsWhatIsCopied(t *testing.T) {
+	e := newEnv(t)
+	saves := 0
+	// The runner's SaveProgress persists the job as it stands. Here it just
+	// counts, and the fake file store already holds the copied objects.
+	e.deps.SaveProgress = func(context.Context) error { saves++; return nil }
+	job := e.jobWith(4)
+
+	if err := CopyMedia(context.Background(), e.deps, job, nil); err != nil {
+		t.Fatalf("copy of four good scenes failed: %v", err)
+	}
+	if saves != 4 {
+		t.Errorf("SaveProgress called %d times, want once per copied scene (4)", saves)
+	}
+	for i := range job.Scenes {
+		if job.Scenes[i].Media == nil {
+			t.Fatalf("scene %d has no recorded media after copy", i+1)
+		}
+	}
+
+	// A restart reloads the job with the media already recorded. The files are
+	// still in storage. CopyMedia must skip every scene, downloading nothing.
+	before := len(e.assets.downloads)
+	if err := CopyMedia(context.Background(), e.deps, job, nil); err != nil {
+		t.Fatalf("second pass over an already-copied job failed: %v", err)
+	}
+	if n := len(e.assets.downloads) - before; n != 0 {
+		t.Errorf("a restart downloaded %d scenes again; it must skip every copied scene", n)
+	}
+}
+
+func TestCopyMedia_ThrottledLaterSceneKeepsTheEarlierCopiesSaved(t *testing.T) {
+	e := newEnv(t)
+	job := e.jobWith(4)
+	saved := map[int]bool{}
+	// Record which scenes were persisted by the time the step fails. SaveProgress
+	// runs after a scene's media is recorded, so a scene counted here is one a
+	// restart would skip.
+	e.deps.SaveProgress = func(context.Context) error {
+		for i := range job.Scenes {
+			if job.Scenes[i].Media != nil {
+				saved[i+1] = true
+			}
+		}
+		return nil
+	}
+	e.deps.Retry = quickRetry()
+	e.deps.ThrottleWaits = nil // fail fast on the throttle, as a task restart would
+	// Scene 3's photo host is throttling for good.
+	e.assets.dlErr["pixabay:photo:103"] = throttled()
+
+	se := stepErr(t, CopyMedia(context.Background(), e.deps, job, nil))
+	if se.Scene != 3 {
+		t.Fatalf("failed scene = %d, want 3", se.Scene)
+	}
+	// Scenes 1 and 2 copied before the throttle and must have been saved, so a
+	// restart does not download them again.
+	if !saved[1] || !saved[2] {
+		t.Errorf("scenes saved before the failure = %v, want 1 and 2 recorded", saved)
+	}
+	if saved[3] {
+		t.Errorf("scene 3 was never copied, so it must not be recorded")
+	}
+}
