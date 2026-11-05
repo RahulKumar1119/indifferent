@@ -59,6 +59,10 @@ import { HeroSceneComponent } from './hero-scene.component';
                 <span class="block text-white text-[13.5px] font-medium">AI Shorts generator</span>
                 <span class="block text-white/60 text-[12px] mt-0.5">Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions. AI finds the most engaging moments automatically.</span>
               </a>
+              <a routerLink="/features/story-video" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
+                <span class="block text-white text-[13.5px] font-medium">Story to video</span>
+                <span class="block text-white/60 text-[12px] mt-0.5">Paste a short story and get a narrated 9:16 video. A model plans the scenes and matches stock footage, and you confirm every pick.</span>
+              </a>
             </app-nav-menu>
             <app-nav-menu label="Use cases" [width]="270">
               <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
@@ -95,6 +99,7 @@ import { HeroSceneComponent } from './hero-scene.component';
               <a routerLink="/features/txt-to-video-quiz" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">TXT to narrated video</a>
               <a routerLink="/features/watermark" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Watermark tool</a>
               <a routerLink="/features/ai-shorts" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">AI Shorts generator</a>
+              <a routerLink="/features/story-video" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Story to video</a>
               <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Use cases</p>
               <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">YouTube creators</a>
               <a routerLink="/blog/educational-video-best-practices" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Teachers &amp; educators</a>
@@ -143,7 +148,8 @@ import { HeroSceneComponent } from './hero-scene.component';
             </p>
             <p class="mt-3 text-[13px] text-white/50">
               Also in the studio:
-              <a routerLink="/shorts-maker" class="underline underline-offset-4 hover:text-white">AI Shorts generator</a>
+              <a routerLink="/shorts-maker" class="underline underline-offset-4 hover:text-white">AI Shorts generator</a>,
+              <a routerLink="/features/story-video" class="underline underline-offset-4 hover:text-white">story to video</a>
               and
               <a routerLink="/tools/add-watermark" class="underline underline-offset-4 hover:text-white">watermark tool</a>
             </p>
@@ -195,9 +201,9 @@ Answer: C</code></pre>
 
         <!-- TOOLS · the rest of the studio -->
         <section aria-labelledby="tools-heading" class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-16 md:pt-20">
-          <h2 id="tools-heading" class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)]">Two more tools in the studio.</h2>
+          <h2 id="tools-heading" class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)]">Three more tools in the studio.</h2>
           <p class="reveal mt-4 max-w-[62ch] text-[16px] leading-relaxed text-[#6B6560]">
-            The quiz renderer is one of three pipelines here. The other two work on footage you already have, and the second one never touches a server.
+            The quiz renderer is one of four pipelines here. One turns a long video into clips, one turns a written story into a narrated video, and the last watermarks a file without ever touching a server.
           </p>
           <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
             <!-- AI Shorts -->
@@ -220,6 +226,27 @@ Answer: C</code></pre>
                 <div><dt class="text-white/50">Codec</dt><dd class="mt-0.5 font-semibold">H.264 + AAC, 30fps</dd></div>
               </dl>
               <a routerLink="/shorts-maker" class="btn-interactive mt-6 inline-flex items-center gap-2 self-start rounded-full bg-[#F4EFE6] text-[#141310] px-6 py-3 font-semibold text-[14px]">Open the Shorts generator</a>
+            </article>
+
+            <!-- Story to video -->
+            <article class="reveal rounded-[20px] bg-[#3A2A1E] text-[#EDE4DB] p-6 md:p-8 flex flex-col">
+              <p class="text-[11px] uppercase tracking-[0.06em] text-white/50">Story to video</p>
+              <h3 class="serif mt-2 text-[26px] leading-tight">A written story, turned into a narrated video.</h3>
+              <p class="mt-3 text-[14.5px] leading-relaxed text-[#EDE4DB]/80">
+                Paste a short story. A language model breaks it into scenes, writes the narration and searches for a
+                matching photo or clip for each one. You review every scene, swap any picture, then render the video.
+              </p>
+              <ul class="mt-5 space-y-2.5 text-[14px] leading-relaxed text-[#EDE4DB]/85">
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>A story of 30 to 5000 characters, planned into 2 to 10 scenes</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Stock photos and clips from Pexels and Pixabay, yours to swap</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>Narration by Amazon Polly in the story's own language</li>
+                <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#D96C3D] shrink-0"></span>You confirm every scene and picture before anything renders</li>
+              </ul>
+              <dl class="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 gap-4 text-[13px]">
+                <div><dt class="text-white/50">Output</dt><dd class="mt-0.5 font-semibold">1080×1920 MP4</dd></div>
+                <div><dt class="text-white/50">Length</dt><dd class="mt-0.5 font-semibold">Up to 90 seconds</dd></div>
+              </dl>
+              <a routerLink="/features/story-video" class="btn-interactive mt-6 inline-flex items-center gap-2 self-start rounded-full bg-[#EDE4DB] text-[#3A2A1E] px-6 py-3 font-semibold text-[14px]">See how story to video works</a>
             </article>
 
             <!-- Watermark -->
@@ -316,7 +343,7 @@ Answer: C</code></pre>
             <div>
               <h2 class="reveal serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)]">Read the journal.</h2>
               <p class="reveal mt-3 text-[15px] leading-relaxed text-white/70 max-w-[46ch]">
-                Guides to the three tools: how AI clipping works, how to format a quiz file, how to watermark in your browser, and which video format to export.
+                Guides to the tools: how AI clipping works, how to format a quiz file, how to watermark in your browser, and which video format to export.
                 There is no email list. New articles show up in the journal and in an RSS feed.
               </p>
               <p class="reveal mt-5 flex flex-wrap gap-3">
@@ -346,6 +373,7 @@ Answer: C</code></pre>
                   <li><a routerLink="/blog" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Journal</a></li>
                   <li><a routerLink="/features/watermark" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Watermark tool</a></li>
                   <li><a routerLink="/features/ai-shorts" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">AI Shorts generator</a></li>
+                  <li><a routerLink="/features/story-video" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">Story to video</a></li>
                   <li><a routerLink="/features/txt-to-video-quiz" class="inline-flex items-center min-h-[44px] min-w-[44px] hover:text-white">TXT to quiz video</a></li>
                 </ul>
               </div>
@@ -434,6 +462,16 @@ export class LandingComponent implements OnInit, AfterViewInit {
       applicationCategory: 'MultimediaApplication',
       operatingSystem: 'Web',
       description: 'Turns a video or audio file of up to 1 hour into up to 3 captioned 9:16 clips.',
+      offers: free,
+    });
+    setJsonLd(this.document, 'software-story', {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Indifferent Story to Video Generator',
+      url: 'https://indifferent.fun/features/story-video',
+      applicationCategory: 'MultimediaApplication',
+      operatingSystem: 'Web',
+      description: 'Turns a written story into a narrated 1080x1920 video with matching stock footage.',
       offers: free,
     });
     setJsonLd(this.document, 'software-watermark', {
