@@ -40,7 +40,8 @@
         },
         {
           "ErrorEquals": ["ECS.AmazonECSException", "States.TaskFailed"],
-          "IntervalSeconds": 20,
+          "Comment": "Wait 60s then 120s between whole-task retries. A stock file host that is throttling downloads (HTTP 429) holds off for minutes, longer than the in-task waits; a short gap here only restarts the task into the same throttle. The task resumes from the scenes already copied, so a longer wait costs little.",
+          "IntervalSeconds": 60,
           "MaxAttempts": 2,
           "BackoffRate": 2.0
         }

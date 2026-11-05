@@ -200,6 +200,15 @@ func TestMachine_ARenderIsRetriedOnSpotThenTriedOnDemandThenMarkedFailed(t *test
 	if retry["MaxAttempts"].(float64) != 2 {
 		t.Errorf("Spot retries %v times", retry["MaxAttempts"])
 	}
+	// Whole-task retries wait minutes, not seconds: a throttled file host holds
+	// off longer than the in-task waits, and the task resumes from the scenes
+	// already copied, so a short gap only restarts into the same throttle.
+	if retry["IntervalSeconds"].(float64) < 60 {
+		t.Errorf("Spot retry interval = %v, want at least 60s so a download throttle has time to clear", retry["IntervalSeconds"])
+	}
+	if retry["BackoffRate"].(float64) < 2.0 {
+		t.Errorf("Spot retry backoff = %v, want at least 2.0", retry["BackoffRate"])
+	}
 	if str(spot["Catch"].([]any)[0].(state), "Next") != "RunOnDemand" {
 		t.Error("Spot failures do not fall back to on-demand")
 	}
