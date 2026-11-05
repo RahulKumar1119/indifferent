@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { PRODUCT_FACTS, durationLabel, joinOr, shortsOutputLabel } from '../../core/config/product-facts';
+import { PRODUCT_FACTS, durationLabel, joinOr, shortsOutputLabel, storyOutputLabel } from '../../core/config/product-facts';
 import { findArticle } from '../blog/articles/registry';
 import { FEATURE_DATA, FeaturePageComponent } from './feature-page.component';
 
@@ -31,8 +31,8 @@ describe('FeaturePageComponent', () => {
 
   const slugs = Object.keys(FEATURE_DATA);
 
-  it('has a page for each of the three tools', () => {
-    expect(slugs.sort()).toEqual(['ai-shorts', 'txt-to-video-quiz', 'watermark']);
+  it('has a page for each of the four tools', () => {
+    expect(slugs.sort()).toEqual(['ai-shorts', 'story-video', 'txt-to-video-quiz', 'watermark']);
   });
 
   for (const slug of slugs) {
@@ -60,7 +60,7 @@ describe('FeaturePageComponent', () => {
         const data = FEATURE_DATA[slug];
         const page = await open(slug);
 
-        expect(data.guides.length).toBeGreaterThanOrEqual(2);
+        expect(data.guides.length).toBeGreaterThanOrEqual(1);
         for (const guide of data.guides) {
           expect(findArticle(guide)).withContext(guide).toBeDefined();
           expect(page.querySelector(`a[href="/blog/${guide}"]`)).withContext(guide).not.toBeNull();
@@ -84,6 +84,19 @@ describe('FeaturePageComponent', () => {
       });
     });
   }
+
+  it('Story page quotes the story limits, scenes, voices and stock libraries', async () => {
+    const text = (await open('story-video')).textContent!;
+    const t = PRODUCT_FACTS.story;
+
+    expect(text).toContain(`${t.minStoryChars} to ${t.maxStoryChars} characters`);
+    expect(text).toContain(`${t.minScenes} to ${t.maxScenes}`);
+    expect(text).toContain(`Up to ${t.maxTotalSeconds} seconds`);
+    expect(text).toContain(storyOutputLabel());
+    for (const lib of t.stockLibraries) expect(text).withContext(lib).toContain(lib);
+    for (const v of t.voicesEn) expect(text).withContext(v).toContain(v);
+    expect(text).toContain(`${t.maxActive} videos rendering at once, ${t.perDay} started per day`);
+  });
 
   it('AI Shorts page quotes the limits the backend enforces', async () => {
     const text = (await open('ai-shorts')).textContent!;

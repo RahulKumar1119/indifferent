@@ -54,6 +54,7 @@ export class SiteFooterComponent {
   readonly tools: FooterLink[] = [
     { label: 'AI Shorts generator', path: '/features/ai-shorts' },
     { label: 'TXT to quiz video', path: '/features/txt-to-video-quiz' },
+    { label: 'Story to video', path: '/features/story-video' },
     { label: 'Watermark tool', path: '/features/watermark' },
   ];
 

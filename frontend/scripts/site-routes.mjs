@@ -39,6 +39,7 @@ export const INDEXED_ROUTES = [
   '/features/ai-shorts',
   '/features/txt-to-video-quiz',
   '/features/watermark',
+  '/features/story-video',
   '/blog',
 ];
 

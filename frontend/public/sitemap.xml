@@ -14,11 +14,11 @@
   </url>
   <url>
     <loc>https://indifferent.fun/privacy</loc>
-    <lastmod>2026-10-31</lastmod>
+    <lastmod>2026-11-04</lastmod>
   </url>
   <url>
     <loc>https://indifferent.fun/terms</loc>
-    <lastmod>2026-10-31</lastmod>
+    <lastmod>2026-11-04</lastmod>
   </url>
   <url>
     <loc>https://indifferent.fun/tools</loc>
@@ -37,6 +37,9 @@
   </url>
   <url>
     <loc>https://indifferent.fun/features/watermark</loc>
+  </url>
+  <url>
+    <loc>https://indifferent.fun/features/story-video</loc>
   </url>
   <url>
     <loc>https://indifferent.fun/blog</loc>
