@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -129,7 +130,7 @@ func TestAuthenticate_Success(t *testing.T) {
 		userInfoServer.URL,
 	)
 
-	tokens, err := svc.Authenticate(context.Background(), "valid-auth-code")
+	tokens, err := svc.Authenticate(context.Background(), "valid-auth-code", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -293,7 +294,7 @@ func TestLoginSessionRefreshRoundTrip(t *testing.T) {
 	httpClient := &testHTTPClient{client: http.DefaultClient}
 	loginSvc := newGoogleAuthServiceWithURLs(testConfig(), store, httpClient, tokenServer.URL, userInfoServer.URL)
 
-	tokens, err := loginSvc.Authenticate(context.Background(), "valid-auth-code")
+	tokens, err := loginSvc.Authenticate(context.Background(), "valid-auth-code", "")
 	if err != nil {
 		t.Fatalf("login failed: %v", err)
 	}
@@ -361,7 +362,7 @@ func TestAuthenticate_GoogleTokenExchangeFailure(t *testing.T) {
 		userInfoServer.URL,
 	)
 
-	_, err := svc.Authenticate(context.Background(), "expired-code")
+	_, err := svc.Authenticate(context.Background(), "expired-code", "")
 	if err == nil {
 		t.Fatal("expected error for token exchange failure, got nil")
 	}
@@ -405,7 +406,7 @@ func TestAuthenticate_GoogleUserInfoFetchFailure(t *testing.T) {
 		userInfoServer.URL,
 	)
 
-	_, err := svc.Authenticate(context.Background(), "valid-auth-code")
+	_, err := svc.Authenticate(context.Background(), "valid-auth-code", "")
 	if err == nil {
 		t.Fatal("expected error for userinfo fetch failure, got nil")
 	}
@@ -460,7 +461,7 @@ func TestAuthenticate_DynamoDBUserUpsertFailure(t *testing.T) {
 		userInfoServer.URL,
 	)
 
-	_, err := svc.Authenticate(context.Background(), "valid-auth-code")
+	_, err := svc.Authenticate(context.Background(), "valid-auth-code", "")
 	if err == nil {
 		t.Fatal("expected error for DynamoDB user upsert failure, got nil")
 	}
@@ -516,7 +517,7 @@ func TestAuthenticate_SessionCreationFailure(t *testing.T) {
 		userInfoServer.URL,
 	)
 
-	_, err := svc.Authenticate(context.Background(), "valid-auth-code")
+	_, err := svc.Authenticate(context.Background(), "valid-auth-code", "")
 	if err == nil {
 		t.Fatal("expected error for session creation failure, got nil")
 	}
@@ -596,7 +597,7 @@ func TestAuthenticate_EmailTakenByPasswordUser(t *testing.T) {
 	tokenURL, userURL := googleOAuthServers(t, "google-user-999", "taken@example.com")
 	svc := newGoogleAuthServiceWithURLs(testConfig(), store, &testHTTPClient{client: http.DefaultClient}, tokenURL, userURL)
 
-	if _, err := svc.Authenticate(context.Background(), "code"); !errors.Is(err, ErrEmailTaken) {
+	if _, err := svc.Authenticate(context.Background(), "code", ""); !errors.Is(err, ErrEmailTaken) {
 		t.Fatalf("expected ErrEmailTaken, got: %v", err)
 	}
 }
@@ -608,11 +609,85 @@ func TestAuthenticate_SameGoogleUserRelogin(t *testing.T) {
 	tokenURL, userURL := googleOAuthServers(t, "google-user-123", "test@example.com")
 	svc := newGoogleAuthServiceWithURLs(testConfig(), store, &testHTTPClient{client: http.DefaultClient}, tokenURL, userURL)
 
-	tokens, err := svc.Authenticate(context.Background(), "code")
+	tokens, err := svc.Authenticate(context.Background(), "code", "")
 	if err != nil {
 		t.Fatalf("re-login failed: %v", err)
 	}
 	if tokens.AccessToken == "" || tokens.RefreshToken == "" {
 		t.Fatal("expected a full token pair on re-login")
+	}
+}
+
+// ---- PKCE (SEC-07) ---------------------------------------------------------
+
+// exchangeBody runs one sign-in against a fake Google and returns the form the
+// token endpoint received.
+func exchangeBody(t *testing.T, codeVerifier string) url.Values {
+	t.Helper()
+	var received url.Values
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		received, _ = url.ParseQuery(string(raw))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(GoogleTokenResponse{AccessToken: "google-access-token", TokenType: "Bearer", ExpiresIn: 3600})
+	}))
+	defer tokenServer.Close()
+	userInfoServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(GoogleUserInfo{ID: "google-user-123", Email: "test@example.com", Name: "Test User"})
+	}))
+	defer userInfoServer.Close()
+	svc := newGoogleAuthServiceWithURLs(testConfig(), &mockDynamoDBClient{}, &testHTTPClient{client: http.DefaultClient}, tokenServer.URL, userInfoServer.URL)
+	if _, err := svc.Authenticate(context.Background(), "the-code", codeVerifier); err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+	return received
+}
+
+func TestAuthenticate_SendsThePKCEVerifierToGoogleWhenThereIsOne(t *testing.T) {
+	verifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk" // the RFC 7636 example
+	form := exchangeBody(t, verifier)
+	if got := form.Get("code_verifier"); got != verifier {
+		t.Errorf("code_verifier = %q, want %q (Google can only bind the code to the browser if it gets this)", got, verifier)
+	}
+	if form.Get("code") != "the-code" || form.Get("grant_type") != "authorization_code" {
+		t.Errorf("the rest of the exchange changed: %v", form)
+	}
+}
+
+func TestAuthenticate_SendsNoVerifierWhenThePageDidNotMakeOne(t *testing.T) {
+	form := exchangeBody(t, "")
+	if _, present := form["code_verifier"]; present {
+		t.Errorf("code_verifier was sent as %q although there was none; a page loaded before PKCE must still sign in", form.Get("code_verifier"))
+	}
+}
+
+func TestValidCodeVerifier(t *testing.T) {
+	forty3 := strings.Repeat("a", 43)
+	cases := []struct {
+		name string
+		v    string
+		want bool
+	}{
+		{"the RFC example", "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk", true},
+		{"shortest allowed", forty3, true},
+		{"longest allowed", strings.Repeat("a", 128), true},
+		{"every allowed punctuation", strings.Repeat("-._~", 11), true},
+		{"one too short", forty3[:42], false},
+		{"one too long", strings.Repeat("a", 129), false},
+		{"empty", "", false},
+		{"a space", forty3[:20] + " " + forty3[:22], false},
+		{"a plus sign", forty3[:20] + "+" + forty3[:22], false},
+		{"a slash", forty3[:20] + "/" + forty3[:22], false},
+		{"an equals sign (base64 padding)", forty3[:42] + "=", false},
+		{"a newline", forty3[:42] + "\n", false},
+		{"non-ASCII", forty3[:42] + "é", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidCodeVerifier(c.v); got != c.want {
+				t.Errorf("ValidCodeVerifier(%q) = %v, want %v", c.v, got, c.want)
+			}
+		})
 	}
 }

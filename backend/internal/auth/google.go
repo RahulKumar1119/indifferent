@@ -65,7 +65,31 @@ type HTTPClient interface {
 type GoogleAuthService interface {
 	// Authenticate exchanges a Google authorization code for user info,
 	// creates or updates the user in DynamoDB, and returns auth tokens.
-	Authenticate(ctx context.Context, authCode string) (*models.AuthTokens, error)
+	//
+	// codeVerifier is the PKCE verifier (RFC 7636) the browser made before it
+	// sent the user to Google. When it is not empty it goes to Google with the
+	// code, and Google refuses the code unless it matches the challenge the
+	// sign-in started with. That ties the code to the browser that began the
+	// flow, so a code obtained elsewhere cannot be redeemed here.
+	Authenticate(ctx context.Context, authCode, codeVerifier string) (*models.AuthTokens, error)
+}
+
+// ValidCodeVerifier reports whether v is a well-formed PKCE code verifier:
+// 43 to 128 characters from the unreserved set (RFC 7636, section 4.1).
+func ValidCodeVerifier(v string) bool {
+	if len(v) < 43 || len(v) > 128 {
+		return false
+	}
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9',
+			c == '-', c == '.', c == '_', c == '~':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // GoogleAuthConfig holds the configuration for Google OAuth.
@@ -111,9 +135,9 @@ func newGoogleAuthServiceWithURLs(cfg GoogleAuthConfig, db DynamoDBClient, httpC
 
 // Authenticate exchanges a Google authorization code for user info,
 // creates or updates the user in DynamoDB, and returns auth tokens.
-func (s *googleAuthService) Authenticate(ctx context.Context, authCode string) (*models.AuthTokens, error) {
+func (s *googleAuthService) Authenticate(ctx context.Context, authCode, codeVerifier string) (*models.AuthTokens, error) {
 	// Step 1: Exchange authorization code for Google access token
-	googleToken, err := s.exchangeCode(ctx, authCode)
+	googleToken, err := s.exchangeCode(ctx, authCode, codeVerifier)
 	if err != nil {
 		return nil, fmt.Errorf("exchange auth code: %w", err)
 	}
@@ -150,13 +174,17 @@ func (s *googleAuthService) Authenticate(ctx context.Context, authCode string) (
 }
 
 // exchangeCode exchanges the authorization code with Google's token endpoint.
-func (s *googleAuthService) exchangeCode(ctx context.Context, code string) (*GoogleTokenResponse, error) {
+// A non-empty codeVerifier is sent as code_verifier (PKCE).
+func (s *googleAuthService) exchangeCode(ctx context.Context, code, codeVerifier string) (*GoogleTokenResponse, error) {
 	data := url.Values{
 		"code":          {code},
 		"client_id":     {s.config.ClientID},
 		"client_secret": {s.config.ClientSecret},
 		"redirect_uri":  {s.config.RedirectURI},
 		"grant_type":    {"authorization_code"},
+	}
+	if codeVerifier != "" {
+		data.Set("code_verifier", codeVerifier)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.tokenURL, strings.NewReader(data.Encode()))

@@ -267,6 +267,11 @@ func (h *APIHandler) extractAndValidateToken(req events.APIGatewayProxyRequest) 
 func (h *APIHandler) handleGoogleCallback(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var body struct {
 		Code string `json:"code"`
+		// CodeVerifier is the PKCE verifier the browser made when it started the
+		// sign-in. Optional here so that a page loaded before the verifier was
+		// introduced can still finish a sign-in; when present it must be well
+		// formed and it is sent to Google with the code.
+		CodeVerifier string `json:"codeVerifier"`
 	}
 	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
@@ -275,8 +280,11 @@ func (h *APIHandler) handleGoogleCallback(ctx context.Context, req events.APIGat
 	if strings.TrimSpace(body.Code) == "" {
 		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Authorization code is required"), nil
 	}
+	if body.CodeVerifier != "" && !auth.ValidCodeVerifier(body.CodeVerifier) {
+		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Invalid code verifier"), nil
+	}
 
-	tokens, err := h.AuthService.Authenticate(ctx, body.Code)
+	tokens, err := h.AuthService.Authenticate(ctx, body.Code, body.CodeVerifier)
 	if err != nil {
 		if errors.Is(err, auth.ErrEmailTaken) {
 			return errorResponse(http.StatusConflict, "EMAIL_TAKEN", "An account with this email already exists"), nil
