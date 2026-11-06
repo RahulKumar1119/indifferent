@@ -158,4 +158,29 @@ describe('AuthService', () => {
     expect(resolved).toEqual(mockTokens);
     expect(service.getRefreshToken()).toBe('new-rt');
   });
+
+  describe('logoutAll', () => {
+    it('asks the server, then clears the local session and goes to the login page', () => {
+      service.setTokens({ accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 });
+      const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+      service.logoutAll().subscribe();
+      // Nothing is cleared until the server has answered.
+      expect(service.getAccessToken()).toBe('at');
+      httpTesting.expectOne(`${environment.apiUrl}/auth/logout-all`).flush(null, { status: 204, statusText: 'No Content' });
+      expect(service.getAccessToken()).toBeNull();
+      expect(service.getRefreshToken()).toBeNull();
+      expect(navigate).toHaveBeenCalledWith(['/login']);
+    });
+
+    it('keeps the session when the server fails, so the user can try again', () => {
+      service.setTokens({ accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 });
+      const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+      let failed = false;
+      service.logoutAll().subscribe({ error: () => (failed = true) });
+      httpTesting.expectOne(`${environment.apiUrl}/auth/logout-all`).flush('boom', { status: 500, statusText: 'Server Error' });
+      expect(failed).toBeTrue();
+      expect(service.getAccessToken()).toBe('at');
+      expect(navigate).not.toHaveBeenCalled();
+    });
+  });
 });

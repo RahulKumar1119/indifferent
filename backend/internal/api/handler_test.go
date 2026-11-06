@@ -112,6 +112,8 @@ func generateTestToken(userID string) string {
 	claims := jwt.MapClaims{
 		"userId": userID,
 		"email":  "test@example.com",
+		"iss":    auth.TokenIssuer,
+		"aud":    auth.TokenAudience,
 		"iat":    time.Now().Unix(),
 		"exp":    time.Now().Add(15 * time.Minute).Unix(),
 	}
@@ -125,6 +127,8 @@ func generateExpiredToken(userID string) string {
 	claims := jwt.MapClaims{
 		"userId": userID,
 		"email":  "test@example.com",
+		"iss":    auth.TokenIssuer,
+		"aud":    auth.TokenAudience,
 		"iat":    time.Now().Add(-30 * time.Minute).Unix(),
 		"exp":    time.Now().Add(-15 * time.Minute).Unix(),
 	}

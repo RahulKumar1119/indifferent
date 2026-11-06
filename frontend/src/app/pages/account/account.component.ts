@@ -59,13 +59,28 @@ import { UserProfile } from '../../shared/models/user-profile.model';
         </div>
       </div>
 
-      <button
-        class="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors font-medium"
-        (click)="signOut()"
-      >
-        <svg lucideIcon="log-out" [size]="18"></svg>
-        Sign Out
-      </button>
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors font-medium"
+          (click)="signOut()"
+        >
+          <svg lucideIcon="log-out" [size]="18"></svg>
+          Sign Out
+        </button>
+        <button
+          class="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-white/15 hover:bg-white/5 transition-colors font-medium disabled:opacity-60"
+          [disabled]="signingOutAll()"
+          (click)="signOutEverywhere()"
+        >
+          Sign out of all devices
+        </button>
+      </div>
+      <p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]">
+        Signing out of all devices ends every sign-in on this account. Other devices stop working within 15 minutes.
+      </p>
+      @if (signOutAllError()) {
+        <p class="mt-3 text-sm text-red-400" role="alert">{{ signOutAllError() }}</p>
+      }
     </div>
   `,
 })
@@ -89,7 +104,22 @@ export class AccountComponent implements OnInit {
     });
   }
 
+  readonly signingOutAll = signal(false);
+  readonly signOutAllError = signal('');
+
   signOut(): void {
     this.authService.logout();
+  }
+
+  signOutEverywhere(): void {
+    if (this.signingOutAll()) return;
+    this.signingOutAll.set(true);
+    this.signOutAllError.set('');
+    this.authService.logoutAll().subscribe({
+      error: () => {
+        this.signingOutAll.set(false);
+        this.signOutAllError.set('Could not sign you out of all devices. Please try again.');
+      },
+    });
   }
 }

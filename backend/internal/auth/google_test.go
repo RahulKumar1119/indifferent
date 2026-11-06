@@ -219,6 +219,16 @@ func (m *memoryDB) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemIn
 }
 
 func (m *memoryDB) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+	if params.UpdateExpression != nil && strings.Contains(*params.UpdateExpression, "sessionsRevokedBeforeMs") {
+		// LogoutAll: SET sessionsRevokedBeforeMs = :now on the user's profile.
+		k := itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))
+		item, ok := m.items[k]
+		if !ok {
+			return &dynamodb.UpdateItemOutput{}, &dbtypes.ConditionalCheckFailedException{Message: aws.String("condition failed")}
+		}
+		item["sessionsRevokedBeforeMs"] = params.ExpressionAttributeValues[":now"]
+		return &dynamodb.UpdateItemOutput{}, nil
+	}
 	if _, ok := params.ExpressionAttributeValues[":one"]; ok {
 		// "ADD attempts :one": atomic counter upsert (login attempt limit).
 		k := itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))

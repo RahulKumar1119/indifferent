@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -315,6 +316,8 @@ func (s *googleAuthService) generateAccessToken(userID, email string, now time.T
 	claims := jwt.MapClaims{
 		"userId": userID,
 		"email":  email,
+		"iss":    TokenIssuer,
+		"aud":    TokenAudience,
 		"iat":    now.Unix(),
 		"exp":    now.Add(AccessTokenTTL).Unix(),
 	}
@@ -350,14 +353,15 @@ func (s *googleAuthService) createSession(ctx context.Context, userID, email str
 	familyId := uuid.New().String()
 
 	item := map[string]dbtypes.AttributeValue{
-		"PK":           &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
-		"SK":           &dbtypes.AttributeValueMemberS{Value: "SESSION"},
-		"refreshToken": &dbtypes.AttributeValueMemberS{Value: tokenHash},
-		"userId":       &dbtypes.AttributeValueMemberS{Value: userID},
-		"email":        &dbtypes.AttributeValueMemberS{Value: email},
-		"familyId":     &dbtypes.AttributeValueMemberS{Value: familyId},
-		"expiresAt":    &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", expiresAt)},
-		"createdAt":    &dbtypes.AttributeValueMemberS{Value: now.UTC().Format(time.RFC3339)},
+		"PK":            &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
+		"SK":            &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+		"refreshToken":  &dbtypes.AttributeValueMemberS{Value: tokenHash},
+		"userId":        &dbtypes.AttributeValueMemberS{Value: userID},
+		"email":         &dbtypes.AttributeValueMemberS{Value: email},
+		"familyId":      &dbtypes.AttributeValueMemberS{Value: familyId},
+		"expiresAt":     &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", expiresAt)},
+		"createdAt":     &dbtypes.AttributeValueMemberS{Value: now.UTC().Format(time.RFC3339)},
+		"familyStartMs": &dbtypes.AttributeValueMemberN{Value: strconv.FormatInt(now.UnixMilli(), 10)},
 	}
 
 	_, err := s.db.PutItem(ctx, &dynamodb.PutItemInput{
