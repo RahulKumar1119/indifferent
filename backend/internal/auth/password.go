@@ -184,6 +184,12 @@ func (s *PasswordAuthService) Login(ctx context.Context, email, password string)
 		return nil, ErrInvalidCredentials
 	}
 
+	// Counted for unknown addresses too, so the limit does not reveal which
+	// addresses have an account.
+	if retryAfter, ok := s.countLoginAttempt(ctx, email); !ok {
+		return nil, &TooManyAttemptsError{RetryAfter: retryAfter}
+	}
+
 	idx, err := s.DB.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName:      aws.String(s.UsersTable),
 		Key:            emailKey(email),
@@ -220,6 +226,7 @@ func (s *PasswordAuthService) Login(ctx context.Context, email, password string)
 		return nil, ErrInvalidCredentials
 	}
 
+	s.clearLoginAttempts(ctx, email)
 	return s.issueTokens(ctx, userID, email)
 }
 
