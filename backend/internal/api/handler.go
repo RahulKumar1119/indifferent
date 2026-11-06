@@ -541,7 +541,7 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 		DesignOptions: body.DesignOptions,
 		Voice:         body.Voice,
 		Watermark:     body.Watermark,
-		Branding:      body.Branding,
+		Branding:      newProjectBranding(body.Branding),
 		Status:        "created",
 		CreatedAt:     now,
 		UpdatedAt:     now,
@@ -778,6 +778,17 @@ func (h *APIHandler) handleUpload(ctx context.Context, req events.APIGatewayProx
 	}), nil
 }
 
+// newProjectBranding is the branding a new project starts with. Only the channel
+// name comes from the client. The logo key never does: the one legitimate key is
+// made by handleLogoUpload, and a client-supplied value would let a project point
+// at, and then download or burn into a video, any object in the bucket.
+func newProjectBranding(in *models.Branding) *models.Branding {
+	if in == nil {
+		return nil
+	}
+	return &models.Branding{ChannelName: strings.TrimSpace(in.ChannelName)}
+}
+
 // handleLogoUpload generates a signed upload URL for a project's logo image
 // (PNG) and records its key on the project for branded renders.
 func (h *APIHandler) handleLogoUpload(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
@@ -786,7 +797,7 @@ func (h *APIHandler) handleLogoUpload(ctx context.Context, req events.APIGateway
 		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Project ID is required"), nil
 	}
 
-	logoKey := fmt.Sprintf("uploads/%s/%s/logo.png", claims.UserID, projectID)
+	logoKey := storage.ProjectLogoKey(claims.UserID, projectID)
 	uploadURL, err := h.S3.GenerateUploadURL(ctx, h.Bucket, logoKey, "image/png", storage.UploadURLExpiration)
 	if err != nil {
 		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to generate upload URL"), nil
@@ -886,6 +897,12 @@ func (h *APIHandler) handleGetLogoURL(ctx context.Context, req events.APIGateway
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
 	}
 	if project.Branding == nil || project.Branding.LogoKey == "" {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "No logo uploaded"), nil
+	}
+	// Records written before the create route stopped taking a client-supplied key
+	// could hold any key. Only the project's own logo is ever signed.
+	if !storage.IsProjectLogoKey(claims.UserID, projectID, project.Branding.LogoKey) {
+		log.Printf("logo_key_rejected route=get_logo project=%s", projectID)
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "No logo uploaded"), nil
 	}
 
@@ -1002,6 +1019,12 @@ func restoringResponse() events.APIGatewayProxyResponse {
 // when unbranded; Step Functions drops empty-string parameters).
 func projectLogoKey(project *models.Project) string {
 	if project.Branding == nil {
+		return ""
+	}
+	if !storage.IsProjectLogoKey(project.UserID, project.ProjectID, project.Branding.LogoKey) {
+		if project.Branding.LogoKey != "" {
+			log.Printf("logo_key_rejected route=start_pipeline project=%s", project.ProjectID)
+		}
 		return ""
 	}
 	return project.Branding.LogoKey
