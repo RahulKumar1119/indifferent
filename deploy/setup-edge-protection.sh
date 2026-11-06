@@ -116,9 +116,15 @@ CURRENT=$(aws lambda get-function-concurrency --function-name "$FUNCTION" --regi
 if [ "$CURRENT" = "$RESERVE" ]; then
   echo "already ${RESERVE}"
 else
-  aws lambda put-function-concurrency --function-name "$FUNCTION" \
+  # AWS refuses a reservation that leaves fewer than 50 slots unreserved. With
+  # the account limit at 50 that means none can be reserved until the limit is
+  # raised (Service Quotas, Lambda "Concurrent executions"). That must not stop
+  # the throttle, WAF and logs below, so it is a warning.
+  if ! aws lambda put-function-concurrency --function-name "$FUNCTION" \
     --reserved-concurrent-executions "$RESERVE" --region "$REGION" \
-    --query ReservedConcurrentExecutions --output text
+    --query ReservedConcurrentExecutions --output text; then
+    echo "WARNING: reserved concurrency was not set (see the message above). Raise the account's Lambda concurrency limit, then run this again." >&2
+  fi
 fi
 
 # --- 4 (log group first, the stage patch below needs it)
