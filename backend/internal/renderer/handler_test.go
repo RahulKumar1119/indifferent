@@ -423,3 +423,52 @@ func TestHandleRequest_MissingLogoFallsBack(t *testing.T) {
 		t.Errorf("expected unbranded bytes uploaded, got %q", got)
 	}
 }
+
+// The quiz renderer is handed a logo key by the API. It never receives the user
+// id, so it can only check that the key names this project; but a key naming any
+// other project (another user's logo, a rendered video) must never be read, and
+// the video must still be made, without a logo.
+func TestHandleRequest_ALogoKeyOfAnotherProjectIsNeverRead(t *testing.T) {
+	for _, bad := range []string{
+		"uploads/u2/victim-project/logo.png",
+		"output/victim-project/video.mp4",
+		"uploads/u1/proj9/input.txt",
+		"uploads/../proj9/logo.png",
+	} {
+		t.Run(bad, func(t *testing.T) {
+			store := newMockHandlerStorage()
+			store.objects["temp/proj9/slides/s1.png"] = []byte("s1")
+			store.objects["temp/proj9/audio/a1.mp3"] = []byte("a1")
+			store.objects[bad] = []byte("someone else's file")
+			var read []string
+			store.getFunc = func(ctx context.Context, bucket, key string) ([]byte, error) {
+				read = append(read, key)
+				if data, ok := store.objects[key]; ok {
+					return data, nil
+				}
+				return nil, fmt.Errorf("object not found: %s", key)
+			}
+			compositor := &mockHandlerCompositor{}
+			handler := NewHandler(compositor, &mockHandlerThumbnail{}, store, "test-bucket")
+
+			_, err := handler.HandleRequest(context.Background(), models.RendererInput{
+				ProjectID: "proj9",
+				SlideKeys: []string{"temp/proj9/slides/s1.png"},
+				AudioKeys: []string{"temp/proj9/audio/a1.mp3"},
+				JSONKey:   "parsed/proj9/questions.json",
+				LogoKey:   bad,
+			})
+			if err != nil {
+				t.Fatalf("a logo that is refused must not fail the render: %v", err)
+			}
+			for _, k := range read {
+				if k == bad {
+					t.Errorf("the renderer read %q, which is not this project's logo", bad)
+				}
+			}
+			if compositor.logoCalls != 0 {
+				t.Errorf("the overlay was applied %d times, want 0", compositor.logoCalls)
+			}
+		})
+	}
+}

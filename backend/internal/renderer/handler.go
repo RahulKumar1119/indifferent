@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/storage"
 )
 
 // CompositorInterface defines the video composition contract.
@@ -116,7 +117,11 @@ func (h *Handler) HandleRequest(ctx context.Context, input models.RendererInput)
 	// Optional brand logo overlay (top-right). Fail-soft: a missing logo
 	// must never block the finished video.
 	if input.LogoKey != "" {
-		if branded, berr := h.applyBranding(ctx, workDir, videoPath, input.LogoKey); berr != nil {
+		if !storage.LogoKeyBelongsToProject(input.ProjectID, input.LogoKey) {
+			// The API only ever passes the project's own logo. Any other key is
+			// not fetched, and the video is made without a logo.
+			fmt.Printf("branding skipped: the logo key does not belong to project %s\n", input.ProjectID)
+		} else if branded, berr := h.applyBranding(ctx, workDir, videoPath, input.LogoKey); berr != nil {
 			fmt.Printf("branding skipped: %v\n", berr)
 		} else {
 			videoPath = branded
