@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/golang-jwt/jwt/v5"
@@ -361,7 +362,7 @@ func TestRefreshToken_ReuseDetection(t *testing.T) {
 	tokenHash := hashToken(refreshToken)
 	familyID := "family-abc-123"
 
-	scanCalled := false
+	queryCalled := false
 	deletedKeys := []string{}
 
 	mock := &mockDynamoDBClient{
@@ -382,10 +383,19 @@ func TestRefreshToken_ReuseDetection(t *testing.T) {
 			// The atomic claim must fail on an already-rotated session.
 			return &dynamodb.UpdateItemOutput{}, &dbtypes.ConditionalCheckFailedException{}
 		},
-		scanFunc: func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
-			scanCalled = true
+		queryFunc: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+			queryCalled = true
+			if aws.ToString(params.IndexName) != FamilyIndexName {
+				t.Errorf("index = %q, want %q", aws.ToString(params.IndexName), FamilyIndexName)
+			}
+			if aws.ToString(params.KeyConditionExpression) != "familyId = :fid" {
+				t.Errorf("key condition = %q", aws.ToString(params.KeyConditionExpression))
+			}
+			if got := params.ExpressionAttributeValues[":fid"].(*dbtypes.AttributeValueMemberS).Value; got != familyID {
+				t.Errorf("family queried = %q, want %q", got, familyID)
+			}
 			// Return two sessions in the same family
-			return &dynamodb.ScanOutput{
+			return &dynamodb.QueryOutput{
 				Items: []map[string]dbtypes.AttributeValue{
 					{
 						"PK": &dbtypes.AttributeValueMemberS{Value: "SESSION#hash1"},
@@ -414,8 +424,8 @@ func TestRefreshToken_ReuseDetection(t *testing.T) {
 	if err != ErrTokenReuse {
 		t.Errorf("expected ErrTokenReuse, got: %v", err)
 	}
-	if !scanCalled {
-		t.Error("expected Scan to be called for family invalidation")
+	if !queryCalled {
+		t.Error("expected the family index to be queried for family invalidation")
 	}
 	if len(deletedKeys) != 2 {
 		t.Errorf("expected 2 sessions deleted, got %d", len(deletedKeys))
@@ -597,5 +607,37 @@ func TestRefreshToken_NonRotatedSessionWorks(t *testing.T) {
 	}
 	if tokens.AccessToken == "" {
 		t.Error("expected non-empty access token")
+	}
+}
+
+// A family bigger than one Query page must still be deleted whole.
+func TestInvalidateFamily_PagesThroughTheIndex(t *testing.T) {
+	pages := 0
+	var deleted []string
+	mock := &mockDynamoDBClient{
+		queryFunc: func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+			pages++
+			item := func(pk string) map[string]dbtypes.AttributeValue {
+				return map[string]dbtypes.AttributeValue{
+					"PK": &dbtypes.AttributeValueMemberS{Value: pk},
+					"SK": &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+				}
+			}
+			if params.ExclusiveStartKey == nil {
+				return &dynamodb.QueryOutput{
+					Items:            []map[string]dbtypes.AttributeValue{item("SESSION#a")},
+					LastEvaluatedKey: item("SESSION#a"),
+				}, nil
+			}
+			return &dynamodb.QueryOutput{Items: []map[string]dbtypes.AttributeValue{item("SESSION#b")}}, nil
+		},
+		deleteItemFunc: func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+			deleted = append(deleted, params.Key["PK"].(*dbtypes.AttributeValueMemberS).Value)
+			return &dynamodb.DeleteItemOutput{}, nil
+		},
+	}
+	newTestJWTService(mock).invalidateFamily(context.Background(), "fam")
+	if pages != 2 || len(deleted) != 2 {
+		t.Fatalf("pages=%d deleted=%v, want 2 pages and 2 deletes", pages, deleted)
 	}
 }

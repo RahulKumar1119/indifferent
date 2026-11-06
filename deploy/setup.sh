@@ -47,6 +47,22 @@ aws dynamodb update-time-to-live \
   --time-to-live-specification Enabled=true,AttributeName=expiresAt \
   --region $REGION 2>/dev/null || echo "TTL already enabled"
 
+# Index on familyId. When a rotated refresh token is replayed, the API Queries
+# this index to find and delete every session in the stolen family (a Scan would
+# need dynamodb:Scan, which the Lambda role does not have). It is created before
+# the API code that uses it is deployed. KEYS_ONLY: the code needs only PK and SK.
+aws dynamodb wait table-exists --table-name ${PROJECT}-sessions --region $REGION
+if aws dynamodb describe-table --table-name ${PROJECT}-sessions --region $REGION \
+     --query 'Table.GlobalSecondaryIndexes[].IndexName' --output text | grep -qw familyId-index; then
+  echo "familyId-index already exists"
+else
+  aws dynamodb update-table \
+    --table-name ${PROJECT}-sessions \
+    --attribute-definitions AttributeName=familyId,AttributeType=S \
+    --global-secondary-index-updates '[{"Create":{"IndexName":"familyId-index","KeySchema":[{"AttributeName":"familyId","KeyType":"HASH"}],"Projection":{"ProjectionType":"KEYS_ONLY"}}}]' \
+    --region $REGION --query 'TableDescription.TableStatus' --output text
+fi
+
 echo "=== Creating S3 Bucket ==="
 
 aws s3api create-bucket \
