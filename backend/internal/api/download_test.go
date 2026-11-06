@@ -37,12 +37,23 @@ type stubDownloader struct {
 	mpCompleteErr error
 	mpAbortErr    error
 	mpCalls       []string
+	sizedUploads  []sizedUpload
 	// mpAccel records the accelerate flag of each GenerateUploadPartURL call.
 	mpAccel []bool
 }
 
 func (s *stubDownloader) GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error) {
 	return "https://uploads.example/" + key, nil
+}
+
+func (s *stubDownloader) GenerateSizedUploadURL(ctx context.Context, bucket, key, contentType string, size int64, expiration time.Duration) (string, error) {
+	s.sizedUploads = append(s.sizedUploads, sizedUpload{key: key, size: size})
+	return fmt.Sprintf("https://uploads.example/%s?size=%d", key, size), nil
+}
+
+type sizedUpload struct {
+	key  string
+	size int64
 }
 
 func (s *stubDownloader) GenerateDownloadURL(ctx context.Context, bucket, key string, expiration time.Duration) (string, error) {

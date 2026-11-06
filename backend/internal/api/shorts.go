@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/shorts"
-	"github.com/rahul/indifferent/backend/internal/storage"
 )
 
 // CreateShortsRequest is the POST /shorts body.
@@ -29,6 +28,10 @@ type CreateShortsRequest struct {
 	Duration  float64 `json:"duration"`            // client-probed source duration in seconds
 	ProjectID string  `json:"projectId,omitempty"` // optional unified project to link
 	Language  string  `json:"language,omitempty"`  // auto | en-US | en-IN | hi-IN
+	// Size is the source file size in bytes. When sent it is signed into the
+	// upload URL, so S3 rejects a body of any other length. Optional while
+	// older web app versions are still around.
+	Size int64 `json:"size,omitempty"`
 }
 
 // CreateShortsResponse returns the created job and a presigned upload URL.
@@ -124,7 +127,14 @@ func (h *APIHandler) handleCreateShorts(ctx context.Context, req events.APIGatew
 		}
 	}
 
-	job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.FileType, body.Duration, projectID, body.Language)
+	if resp := checkUploadSize(body.Size, shortsMaxUploadBytes, "The file"); resp != nil {
+		return *resp, nil
+	}
+	if resp := h.checkQuota(ctx, claims.UserID, quotaShortsCreate); resp != nil {
+		return *resp, nil
+	}
+
+	job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.FileType, body.Duration, projectID, body.Language, body.Size)
 	if err != nil {
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", err.Error()), nil
 	}
@@ -138,11 +148,11 @@ func (h *APIHandler) handleCreateShorts(ctx context.Context, req events.APIGatew
 
 // createShortsJob validates, stores and presigns a new shorts job, linking it
 // into the given unified project when projectID is set.
-func (h *APIHandler) createShortsJob(ctx context.Context, userID, fileType string, duration float64, projectID, language string) (models.ShortsJob, string, error) {
+func (h *APIHandler) createShortsJob(ctx context.Context, userID, fileType string, duration float64, projectID, language string, size int64) (models.ShortsJob, string, error) {
 	job, contentType := newShortsJob(userID, fileType, duration, projectID, language)
 
 	// Presign before any write: S3 problems then fail with nothing persisted.
-	uploadURL, err := h.S3.GenerateUploadURL(ctx, h.Bucket, job.SourceKey, contentType, storage.UploadURLExpiration)
+	uploadURL, err := h.uploadURL(ctx, "shorts", job.SourceKey, contentType, size)
 	if err != nil {
 		return models.ShortsJob{}, "", fmt.Errorf("failed to generate upload URL")
 	}
@@ -399,6 +409,9 @@ func (h *APIHandler) handleRetryShorts(ctx context.Context, req events.APIGatewa
 	}
 	if job.Status != "failed" && job.Status != "delete_failed" {
 		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Only failed jobs can be retried"), nil
+	}
+	if resp := h.checkQuota(ctx, claims.UserID, quotaShortsRetry); resp != nil {
+		return *resp, nil
 	}
 
 	reset := *job

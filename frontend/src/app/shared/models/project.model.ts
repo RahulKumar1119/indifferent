@@ -140,6 +140,8 @@ export interface CreateProjectRequest {
     fileType: string;
     duration: number;
     language?: string;
+    /** Source size in bytes; signed into the upload URL. */
+    size?: number;
   };
 }
 

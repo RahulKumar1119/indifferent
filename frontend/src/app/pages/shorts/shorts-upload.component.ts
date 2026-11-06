@@ -628,7 +628,7 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
       this.transfer(saved.jobId, undefined, saved);
       return;
     }
-    this.shorts.createJob(this.fileType, this.durationSeconds, this.language).subscribe({
+    this.shorts.createJob(this.fileType, this.durationSeconds, this.language, this.selectedFile.size).subscribe({
       next: (res: CreateShortsResponse) => {
         this.lastJobId = res.jobId;
         this.transfer(res.jobId, res.uploadUrl, null);

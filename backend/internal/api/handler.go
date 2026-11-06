@@ -122,6 +122,10 @@ type APIHandler struct {
 	// embedded-metric lines. Nil records nothing, and recording never fails a
 	// request.
 	Metrics *storymetrics.Emitter
+
+	// QuotaTable holds the per-user daily counters (see quota.go). It must have
+	// TTL on expiresAt: the sessions table. Empty turns the quotas off.
+	QuotaTable string
 }
 
 // corsHeaders returns the standard CORS headers for all responses.
@@ -510,6 +514,7 @@ type CreateProjectShortsRequest struct {
 	FileType string  `json:"fileType"`
 	Duration float64 `json:"duration"`
 	Language string  `json:"language,omitempty"`
+	Size     int64   `json:"size,omitempty"` // source bytes; signed into the upload URL when sent
 }
 
 // CreateProjectResponse is the POST /projects body: the project plus, when
@@ -540,6 +545,15 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 		if err := validateCreateShorts(&CreateShortsRequest{FileType: body.Shorts.FileType, Duration: body.Shorts.Duration, Language: body.Shorts.Language}); err != nil {
 			return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", err.Error()), nil
 		}
+	}
+
+	if body.Shorts != nil {
+		if resp := checkUploadSize(body.Shorts.Size, shortsMaxUploadBytes, "The file"); resp != nil {
+			return *resp, nil
+		}
+	}
+	if resp := h.checkQuota(ctx, claims.UserID, quotaProjectCreate); resp != nil {
+		return *resp, nil
 	}
 
 	projectID := uuid.New().String()
@@ -577,7 +591,14 @@ func (h *APIHandler) handleCreateProject(ctx context.Context, req events.APIGate
 	// upload" (201 + warning) instead of stranding half-written rows: the job
 	// row is compensated away and the client proceeds quiz-only.
 	if body.Shorts != nil {
-		job, uploadURL, err := h.createShortsJob(ctx, claims.UserID, body.Shorts.FileType, body.Shorts.Duration, projectID, body.Shorts.Language)
+		var job models.ShortsJob
+		var uploadURL string
+		var err error
+		if retryAfter, ok := h.spendQuota(ctx, claims.UserID, quotaShortsCreate); !ok {
+			err = fmt.Errorf("daily Shorts upload limit reached, retry in %s", retryAfter.Round(time.Minute))
+		} else {
+			job, uploadURL, err = h.createShortsJob(ctx, claims.UserID, body.Shorts.FileType, body.Shorts.Duration, projectID, body.Shorts.Language, body.Shorts.Size)
+		}
 		if err != nil {
 			log.Printf("create_project_shorts_leg_failed user=%s project=%s err=%v", claims.UserID, projectID, err)
 			resp.Warning = "Project created, but the linked Shorts upload could not be prepared. You can still create shorts separately from Shorts history."
@@ -779,8 +800,16 @@ func (h *APIHandler) handleUpload(ctx context.Context, req events.APIGatewayProx
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Project not found"), nil
 	}
 
+	size := declaredSize(req.Body)
+	if resp := checkUploadSize(size, maxTextUploadBytes, "The file"); resp != nil {
+		return *resp, nil
+	}
+	if resp := h.checkQuota(ctx, claims.UserID, quotaUploadURL); resp != nil {
+		return *resp, nil
+	}
+
 	s3Key := fmt.Sprintf("uploads/%s/%s/input.txt", claims.UserID, projectID)
-	uploadURL, err := h.S3.GenerateUploadURL(ctx, h.Bucket, s3Key, "text/plain", storage.UploadURLExpiration)
+	uploadURL, err := h.uploadURL(ctx, "text", s3Key, "text/plain", size)
 	if err != nil {
 		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to generate upload URL"), nil
 	}
@@ -809,8 +838,16 @@ func (h *APIHandler) handleLogoUpload(ctx context.Context, req events.APIGateway
 		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Project ID is required"), nil
 	}
 
+	size := declaredSize(req.Body)
+	if resp := checkUploadSize(size, maxLogoUploadBytes, "The logo"); resp != nil {
+		return *resp, nil
+	}
+	if resp := h.checkQuota(ctx, claims.UserID, quotaUploadURL); resp != nil {
+		return *resp, nil
+	}
+
 	logoKey := storage.ProjectLogoKey(claims.UserID, projectID)
-	uploadURL, err := h.S3.GenerateUploadURL(ctx, h.Bucket, logoKey, "image/png", storage.UploadURLExpiration)
+	uploadURL, err := h.uploadURL(ctx, "logo", logoKey, "image/png", size)
 	if err != nil {
 		return errorResponse(http.StatusInternalServerError, "S3_ERROR", "Failed to generate upload URL"), nil
 	}

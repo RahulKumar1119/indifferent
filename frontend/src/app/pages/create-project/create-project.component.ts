@@ -502,6 +502,7 @@ export class CreateProjectComponent implements OnInit {
         fileType: this.shortsFileType,
         duration: this.shortsDuration,
         language: this.shortsLanguage,
+        size: this.shortsFile.size,
       };
     }
 

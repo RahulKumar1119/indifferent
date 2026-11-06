@@ -248,6 +248,10 @@ func (h *APIHandler) handleStartThumbnails(ctx context.Context, req events.APIGa
 		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Thumbnails can be made once the video has been processed."), nil
 	}
 
+	if resp := h.checkQuota(ctx, claims.UserID, quotaThumbnails); resp != nil {
+		return *resp, nil
+	}
+
 	store := h.thumbnailStore()
 	if err := store.Queue(ctx, claims.UserID, route.jobID, style, format); err != nil {
 		if errors.Is(err, thumbnail.ErrInFlight) {
