@@ -1,12 +1,13 @@
 # TXT2Video (Indifferent)
 
-**TXT2Video** is the AI video studio behind [indifferent.fun](https://indifferent.fun). It turns plain text and long recordings into publish-ready video:
+**TXT2Video** is the AI video studio behind [indifferent.fun](https://indifferent.fun). It turns plain text, written stories and long recordings into publish-ready video:
 
 - **Quiz films** — upload a `.txt` file of multiple-choice questions and get a narrated 1920×1080 MP4 with answer reveals, transitions and optional channel branding.
 - **AI Shorts** — upload a video or audio file up to 1 hour / 2 GB and get up to three ranked 1080×1920 clips with burned-in captions and face-aware framing.
+- **Story to video**: paste a short story and get a narrated 1080×1920 MP4 of up to 90 seconds. A model plans the scenes, you confirm a stock photo or clip from Pexels or Pixabay for each one, and Amazon Polly narrates it in the story's own language.
 - **Watermark tool** — add a watermark to an image entirely in the browser; nothing is uploaded to a server.
 
-One account holds every quiz project and shorts job, with progress, previews, thumbnails and downloads in one place. Output is ready for YouTube, Shorts, Reels or any other platform.
+One account holds every quiz project, shorts job and story video, with progress, previews, thumbnails and downloads in one place. Output is ready for YouTube, Shorts, Reels or any other platform.
 
 **Live:** https://indifferent.fun
 
@@ -18,6 +19,7 @@ One account holds every quiz project and shorts job, with progress, previews, th
 - [Architecture](#architecture)
 - [Quiz film pipeline](#quiz-film-pipeline)
 - [AI Shorts pipeline](#ai-shorts-pipeline)
+- [Story to video pipeline](#story-to-video-pipeline)
 - [AI thumbnails pipeline](#ai-thumbnails-pipeline)
 - [Authentication and sessions](#authentication-and-sessions)
 - [Data model](#data-model)
@@ -36,15 +38,17 @@ One account holds every quiz project and shorts job, with progress, previews, th
 
 ## What it does
 
-Three products share one account, one asset bucket and one project model:
+Four products share one account and one asset bucket:
 
 | Product | Input | Output |
 |---|---|---|
 | **Quiz films** | A TXT file of multiple-choice questions | A 1920×1080 MP4 with narrated questions, answer highlights and transitions |
 | **AI Shorts Generator** | A video or audio file (up to 1 hour / 2 GB) | Up to three 1080×1920 clips with burned-in captions and subject-aware cropping |
+| **Story to video** | A short story (30 to 5,000 characters) | A narrated 1080×1920 MP4 of up to 90 seconds, with the stock photos and clips you chose, scene by scene |
 | **Watermark tool** | An image, in the browser | A watermarked image. Nothing is uploaded to a server |
 
 Projects are unified: one project holds quiz configuration, linked shorts jobs and saved watermark preferences. Everything is visible on the project page across logins, and a shorts history page lists every job newest-first.
+Story plans and story videos belong to the account, not to a project. Each plan is saved on its own, and each video is made from one confirmed plan.
 
 ## Architecture
 
@@ -64,17 +68,20 @@ flowchart TB
 
     subgraph Compute["Compute"]
         API["api Lambda<br/>Go router · auth · presigning"]
-        SFN["Step Functions<br/>quiz · shorts · thumbnails state machines"]
+        SFN["Step Functions<br/>quiz · shorts · thumbnails · story state machines"]
         LAMBDAS["Pipeline Lambdas<br/>parser · slidegen · narrator<br/>statusupdater · notifier<br/>shorts-transcribe · shorts-rank"]
         RENDERER["renderer Lambda<br/>container image + FFmpeg"]
-        FARGATE["ECS Fargate / Fargate Spot<br/>shorts-render · thumbnails"]
+        FARGATE["ECS Fargate / Fargate Spot<br/>shorts-render · story-render · thumbnails"]
     end
 
     subgraph Data["State and storage"]
-        DDB[("DynamoDB<br/>users · projects · sessions")]
+        DDB[("DynamoDB<br/>users · projects · sessions · stock cache")]
         S3[("S3<br/>indifferent-fun-assets")]
     end
 
+    subgraph Stock["Stock media"]
+        STOCKLIB["Pexels and Pixabay<br/>photo and clip search and files"]
+    end
     subgraph AWS["AWS AI and messaging"]
         POLLY["Amazon Polly"]
         TRANSCRIBE["Amazon Transcribe"]
@@ -109,13 +116,17 @@ flowchart TB
     FARGATE --> BEDROCK
     FARGATE --> S3
     FARGATE --> DDB
+    API -->|"story plans"| BEDROCK
+    API -->|"stock search"| STOCKLIB
+    FARGATE -->|"story narration"| POLLY
+    FARGATE -->|"download chosen files"| STOCKLIB
 ```
 
 ### Component responsibilities
 
 | Component | Runtime | Responsibility |
 |---|---|---|
-| `api` | Lambda (Go) | REST routing, JWT auth, OAuth/password login, project and shorts CRUD, presigned upload/download URLs, starting Step Functions executions |
+| `api` | Lambda (Go) | REST routing, JWT auth, OAuth/password login, project, shorts and story CRUD, presigned upload/download URLs, stock-media search, story planning with Bedrock, starting Step Functions executions |
 | `parser` | Lambda (Go) | Detects the TXT format and extracts questions, options and correct answers into structured JSON in S3 |
 | `slidegen` | Lambda (Go, 1024 MB) | Renders question and answer slides as 1920×1080 PNGs using the selected design (palette, type scale and layout) |
 | `narrator` | Lambda (Go) | Synthesizes question and answer narration with Amazon Polly, one MP3 per slide |
@@ -125,8 +136,11 @@ flowchart TB
 | `shorts-transcribe` | Lambda (Go) | Starts and polls Amazon Transcribe jobs, then normalizes the transcript to S3 |
 | `shorts-rank` | Lambda (Go) | Asks a Bedrock model for the most engaging moments and validates the returned segments |
 | `shorts-render` | ECS Fargate / Fargate Spot | Reframes, captions and renders one 9:16 clip per task |
+| `story-render` | ECS Fargate / Fargate Spot | Copies the chosen stock files into the bucket, narrates each scene with Polly, renders the 9:16 video with FFmpeg, and writes its own progress and end state on the job record. A restarted task skips the scenes already copied |
 | `thumbnails` | ECS Fargate / Fargate Spot | Extracts frames, scores them, calls Rekognition and Bedrock, and draws three thumbnail concepts |
 | `templatepreview` | Go tool | Generates preview images for the slide designs used by the landing page and API |
+| `storypipeline` | Go tool | Prints the story state machine definition with its placeholders filled in, so `deploy/setup-storyvideo.sh` deploys what the tests check |
+| `storydashboard` | Go tool | Prints the CloudWatch dashboard for the Story video success metrics, for `deploy/setup-story-metrics.sh` |
 
 Each processing stage (ParseTXT, GenerateSlides, Narrate, Render) retries twice with exponential backoff (`IntervalSeconds` 3–10, `BackoffRate` 2.0). Every stage catches `States.ALL` and routes to `MarkFailed`; notification states catch their own errors so an email failure cannot change the job outcome.
 
@@ -211,6 +225,36 @@ flowchart TB
 
 Audio-only sources skip thumbnails and are rendered on a solid 1080×1920 canvas.
 
+## Story to video pipeline
+Source: [`backend/internal/storyjob/pipeline/statemachine.json`](backend/internal/storyjob/pipeline/statemachine.json). The record, the stages and what was and was not checked are in [`backend/internal/storyjob/README.md`](backend/internal/storyjob/README.md).
+```mermaid
+flowchart TB
+    START([StartExecution]) --> SPOT["RunOnSpot<br/>story-render on Fargate Spot<br/>20 minute timeout"]
+    SPOT -. retry up to twice .-> SPOT
+    SPOT -. retries spent or timeout .-> DEMAND["RunOnDemand<br/>Fargate, one attempt"]
+    SPOT --> READ["ReadJob<br/>consistent read of the job record"]
+    DEMAND --> READ
+    DEMAND -. failure .-> MARK["MarkFailed"]
+    READ --> ENDED{"How did it end?"}
+    ENDED -->|completed| OK["NotifyCompleted"]
+    ENDED -->|failed| BAD["NotifyFailed"]
+    ENDED -->|still running| MARK
+    ENDED -->|gone| GONE([Gone])
+    MARK --> BAD
+    OK --> END([End])
+    BAD --> END
+```
+The diagram leaves out the second read after `MarkFailed`, which keeps a job that finished in the meantime from being reported as failed.
+
+**Stages**
+1. **Plan** (in the API, before any job exists): the story goes to Bedrock and comes back as 2 to 10 scenes of at most 90 seconds in all, each with narration, a length, a visual description and stock-search keywords. The plan is saved as a `STORYPLAN#` item. The user edits narration and chooses, replaces or removes each scene's picture from a Pexels or Pixabay search. Saves carry the plan's `revision`, so two tabs cannot overwrite each other.
+2. **Make the video**: `POST /story-videos` checks the confirmed plan (every scene has a picture, the language can be narrated, the voice can read it), writes a `STORYVIDEO#` record, starts the state machine and answers `202`. Nothing is spent on a plan that cannot be rendered.
+3. **Copy** (`preparing`): for each scene the asset is looked up again, because provider links expire, downloaded under the stock layer's checks, measured with ffprobe and stored under `storyvideo-work/<userId>/<jobId>/`. Each copy is recorded on the job as it finishes, so a restarted task skips the scenes already stored. A stock file host that answers `429` is waited out: three quick tries, then waits of 20, 40 and 80 seconds, with at most 4 minutes of waiting per job. If it still refuses, the task exits as retryable and the state machine runs it again after a longer wait.
+4. **Narrate** (`narrating`): Polly makes the voice and the word timings for each scene, in the story's own language (English or Hindi). The audio's length is measured from the file, and the whole video is checked against 90 seconds before any rendering starts.
+5. **Render** (`rendering`): FFmpeg lays the scenes out with their narration and burned-in captions as a 1080×1920 H.264 + AAC MP4 at 30 fps, and the file is stored at `storyvideo/<userId>/<jobId>/video.mp4`.
+6. **Finish**: a task exits `0` even when the job failed, so it is not retried, and the state machine therefore reads the job record to find out how it ended. It then sends the notification email. Working files expire after 7 days, and the finished video stays until the user deletes it.
+
+Spot failures are retried twice, 60 and 120 seconds apart. The gap is long on purpose: a throttled file host holds off for minutes, and a task restarted at once only meets the same throttle.
 ## AI thumbnails pipeline
 
 Source: [`backend/internal/shorts/pipeline/thumbnails.json`](backend/internal/shorts/pipeline/thumbnails.json)
@@ -281,6 +325,8 @@ DynamoDB is single-table per concern, with composite `PK`/`SK` keys:
 | `indifferent-fun-projects` | Shorts job | `USER#<userId>` | `SHORTS#<jobId>` | Source metadata, status, progress, transcript key, ranked segments, clips, caption style, edits |
 | `indifferent-fun-projects` | Thumbnail set | `USER#<userId>` | `THUMBS#<jobId>` | Generation, stage, progress, three suggestions, selection |
 | `indifferent-fun-projects` | Story plan | `USER#<userId>` | `STORYPLAN#<planId>` | One item per planning attempt: status (`pending`, `ready`, `failed`), model, story length, detected script, error code, and the plan as JSON. The story text is never stored. `planId` is a UUIDv7, so the sort key orders by creation time |
+| `indifferent-fun-projects` | Story video | `USER#<userId>` | `STORYVIDEO#<jobId>` | Status and progress, the plan's scenes with the copied media and narration keys, language, voice, caption style, output key, and on failure an error code and the stage that failed. `jobId` is a UUIDv7, so the sort key orders by creation time |
+| `indifferent-fun-stock-cache` | Stock search result | cache key | none | A 24 hour cache of stock-library searches that every container shares, with an epoch item that flushes it. Time to live on `expiresAt`. Created by `deploy/setup-stock-cache.sh` |
 
 S3 layout (`indifferent-fun-assets`):
 
@@ -291,6 +337,8 @@ S3 layout (`indifferent-fun-assets`):
 | `temp/<projectId>/` | Generated slides and audio | Deleted after 7 days |
 | `output/<projectId>/` | Final quiz video and thumbnail | Stays in Standard |
 | `shorts/<userId>/<jobId>/` | Transcripts, raw Transcribe output, clips, thumbnails | Clips stay in Standard for gallery playback |
+| `storyvideo-work/<userId>/<jobId>/` | Copied stock files, narration audio and word timings | Deleted after 7 days |
+| `storyvideo/<userId>/<jobId>/` | The finished story video | Kept until the user deletes it |
 
 Incomplete multipart uploads are aborted after 1 day. Objects under 128 KB never transition to Glacier (S3 minimum billable size). The bucket has versioning, AES-256 server-side encryption and public access blocked. Downloads use presigned URLs.
 
@@ -306,6 +354,9 @@ Incomplete multipart uploads are aborted after 1 day. Objects under 128 KB never
 - AI Shorts: transcription, Bedrock engagement ranking, subject-tracked 9:16 rendering on Fargate Spot
 - Caption presets (`bold`, `minimal`, `karaoke`, `clean`), editable clip boundaries and caption text
 - AI thumbnails: frame scoring, Rekognition faces/objects, Bedrock vision, three design concepts, preview/select/download/regenerate
+- Story to video: a model plans scenes from a written story, a stock photo or clip is chosen per scene from Pexels and Pixabay, Polly narrates in the story's own language, and a resumable Fargate task renders the 9:16 video
+- Stock-media handling for Story videos: searches cached for 24 hours in a table every container shares, retries with backoff, throttle waits for the file host, and the provider credit shown wherever a picture is chosen
+- Success metrics for Story videos on a CloudWatch dashboard (`indifferent-fun-story`)
 - Shorts history dashboard and per-job clip gallery
 - Channel branding: uploaded logo overlay and handle on renders
 - Email notifications on completion or failure, with per-user preferences
@@ -378,6 +429,18 @@ Mark correct answers with a `*` suffix. Multiple `*` markers are supported for m
 - Captions: burned in, word-level timing from Transcribe
 - Crop: face-tracked when a face is found, otherwise blur-fill
 
+**Story to video limits** (enforced by the API and exposed through `GET /story-plans/limits` and `GET /story-videos/limits`):
+- Story: 30 to 5,000 characters. A longer story is summarised, because 90 seconds of speech holds about 225 words
+- Plan: 2 to 10 scenes, 2 to 15 seconds each. The whole video is 10 to 90 seconds, and the planner aims for 30 to 60
+- Voices: Joanna, Matthew, Amy, Brian and Aditi for English; Aditi for Hindi. Narration is never translated
+- Per account: 20 plans an hour, 2 videos being made at once and 10 started in 24 hours (cancelled and failed ones count)
+
+**Story video output:**
+- Resolution: 1080×1920 (9:16), 30 fps
+- Video: H.264, audio: AAC
+- Captions: burned in, timed to the Polly word timings, or spread evenly when the timings cannot be used
+- The download is the finished video only, never the stock files on their own
+
 ## Tech stack
 
 | Layer | Technology | Purpose |
@@ -389,16 +452,18 @@ Mark correct answers with a `*` suffix. Multiple `*` markers are supported for m
 | PWA | Angular service worker + web manifest | Installable app and asset caching |
 | Backend | Go 1.26 | Lambda functions, API and workers |
 | Auth | Google OAuth + email/password + JWT | Authentication and sessions |
-| Database | DynamoDB (on-demand) | Users, sessions, projects, shorts jobs, thumbnails |
+| Database | DynamoDB (on-demand) | Users, sessions, projects, shorts jobs, thumbnails, story plans and videos, stock cache |
 | Storage | S3 + Glacier lifecycle | Uploads, slides, audio, clips, videos |
-| Narration | Amazon Polly (Standard) | 5 English voices |
+| Narration | Amazon Polly (Standard) | 5 voices; Aditi also narrates Hindi in Story videos |
 | Transcription | Amazon Transcribe | Word-level timestamps for Shorts |
 | Ranking | Amazon Bedrock (Moonshot Kimi K3 by default) | Engagement scoring; Nova Pro and Claude fallbacks |
+| Story planning | Amazon Bedrock (Moonshot Kimi by default; Nova and Claude selectable with `PLANNING_MODEL`) | Splits a story into scenes with narration and search keywords |
+| Stock media | Pexels and Pixabay APIs | Photos and clips for Story videos; results cached for 24 hours |
 | Faces/objects | Amazon Rekognition (`DetectFaces`, `DetectLabels`) | Reframing and thumbnail scoring |
 | Thumbnails | Rekognition + Bedrock vision (Claude Haiku 4.5 by default) | Three AI thumbnail concepts |
 | Video | FFmpeg (static binary / container image) | MP4 composition, reframing, captions, thumbnails |
 | Slides | Go native image rendering | 1920×1080 PNG generation |
-| Orchestration | AWS Step Functions | Quiz, shorts and thumbnail state machines |
+| Orchestration | AWS Step Functions | Quiz, shorts, thumbnail and story state machines |
 | Containers | Amazon ECS Fargate + Fargate Spot | Render and thumbnail tasks |
 | Frontend hosting | AWS Amplify Hosting | SPA delivery and custom domain |
 | API | Amazon API Gateway | REST API with custom domain |
@@ -422,6 +487,9 @@ Mark correct answers with a `*` suffix. Multiple `*` markers are supported for m
 │   │   ├── shortstranscribe/       # Transcribe start/poll worker
 │   │   ├── shortsrank/             # Bedrock engagement ranking worker
 │   │   ├── shortsrender/           # Fargate 9:16 render task
+│   │   ├── storyrender/            # Fargate story-video render task
+│   │   ├── storypipeline/          # Prints the story state machine
+│   │   ├── storydashboard/         # Prints the story metrics dashboard
 │   │   ├── thumbnails/             # Fargate AI thumbnail task
 │   │   └── templatepreview/        # Slide-template preview generator
 │   ├── internal/
@@ -437,14 +505,20 @@ Mark correct answers with a `*` suffix. Multiple `*` markers are supported for m
 │   │   ├── renderer/               # FFmpeg compositor + handler
 │   │   ├── shorts/                 # Transcribe, rank, render, pipeline JSON
 │   │   ├── slidegen/               # Native slide renderer + themes
+│   │   ├── stockcache/             # Stock-search cache shared by every container
+│   │   ├── stockmedia/             # Pexels and Pixabay search, retries, licence notes
 │   │   ├── storage/                # S3 client, presigning, Glacier restore
+│   │   ├── storyjob/               # Story video job: copy, narrate, render, runner
+│   │   ├── storymetrics/           # CloudWatch metrics for Story videos
+│   │   ├── storyplan/              # Story to plan (Bedrock) and plan editing
+│   │   ├── storyvideo/             # Timeline, captions and the FFmpeg command
 │   │   └── thumbnail/              # Extract, score, analyze, plan, render
 │   └── templates/classic/          # Legacy HTML slide templates
 ├── frontend/                       # Angular 20 SPA
 │   ├── src/app/
 │   │   ├── auth/                   # OAuth callback, login, guards
 │   │   ├── core/                   # Services, interceptors, API client
-│   │   ├── pages/                  # Landing, dashboard, projects, shorts, tools, blog…
+│   │   ├── pages/                  # Landing, dashboard, projects, shorts, story, tools, blog…
 │   │   ├── projects/               # Project domain components
 │   │   ├── shared/                 # Shared models and helpers
 │   │   └── types/                  # TypeScript domain types
@@ -675,7 +749,7 @@ Story2Shorts phase 2 (issue #191). A story goes in; a plan comes out: a hook, th
   - **Replacement rate**: pictures swapped or removed ÷ pictures chosen. Again nothing is suggested, so this is how often a chosen picture later changes. `NarrationsEdited` counts text edits, for the parent issue's "user edits".
   Rates are per day, so a quiet day is noisy. CloudWatch may, rarely, record a value twice, so the rates are a guide, not an audit. The notifier counts an execution once, with a `metricsExecution` attribute on the job record, so its own retries do not double a count. About a dozen metrics plus one per failure code that occurs: check CloudWatch's current per-metric price.
 - **Licensing and attribution (issue #194).** What Pexels and Pixabay ask for, what the product does about each point, what could not be verified, and what is left for the owner to decide are in [`backend/internal/stockmedia/LAUNCH_CHECKLIST.md`](backend/internal/stockmedia/LAUNCH_CHECKLIST.md) (the rules themselves are in [`TERMS.md`](backend/internal/stockmedia/TERMS.md)). In the product: the picker credits the libraries above its results and asks people to check a picture for logos, recognisable people and private homes; the Terms (section 05) and Privacy pages cover Story videos; the finished-video panel says the download is the video only. It is an engineering summary, not legal advice, and the terms must be re-read before a commercial launch.
-- **Story videos (issue #193).** A confirmed plan becomes a finished MP4: the chosen pictures are copied, each scene is narrated with Polly, and a Fargate task (`backend/cmd/storyrender`, started by the `indifferent-fun-story-pipeline` state machine, Spot first) renders it. Routes: `GET /story-videos/limits` (no sign-in), `POST /story-videos`, `GET /story-videos[?planId=]`, `GET /story-videos/{id}`, `POST /story-videos/{id}/cancel`, `GET /story-videos/{id}/download` (a short-lived link) and `DELETE /story-videos/{id}`. A user may have 2 videos in the making and start 10 a day; the limits are code defaults, not settings. Working files live under `storyvideo-work/` and expire after 7 days; the finished video stays under `storyvideo/` until the user deletes it. Setup is step 8 of the deploy list above; the record, the stages and what was and was not checked are in [`backend/internal/storyjob/README.md`](backend/internal/storyjob/README.md).
+- **Story videos (issue #193).** A confirmed plan becomes a finished MP4: the chosen pictures are copied, each scene is narrated with Polly, and a Fargate task (`backend/cmd/storyrender`, started by the `indifferent-fun-story-pipeline` state machine, Spot first) renders it. The routes are listed under [Story videos](#story-videos). A user may have 2 videos in the making and start 10 a day; the limits are code defaults, not settings. Working files live under `storyvideo-work/` and expire after 7 days; the finished video stays under `storyvideo/` until the user deletes it. Setup is step 8 of the deploy list above; the record, the stages and what was and was not checked are in [`backend/internal/storyjob/README.md`](backend/internal/storyjob/README.md).
 - **English only.** A search written only in Hindi or another Indian script is refused with `400`, because the providers return nothing for it and the empty answer would look like "no matching media". Mixed text is allowed.
 - **Language.** Narration and the hook stay in the story's own language and script and are never translated. Keywords and descriptions are always English, because Pexels and Pixabay return nothing for Hindi.
 - **Limits.** The story must be 30 to 5,000 characters (characters, not bytes). Each user gets 20 plans an hour, failed attempts included; past that the answer is `429` with `Retry-After`.
@@ -684,6 +758,18 @@ Story2Shorts phase 2 (issue #191). A story goes in; a plan comes out: a hook, th
 - **Privacy.** The story is sent to the model and not stored or logged; only its length is.
 - **Screens (phase 3, issue #192).** Signed-in pages at `/story` (paste a story) and `/story/:id` (the plan: edit each scene's narration, choose, replace or remove its picture with a search of Pexels and Pixabay through this API, then save). They are not linked from the navigation yet, so they are reachable by address only until the planner is switched on. Both are blocked in `robots.txt` and marked `noindex`. The code is in `frontend/src/app/pages/story/`; `describeProblem` there holds the wording for every failure the API can return, so a screen never shows a bare status code. Saving sends the revision the page loaded; if the plan changed elsewhere the page keeps the user's edits on screen, says nothing was saved, and offers to reload.
 
+### Story videos
+A confirmed plan becomes a finished MP4 (see [Story to video pipeline](#story-to-video-pipeline)). Every route needs sign-in except `limits`.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/story-videos/limits` | What an account may do: videos at once, videos a day, the longest video, and the voices for each language. No sign-in needed |
+| POST | `/story-videos` | Make a video from `{planId, revision, voice?, caption?}`. Answers `202` with the `jobId`. Refused before anything is spent when a scene has no picture or the language or voice cannot be narrated |
+| GET | `/story-videos` | The account's videos, newest first. `?planId=` narrows it to one plan |
+| GET | `/story-videos/:id` | One video's `status` and `progress`, and on failure its `errorCode`, `failedStage` and a message that is fit to show |
+| POST | `/story-videos/:id/cancel` | Stop a video that is being made |
+| GET | `/story-videos/:id/download` | A short-lived link (15 minutes) to the finished MP4: `{url, filename, expiresInSeconds}` |
+| DELETE | `/story-videos/:id` | Remove a finished or cancelled video and its files |
+Over a limit the answer is `429` `RATE_LIMITED` with the seconds to wait in `details.retryAfter`. With no state machine configured (`STORYVIDEO_STATE_MACHINE_ARN` unset) `POST /story-videos` answers `503` and the other routes keep working.
 ### AI thumbnails
 
 | Method | Path | Description |
@@ -707,7 +793,7 @@ npm test                  # Karma + Jasmine
 npm run build             # production build
 ```
 
-The backend uses property-based tests (`pgregory.net/rapid`) for parser, ranking validation, caption timing and rendering invariants, plus golden-image tests for the slide designs. CodeQL runs on pushes and pull requests to `main` and on a weekly schedule.
+The backend uses property-based tests (`pgregory.net/rapid`) for parser, ranking validation, caption timing and rendering invariants, plus golden-image tests for the slide designs. CodeQL runs on pushes and pull requests to `main` and on a weekly schedule. The deploy scripts have their own tests, which run the real scripts against a stand-in for the `aws`, `docker` and `git` commands and touch nothing in AWS: `python3 -m unittest discover -s deploy/tests`.
 
 ## Security notes
 
@@ -718,6 +804,7 @@ The backend uses property-based tests (`pgregory.net/rapid`) for parser, ranking
 - Fargate render and thumbnail tasks run in a dedicated security group with no inbound rules and outbound HTTPS only. S3 and DynamoDB use gateway VPC endpoints.
 - Secrets are supplied through environment variables and are never committed; `.env` files are ignored.
 - Email sending uses a verified SES identity with bounce/complaint alarms.
+- Stock-library API keys (Pexels, Pixabay) are used by the backend only and never sent to the browser. The render task reads them from SSM SecureString parameters, and the deploy scripts never print them.
 
 ## License
 
