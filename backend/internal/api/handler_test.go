@@ -93,12 +93,12 @@ func (m *mockSFN) StopExecution(ctx context.Context, params *sfn.StopExecutionIn
 
 // mockAuthService is a mock GoogleAuthService.
 type mockAuthService struct {
-	authenticateFunc func(ctx context.Context, authCode string) (*models.AuthTokens, error)
+	authenticateFunc func(ctx context.Context, authCode, codeVerifier string) (*models.AuthTokens, error)
 }
 
-func (m *mockAuthService) Authenticate(ctx context.Context, authCode string) (*models.AuthTokens, error) {
+func (m *mockAuthService) Authenticate(ctx context.Context, authCode, codeVerifier string) (*models.AuthTokens, error) {
 	if m.authenticateFunc != nil {
-		return m.authenticateFunc(ctx, authCode)
+		return m.authenticateFunc(ctx, authCode, codeVerifier)
 	}
 	return &models.AuthTokens{
 		AccessToken:  "mock-access-token",
