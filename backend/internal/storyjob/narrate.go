@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/rahul/indifferent/backend/internal/storyvideo"
 )
@@ -28,29 +29,54 @@ const minNarrationSeconds = 0.2
 // the user to shorten the narration. This is found here, after narration but
 // before any rendering, so no render time is spent on a video that cannot be
 // made.
+//
+// With d.Parallel above one, scenes are narrated side by side. As in CopyMedia,
+// the first failure stops new scenes starting while those under way finish, and
+// the lowest-numbered failing scene is the one reported.
 func NarrateScenes(ctx context.Context, d Deps, job *Job, progress Progress) error {
 	total := len(job.Scenes)
+	done := 0
+
+	// Scenes whose voice is already in storage are skipped first.
+	var todo []int
 	for i := range job.Scenes {
-		n := i + 1
-		s := &job.Scenes[i]
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		s := &job.Scenes[i]
 		if s.Voice != nil && s.Voice.Seconds >= minNarrationSeconds {
 			if have, err := d.Files.HeadObject(ctx, d.Bucket, s.Voice.AudioKey); err == nil && have {
-				d.logf("storyjob scene=%d voice=already_made", n)
-				progress.report(n, total)
+				d.logf("storyjob scene=%d voice=already_made", i+1)
+				done++
+				progress.report(done, total)
 				continue
 			}
 		}
-		voice, err := narrateOne(ctx, d, job, n)
+		todo = append(todo, i)
+	}
+
+	// mu lets one scene at a time record its voice and report progress, which
+	// writes the whole job.
+	var mu sync.Mutex
+	errs, left := runParallel(ctx, d.workers(), todo, nil, func(ctx context.Context, i int) error {
+		voice, err := narrateOne(ctx, d, job, i+1)
 		if err != nil {
 			return err
 		}
-		s.Voice = voice
-		progress.report(n, total)
+		mu.Lock()
+		defer mu.Unlock()
+		job.Scenes[i].Voice = voice
+		done++
+		progress.report(done, total)
+		return nil
+	})
+	if err := firstError(errs); err != nil {
+		return err
 	}
-
+	if len(left) > 0 {
+		// Nothing failed, so the step was stopped from outside.
+		return ctx.Err()
+	}
 	seconds := make([]float64, total)
 	for i, s := range job.Scenes {
 		seconds[i] = s.Voice.Seconds

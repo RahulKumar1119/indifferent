@@ -86,9 +86,22 @@ type Deps struct {
 	// exists in storage, it is only not yet recorded), so it is logged and the
 	// step goes on.
 	SaveProgress func(ctx context.Context) error
+	// Parallel is how many scenes CopyMedia and NarrateScenes work on at once.
+	// Zero or one means one at a time, as they always did. The scenes are
+	// independent, so the wait on the network (a stock download, a Polly call) is
+	// shared instead of added up.
+	//
+	// The first 429 any download meets stops new scenes starting side by side,
+	// and the scenes still to do run one at a time through the throttle waits
+	// above. Scenes already under way finish, so a throttle costs at most
+	// Parallel-1 extra downloads.
+	Parallel int
 	// Logf receives progress notes. It defaults to log.Printf.
 	Logf func(format string, args ...any)
 }
+
+// workers is the number of scenes to work on at once, never less than one.
+func (d Deps) workers() int { return max(1, d.Parallel) }
 
 // saveProgress persists the job after a scene is copied. It returns an error
 // only when the job has ended and the step should stop; an ordinary save

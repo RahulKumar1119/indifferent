@@ -116,6 +116,12 @@ func run() int {
 		// worker's 15 minute deadline (a measured render took 36 s).
 		ThrottleWaits:  []time.Duration{20 * time.Second, 40 * time.Second, 80 * time.Second},
 		ThrottleBudget: 4 * time.Minute,
+		// Copy and narrate three scenes at a time. The waits in these steps are on
+		// the network, so they overlap. Three is deliberate, and small: a stock
+		// file host that answers 429 stops new scenes starting side by side (so
+		// a throttle costs at most two extra downloads), and Polly's standard
+		// engine allows 80 requests a second here, far above three scenes' worth.
+		Parallel: 3,
 	}
 	runner := &storyjob.Runner{
 		Deps:  deps,
