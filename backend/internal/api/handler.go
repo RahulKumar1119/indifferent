@@ -150,6 +150,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 	}
 
 	switch {
+	case req.HTTPMethod == "POST" && req.Path == "/csp-report":
+		return h.handleCSPReport(req)
 	case req.HTTPMethod == "POST" && req.Path == "/auth/google/callback":
 		return h.handleGoogleCallback(ctx, req)
 	case req.HTTPMethod == "POST" && req.Path == "/auth/signup":

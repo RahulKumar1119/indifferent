@@ -10,6 +10,8 @@ applications:
           commands:
             - npx ng build --configuration production
             - node scripts/prerender.mjs
+            # Warning only while the policy is report-only; make it fatal (drop the || echo) when it is enforced.
+            - node scripts/check-csp.mjs || echo "WARNING - customHttp.yml hashes are out of date, see above"
       artifacts:
         baseDirectory: frontend/dist/frontend/browser
         files:
