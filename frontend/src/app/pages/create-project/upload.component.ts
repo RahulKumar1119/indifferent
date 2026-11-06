@@ -278,7 +278,7 @@ export class UploadComponent implements OnInit, OnDestroy {
     this.uploadError = '';
     this.uploadProgress = 0;
 
-    this.api.post<{ uploadUrl: string }>(`/projects/${this.projectId}/upload`).subscribe({
+    this.api.post<{ uploadUrl: string }>(`/projects/${this.projectId}/upload`, { size: this.selectedFile.size }).subscribe({
       next: (response) => {
         this.uploadToS3(response.uploadUrl);
       },

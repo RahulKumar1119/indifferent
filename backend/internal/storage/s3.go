@@ -449,6 +449,23 @@ func (c *S3Client) GenerateUploadURL(ctx context.Context, bucket, key, contentTy
 	return request.URL, nil
 }
 
+// GenerateSizedUploadURL creates a presigned PUT URL that signs Content-Length.
+// S3 then rejects (403 SignatureDoesNotMatch) any body of a different size, so
+// the cap the API checked before signing is enforced by S3 itself.
+func (c *S3Client) GenerateSizedUploadURL(ctx context.Context, bucket, key, contentType string, size int64, expiration time.Duration) (string, error) {
+	presignClient := s3.NewPresignClient(c.client)
+	request, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(bucket),
+		Key:           aws.String(key),
+		ContentType:   aws.String(contentType),
+		ContentLength: aws.Int64(size),
+	}, s3.WithPresignExpires(expiration))
+	if err != nil {
+		return "", err
+	}
+	return request.URL, nil
+}
+
 // GenerateDownloadURL creates a presigned GET URL for downloading a file from S3.
 // The URL expires after the specified duration (24 hours for video downloads).
 func (c *S3Client) GenerateDownloadURL(ctx context.Context, bucket, key string, expiration time.Duration) (string, error) {

@@ -54,8 +54,8 @@ export class ProjectService {
   }
 
   /** POST /projects/{id}/logo: presigned PUT URL for the brand logo. */
-  logoUploadUrl(id: string): Observable<{ uploadUrl: string; logoKey: string }> {
-    return this.api.post<{ uploadUrl: string; logoKey: string }>(`/projects/${id}/logo`);
+  logoUploadUrl(id: string, size?: number): Observable<{ uploadUrl: string; logoKey: string }> {
+    return this.api.post<{ uploadUrl: string; logoKey: string }>(`/projects/${id}/logo`, size ? { size } : undefined);
   }
 
   /** GET /projects/{id}/logo: presigned GET URL for the brand logo. */
@@ -82,6 +82,7 @@ export class ProjectService {
     return this.api.post<{ uploadUrl: string }>(`/projects/${projectId}/upload`, {
       fileName: file.name,
       contentType: file.type,
+      size: file.size,
     }).pipe(
       switchMap((res) => this.api.putAbsolute<void>(res.uploadUrl, file))
     );

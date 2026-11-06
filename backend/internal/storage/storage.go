@@ -32,6 +32,10 @@ type MetadataStorage interface {
 // delete flows remove a job's whole asset set in one call.
 type Downloader interface {
 	GenerateUploadURL(ctx context.Context, bucket, key, contentType string, expiration time.Duration) (string, error)
+	// GenerateSizedUploadURL is GenerateUploadURL for an upload whose size is
+	// known up front. The size is part of the signature, so S3 refuses a PUT
+	// whose Content-Length differs: the caller cannot send more than it declared.
+	GenerateSizedUploadURL(ctx context.Context, bucket, key, contentType string, size int64, expiration time.Duration) (string, error)
 	GenerateDownloadURL(ctx context.Context, bucket, key string, expiration time.Duration) (string, error)
 	// GenerateAttachmentURL is like GenerateDownloadURL but makes the browser
 	// save the file under filename rather than display it.

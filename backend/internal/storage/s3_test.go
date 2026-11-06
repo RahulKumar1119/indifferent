@@ -201,3 +201,41 @@ func TestPutFile_AMissingFileIsAnErrorBeforeAnyRequest(t *testing.T) {
 		t.Error("no error for a file that does not exist")
 	}
 }
+
+// The point of the sized URL: Content-Length is signed, the unsized one is not.
+func TestGenerateSizedUploadURL_SignsContentLength(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+	signed := func(url string) string {
+		const marker = "X-Amz-SignedHeaders="
+		i := strings.Index(url, marker)
+		if i < 0 {
+			t.Fatalf("no SignedHeaders in %s", url)
+		}
+		rest := url[i+len(marker):]
+		if j := strings.Index(rest, "&"); j >= 0 {
+			rest = rest[:j]
+		}
+		return rest
+	}
+	sized, err := c.GenerateSizedUploadURL(ctx, "test-bucket", "k", "video/mp4", 1234, UploadURLExpiration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(signed(sized), "content-length") {
+		t.Errorf("sized URL does not sign content-length: %s", signed(sized))
+	}
+	plain, err := c.GenerateUploadURL(ctx, "test-bucket", "k", "video/mp4", UploadURLExpiration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(signed(plain), "content-length") {
+		t.Errorf("unsized URL unexpectedly signs content-length: %s", signed(plain))
+	}
+	// Different sizes must give different signatures.
+	other, _ := c.GenerateSizedUploadURL(ctx, "test-bucket", "k", "video/mp4", 1235, UploadURLExpiration)
+	sig := func(u string) string { i := strings.Index(u, "X-Amz-Signature="); return u[i:] }
+	if sig(sized) == sig(other) {
+		t.Error("the size is not part of the signature")
+	}
+}

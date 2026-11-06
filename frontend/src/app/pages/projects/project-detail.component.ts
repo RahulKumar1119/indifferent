@@ -239,7 +239,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.brandingNotice = '';
     this.uploadingLogo = true;
     const projectId = this.project.id;
-    this.projects.logoUploadUrl(projectId).subscribe({
+    this.projects.logoUploadUrl(projectId, file.size).subscribe({
       next: (res) => {
         this.projects.uploadLogo(res.uploadUrl, file).subscribe({
           next: () => {

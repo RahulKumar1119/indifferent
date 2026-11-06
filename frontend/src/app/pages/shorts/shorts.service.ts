@@ -389,8 +389,15 @@ export class ShortsService {
     fileType: string,
     duration: number,
     language = 'auto',
+    size?: number,
   ): Observable<CreateShortsResponse> {
-    return this.api.post<CreateShortsResponse>('/shorts', { fileType, duration, language });
+    // size is signed into the upload URL, so S3 refuses a body of any other length.
+    return this.api.post<CreateShortsResponse>('/shorts', {
+      fileType,
+      duration,
+      language,
+      ...(size ? { size } : {}),
+    });
   }
 
   /** PUT the source media to the presigned S3 URL (no auth cookies). */
