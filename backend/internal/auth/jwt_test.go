@@ -27,6 +27,8 @@ func generateTestToken(userID, email string, expiration time.Time, secret string
 	claims := jwt.MapClaims{
 		"userId": userID,
 		"email":  email,
+		"iss":    TokenIssuer,
+		"aud":    TokenAudience,
 		"iat":    time.Now().Unix(),
 		"exp":    expiration.Unix(),
 	}
@@ -104,6 +106,8 @@ func TestValidateToken_MissingUserID(t *testing.T) {
 	// Token without userId claim
 	claims := jwt.MapClaims{
 		"email": "test@example.com",
+		"iss":   TokenIssuer,
+		"aud":   TokenAudience,
 		"iat":   time.Now().Unix(),
 		"exp":   time.Now().Add(15 * time.Minute).Unix(),
 	}
@@ -148,6 +152,9 @@ func TestRefreshToken_ValidRefreshToken(t *testing.T) {
 
 	mock := &mockDynamoDBClient{
 		getItemFunc: func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			if aws.ToString(params.TableName) == "TestUsers" {
+				return &dynamodb.GetItemOutput{}, nil // no sign-out-everywhere mark
+			}
 			pk := params.Key["PK"].(*dbtypes.AttributeValueMemberS).Value
 			expectedPK := "SESSION#" + tokenHash
 			if pk != expectedPK {

@@ -162,6 +162,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleRefresh(ctx, req)
 	case req.HTTPMethod == "POST" && req.Path == "/auth/logout":
 		return h.handleLogout(ctx, req)
+	case req.HTTPMethod == "POST" && req.Path == "/auth/logout-all":
+		return h.handleWithAuth(ctx, req, h.handleLogoutAll)
 	case req.HTTPMethod == "GET" && req.Path == "/auth/me":
 		return h.handleWithAuth(ctx, req, h.handleGetMe)
 	case req.HTTPMethod == "GET" && req.Path == "/settings/notifications":
@@ -415,6 +417,20 @@ func (h *APIHandler) handleLogout(ctx context.Context, req events.APIGatewayProx
 		return errorResponse(http.StatusInternalServerError, "LOGOUT_FAILED", "Logout failed"), nil
 	}
 
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusNoContent,
+		Headers:    corsHeaders(),
+	}, nil
+}
+
+// handleLogoutAll signs the caller out of every device: no refresh token from a
+// sign-in made before now will work again. Access tokens already issued keep
+// working until they expire, at most 15 minutes.
+func (h *APIHandler) handleLogoutAll(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	if err := h.JWTService.LogoutAll(ctx, claims.UserID); err != nil {
+		log.Printf("logout_all_failed user=%s err=%v", claims.UserID, err)
+		return errorResponse(http.StatusInternalServerError, "LOGOUT_FAILED", "Could not sign you out everywhere. Please try again."), nil
+	}
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusNoContent,
 		Headers:    corsHeaders(),

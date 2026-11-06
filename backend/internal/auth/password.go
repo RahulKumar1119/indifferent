@@ -64,7 +64,7 @@ func validateCredentials(email, password string) error {
 	if len(password) > maxBcryptPasswordBytes {
 		return fmt.Errorf("password must be at most %d characters", maxBcryptPasswordBytes)
 	}
-	return nil
+	return checkPasswordStrength(email, password)
 }
 
 // userKey returns the primary key of a user profile item.
@@ -236,7 +236,7 @@ func (s *PasswordAuthService) issueTokens(ctx context.Context, userID, email str
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
-	refreshToken, err := s.JWT.createSessionWithFamily(ctx, userID, email, uuid.New().String())
+	refreshToken, err := s.JWT.createSessionWithFamily(ctx, userID, email, uuid.New().String(), time.Now().UnixMilli())
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}

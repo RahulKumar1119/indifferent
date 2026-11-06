@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -176,5 +178,43 @@ func TestPasswordLogin_TooManyAttemptsReturns429WithRetryAfter(t *testing.T) {
 	_ = json.Unmarshal([]byte(resp.Body), &apiErr)
 	if apiErr.Code != "RATE_LIMITED" {
 		t.Errorf("code %q, want RATE_LIMITED", apiErr.Code)
+	}
+}
+
+func TestLogoutAll_RequiresAuthAndRecordsTheRevokeMark(t *testing.T) {
+	var key, expr string
+	db := &mockDynamoDB{
+		updateItemFunc: func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+			key = params.Key["PK"].(*dbtypes.AttributeValueMemberS).Value
+			expr = aws.ToString(params.UpdateExpression)
+			return &dynamodb.UpdateItemOutput{}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+	h.JWTService.UsersTable = "users-table"
+	call := func(token string) events.APIGatewayProxyResponse {
+		headers := map[string]string{}
+		if token != "" {
+			headers["Authorization"] = "Bearer " + token
+		}
+		resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{HTTPMethod: "POST", Path: "/auth/logout-all", Headers: headers})
+		return resp
+	}
+
+	if resp := call(""); resp.StatusCode != 401 || key != "" {
+		t.Fatalf("without a token: status %d, wrote %q; want 401 and no write", resp.StatusCode, key)
+	}
+	if resp := call(generateTestToken("user-42")); resp.StatusCode != 204 {
+		t.Fatalf("status %d, want 204", resp.StatusCode)
+	}
+	if key != "USER#user-42" || !strings.Contains(expr, "sessionsRevokedBeforeMs") {
+		t.Errorf("revoked %q with %q, want USER#user-42 and the revoke mark", key, expr)
+	}
+
+	db.updateItemFunc = func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+		return nil, errors.New("dynamodb is down")
+	}
+	if resp := call(generateTestToken("user-42")); resp.StatusCode != 500 {
+		t.Errorf("a failed revoke must say so, got %d", resp.StatusCode)
 	}
 }

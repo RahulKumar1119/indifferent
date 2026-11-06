@@ -22,6 +22,19 @@ import (
 // is keyed by familyId. deploy/setup.sh creates it.
 const FamilyIndexName = "familyId-index"
 
+const (
+	// TokenIssuer and TokenAudience are in every access token and checked on
+	// every request, so a token minted for something else (another service
+	// that happens to share the secret) is not accepted here.
+	TokenIssuer   = "indifferent.fun"
+	TokenAudience = "indifferent.fun/api"
+
+	// MaxSessionAge is how long one sign-in can keep refreshing. Each refresh
+	// still extends the 7-day refresh token, but never past this age from the
+	// original sign-in, so a stolen refresh token cannot be kept alive for ever.
+	MaxSessionAge = 30 * 24 * time.Hour
+)
+
 // RotatedSessionTTL is the time a rotated session is kept for reuse detection.
 const RotatedSessionTTL = 5 * time.Minute
 
@@ -55,7 +68,11 @@ func (s *JWTService) ValidateToken(tokenString string) (*models.JWTClaims, error
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(s.Secret), nil
-	}, jwt.WithValidMethods([]string{"HS256"}))
+	}, jwt.WithValidMethods([]string{"HS256"}),
+		jwt.WithExpirationRequired(), // a signed token without exp would otherwise never expire
+		jwt.WithIssuer(TokenIssuer),
+		jwt.WithAudience(TokenAudience),
+	)
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, ErrExpiredToken
@@ -143,6 +160,22 @@ func (s *JWTService) RefreshToken(ctx context.Context, refreshToken string) (*mo
 		}
 	}
 
+	// A sign-in older than MaxSessionAge cannot refresh any more, and neither
+	// can one that predates the user's "sign out everywhere". Checked here,
+	// before the claim, so a refusal does not burn the session.
+	familyStartMs := sessionFamilyStartMs(pre.Item)
+	if familyStartMs > 0 && time.Since(time.UnixMilli(familyStartMs)) > MaxSessionAge {
+		return nil, ErrSessionExpired
+	}
+	if uid := extractStringAttr(pre.Item, "userId"); uid != "" {
+		revokedBefore, err := s.sessionsRevokedBefore(ctx, uid)
+		if err != nil {
+			return nil, err
+		}
+		if revokedBefore > 0 && familyStartMs <= revokedBefore {
+			return nil, ErrSessionExpired
+		}
+	}
 	// Atomically claim the session: set rotated=true only when the session
 	// exists and has not been rotated yet. Check-and-set in a single write
 	// closes the race where two concurrent refreshes with the same token both
@@ -217,7 +250,10 @@ func (s *JWTService) RefreshToken(ctx context.Context, refreshToken string) (*mo
 	}
 
 	// Generate new refresh token and store new session with same familyId
-	newRefreshToken, err := s.createSessionWithFamily(ctx, userID, email, familyID)
+	if familyStartMs == 0 {
+		familyStartMs = time.Now().UnixMilli()
+	}
+	newRefreshToken, err := s.createSessionWithFamily(ctx, userID, email, familyID, familyStartMs)
 	if err != nil {
 		return nil, fmt.Errorf("create new session: %w", err)
 	}
@@ -254,6 +290,8 @@ func (s *JWTService) GenerateAccessToken(userID, email string) (string, error) {
 	claims := jwt.MapClaims{
 		"userId": userID,
 		"email":  email,
+		"iss":    TokenIssuer,
+		"aud":    TokenAudience,
 		"iat":    now.Unix(),
 		"exp":    now.Add(AccessTokenTTL).Unix(),
 	}
@@ -271,12 +309,14 @@ func (s *JWTService) GenerateAccessToken(userID, email string) (string, error) {
 // with a new familyId (used on initial login).
 func (s *JWTService) createSession(ctx context.Context, userID, email string) (string, error) {
 	familyID := uuid.New().String()
-	return s.createSessionWithFamily(ctx, userID, email, familyID)
+	return s.createSessionWithFamily(ctx, userID, email, familyID, time.Now().UnixMilli())
 }
 
 // createSessionWithFamily generates a new refresh token and stores the session with
 // the given familyId. Used during token rotation to preserve the family chain.
-func (s *JWTService) createSessionWithFamily(ctx context.Context, userID, email, familyID string) (string, error) {
+// familyStartMs is when the original sign-in happened (Unix milliseconds); it is
+// carried unchanged through every rotation so MaxSessionAge counts from sign-in.
+func (s *JWTService) createSessionWithFamily(ctx context.Context, userID, email, familyID string, familyStartMs int64) (string, error) {
 	tokenBytes := make([]byte, RefreshTokenBytes)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return "", fmt.Errorf("generate random token: %w", err)
@@ -288,13 +328,14 @@ func (s *JWTService) createSessionWithFamily(ctx context.Context, userID, email,
 	expiresAt := now.Add(RefreshTokenTTL).Unix()
 
 	item := map[string]dbtypes.AttributeValue{
-		"PK":        &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
-		"SK":        &dbtypes.AttributeValueMemberS{Value: "SESSION"},
-		"userId":    &dbtypes.AttributeValueMemberS{Value: userID},
-		"email":     &dbtypes.AttributeValueMemberS{Value: email},
-		"familyId":  &dbtypes.AttributeValueMemberS{Value: familyID},
-		"expiresAt": &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", expiresAt)},
-		"createdAt": &dbtypes.AttributeValueMemberS{Value: now.UTC().Format(time.RFC3339)},
+		"PK":            &dbtypes.AttributeValueMemberS{Value: "SESSION#" + tokenHash},
+		"SK":            &dbtypes.AttributeValueMemberS{Value: "SESSION"},
+		"userId":        &dbtypes.AttributeValueMemberS{Value: userID},
+		"email":         &dbtypes.AttributeValueMemberS{Value: email},
+		"familyId":      &dbtypes.AttributeValueMemberS{Value: familyID},
+		"expiresAt":     &dbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", expiresAt)},
+		"createdAt":     &dbtypes.AttributeValueMemberS{Value: now.UTC().Format(time.RFC3339)},
+		"familyStartMs": &dbtypes.AttributeValueMemberN{Value: strconv.FormatInt(familyStartMs, 10)},
 	}
 
 	_, err := s.DB.PutItem(ctx, &dynamodb.PutItemInput{

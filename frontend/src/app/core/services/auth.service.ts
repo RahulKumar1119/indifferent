@@ -189,6 +189,23 @@ export class AuthService {
       .subscribe({ error: () => {} });
   }
 
+  /**
+   * POST /auth/logout-all: ends every sign-in of this account, on every device.
+   * Unlike logout() this waits for the server, because the point is that it
+   * happened; local state is only cleared once it did. Other devices lose access
+   * when their current access token runs out (up to 15 minutes).
+   */
+  logoutAll(): Observable<void> {
+    return this.http
+      .post<void>(`${environment.apiUrl}/auth/logout-all`, {}, { withCredentials: true })
+      .pipe(
+        tap(() => {
+          this.clearAccessToken();
+          this.router.navigate(['/login']);
+        }),
+      );
+  }
+
   isAuthenticated(): boolean {
     return this.accessToken$.getValue() !== null;
   }
