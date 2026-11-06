@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
 import { setPageSeo } from '../../shared/seo';
 import { TEMPLATE_OPTIONS } from '../../shared/models';
+import { PRODUCT_FACTS, durationLabel, joinAnd } from '../../core/config/product-facts';
 
 @Component({
   selector: 'app-about',
@@ -55,7 +56,7 @@ import { TEMPLATE_OPTIONS } from '../../shared/models';
             <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> The Studio
           </p>
           <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(2.8rem,7vw,5.2rem)] max-w-[16ch] text-balance">The studio behind the video.</h1>
-          <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[52ch]">Indifferent turns multiple-choice quiz files into engaging, YouTube-ready films. No editing skills required.</p>
+          <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[52ch]">Indifferent is a small studio of four video tools: quiz films from a text file, vertical clips from long footage, narrated videos from a written story, and a watermark tool that runs in your browser. No editing skills required.</p>
         </div>
       </section>
 
@@ -64,15 +65,29 @@ import { TEMPLATE_OPTIONS } from '../../shared/models';
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div>
             <h2 class="serif font-medium tracking-[-0.02em] text-[clamp(2rem,4vw,3rem)] leading-[1.02]">Our mission</h2>
-            <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it simple to convert your multiple-choice quiz files into engaging, YouTube-ready video content.</p>
+            <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it simple to turn a text file, a long recording or a written story into a finished video, without editing software or editing skills.</p>
             <a routerLink="/login" class="btn-primary mt-6 inline-flex items-center gap-3 rounded-full bg-[#1A1714] text-white pl-6 pr-2 py-2 font-semibold text-[14.5px]">Start creating <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">→</span></a>
           </div>
 
         </section>
 
-        <!-- How it works -->
+        <!-- The four tools -->
+        <section class="mt-20" aria-labelledby="tools-heading">
+          <h2 id="tools-heading" class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">Four tools, one studio</h2>
+          <p class="mt-3 max-w-[60ch] text-[16px] leading-relaxed text-[#3E3A33]">They share one account. Each has its own page with the exact limits and a step-by-step guide.</p>
+          <ul class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            @for (t of tools; track t.href) {
+              <li class="rounded-[20px] bg-white border border-black/[0.07] p-6">
+                <h3 class="font-semibold text-[16px]"><a [routerLink]="t.href" class="inline-flex items-center min-h-[44px] underline underline-offset-4 decoration-black/25 hover:decoration-black">{{ t.title }}</a></h3>
+                <p class="text-[14.5px] leading-relaxed text-[#3E3A33]">{{ t.text }}</p>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <!-- How a quiz film is made -->
         <section class="mt-20 rounded-[20px] bg-[#F3EEE3] border border-black/[0.07] p-8 md:p-12">
-          <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">How it works</h2>
+          <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">How a quiz film is made</h2>
           <ol class="mt-6">
             <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-t border-black/10">
               <span class="serif italic text-[26px] text-[#BC5227] leading-none">01</span>
@@ -96,7 +111,7 @@ import { TEMPLATE_OPTIONS } from '../../shared/models';
         <!-- Formats + designs -->
         <section class="mt-20 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="rounded-[20px] bg-white border border-black/[0.07] p-8">
-            <h2 class="serif text-[28px]">Supported formats</h2>
+            <h2 class="serif text-[28px]">Quiz file formats</h2>
             <ul class="mt-4 space-y-2.5 text-[14.5px] text-[#3E3A33]">
               <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>Numbered questions (1. Question text)</li>
               <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>Bulleted questions (• or - Question text)</li>
@@ -106,7 +121,7 @@ import { TEMPLATE_OPTIONS } from '../../shared/models';
             </ul>
           </div>
           <div class="rounded-[20px] bg-white border border-black/[0.07] p-8">
-            <h2 class="serif text-[28px]">Video specifications</h2>
+            <h2 class="serif text-[28px]">Quiz film specifications</h2>
             <ul class="mt-4 space-y-2.5 text-[14.5px] text-[#3E3A33]">
               <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#1E3A2A] shrink-0"></span>Resolution: 1920×1080 (Full HD)</li>
               <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#1E3A2A] shrink-0"></span>Format: MP4 (H.264), Audio: AAC</li>
@@ -199,13 +214,35 @@ export class AboutComponent implements OnInit {
     setPageSeo(this.document, {
       title: 'About the Studio | Indifferent',
       description:
-        'Indifferent is an AI video studio: TXT quiz files become narrated videos, and long footage becomes ranked vertical Shorts. Built with Angular, Go and AWS.',
+        'An AI video studio: quiz films from TXT files, vertical Shorts from long footage, narrated videos from a story, and a watermark tool that runs in your browser.',
       canonical: 'https://indifferent.fun/about',
     });
   }
 
   currentYear = new Date().getFullYear();
   readonly designs = TEMPLATE_OPTIONS;
+  readonly tools = [
+    {
+      title: 'TXT to quiz video',
+      href: '/features/txt-to-video-quiz',
+      text: `Upload a text file of multiple-choice questions and get a narrated ${PRODUCT_FACTS.quiz.outputLabel} with answer reveals. ${PRODUCT_FACTS.quiz.voices.length} voices and ${PRODUCT_FACTS.quiz.designs.length} designs to choose from.`,
+    },
+    {
+      title: 'AI Shorts generator',
+      href: '/features/ai-shorts',
+      text: `Upload a video or audio file of up to ${durationLabel(PRODUCT_FACTS.shorts.maxDurationMinutes)} and get up to ${PRODUCT_FACTS.shorts.maxClips} ranked vertical clips with captions burned in.`,
+    },
+    {
+      title: 'Story to video',
+      href: '/features/story-video',
+      text: `Paste a story and a model plans ${PRODUCT_FACTS.story.minScenes} to ${PRODUCT_FACTS.story.maxScenes} scenes. You confirm a stock photo or clip from ${joinAnd(PRODUCT_FACTS.story.stockLibraries)} for each, and it becomes a narrated vertical video of up to ${PRODUCT_FACTS.story.maxTotalSeconds} seconds.`,
+    },
+    {
+      title: 'Watermark tool',
+      href: '/features/watermark',
+      text: 'Stamp a text or logo watermark on an image or a video. It runs in your browser, so nothing is uploaded.',
+    },
+  ];
   voices = [
     { name: 'Joanna', desc: 'US English, female, clear and professional', initials: 'JO' },
     { name: 'Matthew', desc: 'US English, male, warm and authoritative', initials: 'MA' },
@@ -220,5 +257,5 @@ export class AboutComponent implements OnInit {
     { title: 'Corporate trainers', desc: 'Compliance quizzes as video' },
     { title: 'Students', desc: 'More engaging study material' },
   ];
-  stack = ['Angular 20 · Frontend', 'Go · Backend', 'AWS Lambda · Compute', 'Amazon Polly · Narration', 'FFmpeg · Video', 'DynamoDB · Database', 'Amplify · CDN', 'Step Functions · Orchestration', 'GSAP · Animation'];
+  stack = ['Angular 20 · Frontend', 'Go · Backend', 'AWS Lambda · Compute', 'Amazon Polly · Narration', 'Amazon Bedrock · Planning and ranking', 'FFmpeg · Video', 'DynamoDB · Database', 'Amplify · CDN', 'Step Functions · Orchestration', 'GSAP · Animation'];
 }
