@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 import { LucideCheck, LucideLoader2, provideLucideIcons } from '@lucide/angular';
 import { AdsConversionService } from '../../core/services/ads-conversion.service';
 import { AuthService } from '../../core/services/auth.service';
+import { pkceChallenge, takeOAuthFlow } from '../oauth-flow';
 
 describe('LoginComponent', () => {
   let component: LoginComponent;
@@ -79,9 +80,14 @@ describe('LoginComponent', () => {
     type Redirecting = { redirectTo(url: string): void };
     let redirectTo: jasmine.Spy;
 
-    beforeEach(() => {
+    type Preparing = { oauthReady: Promise<void>; oauthFlow: unknown };
+    const preparing = () => component as unknown as Preparing;
+    beforeEach(async () => {
       redirectTo = spyOn(component as unknown as Redirecting, 'redirectTo');
+      sessionStorage.clear();
+      await preparing().oauthReady;
     });
+    afterEach(() => sessionStorage.clear());
 
     function clickContinueWithGoogle(): void {
       const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) =>
@@ -116,6 +122,65 @@ describe('LoginComponent', () => {
       clickContinueWithGoogle();
       afterReport!();
       expect(order).toEqual(['remember', 'leave']);
+    });
+
+    it('sends an unguessable state and a PKCE S256 challenge (login CSRF, SEC-07)', () => {
+      clickContinueWithGoogle();
+      afterReport!();
+      const url = new URL(redirectTo.calls.mostRecent().args[0]);
+      expect(url.searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(url.searchParams.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+    });
+
+    it('remembers the same state, and the verifier behind the challenge, for the callback to check', async () => {
+      clickContinueWithGoogle();
+      afterReport!();
+      const url = new URL(redirectTo.calls.mostRecent().args[0]);
+      const remembered = takeOAuthFlow();
+      expect(remembered).not.toBeNull();
+      expect(remembered!.state).toBe(url.searchParams.get('state')!);
+      expect(await pkceChallenge(remembered!.verifier)).toBe(url.searchParams.get('code_challenge')!);
+    });
+
+    it('remembers the flow before it leaves, so the callback always finds it', () => {
+      redirectTo.and.callFake(() => expect(sessionStorage.getItem('indifferent.oauthFlow')).not.toBeNull());
+      clickContinueWithGoogle();
+      afterReport!();
+      expect(redirectTo).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses new values for every click', async () => {
+      clickContinueWithGoogle();
+      afterReport!();
+      const first = new URL(redirectTo.calls.mostRecent().args[0]).searchParams;
+      await preparing().oauthReady; // the next flow is made as soon as one is spent
+      clickContinueWithGoogle();
+      afterReport!();
+      const second = new URL(redirectTo.calls.mostRecent().args[0]).searchParams;
+      expect(second.get('state')).not.toBe(first.get('state'));
+      expect(second.get('code_challenge')).not.toBe(first.get('code_challenge'));
+    });
+
+    it('waits for the values when it is clicked before the page has made them, then goes', async () => {
+      preparing().oauthFlow = null;
+      clickContinueWithGoogle();
+      expect(trackSignInClick).not.toHaveBeenCalled(); // not yet: nothing to send to Google
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(trackSignInClick).toHaveBeenCalledTimes(1);
+      afterReport!();
+      expect(new URL(redirectTo.calls.mostRecent().args[0]).searchParams.get('state')).toBeTruthy();
+    });
+
+    it('goes nowhere, and says why, in a browser that cannot make random numbers', async () => {
+      preparing().oauthFlow = null;
+      spyOn(crypto, 'getRandomValues').and.throwError('no secure random numbers');
+      clickContinueWithGoogle();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      clickContinueWithGoogle(); // the second click reports the problem
+      expect(component.formError).toContain('cannot start a secure Google sign-in');
+      expect(trackSignInClick).not.toHaveBeenCalled();
+      expect(redirectTo).not.toHaveBeenCalled();
     });
 
     it('does not report a conversion for the email and password form', () => {

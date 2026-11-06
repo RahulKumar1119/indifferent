@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 import { AdsConversionService } from '../../core/services/ads-conversion.service';
 import { AuthService, DEFAULT_POST_AUTH_PATH, sanitizeNextPath } from '../../core/services/auth.service';
 import { ROBOTS_NOINDEX, setPageSeo, setRobots } from '../../shared/seo';
+import { OAuthFlow, createOAuthFlow, rememberOAuthFlow } from '../oauth-flow';
 
 @Component({
   selector: 'app-login',
@@ -163,6 +164,12 @@ export class LoginComponent implements OnInit {
   submitting = false;
   formError = '';
   private postAuthPath = '/new';
+  /** The state and PKCE values for the next Google sign-in, made when the page opens. */
+  private oauthFlow: OAuthFlow | null = null;
+  /** True when this browser cannot make them at all (no secure random numbers). */
+  private oauthUnavailable = false;
+  /** Settles when the values for the next sign-in are ready. */
+  protected oauthReady: Promise<void> = Promise.resolve();
 
   ngOnInit(): void {
     // Already signed in (back button, bookmark): don't show the form —
@@ -182,6 +189,10 @@ export class LoginComponent implements OnInit {
     // The click on "Continue with Google" is a Google Ads conversion. Load the
     // Google tag now so it is ready by then instead of after a first interaction.
     this.ads.prepare();
+    // The Google button must stay synchronous (the conversion report has to go
+    // out before the page leaves), and PKCE needs an asynchronous hash, so the
+    // values for the first sign-in are made now, while the page loads.
+    this.oauthReady = this.prepareOAuthFlow();
     this.route.queryParamMap.subscribe((params) => {
       this.isSignupMode = params.get('mode') === 'signup';
       this.postAuthPath = sanitizeNextPath(params.get('next'));
@@ -191,17 +202,39 @@ export class LoginComponent implements OnInit {
           ? 'Sign-in failed. Please try again.'
           : err === 'missing_code'
             ? 'Sign-in was interrupted before completion. Please try again.'
-            : '';
+            : err === 'invalid_state'
+              ? 'That sign-in could not be verified. Please start again from this page.'
+              : '';
     });
   }
 
   signInWithGoogle(): void {
+    const flow = this.oauthFlow;
+    if (!flow) {
+      if (this.oauthUnavailable) {
+        this.formError = 'This browser cannot start a secure Google sign-in. Use the email form, or another browser.';
+        return;
+      }
+      // Clicked in the first moments after the page opened, before the values for
+      // the sign-in were ready. They take a few milliseconds; wait, then go.
+      void this.prepareOAuthFlow().then(() => this.signInWithGoogle());
+      return;
+    }
+    // One flow per sign-in. This one is spent; a fresh one is made for the next
+    // click (the back button can bring the user back to this page as it was).
+    this.oauthFlow = null;
+    rememberOAuthFlow(flow);
     const params = new URLSearchParams({
       client_id: environment.googleClientId,
       redirect_uri: environment.googleRedirectUri,
       response_type: 'code',
       scope: 'openid email profile',
+      state: flow.state,
     });
+    if (flow.challenge) {
+      params.set('code_challenge', flow.challenge);
+      params.set('code_challenge_method', 'S256');
+    }
 
     // Remembered across the Google round-trip; the callback consumes it.
     this.authService.setPostLoginNext(this.postAuthPath);
@@ -209,6 +242,16 @@ export class LoginComponent implements OnInit {
     // Leaving the page would cancel the conversion request, so the redirect
     // waits until Google has confirmed it (or a short timeout passes).
     this.ads.trackSignInClick(() => this.redirectTo(url));
+    this.oauthReady = this.prepareOAuthFlow();
+  }
+
+  private async prepareOAuthFlow(): Promise<void> {
+    try {
+      this.oauthFlow = await createOAuthFlow();
+    } catch {
+      this.oauthFlow = null;
+      this.oauthUnavailable = true;
+    }
   }
 
   /** Leaves the app. A method of its own so tests can observe it. */
