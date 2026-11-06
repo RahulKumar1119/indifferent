@@ -241,3 +241,32 @@ func TestRender_LogoFailureStillRenders(t *testing.T) {
 		t.Errorf("expected only the render call, got %d", calls)
 	}
 }
+
+// The shorts renderer reads the logo key from the project record. A key that is
+// not that project's own logo (another user's file, a rendered video) must never
+// be fetched; the renderer treats the error as "no logo" and carries on.
+func TestLogoFetcher_AKeyThatIsNotTheProjectsOwnLogoIsNeverFetched(t *testing.T) {
+	for _, bad := range []string{
+		"uploads/u2/p9/logo.png",        // another user's logo
+		"uploads/u1/other/logo.png",     // this user's, another project
+		"output/p1/video.mp4",           // a rendered video
+		"uploads/u1/p1/../p9/logo.png",  // traversal
+	} {
+		t.Run(bad, func(t *testing.T) {
+			db := &memDynamo{items: map[string]map[string]dbtypes.AttributeValue{
+				"USER#u1|SHORTS#j1":  jobItem("p1"),
+				"USER#u1|PROJECT#p1": projectItem(`{"logoKey":"` + bad + `","channelName":"@s"}`),
+			}}
+			store := &mockStorage{objects: map[string][]byte{bad: []byte("someone else's file")}}
+			fetch := NewLogoFetcher(db, "table", "u1", "j1", store, "b")
+
+			logo, err := fetch(context.Background())
+			if err == nil || logo != nil {
+				t.Fatalf("got logo %q, err %v; want no bytes and an error", logo, err)
+			}
+			if store.getCalls != 0 {
+				t.Errorf("S3 was read %d times for %q, want 0", store.getCalls, bad)
+			}
+		})
+	}
+}

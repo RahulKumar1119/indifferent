@@ -66,6 +66,12 @@ func NewLogoFetcher(db DynamoGetter, table, userID, jobID string, s3 storage.Sto
 		if branding.LogoKey == "" {
 			return nil, nil
 		}
+		// Only the project's own logo is ever read. A stored key that points
+		// anywhere else (another user's file, a rendered video) is not followed;
+		// the renderer treats this error as "no logo" and goes on.
+		if !storage.IsProjectLogoKey(userID, projectID, branding.LogoKey) {
+			return nil, fmt.Errorf("the stored logo key is not this project's logo")
+		}
 
 		logo, err := s3.GetObject(ctx, bucket, branding.LogoKey)
 		if err != nil {
