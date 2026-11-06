@@ -174,10 +174,16 @@ func throttled() error {
 	return fmt.Errorf("%w: %w: %w: pixabay photo 102 answered HTTP 429", stockmedia.ErrAssetUnavailable, stockmedia.ErrUnavailable, stockmedia.ErrThrottled)
 }
 
-// sleepLog records the waits a step asks for, without waiting.
-type sleepLog struct{ waits []time.Duration }
+// sleepLog records the waits a step asks for, without waiting. Scenes that run
+// side by side call it together, so it is locked.
+type sleepLog struct {
+	mu    sync.Mutex
+	waits []time.Duration
+}
 
 func (s *sleepLog) sleep(_ context.Context, d time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.waits = append(s.waits, d)
 	return nil
 }

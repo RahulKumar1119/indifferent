@@ -28,6 +28,10 @@ type fakeAssets struct {
 	dlPartial map[string]string
 	gets      []string
 	downloads []string
+	// onDownload, when set, runs at the start of each Download with the asset's
+	// "provider:type:id", without the lock held, so a test can hold a download
+	// open to see how many are under way together. Set it before the code runs.
+	onDownload func(key string)
 }
 
 func newAssets() *fakeAssets {
@@ -65,8 +69,11 @@ func (f *fakeAssets) Get(_ context.Context, p stockmedia.ProviderName, t stockme
 }
 
 func (f *fakeAssets) Download(_ context.Context, a stockmedia.Asset, w io.Writer) (int64, error) {
-	f.mu.Lock()
 	k := ref(string(a.Provider), string(a.Type), a.ID)
+	if hook := f.onDownload; hook != nil {
+		hook(k)
+	}
+	f.mu.Lock()
 	f.downloads = append(f.downloads, k)
 	err := f.dlErr[k]
 	if seq := f.dlSeq[k]; len(seq) > 0 {
@@ -154,12 +161,23 @@ type fakeNarrator struct {
 	// real sound; any other text gets a small stand-in.
 	audioFor map[string][]byte
 	calls    []string
+	// audioErrFor fails the audio for one text and no other.
+	audioErrFor map[string]error
+	// onAudio, when set, runs at the start of each SynthesizeText with the text,
+	// without the lock held. Set it before the code runs.
+	onAudio func(text string)
 }
 
 func (f *fakeNarrator) SynthesizeText(_ context.Context, text, voice string) ([]byte, error) {
+	if hook := f.onAudio; hook != nil {
+		hook(text)
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, "audio:"+voice+":"+text)
+	if err := f.audioErrFor[text]; err != nil {
+		return nil, err
+	}
 	if f.audioErr != nil {
 		return nil, f.audioErr
 	}
