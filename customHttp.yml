@@ -1,0 +1,70 @@
+# Response headers for the site (Amplify reads this file at the repo root).
+#
+# Two Content-Security-Policy headers are sent:
+#
+#  1. Content-Security-Policy (enforced): only the three directives that cannot
+#     break a page that works today: nobody may frame the site, no plugins, and
+#     <base> cannot be pointed elsewhere.
+#  2. Content-Security-Policy-Report-Only: the full policy (which scripts, hosts
+#     and connections the site may use). It blocks nothing. Browsers send what it
+#     would have blocked to https://api.indifferent.fun/csp-report, which logs it.
+#     When the reports have gone quiet on real traffic, move this policy into the
+#     enforced header (see the notes next to it).
+#
+# frontend/scripts/check-csp.mjs runs in the build and fails it when the inline
+# scripts or event handlers in the built pages do not match the hashes below, so
+# a change to index.html cannot silently put the policy out of date.
+#
+# The hashes (script-src and script-src-attr) are:
+#   sha256-hn61GG...   the theme script at the top of index.html
+#   sha256-iHX4kT...   the Google tag loader in index.html
+#   sha256-MhtPZX...   onload="this.media='all'"  (Angular's critical-CSS loader)
+#   sha256-1jAmyY...   onload="this.onload=null;this.rel='stylesheet'"  (font loader)
+customHeaders:
+  - pattern: '**'
+    headers:
+      - key: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - key: X-Content-Type-Options
+        value: nosniff
+      - key: X-Frame-Options
+        value: DENY
+      - key: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - key: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+      - key: Content-Security-Policy
+        value: frame-ancestors 'none'; object-src 'none'; base-uri 'self'
+      - key: Content-Security-Policy-Report-Only
+        value: >-
+          default-src 'self';
+          script-src 'self' blob: 'wasm-unsafe-eval'
+          'sha256-hn61GGzVxG8sSuXOE/PoS5YAzEuKXsV0TBmpE8sMvHY='
+          'sha256-iHX4kTjdBjOYOeAZNVj/rEHeWPlTmQcSGOFnSYdROgg='
+          https://pagead2.googlesyndication.com https://partner.googleadservices.com
+          https://tpc.googlesyndication.com https://www.googletagservices.com
+          https://www.googletagmanager.com https://googleads.g.doubleclick.net
+          https://*.adtrafficquality.google;
+          script-src-attr 'unsafe-hashes'
+          'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='
+          'sha256-1jAmyYXcRq6zFldLe/GCgIDJBiOONdXjTLgEFMDnDSM=';
+          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+          font-src 'self' data: https://fonts.gstatic.com;
+          img-src 'self' data: blob: https:;
+          media-src 'self' blob: https://*.s3.ap-south-1.amazonaws.com
+          https://*.s3-accelerate.amazonaws.com https://videos.pexels.com
+          https://cdn.pixabay.com;
+          connect-src 'self' blob: https://api.indifferent.fun
+          https://*.s3.ap-south-1.amazonaws.com https://*.s3-accelerate.amazonaws.com
+          https://cdn.jsdelivr.net https://dataplane.rum.ap-south-1.amazonaws.com
+          https://pagead2.googlesyndication.com https://www.googletagmanager.com
+          https://*.google-analytics.com https://*.analytics.google.com
+          https://*.doubleclick.net https://www.google.com https://*.adtrafficquality.google
+          https://cognito-identity.ap-south-1.amazonaws.com;
+          frame-src https://www.google.com https://*.adtrafficquality.google https://googleads.g.doubleclick.net https://tpc.googlesyndication.com
+          https://*.safeframe.googlesyndication.com;
+          worker-src 'self' blob:;
+          manifest-src 'self';
+          form-action 'self';
+          frame-ancestors 'none'; object-src 'none'; base-uri 'self';
+          report-uri https://api.indifferent.fun/csp-report

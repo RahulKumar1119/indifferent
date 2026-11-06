@@ -5,11 +5,11 @@ import { NavMobileMenuComponent } from '../../../shared/components/nav-mobile-me
 import { FormsModule } from '@angular/forms';
 import gsap from 'gsap';
 import { setJsonLd, setPageSeo } from '../../../shared/seo';
+import { loadVerifiedCore } from './ffmpeg-core';
 
-// FFmpeg.wasm single-thread core (no COOP/COEP headers needed). Pinned CDN
-// URLs, fetched lazily on first video export — never on page load.
-const FF_CORE_JS = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js';
-const FF_CORE_WASM = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.wasm';
+// FFmpeg.wasm single-thread core (no COOP/COEP headers needed). Fetched lazily
+// on first video export, never on page load, and hash-checked first
+// (see ffmpeg-core.ts).
 // The -st core exports _main (cwrap name 'main'), not the default proxy_main.
 const FF_MAIN_NAME = 'main';
 // Client-side processing gate: larger files need ~2GB free RAM.
@@ -43,7 +43,7 @@ const GRID_SPOTS = [0.15, 0.5, 0.85];
 
 // Minimal surface of @ffmpeg/ffmpeg 0.11 used by the video export.
 interface FfmpegFactory {
-  createFFmpeg(options: { corePath: string; mainName?: string; log?: boolean }): FfmpegEngine;
+  createFFmpeg(options: { corePath: string; wasmPath?: string; workerPath?: string; mainName?: string; log?: boolean }): FfmpegEngine;
   fetchFile(input: File | Blob | string): Promise<Uint8Array>;
 }
 
@@ -1020,7 +1020,8 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
           typeof ns['createFFmpeg'] === 'function'
             ? (ns as unknown as FfmpegFactory)
             : (ns['default'] as unknown as FfmpegFactory);
-        const ff = api.createFFmpeg({ corePath: FF_CORE_JS, mainName: FF_MAIN_NAME, log: false });
+        const core = await loadVerifiedCore();
+        const ff = api.createFFmpeg({ ...core, mainName: FF_MAIN_NAME, log: false });
         ff.setProgress(({ ratio }: { ratio: number }) => this.onEngineProgress(ratio));
         await ff.load();
         this.ffApi = api;
