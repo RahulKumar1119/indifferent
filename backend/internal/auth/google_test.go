@@ -24,7 +24,7 @@ type mockDynamoDBClient struct {
 	getItemFunc    func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	deleteItemFunc func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
 	updateItemFunc func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
-	scanFunc       func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
+	queryFunc      func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
 	putItemCalls   int
 }
 
@@ -57,11 +57,11 @@ func (m *mockDynamoDBClient) UpdateItem(ctx context.Context, params *dynamodb.Up
 	return &dynamodb.UpdateItemOutput{}, nil
 }
 
-func (m *mockDynamoDBClient) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
-	if m.scanFunc != nil {
-		return m.scanFunc(ctx, params, optFns...)
+func (m *mockDynamoDBClient) Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+	if m.queryFunc != nil {
+		return m.queryFunc(ctx, params, optFns...)
 	}
-	return &dynamodb.ScanOutput{Items: []map[string]dbtypes.AttributeValue{}}, nil
+	return &dynamodb.QueryOutput{Items: []map[string]dbtypes.AttributeValue{}}, nil
 }
 
 // testHTTPClient wraps an http.Client for use in tests.
@@ -248,7 +248,7 @@ func (m *memoryDB) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemIn
 	return &dynamodb.UpdateItemOutput{Attributes: old}, nil
 }
 
-func (m *memoryDB) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+func (m *memoryDB) Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
 	fid := ""
 	if v, ok := params.ExpressionAttributeValues[":fid"].(*dbtypes.AttributeValueMemberS); ok {
 		fid = v.Value
@@ -259,7 +259,7 @@ func (m *memoryDB) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns 
 			out = append(out, item)
 		}
 	}
-	return &dynamodb.ScanOutput{Items: out}, nil
+	return &dynamodb.QueryOutput{Items: out}, nil
 }
 
 // TestLoginSessionRefreshRoundTrip is the regression test for the production

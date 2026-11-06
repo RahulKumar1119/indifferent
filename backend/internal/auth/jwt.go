@@ -18,6 +18,10 @@ import (
 	"github.com/rahul/indifferent/backend/internal/models"
 )
 
+// FamilyIndexName is the global secondary index on the sessions table that
+// is keyed by familyId. deploy/setup.sh creates it.
+const FamilyIndexName = "familyId-index"
+
 // RotatedSessionTTL is the time a rotated session is kept for reuse detection.
 const RotatedSessionTTL = 5 * time.Minute
 
@@ -337,22 +341,24 @@ func (s *JWTService) handleRefreshConflict(ctx context.Context, tokenHash string
 // invalidateFamily deletes all sessions belonging to the given token family.
 // This is called when token reuse is detected to protect the user.
 func (s *JWTService) invalidateFamily(ctx context.Context, familyID string) {
-	// Scan every page for sessions with matching familyId: a single page
-	// caps at 1MB, and stolen sessions beyond it would otherwise survive
-	// the theft response.
+	// Query the family index, every page: a single page caps at 1MB, and
+	// stolen sessions beyond it would otherwise survive the theft response.
+	// This is a Query on a GSI, not a Scan: the Lambda role is not allowed
+	// dynamodb:Scan, so the earlier Scan never ran in production.
 	var lastKey map[string]dbtypes.AttributeValue
 	scanned, deleted, failed := 0, 0, 0
 	for {
-		scanOutput, err := s.DB.Scan(ctx, &dynamodb.ScanInput{
-			TableName:         aws.String(s.SessionTable),
-			FilterExpression:  aws.String("familyId = :fid"),
+		scanOutput, err := s.DB.Query(ctx, &dynamodb.QueryInput{
+			TableName:              aws.String(s.SessionTable),
+			IndexName:              aws.String(FamilyIndexName),
+			KeyConditionExpression: aws.String("familyId = :fid"),
 			ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
 				":fid": &dbtypes.AttributeValueMemberS{Value: familyID},
 			},
 			ExclusiveStartKey: lastKey,
 		})
 		if err != nil {
-			log.Printf("invalidate_family_scan_failed family=%s err=%v", familyID, err)
+			log.Printf("invalidate_family_query_failed family=%s err=%v", familyID, err)
 			return
 		}
 		scanned += len(scanOutput.Items)
