@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -218,6 +219,21 @@ func (m *memoryDB) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemIn
 }
 
 func (m *memoryDB) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+	if _, ok := params.ExpressionAttributeValues[":one"]; ok {
+		// "ADD attempts :one": atomic counter upsert (login attempt limit).
+		k := itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))
+		item, ok := m.items[k]
+		if !ok {
+			item = map[string]dbtypes.AttributeValue{"PK": params.Key["PK"], "SK": params.Key["SK"]}
+			m.items[k] = item
+		}
+		n := 0
+		if cur, ok := item["attempts"].(*dbtypes.AttributeValueMemberN); ok {
+			n, _ = strconv.Atoi(cur.Value)
+		}
+		item["attempts"] = &dbtypes.AttributeValueMemberN{Value: strconv.Itoa(n + 1)}
+		return &dynamodb.UpdateItemOutput{Attributes: map[string]dbtypes.AttributeValue{"attempts": item["attempts"]}}, nil
+	}
 	item, ok := m.items[itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))]
 	if !ok {
 		// attribute_exists(PK) fails: no such session.

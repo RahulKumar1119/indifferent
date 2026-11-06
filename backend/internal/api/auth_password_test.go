@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -48,6 +49,21 @@ func newPasswordTestHandler() (*APIHandler, *memPasswordDB) {
 			return &dynamodb.GetItemOutput{}, nil
 		},
 		updateItemFunc: func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+			if _, ok := params.ExpressionAttributeValues[":one"]; ok {
+				// "ADD attempts :one": atomic counter upsert (login attempt limit).
+				k := memKey(params.Key)
+				item, ok := db.items[k]
+				if !ok {
+					item = map[string]dbtypes.AttributeValue{"PK": params.Key["PK"], "SK": params.Key["SK"]}
+					db.items[k] = item
+				}
+				n := 0
+				if cur, ok := item["attempts"].(*dbtypes.AttributeValueMemberN); ok {
+					n, _ = strconv.Atoi(cur.Value)
+				}
+				item["attempts"] = &dbtypes.AttributeValueMemberN{Value: strconv.Itoa(n + 1)}
+				return &dynamodb.UpdateItemOutput{Attributes: map[string]dbtypes.AttributeValue{"attempts": item["attempts"]}}, nil
+			}
 			if item, ok := db.items[memKey(params.Key)]; ok {
 				for k, v := range params.ExpressionAttributeValues {
 					switch k {
@@ -137,5 +153,28 @@ func TestPasswordRoutes_StatusMapping(t *testing.T) {
 	wrong := postJSON(t, h, "/auth/login", `{"email":"dup@example.com","password":"nope-nope-no"}`)
 	if unknown.Body != wrong.Body {
 		t.Errorf("login failures must match, got %q vs %q", unknown.Body, wrong.Body)
+	}
+}
+
+func TestPasswordLogin_TooManyAttemptsReturns429WithRetryAfter(t *testing.T) {
+	h, _ := newPasswordTestHandler()
+	// Unknown address: no bcrypt per try, and the limit counts it anyway.
+	body := `{"email":"nobody@example.com","password":"whatever12"}`
+	for i := 0; i < auth.LoginMaxAttempts; i++ {
+		if resp := postJSON(t, h, "/auth/login", body); resp.StatusCode != 401 {
+			t.Fatalf("attempt %d: status %d, want 401", i+1, resp.StatusCode)
+		}
+	}
+	resp := postJSON(t, h, "/auth/login", body)
+	if resp.StatusCode != 429 {
+		t.Fatalf("status %d, want 429", resp.StatusCode)
+	}
+	if resp.Headers["Retry-After"] == "" {
+		t.Error("429 must carry Retry-After")
+	}
+	var apiErr struct{ Code string }
+	_ = json.Unmarshal([]byte(resp.Body), &apiErr)
+	if apiErr.Code != "RATE_LIMITED" {
+		t.Errorf("code %q, want RATE_LIMITED", apiErr.Code)
 	}
 }

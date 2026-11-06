@@ -345,6 +345,10 @@ func (h *APIHandler) handleLogin(ctx context.Context, req events.APIGatewayProxy
 
 	tokens, err := h.PasswordAuth.Login(ctx, body.Email, body.Password)
 	if err != nil {
+		var tooMany *auth.TooManyAttemptsError
+		if errors.As(err, &tooMany) {
+			return tooManyRequests("RATE_LIMITED", "Too many sign-in attempts. Try again later.", maxInt(1, int(tooMany.RetryAfter.Seconds()))), nil
+		}
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			return errorResponse(http.StatusUnauthorized, "AUTH_FAILED", "Invalid email or password"), nil
 		}
