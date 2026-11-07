@@ -38,7 +38,7 @@ export function setRobots(doc: Document, content: string): void {
  * disallowed in robots.txt, so they must never be indexed. `/shorts-maker` is a
  * public landing page and must not match `/shorts`. */
 const PRIVATE_EXACT = ['/shorts', '/new'];
-const PRIVATE_PREFIXES = ['/dashboard', '/projects', '/shorts/', '/account', '/profile', '/settings', '/auth/'];
+const PRIVATE_PREFIXES = ['/dashboard', '/projects', '/shorts/', '/account', '/profile', '/settings', '/auth/', '/verify-email'];
 
 /** The robots directive a path gets before its own page code runs. */
 export function robotsForUrl(url: string): string {
