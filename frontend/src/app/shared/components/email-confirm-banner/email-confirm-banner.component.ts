@@ -20,9 +20,15 @@ type SendState = 'idle' | 'sending' | 'sent' | 'failed';
     @if (unconfirmed()) {
       <section class="rounded-xl border border-[#D96C3D]/40 bg-[#FFF4EC] px-5 py-4 text-[#1A1714]" aria-label="Confirm your email address">
         <p class="text-[15px] font-medium">Confirm your email address</p>
-        <p class="mt-1 text-[14px] text-[#3E3A33]">
-          We sent a link to {{ email() }}. Until you open it, you cannot create projects or Shorts.
-        </p>
+        @if (required()) {
+          <p class="mt-1 text-[14px] text-[#3E3A33]">
+            We sent a link to {{ email() }}. Until you open it, you cannot create projects or Shorts.
+          </p>
+        } @else {
+          <p class="mt-1 text-[14px] text-[#3E3A33]">
+            Confirm {{ email() }} to get emails about your videos. Nothing else changes if you do not.
+          </p>
+        }
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -48,6 +54,7 @@ export class EmailConfirmBannerComponent implements OnInit {
   private readonly auth = inject(AuthService);
 
   readonly unconfirmed = signal(false);
+  readonly required = signal(false);
   readonly email = signal('');
   readonly send = signal<SendState>('idle');
   readonly error = signal('');
@@ -57,8 +64,10 @@ export class EmailConfirmBannerComponent implements OnInit {
       .get<UserProfile>('/auth/me', undefined, true, new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true))
       .subscribe({
         next: (profile) => {
-          // Only an explicit false: an older API that does not send the field must not show this.
-          this.unconfirmed.set(profile.emailVerified === false);
+          // Only on an explicit false, and only when the API says confirmation is on:
+          // an older API that sends neither field must not show this.
+          this.unconfirmed.set(profile.emailVerified === false && profile.canConfirmEmail === true);
+          this.required.set(profile.emailConfirmationRequired === true);
           this.email.set(profile.email);
         },
         error: () => undefined,

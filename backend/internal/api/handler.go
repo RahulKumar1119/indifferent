@@ -458,8 +458,14 @@ type UserProfile struct {
 	AvatarURL string `json:"avatarUrl"`
 	CreatedAt string `json:"createdAt"`
 	// EmailVerified is false for a password account whose address has not been
-	// confirmed with the emailed link. The web app offers to send it again.
+	// confirmed with the emailed link.
 	EmailVerified bool `json:"emailVerified"`
+	// CanConfirmEmail says confirmation is switched on, so the web app can offer
+	// to send the link again. EmailConfirmationRequired says that, for this
+	// account, costly actions are held back until the link is opened; accounts
+	// from before confirmation existed can confirm too, but are not held back.
+	CanConfirmEmail           bool `json:"canConfirmEmail"`
+	EmailConfirmationRequired bool `json:"emailConfirmationRequired"`
 }
 
 // handleGetMe returns the authenticated user's profile from the users
@@ -483,13 +489,16 @@ func (h *APIHandler) handleGetMe(ctx context.Context, req events.APIGatewayProxy
 	if result.Item == nil {
 		return errorResponse(http.StatusNotFound, "USER_NOT_FOUND", "User profile not found"), nil
 	}
+	mark, marked := result.Item["emailVerified"].(*dbtypes.AttributeValueMemberBOOL)
 	return jsonResponse(http.StatusOK, UserProfile{
 		Email:     stringAttr(result.Item, "email"),
 		Name:      stringAttr(result.Item, "name"),
 		AvatarURL: stringAttr(result.Item, "avatarUrl"),
 		CreatedAt: stringAttr(result.Item, "createdAt"),
 
-		EmailVerified: notifyprefs.EmailVerified(result.Item),
+		EmailVerified:             notifyprefs.EmailVerified(result.Item),
+		CanConfirmEmail:           h.Verifier != nil,
+		EmailConfirmationRequired: h.Verifier != nil && marked && !mark.Value,
 	}), nil
 }
 

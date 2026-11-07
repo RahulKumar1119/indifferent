@@ -24,9 +24,26 @@ describe('EmailConfirmBannerComponent', () => {
   }
 
   it('is shown, with the address, only for an account marked unconfirmed', () => {
-    const { el } = setup({ email: 'me@example.com', emailVerified: false });
+    const { el } = setup({ email: 'me@example.com', emailVerified: false, canConfirmEmail: true, emailConfirmationRequired: true });
     expect(el.textContent).toContain('Confirm your email address');
     expect(el.textContent).toContain('me@example.com');
+  });
+
+  it('says costly actions wait, for an account that is held back', () => {
+    const { el } = setup({ email: 'me@example.com', emailVerified: false, canConfirmEmail: true, emailConfirmationRequired: true });
+    expect(el.textContent).toContain('cannot create projects or Shorts');
+  });
+
+  it('does not claim that for an older account, which is not held back', () => {
+    const { el } = setup({ email: 'old@example.com', emailVerified: false, canConfirmEmail: true, emailConfirmationRequired: false });
+    expect(el.textContent).toContain('Confirm old@example.com to get emails');
+    expect(el.textContent).not.toContain('cannot create');
+  });
+
+  it('shows nothing while confirmation is switched off', () => {
+    const { el, button } = setup({ email: 'me@example.com', emailVerified: false, canConfirmEmail: false, emailConfirmationRequired: false });
+    expect(button()).toBeNull();
+    expect(el.textContent?.trim()).toBe('');
   });
 
   for (const [name, profile] of [
@@ -42,7 +59,7 @@ describe('EmailConfirmBannerComponent', () => {
   }
 
   it('asks for a new email once, then says it was sent', () => {
-    const { fixture, http, el, button } = setup({ email: 'me@example.com', emailVerified: false });
+    const { fixture, http, el, button } = setup({ email: 'me@example.com', emailVerified: false, canConfirmEmail: true, emailConfirmationRequired: true });
     button()!.click();
     button()!.click(); // a second click while sending does nothing
     fixture.detectChanges();
@@ -57,7 +74,7 @@ describe('EmailConfirmBannerComponent', () => {
   });
 
   it('shows the reason and allows another try when sending fails', () => {
-    const { fixture, http, el, button } = setup({ email: 'me@example.com', emailVerified: false });
+    const { fixture, http, el, button } = setup({ email: 'me@example.com', emailVerified: false, canConfirmEmail: true, emailConfirmationRequired: true });
     button()!.click();
     http
       .expectOne(`${environment.apiUrl}/auth/resend-verification`)

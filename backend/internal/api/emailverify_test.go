@@ -386,10 +386,11 @@ func TestAuthMe_ReportsEmailVerified(t *testing.T) {
 		hash      bool
 		want      string
 	}{
-		{"unconfirmed password sign-up", ptr(false), true, `"emailVerified":false`},
-		{"confirmed password sign-up", ptr(true), true, `"emailVerified":true`},
-		{"google account", nil, false, `"emailVerified":true`},
-		{"old password account", nil, true, `"emailVerified":false`},
+		{"unconfirmed password sign-up", ptr(false), true, `"emailVerified":false,"canConfirmEmail":true,"emailConfirmationRequired":true`},
+		{"confirmed password sign-up", ptr(true), true, `"emailVerified":true,"canConfirmEmail":true,"emailConfirmationRequired":false`},
+		{"google account", nil, false, `"emailVerified":true,"canConfirmEmail":true,"emailConfirmationRequired":false`},
+		// Can confirm (to get notification email) but is not held back.
+		{"old password account", nil, true, `"emailVerified":false,"canConfirmEmail":true,"emailConfirmationRequired":false`},
 	} {
 		e.profile("u-"+tc.name, "x@example.com", tc.confirmed)
 		if tc.hash {
@@ -399,5 +400,16 @@ func TestAuthMe_ReportsEmailVerified(t *testing.T) {
 		if !strings.Contains(resp.Body, tc.want) {
 			t.Errorf("%s: %s, want %s", tc.name, resp.Body, tc.want)
 		}
+	}
+}
+
+func TestAuthMe_NothingToConfirmWhenTheFeatureIsOff(t *testing.T) {
+	e := newVerifyEnv(t)
+	e.profile("u1", "u1@example.com", ptr(false))
+	e.items["users-table|USER#u1|PROFILE"]["passwordHash"] = &dbtypes.AttributeValueMemberS{Value: "$2a$x"}
+	e.h.Verifier = nil
+	body := e.call("GET", "/auth/me", generateTestToken("u1"), "").Body
+	if !strings.Contains(body, `"canConfirmEmail":false,"emailConfirmationRequired":false`) {
+		t.Errorf("/auth/me = %s, want nothing to confirm and nothing required while the feature is off", body)
 	}
 }
