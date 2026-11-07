@@ -32,6 +32,19 @@ var ErrEmailTaken = fmt.Errorf("email already registered")
 // (unknown email, bad password) so callers cannot enumerate accounts.
 var ErrInvalidCredentials = fmt.Errorf("invalid email or password")
 
+// dummyPasswordHash is a bcrypt hash, at the cost sign-up uses, of a random
+// secret that was thrown away. Login compares against it when there is nothing
+// real to compare with so that every failed attempt costs the same time. It
+// matches no password anyone can supply.
+const dummyPasswordHash = "$2a$10$D.aeQ3/dDsIl8nDsxYIUneXHwdiGjy2JKHVE/01x6hm/uBfn6OadK"
+
+// noSuchUserID is a user id that is never issued (ids are UUIDs); the second
+// read of a login for an unknown address is made against it.
+const noSuchUserID = "no-such-user"
+
+// comparePasswordHash is bcrypt's compare; tests replace it to count calls.
+var comparePasswordHash = bcrypt.CompareHashAndPassword
+
 // PasswordAuthService provides email/password signup and login backed by the
 // same users table and session model as Google OAuth: sessions it creates are
 // refreshable through JWTService.RefreshToken without further changes.
@@ -213,6 +226,13 @@ func (s *PasswordAuthService) Login(ctx context.Context, email, password string)
 		return nil, &TooManyAttemptsError{RetryAfter: retryAfter}
 	}
 
+	// Every attempt does the same work whatever the address turns out to be:
+	// two reads and one bcrypt compare. Without that, an unknown address would
+	// answer in a few milliseconds and a known one after a bcrypt compare of
+	// about sixty, which tells an attacker which addresses have accounts (SEC-11).
+	// Where there is no account, no password hash, or the profile is missing, the
+	// reads still happen (the second against a key that cannot exist) and the
+	// compare runs against a fixed hash nobody holds the password to.
 	idx, err := s.DB.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName:      aws.String(s.UsersTable),
 		Key:            emailKey(email),
@@ -221,31 +241,34 @@ func (s *PasswordAuthService) Login(ctx context.Context, email, password string)
 	if err != nil {
 		return nil, fmt.Errorf("lookup user: %w", err)
 	}
-	if idx.Item == nil {
-		return nil, ErrInvalidCredentials
+	userID := ""
+	if idx.Item != nil {
+		userID = extractStringAttr(idx.Item, "userId")
 	}
-	userID := extractStringAttr(idx.Item, "userId")
+	profileKey := userKey(userID)
 	if userID == "" {
-		return nil, ErrInvalidCredentials
+		profileKey = userKey(noSuchUserID)
 	}
-
 	profile, err := s.DB.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName:      aws.String(s.UsersTable),
-		Key:            userKey(userID),
+		Key:            profileKey,
 		ConsistentRead: aws.Bool(true),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("lookup user: %w", err)
 	}
-	if profile.Item == nil {
-		return nil, ErrInvalidCredentials
+
+	hash := dummyPasswordHash
+	hasPassword := false
+	if userID != "" && profile.Item != nil {
+		// An OAuth-only account (e.g. Gmail sign-up) has no password hash.
+		if stored, ok := profile.Item["passwordHash"].(*dbtypes.AttributeValueMemberS); ok && stored.Value != "" {
+			hash = stored.Value
+			hasPassword = true
+		}
 	}
-	stored, ok := profile.Item["passwordHash"].(*dbtypes.AttributeValueMemberS)
-	if !ok || stored.Value == "" {
-		// OAuth-only account (e.g. Gmail signup): no password to check.
-		return nil, ErrInvalidCredentials
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(stored.Value), []byte(password)); err != nil {
+	compareErr := comparePasswordHash([]byte(hash), []byte(password))
+	if !hasPassword || compareErr != nil {
 		return nil, ErrInvalidCredentials
 	}
 
