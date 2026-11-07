@@ -7,7 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ProjectService } from '../../core/services/project.service';
 import { Project } from '../../shared/models/project.model';
 import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
-import { CreatorProfile, emptyCreatorProfile, toUsername } from './models/creator-profile.model';
+import { CreatorProfile, emptyCreatorProfile } from './models/creator-profile.model';
 import { CreatorDNA, DEFAULT_CREATOR_DNA } from './models/creator-dna.model';
 import {
   ActivityItem,
@@ -202,8 +202,12 @@ export class ProfileComponent implements OnInit {
 
     this.store.fetchBackendUser().subscribe((remote) => {
       const merged = this.store.mergeBackendUser(this.profile, remote);
-      if (!merged.username && merged.name) merged.username = toUsername(merged.name, merged.email);
       this.profile = this.store.saveProfile(merged);
+      // Signing in as someone else on this browser clears the saved data; show what is left.
+      this.social = this.store.loadSocial();
+      this.dna = this.store.loadDNA();
+      this.isDefaultDna = this.store.isDefaultDNA(this.dna);
+      this.activity = this.store.loadActivity();
     });
 
     forkJoin({
