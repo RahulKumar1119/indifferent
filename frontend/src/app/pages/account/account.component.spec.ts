@@ -20,7 +20,8 @@ describe('AccountComponent sign out of all devices', () => {
     const fixture = TestBed.createComponent(AccountComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    http.expectOne(`${environment.apiUrl}/auth/me`).flush({ email: 'a@b.co', name: 'A', avatarUrl: '', createdAt: '2026-01-01T00:00:00Z' });
+    // The page and the confirmation banner each read the profile.
+    http.match(`${environment.apiUrl}/auth/me`).forEach((r) => r.flush({ email: 'a@b.co', name: 'A', avatarUrl: '', createdAt: '2026-01-01T00:00:00Z', emailVerified: true }));
     const button = () =>
       [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find((b) => /all devices/i.test(b.textContent ?? ''))!;
     return { fixture, http, button };

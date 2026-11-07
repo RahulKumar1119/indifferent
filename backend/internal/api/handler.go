@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rahul/indifferent/backend/internal/auth"
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/notifyprefs"
 	"github.com/rahul/indifferent/backend/internal/storage"
 	"github.com/rahul/indifferent/backend/internal/storymetrics"
 )
@@ -123,6 +124,11 @@ type APIHandler struct {
 	// request.
 	Metrics *storymetrics.Emitter
 
+	// Verifier sends and checks the email confirmation links for password
+	// accounts. Nil turns confirmation off: nothing is sent and no action waits
+	// for it.
+	Verifier *auth.EmailVerifier
+
 	// QuotaTable holds the per-user daily counters (see quota.go). It must have
 	// TTL on expiresAt: the sessions table. Empty turns the quotas off.
 	QuotaTable string
@@ -162,6 +168,10 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleRefresh(ctx, req)
 	case req.HTTPMethod == "POST" && req.Path == "/auth/logout":
 		return h.handleLogout(ctx, req)
+	case req.HTTPMethod == "POST" && req.Path == "/auth/verify-email":
+		return h.handleVerifyEmail(ctx, req)
+	case req.HTTPMethod == "POST" && req.Path == "/auth/resend-verification":
+		return h.handleWithAuth(ctx, req, h.handleResendVerification)
 	case req.HTTPMethod == "POST" && req.Path == "/auth/logout-all":
 		return h.handleWithAuth(ctx, req, h.handleLogoutAll)
 	case req.HTTPMethod == "GET" && req.Path == "/auth/me":
@@ -249,6 +259,9 @@ func (h *APIHandler) handleWithAuth(ctx context.Context, req events.APIGatewayPr
 	claims, err := h.extractAndValidateToken(req)
 	if err != nil {
 		return errorResponse(http.StatusUnauthorized, "UNAUTHORIZED", "Invalid or missing authentication token"), nil
+	}
+	if resp := h.requireConfirmedEmail(ctx, req, claims); resp != nil {
+		return *resp, nil
 	}
 	return handler(ctx, req, claims)
 }
@@ -444,6 +457,15 @@ type UserProfile struct {
 	Name      string `json:"name"`
 	AvatarURL string `json:"avatarUrl"`
 	CreatedAt string `json:"createdAt"`
+	// EmailVerified is false for a password account whose address has not been
+	// confirmed with the emailed link.
+	EmailVerified bool `json:"emailVerified"`
+	// CanConfirmEmail says confirmation is switched on, so the web app can offer
+	// to send the link again. EmailConfirmationRequired says that, for this
+	// account, costly actions are held back until the link is opened; accounts
+	// from before confirmation existed can confirm too, but are not held back.
+	CanConfirmEmail           bool `json:"canConfirmEmail"`
+	EmailConfirmationRequired bool `json:"emailConfirmationRequired"`
 }
 
 // handleGetMe returns the authenticated user's profile from the users
@@ -467,11 +489,16 @@ func (h *APIHandler) handleGetMe(ctx context.Context, req events.APIGatewayProxy
 	if result.Item == nil {
 		return errorResponse(http.StatusNotFound, "USER_NOT_FOUND", "User profile not found"), nil
 	}
+	mark, marked := result.Item["emailVerified"].(*dbtypes.AttributeValueMemberBOOL)
 	return jsonResponse(http.StatusOK, UserProfile{
 		Email:     stringAttr(result.Item, "email"),
 		Name:      stringAttr(result.Item, "name"),
 		AvatarURL: stringAttr(result.Item, "avatarUrl"),
 		CreatedAt: stringAttr(result.Item, "createdAt"),
+
+		EmailVerified:             notifyprefs.EmailVerified(result.Item),
+		CanConfirmEmail:           h.Verifier != nil,
+		EmailConfirmationRequired: h.Verifier != nil && marked && !mark.Value,
 	}), nil
 }
 

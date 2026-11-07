@@ -4,14 +4,16 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { UserProfile } from '../../shared/models/user-profile.model';
+import { EmailConfirmBannerComponent } from '../../shared/components/email-confirm-banner/email-confirm-banner.component';
 
 @Component({
   selector: 'app-account',
   standalone: true,
-  imports: [DatePipe, LucideDynamicIcon],
+  imports: [DatePipe, LucideDynamicIcon, EmailConfirmBannerComponent],
   template: `
     <div class="mx-auto max-w-2xl p-6">
       <h1 class="mb-6 text-2xl font-bold">Account</h1>
+      <app-email-confirm-banner class="mb-6 block" />
 
       <div class="glass-card p-6 mb-6">
         <div class="flex items-center gap-6">

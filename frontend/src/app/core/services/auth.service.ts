@@ -1,11 +1,12 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { BehaviorSubject, Observable, catchError, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { AuthTokens } from '../../shared';
+import { SUPPRESS_GLOBAL_ERROR } from '../interceptors/error.interceptor';
 
 /** localStorage key for the refresh token. The access token stays memory-only. */
 const REFRESH_TOKEN_KEY = 'indifferent.refreshToken';
@@ -204,6 +205,28 @@ export class AuthService {
           this.router.navigate(['/login']);
         }),
       );
+  }
+
+  /**
+   * POST /auth/verify-email: spends the single-use token from the confirmation
+   * email. It needs no sign-in (the link may be opened on another device) and a
+   * failure is shown by the page itself, so the global error toast is skipped.
+   */
+  verifyEmail(token: string): Observable<void> {
+    return this.http.post<void>(
+      `${environment.apiUrl}/auth/verify-email`,
+      { token },
+      { context: new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true) },
+    );
+  }
+
+  /** POST /auth/resend-verification: mail a fresh confirmation link to the signed-in account's address. */
+  resendVerification(): Observable<void> {
+    return this.http.post<void>(
+      `${environment.apiUrl}/auth/resend-verification`,
+      {},
+      { withCredentials: true, context: new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true) },
+    );
   }
 
   isAuthenticated(): boolean {

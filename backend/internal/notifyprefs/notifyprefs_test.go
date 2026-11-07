@@ -39,6 +39,11 @@ func TestEmailVerified(t *testing.T) {
 		{"google profile (no password hash)", map[string]dbtypes.AttributeValue{"email": s("g@x.co")}, true},
 		{"password profile", map[string]dbtypes.AttributeValue{"email": s("p@x.co"), "passwordHash": s("$2a$hash")}, false},
 		{"empty password hash counts as oauth", map[string]dbtypes.AttributeValue{"email": s("g@x.co"), "passwordHash": s("")}, true},
+		{"password profile that confirmed its address", map[string]dbtypes.AttributeValue{"email": s("p@x.co"), "passwordHash": s("$2a$hash"), "emailVerified": b(true)}, true},
+		{"password profile with an explicit unconfirmed mark", map[string]dbtypes.AttributeValue{"email": s("p@x.co"), "passwordHash": s("$2a$hash"), "emailVerified": b(false)}, false},
+		{"google profile with an explicit unconfirmed mark is not sent mail", map[string]dbtypes.AttributeValue{"email": s("g@x.co"), "emailVerified": b(false)}, false},
+		{"confirmed mark of the wrong type is ignored", map[string]dbtypes.AttributeValue{"email": s("p@x.co"), "passwordHash": s("$2a$hash"), "emailVerified": s("true")}, false},
+		{"confirmed but no address", map[string]dbtypes.AttributeValue{"emailVerified": b(true)}, false},
 		{"no email", map[string]dbtypes.AttributeValue{"name": s("x")}, false},
 		{"empty profile", map[string]dbtypes.AttributeValue{}, false},
 	}

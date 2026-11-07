@@ -5,6 +5,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import { ProjectService } from '../../core/services/project.service';
 import { Project, ProjectStatus } from '../../shared/models/project.model';
 import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
+import { EmailConfirmBannerComponent } from '../../shared/components/email-confirm-banner/email-confirm-banner.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -13,6 +14,7 @@ import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
     CommonModule,
     RouterLink,
     LucideDynamicIcon,
+    EmailConfirmBannerComponent,
   ],
   styles: [`
     .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
@@ -51,6 +53,7 @@ import { ShortsJobSummary, ShortsService } from '../shorts/shorts.service';
       </header>
 
       <main class="max-w-7xl mx-auto px-5 md:px-8 py-10 md:py-14">
+        <app-email-confirm-banner class="mb-8 block" />
         <div class="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Studio · Overview</p>
