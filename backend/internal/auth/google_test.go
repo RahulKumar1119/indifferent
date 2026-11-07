@@ -214,11 +214,30 @@ func (m *memoryDB) GetItem(ctx context.Context, params *dynamodb.GetItemInput, o
 }
 
 func (m *memoryDB) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
-	delete(m.items, itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK")))
-	return &dynamodb.DeleteItemOutput{}, nil
+	k := itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))
+	old := m.items[k]
+	if params.ConditionExpression != nil && !conditionHolds(old, *params.ConditionExpression, params.ExpressionAttributeValues) {
+		return &dynamodb.DeleteItemOutput{}, &dbtypes.ConditionalCheckFailedException{Message: aws.String("condition failed")}
+	}
+	delete(m.items, k)
+	out := &dynamodb.DeleteItemOutput{}
+	if params.ReturnValues == dbtypes.ReturnValueAllOld {
+		out.Attributes = old
+	}
+	return out, nil
 }
 
 func (m *memoryDB) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+	if params.UpdateExpression != nil && strings.Contains(*params.UpdateExpression, "emailVerified") {
+		// Email confirmation and Google account hand-over: SET a = :x, ... [REMOVE c].
+		k := itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))
+		item := m.items[k]
+		if params.ConditionExpression != nil && !conditionHolds(item, *params.ConditionExpression, params.ExpressionAttributeValues) {
+			return &dynamodb.UpdateItemOutput{}, &dbtypes.ConditionalCheckFailedException{Message: aws.String("condition failed")}
+		}
+		applySetRemove(item, *params.UpdateExpression, params.ExpressionAttributeValues)
+		return &dynamodb.UpdateItemOutput{}, nil
+	}
 	if params.UpdateExpression != nil && strings.Contains(*params.UpdateExpression, "sessionsRevokedBeforeMs") {
 		// LogoutAll: SET sessionsRevokedBeforeMs = :now on the user's profile.
 		k := itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))
@@ -577,6 +596,13 @@ func TestHashToken(t *testing.T) {
 
 func googleOAuthServers(t *testing.T, googleID, email string) (string, string) {
 	t.Helper()
+	return googleOAuthServersVerified(t, googleID, email, false)
+}
+
+// googleOAuthServersVerified is googleOAuthServers where Google also states
+// whether it verified the address (verified_email).
+func googleOAuthServersVerified(t *testing.T, googleID, email string, verified bool) (string, string) {
+	t.Helper()
 	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(GoogleTokenResponse{
@@ -594,6 +620,8 @@ func googleOAuthServers(t *testing.T, googleID, email string) (string, string) {
 			Email:     email,
 			Name:      "G User",
 			AvatarURL: "https://lh3.google.com/photo.jpg",
+
+			VerifiedEmail: verified,
 		})
 	}))
 	t.Cleanup(userInfoServer.Close)
@@ -715,5 +743,62 @@ func TestValidCodeVerifier(t *testing.T) {
 				t.Errorf("ValidCodeVerifier(%q) = %v, want %v", c.v, got, c.want)
 			}
 		})
+	}
+}
+
+// conditionHolds evaluates the few condition forms the auth code uses, joined
+// by AND: attribute_exists(X), "attr = :v" and "attr > :v". A nil item fails
+// every attribute_exists, like a missing DynamoDB item.
+func conditionHolds(item map[string]dbtypes.AttributeValue, cond string, vals map[string]dbtypes.AttributeValue) bool {
+	for _, clause := range strings.Split(cond, " AND ") {
+		clause = strings.TrimSpace(clause)
+		switch {
+		case strings.HasPrefix(clause, "attribute_exists("):
+			name := strings.TrimSuffix(strings.TrimPrefix(clause, "attribute_exists("), ")")
+			if item == nil || item[name] == nil {
+				return false
+			}
+		case strings.Contains(clause, " > "):
+			parts := strings.SplitN(clause, " > ", 2)
+			cur, ok := item[strings.TrimSpace(parts[0])].(*dbtypes.AttributeValueMemberN)
+			want, ok2 := vals[strings.TrimSpace(parts[1])].(*dbtypes.AttributeValueMemberN)
+			if item == nil || !ok || !ok2 {
+				return false
+			}
+			a, _ := strconv.ParseInt(cur.Value, 10, 64)
+			b, _ := strconv.ParseInt(want.Value, 10, 64)
+			if a <= b {
+				return false
+			}
+		case strings.Contains(clause, " = "):
+			parts := strings.SplitN(clause, " = ", 2)
+			if item == nil || strAttr(item, strings.TrimSpace(parts[0])) != strAttr(map[string]dbtypes.AttributeValue{"v": vals[strings.TrimSpace(parts[1])]}, "v") {
+				return false
+			}
+		default:
+			panic("test fake does not understand condition clause: " + clause)
+		}
+	}
+	return true
+}
+
+// applySetRemove applies "SET a = :x, b = :y REMOVE c, d" to item.
+func applySetRemove(item map[string]dbtypes.AttributeValue, expr string, vals map[string]dbtypes.AttributeValue) {
+	set, remove := expr, ""
+	if i := strings.Index(expr, " REMOVE "); i >= 0 {
+		set, remove = expr[:i], expr[i+len(" REMOVE "):]
+	}
+	set = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(set), "SET"))
+	for _, assign := range strings.Split(set, ",") {
+		parts := strings.SplitN(assign, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		item[strings.TrimSpace(parts[0])] = vals[strings.TrimSpace(parts[1])]
+	}
+	for _, name := range strings.Split(remove, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			delete(item, name)
+		}
 	}
 }

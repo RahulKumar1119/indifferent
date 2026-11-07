@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { LoginComponent, AuthCallbackComponent, authGuard } from './auth';
+import { VerifyEmailComponent } from './pages/verify-email/verify-email.component';
 import { LandingComponent } from './pages/landing';
 import { NotFoundComponent } from './pages/not-found';
 
@@ -7,6 +8,7 @@ export const routes: Routes = [
   { path: '', component: LandingComponent, pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
   { path: 'auth/callback', component: AuthCallbackComponent },
+  { path: 'verify-email', component: VerifyEmailComponent },
   {
     path: 'dashboard',
     loadComponent: () =>

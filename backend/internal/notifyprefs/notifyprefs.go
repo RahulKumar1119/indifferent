@@ -42,17 +42,21 @@ func boolAttr(item map[string]dbtypes.AttributeValue, key string) bool {
 // EmailVerified reports whether the profile's address is known to belong to
 // the account holder, which is the condition for sending it any email.
 //
-// Google sign-in profiles are written without a password hash, and Google has
-// already verified that address. Password sign-ups always store a password
-// hash and the app does not yet confirm ownership of the address they typed,
-// so mail to it could reach a stranger and would count against our shared SES
-// sender reputation. Those profiles are treated as unverified.
+// A profile says so itself with the emailVerified attribute: true after the
+// person opened the confirmation link (or signed in with a Google address Google
+// had verified), false for a password sign-up that has not done so yet.
 //
-// When email verification is added for password accounts, this is the one
-// place to change.
+// Profiles written before that attribute existed are judged as they were then.
+// Google sign-in profiles have no password hash and Google had verified the
+// address. Password sign-ups always store a hash and had confirmed nothing, so
+// mail to them could reach a stranger and would count against our shared SES
+// sender reputation; they stay unverified until the person confirms.
 func EmailVerified(item map[string]dbtypes.AttributeValue) bool {
 	if Email(item) == "" {
 		return false
+	}
+	if v, ok := item["emailVerified"].(*dbtypes.AttributeValueMemberBOOL); ok {
+		return v.Value
 	}
 	if v, ok := item["passwordHash"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
 		return false

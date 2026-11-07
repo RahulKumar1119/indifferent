@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/mail"
 	"strings"
 	"time"
@@ -39,6 +40,9 @@ type PasswordAuthService struct {
 	JWT          *JWTService
 	UsersTable   string
 	SessionTable string
+	// Verifier mails the confirmation link after sign-up. Nil sends nothing and
+	// leaves the account unconfirmed.
+	Verifier *EmailVerifier
 }
 
 // NewPasswordAuthService builds a PasswordAuthService sharing the JWT service
@@ -123,16 +127,24 @@ func (s *PasswordAuthService) signUp(ctx context.Context, email, name, password 
 		return nil, fmt.Errorf("reserve email: %w", err)
 	}
 
+	profile := map[string]dbtypes.AttributeValue{
+		"PK":           userKey(userID)["PK"],
+		"SK":           userKey(userID)["SK"],
+		"email":        &dbtypes.AttributeValueMemberS{Value: email},
+		"name":         &dbtypes.AttributeValueMemberS{Value: name},
+		"passwordHash": &dbtypes.AttributeValueMemberS{Value: string(hash)},
+		"createdAt":    &dbtypes.AttributeValueMemberS{Value: now},
+	}
+	if s.Verifier != nil {
+		// Nobody has shown they own this address yet. Costly actions wait for
+		// the link in the confirmation email (see EmailVerifier). Without a
+		// verifier there is nothing to confirm with, so the mark is not written
+		// and the account is not held back.
+		profile["emailVerified"] = &dbtypes.AttributeValueMemberBOOL{Value: false}
+	}
 	if _, err := s.DB.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(s.UsersTable),
-		Item: map[string]dbtypes.AttributeValue{
-			"PK":           userKey(userID)["PK"],
-			"SK":           userKey(userID)["SK"],
-			"email":        &dbtypes.AttributeValueMemberS{Value: email},
-			"name":         &dbtypes.AttributeValueMemberS{Value: name},
-			"passwordHash": &dbtypes.AttributeValueMemberS{Value: string(hash)},
-			"createdAt":    &dbtypes.AttributeValueMemberS{Value: now},
-		},
+		Item:      profile,
 	}); err != nil {
 		// Best effort rollback of the reservation; the next signup retry
 		// surfaces ErrEmailTaken only if this delete also failed.
@@ -143,7 +155,18 @@ func (s *PasswordAuthService) signUp(ctx context.Context, email, name, password 
 		return nil, fmt.Errorf("store user: %w", err)
 	}
 
-	return s.issueTokens(ctx, userID, email)
+	tokens, err := s.issueTokens(ctx, userID, email)
+	if err != nil {
+		return nil, err
+	}
+	// Best effort: the account exists and works for everything except the costly
+	// actions either way, and the person can ask for the email again.
+	if s.Verifier != nil {
+		if err := s.Verifier.Send(ctx, userID, email); err != nil {
+			log.Printf("verification_email_failed err=%v", err)
+		}
+	}
+	return tokens, nil
 }
 
 // repairOrphanEmail removes an EMAIL# reservation that points at a missing

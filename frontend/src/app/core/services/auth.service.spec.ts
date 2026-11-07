@@ -183,4 +183,24 @@ describe('AuthService', () => {
       expect(navigate).not.toHaveBeenCalled();
     });
   });
+
+  describe('email confirmation', () => {
+    it('verifyEmail posts the token and nothing else', () => {
+      let done = false;
+      service.verifyEmail('tok').subscribe(() => (done = true));
+      const req = httpTesting.expectOne(`${environment.apiUrl}/auth/verify-email`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ token: 'tok' });
+      req.flush(null, { status: 204, statusText: 'No Content' });
+      expect(done).toBeTrue();
+    });
+
+    it('resendVerification posts an empty body: the address is the account\'s own', () => {
+      service.resendVerification().subscribe();
+      const req = httpTesting.expectOne(`${environment.apiUrl}/auth/resend-verification`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({});
+      req.flush(null, { status: 204, statusText: 'No Content' });
+    });
+  });
 });

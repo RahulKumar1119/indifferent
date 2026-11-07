@@ -38,6 +38,9 @@ type GoogleUserInfo struct {
 	Email     string `json:"email"`
 	Name      string `json:"name"`
 	AvatarURL string `json:"picture"`
+	// VerifiedEmail is Google's own statement that the account holder proved
+	// they control Email. Without it the address is only a claim.
+	VerifiedEmail bool `json:"verified_email"`
 }
 
 // GoogleTokenResponse represents the token endpoint response from Google.
@@ -149,20 +152,29 @@ func (s *googleAuthService) Authenticate(ctx context.Context, authCode, codeVeri
 		return nil, fmt.Errorf("fetch user info: %w", err)
 	}
 
-	// Step 3: Create or update user in DynamoDB Users table
-	if err := s.upsertUser(ctx, userInfo); err != nil {
+	// Step 3: Create or update user in DynamoDB Users table. The account that
+	// results is usually the Google one, but a verified Google address that
+	// already belongs to an unconfirmed password account signs in to that
+	// account (see linkToPasswordAccount).
+	userID, linkedAtMs, err := s.upsertUser(ctx, userInfo)
+	if err != nil {
 		return nil, fmt.Errorf("upsert user: %w", err)
 	}
 
 	// Step 4: Generate JWT access token
 	now := time.Now()
-	accessToken, err := s.generateAccessToken(userInfo.ID, userInfo.Email, now)
+	if linkedAtMs > 0 && now.UnixMilli() <= linkedAtMs {
+		// The sessions of the password account were revoked at linkedAtMs; the
+		// session made now must start after that moment to survive it.
+		now = time.UnixMilli(linkedAtMs + 1)
+	}
+	accessToken, err := s.generateAccessToken(userID, userInfo.Email, now)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
 
 	// Step 5: Generate refresh token and store session
-	refreshToken, err := s.createSession(ctx, userInfo.ID, userInfo.Email, now)
+	refreshToken, err := s.createSession(ctx, userID, userInfo.Email, now)
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
@@ -240,33 +252,35 @@ func (s *googleAuthService) fetchUserInfo(ctx context.Context, accessToken strin
 	return &userInfo, nil
 }
 
-// upsertUser creates or updates the user in the DynamoDB Users table.
-// createdAt and theme are preserved on re-login so the original signup
-// date (and user preference) survives.
-func (s *googleAuthService) upsertUser(ctx context.Context, user *GoogleUserInfo) error {
+// upsertUser creates or updates the user in the DynamoDB Users table and
+// returns the id of the account the person signs in to. linkedAtMs is non-zero
+// when that account is an older password account that this sign-in took over
+// (the moment its other sessions were revoked).
+//
+// createdAt, theme and every other attribute on an existing profile are kept on
+// re-login: the item is read and written back with the Google fields updated.
+func (s *googleAuthService) upsertUser(ctx context.Context, user *GoogleUserInfo) (string, int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
-	createdAt := now
-	theme := "light"
-
+	item := map[string]dbtypes.AttributeValue{}
 	if existing, err := s.db.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(s.config.UsersTable),
-		Key: map[string]dbtypes.AttributeValue{
-			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + user.ID},
-			"SK": &dbtypes.AttributeValueMemberS{Value: "PROFILE"},
-		},
+		TableName:      aws.String(s.config.UsersTable),
+		Key:            userKey(user.ID),
 		ConsistentRead: aws.Bool(true),
 	}); err == nil && existing.Item != nil {
-		if v := extractStringAttr(existing.Item, "createdAt"); v != "" {
-			createdAt = v
+		for k, v := range existing.Item {
+			item[k] = v
 		}
-		if v := extractStringAttr(existing.Item, "theme"); v != "" {
-			theme = v
-		}
+	}
+	if extractStringAttr(item, "createdAt") == "" {
+		item["createdAt"] = &dbtypes.AttributeValueMemberS{Value: now}
+	}
+	if extractStringAttr(item, "theme") == "" {
+		item["theme"] = &dbtypes.AttributeValueMemberS{Value: "light"}
 	}
 
 	// Claim the email address so the same address cannot also register a
 	// detached password account. A mapping to a DIFFERENT user means the
-	// address is taken (409 upstream); same-user or absent proceeds.
+	// address already has an account; same-user or absent proceeds.
 	emailIdxKey := emailKey(user.Email)
 	if _, err := s.db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName:           aws.String(s.config.UsersTable),
@@ -275,7 +289,7 @@ func (s *googleAuthService) upsertUser(ctx context.Context, user *GoogleUserInfo
 	}); err != nil {
 		var condFailed *dbtypes.ConditionalCheckFailedException
 		if !errors.As(err, &condFailed) {
-			return fmt.Errorf("reserve email: %w", err)
+			return "", 0, fmt.Errorf("reserve email: %w", err)
 		}
 		idx, ierr := s.db.GetItem(ctx, &dynamodb.GetItemInput{
 			TableName:      aws.String(s.config.UsersTable),
@@ -283,32 +297,106 @@ func (s *googleAuthService) upsertUser(ctx context.Context, user *GoogleUserInfo
 			ConsistentRead: aws.Bool(true),
 		})
 		if ierr != nil {
-			return fmt.Errorf("lookup email: %w", ierr)
+			return "", 0, fmt.Errorf("lookup email: %w", ierr)
 		}
-		if idx.Item == nil || extractStringAttr(idx.Item, "userId") != user.ID {
-			return ErrEmailTaken
+		if idx.Item == nil {
+			return "", 0, ErrEmailTaken
+		}
+		if owner := extractStringAttr(idx.Item, "userId"); owner != user.ID {
+			return s.linkToPasswordAccount(ctx, owner, user)
 		}
 	}
 
-	item := map[string]dbtypes.AttributeValue{
-		"PK":        &dbtypes.AttributeValueMemberS{Value: "USER#" + user.ID},
-		"SK":        &dbtypes.AttributeValueMemberS{Value: "PROFILE"},
-		"email":     &dbtypes.AttributeValueMemberS{Value: user.Email},
-		"name":      &dbtypes.AttributeValueMemberS{Value: user.Name},
-		"avatarUrl": &dbtypes.AttributeValueMemberS{Value: user.AvatarURL},
-		"createdAt": &dbtypes.AttributeValueMemberS{Value: createdAt},
-		"theme":     &dbtypes.AttributeValueMemberS{Value: theme},
+	item["PK"] = userKey(user.ID)["PK"]
+	item["SK"] = userKey(user.ID)["SK"]
+	item["email"] = &dbtypes.AttributeValueMemberS{Value: user.Email}
+	item["name"] = &dbtypes.AttributeValueMemberS{Value: user.Name}
+	item["avatarUrl"] = &dbtypes.AttributeValueMemberS{Value: user.AvatarURL}
+	if user.VerifiedEmail {
+		item["emailVerified"] = &dbtypes.AttributeValueMemberBOOL{Value: true}
 	}
-
-	_, err := s.db.PutItem(ctx, &dynamodb.PutItemInput{
+	if _, err := s.db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(s.config.UsersTable),
 		Item:      item,
+	}); err != nil {
+		return "", 0, fmt.Errorf("put user item: %w", err)
+	}
+	return user.ID, 0, nil
+}
+
+// linkToPasswordAccount handles a Google sign-in whose address already belongs
+// to another account. Only Google's statement that the address is verified can
+// justify sharing an account, so without it the sign-in is refused as before.
+//
+// The owner must be a password account. A different Google account that once
+// had the same address (a reassigned work address, say) is never merged in.
+//
+//   - If the password account never confirmed its address (the usual case is
+//     someone who typed another person's address), the Google sign-in proves who
+//     the address really belongs to. The account is handed over: its password is
+//     removed and every earlier session is revoked, so whoever created it can no
+//     longer get in. The Google id is stored on the account (googleId) so this
+//     same Google account keeps signing in to it. This is what stops a stranger
+//     squatting an address.
+//   - If the address was confirmed, both sign-ins belong to the same person and
+//     the Google sign-in simply opens that account. Nothing is removed.
+func (s *googleAuthService) linkToPasswordAccount(ctx context.Context, ownerID string, user *GoogleUserInfo) (string, int64, error) {
+	if !user.VerifiedEmail {
+		return "", 0, ErrEmailTaken
+	}
+	profile, err := s.db.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName:      aws.String(s.config.UsersTable),
+		Key:            userKey(ownerID),
+		ConsistentRead: aws.Bool(true),
 	})
 	if err != nil {
-		return fmt.Errorf("put user item: %w", err)
+		return "", 0, fmt.Errorf("lookup account: %w", err)
+	}
+	if profile.Item == nil {
+		return "", 0, ErrEmailTaken
+	}
+	// This very Google account was handed the account earlier (the password was
+	// removed then, so the check below would no longer recognise it).
+	if linked := extractStringAttr(profile.Item, "googleId"); linked != "" {
+		if linked == user.ID {
+			return ownerID, 0, nil
+		}
+		return "", 0, ErrEmailTaken
+	}
+	if extractStringAttr(profile.Item, "passwordHash") == "" {
+		return "", 0, ErrEmailTaken
+	}
+	// The address on the profile must still be the one the index points at.
+	if !strings.EqualFold(extractStringAttr(profile.Item, "email"), user.Email) {
+		return "", 0, ErrEmailTaken
+	}
+	if v, ok := profile.Item["emailVerified"].(*dbtypes.AttributeValueMemberBOOL); ok && v.Value {
+		return ownerID, 0, nil
 	}
 
-	return nil
+	nowMs := time.Now().UnixMilli()
+	_, err = s.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:           aws.String(s.config.UsersTable),
+		Key:                 userKey(ownerID),
+		UpdateExpression:    aws.String("SET emailVerified = :yes, emailVerifiedAt = :at, sessionsRevokedBeforeMs = :ms, googleId = :gid REMOVE passwordHash"),
+		ConditionExpression: aws.String("attribute_exists(PK) AND attribute_exists(passwordHash)"),
+		ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+			":yes": &dbtypes.AttributeValueMemberBOOL{Value: true},
+			":at":  &dbtypes.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+			":ms":  &dbtypes.AttributeValueMemberN{Value: strconv.FormatInt(nowMs, 10)},
+			":gid": &dbtypes.AttributeValueMemberS{Value: user.ID},
+		},
+	})
+	if err != nil {
+		var cond *dbtypes.ConditionalCheckFailedException
+		if errors.As(err, &cond) {
+			// Someone else changed the account at the same moment; the person can
+			// simply sign in again.
+			return "", 0, ErrEmailTaken
+		}
+		return "", 0, fmt.Errorf("take over account: %w", err)
+	}
+	return ownerID, nowMs, nil
 }
 
 // generateAccessToken creates a signed JWT access token with the given claims.

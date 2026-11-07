@@ -13,10 +13,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/rahul/indifferent/backend/internal/api"
 	"github.com/rahul/indifferent/backend/internal/auth"
 	appconfig "github.com/rahul/indifferent/backend/internal/config"
+	"github.com/rahul/indifferent/backend/internal/notifier"
 	"github.com/rahul/indifferent/backend/internal/shorts/rank"
 	"github.com/rahul/indifferent/backend/internal/slidegen"
 	"github.com/rahul/indifferent/backend/internal/stockcache"
@@ -120,11 +122,36 @@ func main() {
 		log.Fatalf("stock media: %v", err)
 	}
 
+	// Email confirmation for password sign-ups (SEC-08). Off unless
+	// EMAIL_VERIFICATION_ENABLED is true or 1: nothing is mailed, new accounts are
+	// not held back, and old ones are not either. Clear the variable to switch it
+	// off again. Turn it on only after the API role may send mail
+	// (deploy/setup-email-verification.sh); until then every confirmation email
+	// would fail and new accounts would wait for a link that never arrives.
+	var verifier *auth.EmailVerifier
+	if v := os.Getenv("EMAIL_VERIFICATION_ENABLED"); v == "true" || v == "1" {
+		verifier = &auth.EmailVerifier{
+			DB:         dbClient,
+			UsersTable: usersTable,
+			TokenTable: sessionTable,
+			BaseURL:    envOr("APP_BASE_URL", "https://indifferent.fun"),
+			Mailer: notifier.VerifyMailer{Mailer: &notifier.SESMailer{
+				Client:    sesv2.NewFromConfig(awsCfg),
+				From:      envOr("FROM_ADDRESS", "Indifferent <notifications@indifferent.fun>"),
+				ReplyTo:   envOr("REPLY_TO", "support@indifferent.fun"),
+				ConfigSet: envOr("SES_CONFIG_SET", "indifferent-notifications"),
+			}},
+		}
+	}
+	passwordAuth := auth.NewPasswordAuthService(dbClient, jwtService, usersTable, sessionTable)
+	passwordAuth.Verifier = verifier
+
 	// Create API handler
 	handler := &api.APIHandler{
 		AuthService:           authService,
 		JWTService:            jwtService,
-		PasswordAuth:          auth.NewPasswordAuthService(dbClient, jwtService, usersTable, sessionTable),
+		PasswordAuth:          passwordAuth,
+		Verifier:              verifier,
 		DB:                    dbClient,
 		S3:                    s3Client,
 		SFN:                   sfnClient,
@@ -150,4 +177,11 @@ func main() {
 
 	// Start Lambda
 	lambda.Start(handler.HandleRequest)
+}
+
+func envOr(name, fallback string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return fallback
 }
