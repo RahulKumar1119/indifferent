@@ -7,6 +7,8 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // ParserInput represents the event triggering the parser.
@@ -284,6 +286,15 @@ type ClipEdit struct {
 	UpdatedAt string  `json:"updatedAt,omitempty"`
 }
 
+// Limits on edited caption words. A clip is at most 90 seconds, which is a few
+// hundred spoken words; the cap leaves room for edits that split or add words
+// while stopping a request from carrying a transcript-sized payload. A word is
+// one token, so 80 characters is generous.
+const (
+	maxEditWords     = 2000
+	maxEditWordRunes = 80
+)
+
 // Validate checks bounds against the source duration and word sanity.
 // An empty Words list means "trim only, keep AI captions".
 func (e ClipEdit) Validate(sourceDuration float64) error {
@@ -299,6 +310,9 @@ func (e ClipEdit) Validate(sourceDuration float64) error {
 	if sourceDuration > 0 && e.End > sourceDuration+0.5 {
 		return fmt.Errorf("end %.1fs exceeds source duration %.0fs", e.End, sourceDuration)
 	}
+	if len(e.Words) > maxEditWords {
+		return fmt.Errorf("too many caption words: %d, at most %d", len(e.Words), maxEditWords)
+	}
 	for i, w := range e.Words {
 		if math.IsNaN(w.Start) || math.IsNaN(w.End) || math.IsInf(w.Start, 0) || math.IsInf(w.End, 0) {
 			return fmt.Errorf("word %d has non-finite timing", i+1)
@@ -308,6 +322,16 @@ func (e ClipEdit) Validate(sourceDuration float64) error {
 		}
 		if strings.TrimSpace(w.Text) == "" {
 			return fmt.Errorf("word %d has empty text", i+1)
+		}
+		if utf8.RuneCountInString(w.Text) > maxEditWordRunes {
+			return fmt.Errorf("word %d is longer than %d characters", i+1, maxEditWordRunes)
+		}
+		// A line break or other control character has no place in a caption
+		// word, and in the subtitle file a line break would start a new line of
+		// the file (the renderer also neutralises it; this keeps it out of the
+		// stored job).
+		if strings.IndexFunc(w.Text, unicode.IsControl) >= 0 {
+			return fmt.Errorf("word %d contains a line break or control character", i+1)
 		}
 	}
 	return nil

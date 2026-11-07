@@ -20,7 +20,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/mxschmitt/playwright-go v0.6401.0
 	golang.org/x/crypto v0.57.0
-	golang.org/x/image v0.44.0
+	golang.org/x/image v0.45.0
 	pgregory.net/rapid v1.3.0
 )
 
@@ -41,5 +41,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.43.5 // indirect
 	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )
