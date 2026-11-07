@@ -109,9 +109,9 @@ func (r *SlideRenderer) captureScreenshot(htmlFilePath string) ([]byte, error) {
 	defer browser.Close()
 
 	page, err := browser.NewPage(playwright.BrowserNewPageOptions{
-		Viewport: &playwright.BrowserNewPageOptionsViewport{
-			Width:  playwright.Int(r.viewportWidth),
-			Height: playwright.Int(r.viewportHeight),
+		Viewport: &playwright.Size{
+			Width:  r.viewportWidth,
+			Height: r.viewportHeight,
 		},
 	})
 	if err != nil {

@@ -60,16 +60,21 @@ function htmlFiles(dir) {
 const decode = (s) =>
   s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
-/** Inline script bodies and inline on*= handler values found in the page. */
+/**
+ * Inline script bodies and inline on*= handler values found in the page.
+ * Tag and attribute names are matched without regard to case, and the closing tag
+ * may carry spaces or attributes (`</SCRIPT >`), because an HTML parser accepts
+ * all of those. A script this check missed would be one the policy blocks.
+ */
 export function inlineCode(html) {
   const scripts = [];
   const handlers = [];
-  for (const m of html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {
+  for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
     const attrs = m[1];
-    if (/\ssrc=/.test(attrs) || /type="application\/(ld\+json|json)"/.test(attrs)) continue;
+    if (/\ssrc\s*=/i.test(attrs) || /type\s*=\s*["']?application\/(ld\+json|json)/i.test(attrs)) continue;
     scripts.push(m[2]);
   }
-  for (const m of html.matchAll(/\son[a-z]+="([^"]*)"/g)) handlers.push(decode(m[1]));
+  for (const m of html.matchAll(/\son[a-z]+\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) handlers.push(decode(m[1] ?? m[2]));
   return { scripts, handlers };
 }
 
