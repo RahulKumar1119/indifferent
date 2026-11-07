@@ -8,6 +8,7 @@ import {
   StockSearchParams,
   StockSearchResponse,
   StoryPlanLimits,
+  StoryPlanList,
   StoryPlanRecord,
 } from './story-plan.models';
 
@@ -31,6 +32,11 @@ export class StoryPlanService {
   /** Plans a video from a story. Synchronous on the server: typically 5 to 10 seconds. */
   create(story: string): Observable<StoryPlanRecord> {
     return this.api.post<StoryPlanRecord>('/story-plans', { story }, true, INLINE_ERRORS());
+  }
+
+  /** The newest plans (at most 20), for the dashboard. */
+  list(): Observable<StoryPlanList> {
+    return this.api.get<StoryPlanList>('/story-plans', undefined, true, INLINE_ERRORS());
   }
 
   get(planId: string): Observable<StoryPlanRecord> {

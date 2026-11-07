@@ -220,6 +220,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleStoryPlans)
 	case isStockMediaPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleStockMedia)
+	case req.HTTPMethod == "GET" && req.Path == "/thumbnails":
+		return h.handleWithAuth(ctx, req, h.handleListThumbnails)
 	case isThumbnailPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleThumbnails)
 	case isMultipartPath(req.Path):

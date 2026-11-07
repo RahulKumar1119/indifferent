@@ -200,3 +200,23 @@ export function sceneSearchQuery(scene: Pick<PlanScene, 'keywords'>): string {
 }
 
 export const PROVIDER_NAMES: Record<StockProvider, string> = { pexels: 'Pexels', pixabay: 'Pixabay' };
+
+/** One row of GET /story-plans (matches backend StoryPlanSummary). */
+export interface StoryPlanSummary {
+  planId: string;
+  status: 'pending' | 'ready' | 'failed';
+  /** A plan has no title; its opening line stands in for one. */
+  hook?: string;
+  sceneCount: number;
+  totalSeconds?: number;
+  language?: string;
+  errorCode?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** `hasMore` is true when the server left some plans out. */
+export interface StoryPlanList {
+  plans: StoryPlanSummary[];
+  hasMore: boolean;
+}
