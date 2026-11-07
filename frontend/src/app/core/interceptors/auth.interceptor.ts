@@ -78,8 +78,15 @@ export class AuthInterceptor implements HttpInterceptor {
     });
   }
 
+  /**
+   * True for the endpoints that must go out without a bearer token. The match is
+   * on the end of the path, not "contains": `/auth/logout-all` is a signed-in
+   * call and contains `/auth/logout`, so a substring match sent it with no token
+   * and it always failed.
+   */
   private isAuthEndpoint(url: string): boolean {
-    return AUTH_ENDPOINTS.some((endpoint) => url.includes(endpoint));
+    const path = url.split(/[?#]/)[0];
+    return AUTH_ENDPOINTS.some((endpoint) => path.endsWith(endpoint));
   }
 
   private isApiRequest(url: string): boolean {
