@@ -6,7 +6,6 @@ import { UserProfile } from '../../../shared/models/user-profile.model';
 import {
   CreatorProfile,
   emptyCreatorProfile,
-  toUsername,
 } from '../models/creator-profile.model';
 import {
   CREATOR_DNA_OPTIONS,
@@ -76,6 +75,13 @@ export class ProfileService {
    *  when the local one still matches the last-synced backend URL. */
   mergeBackendUser(local: CreatorProfile, remote: UserProfile | null): CreatorProfile {
     if (!remote) return local;
+    // This data is kept per browser, not per account. When someone else signs in
+    // on the same browser, the last person's handle, bio, avatar, Creator DNA and
+    // activity must not carry over to them, so start from nothing.
+    if (this.isAnotherAccount(local, remote)) {
+      this.clearLocalData();
+      local = emptyCreatorProfile();
+    }
     const synced = this.read<string>(LS_AVATAR_SYNCED);
     let avatarUrl = local.avatarUrl;
     if (!local.avatarUrl && remote.avatarUrl) {
@@ -93,11 +99,33 @@ export class ProfileService {
       avatarUrl,
       createdAt: remote.createdAt || local.createdAt,
     };
-    if (!local.username && merged.name) merged.username = toUsername(merged.name, merged.email);
+    // The username is whatever the person typed in Edit Profile. It is not made
+    // up from their name or email: until they choose one the page shows a
+    // placeholder.
     if (!merged.bio) {
       merged.bio = 'Creating shorts with Indifferent';
     }
     return merged;
+  }
+
+  /** True when the saved profile belongs to a different account than the one signed in now. */
+  private isAnotherAccount(local: CreatorProfile, remote: UserProfile): boolean {
+    const a = (local.email ?? '').trim().toLowerCase();
+    const b = (remote.email ?? '').trim().toLowerCase();
+    // Data saved before an address was recorded is treated as this account's.
+    return a !== '' && b !== '' && a !== b;
+  }
+
+  /** Forget everything this service keeps in the browser. */
+  clearLocalData(): void {
+    if (!this.isBrowser) return;
+    for (const key of [LS_PROFILE, LS_DNA, LS_SOCIAL, LS_FAVORITES, LS_PUBLISHED, LS_ACTIVITY, LS_AVATAR_SYNCED]) {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // Storage unavailable: nothing was kept.
+      }
+    }
   }
 
   // -------------------------------------------------------------- creator DNA
