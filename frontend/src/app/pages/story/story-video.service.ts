@@ -33,6 +33,11 @@ export class StoryVideoService {
     return this.api.get<StoryVideo>(`/story-videos/${encodeURIComponent(jobId)}`, undefined, true, INLINE_ERRORS());
   }
 
+  /** The user's newest videos (at most 20), for the dashboard. */
+  list(): Observable<StoryVideoList> {
+    return this.api.get<StoryVideoList>('/story-videos', undefined, true, INLINE_ERRORS());
+  }
+
   /** The user's videos made from one plan, newest first. */
   listForPlan(planId: string): Observable<StoryVideoList> {
     return this.api.get<StoryVideoList>('/story-videos', { planId }, true, INLINE_ERRORS());

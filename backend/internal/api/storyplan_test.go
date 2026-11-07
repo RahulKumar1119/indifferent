@@ -729,7 +729,6 @@ func TestStoryPlans_OtherRoutesAndMethods(t *testing.T) {
 		{"PUT", "/story-plans", 404},
 		{"PUT", "/story-plans/not-a-plan-id", 404},
 		{"PUT", "/story-plans/limits", 404},
-		{"GET", "/story-plans", 404},
 		{"GET", "/story-plans/", 404},
 		{"POST", "/story-plans/" + uuid.NewString(), 404},
 		{"GET", "/story-plans/" + uuid.NewString() + "/extra", 404},

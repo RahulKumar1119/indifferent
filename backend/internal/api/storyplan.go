@@ -185,6 +185,8 @@ func validStoryPlanID(id string) bool {
 // limits one.
 func (h *APIHandler) handleStoryPlans(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
 	switch {
+	case req.HTTPMethod == "GET" && req.Path == "/story-plans":
+		return h.handleListStoryPlans(ctx, req, claims)
 	case req.HTTPMethod == "POST" && req.Path == "/story-plans":
 		return h.handleCreateStoryPlan(ctx, req, claims)
 	case req.HTTPMethod == "GET" && storyPlanIDFromPath(req.Path) != "":

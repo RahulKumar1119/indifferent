@@ -130,10 +130,35 @@ export const THUMBNAIL_ERROR_HELP: Record<string, string> = {
 /** Failures that retrying cannot fix. */
 export const NOT_RETRYABLE = new Set(['NO_VIDEO_TRACK']);
 
+/** One row of GET /thumbnails (matches backend ThumbnailSetSummary). */
+export interface ThumbnailSetSummary {
+  jobId: string;
+  status: ThumbnailStatus;
+  style?: string;
+  format?: string;
+  thumbnailCount: number;
+  /** Whether one was chosen and saved with the video. */
+  selected: boolean;
+  errorCode?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** `hasMore` is true when the server left some sets out. */
+export interface ThumbnailList {
+  thumbnails: ThumbnailSetSummary[];
+  hasMore: boolean;
+}
+
 /** Client for the thumbnail routes. */
 @Injectable({ providedIn: 'root' })
 export class ThumbnailService {
   constructor(private readonly api: ApiService) {}
+
+  /** GET /thumbnails: the newest sets (at most 20), for the dashboard. */
+  list(): Observable<ThumbnailList> {
+    return this.api.get<ThumbnailList>('/thumbnails', undefined, true, new HttpContext().set(SUPPRESS_GLOBAL_ERROR, true));
+  }
 
   /** GET /shorts/{id}/thumbnails. Polled, so the global error toast stays quiet. */
   get(jobId: string): Observable<ThumbnailSet> {
