@@ -100,4 +100,24 @@ describe('AuthInterceptor', () => {
 
     expect(authService.logout).toHaveBeenCalled();
   });
+
+  it('sends the token with /auth/logout-all and /auth/resend-verification, which are signed-in calls', () => {
+    authService.setTokens({ accessToken: 'my-token', refreshToken: 'rt', expiresIn: 3600 });
+    for (const path of ['/auth/logout-all', '/auth/resend-verification', '/auth/me']) {
+      httpClient.post(`${environment.apiUrl}${path}`, {}).subscribe();
+      const req = httpTesting.expectOne(`${environment.apiUrl}${path}`);
+      expect(req.request.headers.get('Authorization')).withContext(path).toBe('Bearer my-token');
+      req.flush({});
+    }
+  });
+
+  it('keeps the token off every real auth endpoint, also with a query string', () => {
+    authService.setTokens({ accessToken: 'my-token', refreshToken: 'rt', expiresIn: 3600 });
+    for (const path of ['/auth/google/callback', '/auth/refresh', '/auth/logout', '/auth/login', '/auth/signup']) {
+      httpClient.post(`${environment.apiUrl}${path}?x=1`, {}).subscribe();
+      const req = httpTesting.expectOne(`${environment.apiUrl}${path}?x=1`);
+      expect(req.request.headers.has('Authorization')).withContext(path).toBeFalse();
+      req.flush({});
+    }
+  });
 });
