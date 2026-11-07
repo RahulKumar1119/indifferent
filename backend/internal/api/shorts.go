@@ -503,16 +503,56 @@ func (h *APIHandler) handleUpdateCaption(ctx context.Context, req events.APIGate
 		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Caption style can only be changed before rendering starts."), nil
 	}
 
+	readUpdatedAt := job.UpdatedAt
 	job.Caption = body.Caption
 	job.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(h.TableName),
-		Item:      shortsJobToItem(*job),
-	}); err != nil {
+	if err := h.putShortsJobIfUnchanged(ctx, *job, readUpdatedAt); err != nil {
+		if errors.Is(err, errShortsJobChanged) {
+			return shortsJobChanged(), nil
+		}
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to save caption style."), nil
 	}
 
 	return jsonResponse(http.StatusOK, job), nil
+}
+
+// errShortsJobChanged means the job was written by someone else (a render
+// worker, another tab) between this request reading it and writing it back.
+var errShortsJobChanged = errors.New("shorts job changed while it was being edited")
+
+// putShortsJobIfUnchanged writes the whole job back only when its updatedAt is
+// still the value this request read. The edit handlers read the job, change one
+// field and write the entire record; without the condition a progress update a
+// worker wrote in between would be silently overwritten with the old copy.
+// Workers set updatedAt with every write, so a changed value means a change.
+// (updatedAt has one second of resolution, so two writes inside the same second
+// are not told apart; this narrows the window, it does not close it.)
+func (h *APIHandler) putShortsJobIfUnchanged(ctx context.Context, job models.ShortsJob, readUpdatedAt string) error {
+	in := &dynamodb.PutItemInput{
+		TableName: aws.String(h.TableName),
+		Item:      shortsJobToItem(job),
+	}
+	if readUpdatedAt == "" {
+		in.ConditionExpression = aws.String("attribute_not_exists(updatedAt)")
+	} else {
+		in.ConditionExpression = aws.String("updatedAt = :read")
+		in.ExpressionAttributeValues = map[string]dbtypes.AttributeValue{
+			":read": &dbtypes.AttributeValueMemberS{Value: readUpdatedAt},
+		}
+	}
+	if _, err := h.DB.PutItem(ctx, in); err != nil {
+		var cond *dbtypes.ConditionalCheckFailedException
+		if errors.As(err, &cond) {
+			return errShortsJobChanged
+		}
+		return err
+	}
+	return nil
+}
+
+// shortsJobChanged is the response for errShortsJobChanged.
+func shortsJobChanged() events.APIGatewayProxyResponse {
+	return errorResponse(http.StatusConflict, "CONFLICT", "This job changed while you were editing it. Reload the page and try again.")
 }
 
 // UpdateEffectsRequest carries the phase 1 video effect settings for a job.
@@ -680,12 +720,13 @@ func (h *APIHandler) handleUpdateEffects(ctx context.Context, req events.APIGate
 		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Video effects can only be changed before rendering starts or after a failed render."), nil
 	}
 
+	readUpdatedAt := job.UpdatedAt
 	job.Effects = body.Effects
 	job.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(h.TableName),
-		Item:      shortsJobToItem(*job),
-	}); err != nil {
+	if err := h.putShortsJobIfUnchanged(ctx, *job, readUpdatedAt); err != nil {
+		if errors.Is(err, errShortsJobChanged) {
+			return shortsJobChanged(), nil
+		}
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to save video effects."), nil
 	}
 
@@ -737,6 +778,7 @@ func (h *APIHandler) handleUpdateClipEdit(ctx context.Context, req events.APIGat
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
 	}
 
+	readUpdatedAt := job.UpdatedAt
 	if job.ClipEdits == nil {
 		job.ClipEdits = map[string]models.ClipEdit{}
 	}
@@ -756,10 +798,10 @@ func (h *APIHandler) handleUpdateClipEdit(ctx context.Context, req events.APIGat
 		edit.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 		job.ClipEdits[clipID] = edit
 		job.UpdatedAt = edit.UpdatedAt
-		if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
-			TableName: aws.String(h.TableName),
-			Item:      shortsJobToItem(*job),
-		}); err != nil {
+		if err := h.putShortsJobIfUnchanged(ctx, *job, readUpdatedAt); err != nil {
+			if errors.Is(err, errShortsJobChanged) {
+				return shortsJobChanged(), nil
+			}
 			return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to save clip edit."), nil
 		}
 		return jsonResponse(http.StatusOK, map[string]interface{}{
@@ -768,10 +810,10 @@ func (h *APIHandler) handleUpdateClipEdit(ctx context.Context, req events.APIGat
 		}), nil
 	}
 	job.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if _, err := h.DB.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(h.TableName),
-		Item:      shortsJobToItem(*job),
-	}); err != nil {
+	if err := h.putShortsJobIfUnchanged(ctx, *job, readUpdatedAt); err != nil {
+		if errors.Is(err, errShortsJobChanged) {
+			return shortsJobChanged(), nil
+		}
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Failed to reset clip edit."), nil
 	}
 	return jsonResponse(http.StatusOK, map[string]interface{}{

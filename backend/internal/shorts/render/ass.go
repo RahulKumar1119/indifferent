@@ -7,6 +7,7 @@ package render
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/rahul/indifferent/backend/internal/models"
 )
@@ -58,8 +59,17 @@ func buildASS(words []models.Word, segmentStart float64, style models.CaptionSty
 	return b.String()
 }
 
-// assEscape escapes ASS special characters in caption text.
+// assEscape escapes ASS special characters in caption text. A Dialogue event is
+// one line of the file, so a line break (or any control character) in the text
+// would end the event and let the rest be read as a new line of the subtitle
+// file, such as another event. They become plain spaces instead.
 func assEscape(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || r == '\u2028' || r == '\u2029' {
+			return ' '
+		}
+		return r
+	}, s)
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, "{", `\{`)
 	s = strings.ReplaceAll(s, "}", `\}`)

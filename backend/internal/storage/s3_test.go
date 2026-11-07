@@ -80,9 +80,17 @@ func TestUploadURLExpiration(t *testing.T) {
 }
 
 func TestDownloadURLExpiration(t *testing.T) {
-	// Verify the download URL expiration constant is 24 hours.
-	if DownloadURLExpiration != 24*time.Hour {
-		t.Errorf("expected DownloadURLExpiration to be 24h, got %v", DownloadURLExpiration)
+	// A download link is a bearer token, so it lives for an hour, and the lifetime
+	// really is what ends up signed into the URL.
+	if DownloadURLExpiration != time.Hour {
+		t.Errorf("expected DownloadURLExpiration to be 1h, got %v", DownloadURLExpiration)
+	}
+	url, err := newTestClient(t).GenerateDownloadURL(context.Background(), "test-bucket", "k", DownloadURLExpiration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(url, "X-Amz-Expires=3600") {
+		t.Errorf("the URL does not carry a 3600 second lifetime: %s", url)
 	}
 }
 

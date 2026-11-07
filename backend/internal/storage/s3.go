@@ -23,7 +23,10 @@ const (
 	UploadURLExpiration = 15 * time.Minute
 
 	// DownloadURLExpiration is the duration for presigned download (GET) URLs.
-	DownloadURLExpiration = 24 * time.Hour
+	// A download link is a bearer token: whoever holds it can fetch the file.
+	// The app asks for a fresh one each time someone downloads or plays, so an
+	// hour is plenty and matches the thumbnail links.
+	DownloadURLExpiration = time.Hour
 )
 
 // headObjectAPI is the subset of the S3 API used by HeadObject. Defining it as
@@ -467,7 +470,7 @@ func (c *S3Client) GenerateSizedUploadURL(ctx context.Context, bucket, key, cont
 }
 
 // GenerateDownloadURL creates a presigned GET URL for downloading a file from S3.
-// The URL expires after the specified duration (24 hours for video downloads).
+// The URL expires after the specified duration (DownloadURLExpiration, one hour, for video downloads).
 func (c *S3Client) GenerateDownloadURL(ctx context.Context, bucket, key string, expiration time.Duration) (string, error) {
 	presignClient := s3.NewPresignClient(c.client)
 	request, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
