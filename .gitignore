@@ -35,3 +35,6 @@ deploy/terraform.tfvars
 # OS
 .DS_Store
 Thumbs.db
+
+# graphify knowledge graph (generated: graphify update .)
+graphify-out/
