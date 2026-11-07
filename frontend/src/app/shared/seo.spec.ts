@@ -102,6 +102,8 @@ describe('seo helpers', () => {
         '/profile/settings',
         '/settings',
         '/auth/callback?code=1',
+        '/verify-email',
+        '/verify-email?token=abc',
       ]) {
         expect(robotsForUrl(url)).withContext(url).toBe('noindex, nofollow');
       }

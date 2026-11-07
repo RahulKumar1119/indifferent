@@ -14,5 +14,6 @@ Disallow: /account
 Disallow: /profile
 Disallow: /settings
 Disallow: /auth/
+Disallow: /verify-email
 
 Sitemap: https://indifferent.fun/sitemap.xml
