@@ -1,39 +1,15 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule, DOCUMENT } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
+import { DOCUMENT } from '@angular/common';
+import { ArticleShellComponent } from './article-shell.component';
 import { setArticleSeo } from './article-seo';
-import { articleByline, findArticle } from './registry';
+import { findArticle } from './registry';
 
 @Component({
   selector: 'app-quiz-file-format-guide',
   standalone: true,
-  imports: [CommonModule, RouterLink, SiteFooterComponent],
-  styles: [`
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .article-body { color: #3E3A33; font-size: 1.0625rem; line-height: 1.8; }
-    .article-body h2 { font-size: 1.5rem; font-weight: 700; color: #1A1714; margin: 2.5rem 0 1rem; }
-    .article-body h3 { font-size: 1.25rem; font-weight: 600; color: #1A1714; margin: 2rem 0 0.75rem; }
-    .article-body p { margin: 0 0 1.25rem; }
-    .article-body ul, .article-body ol { margin: 0 0 1.25rem; padding-left: 1.5rem; }
-    .article-body li { margin-bottom: 0.5rem; }
-    .article-body code { background: rgba(26,23,20,0.06); padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.875rem; }
-    .article-body pre { background: #0F0E0B; color: #EDE8DB; padding: 1.25rem; border-radius: 12px; overflow-x: auto; margin: 0 0 1.25rem; font-size: 0.875rem; line-height: 1.6; }
-    .article-body strong { color: #1A1714; font-weight: 600; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-  `],
+  imports: [ArticleShellComponent],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <div class="max-w-3xl mx-auto px-4 pt-20 pb-6">
-        <a routerLink="/blog" class="text-[13px] text-[#6B6560] hover:text-[#1A1714]">&larr; Back to Blog</a>
-        <p class="mt-6 text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Guide · Quiz format</p>
-        <h1 class="serif mt-3 font-medium tracking-[-0.02em] leading-[1.05] text-[clamp(2rem,5vw,3rem)]">Quiz File Format Guide: TXT Formatting Tips</h1>
-        <p class="mt-3 text-[13px] text-[#6B6560]">{{ byline }}</p>
-      </div>
-      <main class="max-w-3xl mx-auto px-4 pb-10">
-        <div class="article-body">
+    <app-article-shell [meta]="article">
         <p>Getting your quiz file formatted correctly is the first step toward creating professional quiz videos with Indifferent. The platform supports multiple text formats and automatically detects the structure of your questions, but understanding the supported patterns will help you create files that parse perfectly every time. This guide covers everything you need to know about formatting quiz text files for optimal results.</p>
 
         <h2>Supported Formats</h2>
@@ -122,22 +98,13 @@ Answer: Gold</pre>
         <p>The Indifferent parser is designed to be forgiving and handle common variations gracefully. If the parser encounters a line it cannot categorize, it attempts to associate it with the nearest question context. Trailing whitespace is automatically trimmed, and various line ending formats (Windows, Unix, Mac) are all supported.</p>
         <p>When the parser detects a question with fewer than two answer options, it flags it as potentially incomplete and will notify you during the upload process. Questions with no marked correct answer are similarly flagged, giving you the opportunity to fix issues before video generation begins.</p>
         <p>The parser also handles UTF-8 byte order marks that some text editors add automatically, ensuring compatibility across different operating systems and text editing tools. Whether you create your file in Notepad, TextEdit, VS Code, or any other editor, the output will parse correctly as long as you follow the formatting guidelines described above.</p>
-      </div>
-        <div class="mt-10 rounded-[20px] bg-[#1A1714] text-white px-6 py-8 text-center">
-          <p class="font-medium text-[19px]">Ready to create your first quiz video?</p>
-          <p class="mt-2 text-[14px] text-white/60">Sign up free and convert your text quizzes into professional videos in minutes.</p>
-          <a routerLink="/login" class="btn-primary mt-4 inline-block px-7 py-3 rounded-full bg-[#BC5227] hover:bg-[#A8481F] transition-colors text-white font-semibold text-[14.5px]">Get Started Free</a>
-          <p class="mt-3 text-[13px]"><a routerLink="/features/txt-to-video-quiz" class="underline underline-offset-4 text-white/70 hover:text-white">How the quiz generator works →</a></p>
-        </div>
-      </main>
-      <app-site-footer />
-    </div>
+      
+    </app-article-shell>
   `,
 })
 export class QuizFileFormatGuideComponent implements OnInit {
   private readonly document = inject(DOCUMENT);
-  private readonly article = findArticle('quiz-file-format-guide')!;
-  readonly byline = articleByline(this.article);
+  protected readonly article = findArticle('quiz-file-format-guide')!;
 
   ngOnInit(): void {
     setArticleSeo(this.document, this.article);

@@ -1,39 +1,15 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule, DOCUMENT } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
+import { DOCUMENT } from '@angular/common';
+import { ArticleShellComponent } from './article-shell.component';
 import { setArticleSeo } from './article-seo';
-import { articleByline, findArticle } from './registry';
+import { findArticle } from './registry';
 
 @Component({
   selector: 'app-educational-video-best-practices',
   standalone: true,
-  imports: [CommonModule, RouterLink, SiteFooterComponent],
-  styles: [`
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .article-body { color: #3E3A33; font-size: 1.0625rem; line-height: 1.8; }
-    .article-body h2 { font-size: 1.5rem; font-weight: 700; color: #1A1714; margin: 2.5rem 0 1rem; }
-    .article-body h3 { font-size: 1.25rem; font-weight: 600; color: #1A1714; margin: 2rem 0 0.75rem; }
-    .article-body p { margin: 0 0 1.25rem; }
-    .article-body ul, .article-body ol { margin: 0 0 1.25rem; padding-left: 1.5rem; }
-    .article-body li { margin-bottom: 0.5rem; }
-    .article-body code { background: rgba(26,23,20,0.06); padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.875rem; }
-    .article-body pre { background: #0F0E0B; color: #EDE8DB; padding: 1.25rem; border-radius: 12px; overflow-x: auto; margin: 0 0 1.25rem; font-size: 0.875rem; line-height: 1.6; }
-    .article-body strong { color: #1A1714; font-weight: 600; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-  `],
+  imports: [ArticleShellComponent],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <div class="max-w-3xl mx-auto px-4 pt-20 pb-6">
-        <a routerLink="/blog" class="text-[13px] text-[#6B6560] hover:text-[#1A1714]">&larr; Back to Blog</a>
-        <p class="mt-6 text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Guide · Educational video</p>
-        <h1 class="serif mt-3 font-medium tracking-[-0.02em] leading-[1.05] text-[clamp(2rem,5vw,3rem)]">Best Practices for Educational Video Content</h1>
-        <p class="mt-3 text-[13px] text-[#6B6560]">{{ byline }}</p>
-      </div>
-      <main class="max-w-3xl mx-auto px-4 pb-10">
-        <div class="article-body">
+    <app-article-shell [meta]="article">
         <p>Educational video content has transformed how people learn, making knowledge accessible to anyone with an internet connection. Research consistently shows that video-based learning improves retention, increases engagement, and allows learners to study at their own pace. Whether you are creating content for a classroom, corporate training program, or public audience, understanding the principles of effective educational video design will dramatically improve your results.</p>
 
         <h2>Why Video is Effective for Learning</h2>
@@ -82,22 +58,13 @@ import { articleByline, findArticle } from './registry';
         <p>Quiz scores provide direct measurement of learning outcomes. Compare scores before and after video viewing to quantify knowledge gains. Track which questions learners miss most frequently to identify concepts that need clearer explanation or additional practice opportunities.</p>
         <p>Engagement metrics like comments, questions, and replay patterns reveal how learners interact with your content. Sections that viewers frequently replay may need clearer explanation. Timestamps where viewers leave comments often indicate points of confusion or particular interest that deserve more attention in future content.</p>
         <p>Gathering qualitative feedback through surveys or comment analysis helps you understand the learner experience beyond what numbers alone can tell you. Ask viewers what worked well, what confused them, and what they wish had been included. This feedback loop drives continuous improvement in your educational content creation process.</p>
-      </div>
-        <div class="mt-10 rounded-[20px] bg-[#1A1714] text-white px-6 py-8 text-center">
-          <p class="font-medium text-[19px]">Ready to create your first quiz video?</p>
-          <p class="mt-2 text-[14px] text-white/60">Sign up free and convert your text quizzes into professional videos in minutes.</p>
-          <a routerLink="/login" class="btn-primary mt-4 inline-block px-7 py-3 rounded-full bg-[#BC5227] hover:bg-[#A8481F] transition-colors text-white font-semibold text-[14.5px]">Get Started Free</a>
-          <p class="mt-3 text-[13px]"><a routerLink="/features/txt-to-video-quiz" class="underline underline-offset-4 text-white/70 hover:text-white">How the quiz generator works →</a></p>
-        </div>
-      </main>
-      <app-site-footer />
-    </div>
+      
+    </app-article-shell>
   `,
 })
 export class EducationalVideoBestPracticesComponent implements OnInit {
   private readonly document = inject(DOCUMENT);
-  private readonly article = findArticle('educational-video-best-practices')!;
-  readonly byline = articleByline(this.article);
+  protected readonly article = findArticle('educational-video-best-practices')!;
 
   ngOnInit(): void {
     setArticleSeo(this.document, this.article);

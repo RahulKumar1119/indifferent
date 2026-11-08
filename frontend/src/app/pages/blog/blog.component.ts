@@ -1,7 +1,9 @@
-import { Component, AfterViewInit, OnInit, PLATFORM_ID, inject } from '@angular/core';
-import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
+import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
+import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
+import { RevealDirective } from '../../shared/directives/reveal.directive';
 import { setPageSeo } from '../../shared/seo';
 import { ARTICLES, ARTICLE_CATEGORIES, articlePath, formatShortDate } from './articles/registry';
 
@@ -19,192 +21,149 @@ interface Post {
 @Component({
   selector: 'app-blog',
   standalone: true,
-  imports: [RouterLink, NavMobileMenuComponent],
+  imports: [RouterLink, PublicHeaderComponent, SiteFooterComponent, RevealDirective],
   styles: [`
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(0.23,1,0.32,1), transform .8s cubic-bezier(0.23,1,0.32,1); }
-    .reveal.is-visible { opacity: 1; transform: none; }
-    .card-lift { transition: transform .35s cubic-bezier(0.23,1,0.32,1), box-shadow .35s; }
-    .card-lift:hover { transform: translateY(-6px); }
-    .card-lift:active { transform: translateY(-1px) scale(.99); }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(1px) scale(.98); }
-    .grain::before {
-      content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .05;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .reveal { opacity: 1; transform: none; transition: none; }
-      .card-lift, .btn-primary { transition: none; }
-    }
+    :host { display: block; }
+    .page { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--type-md); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    .wrap { width: min(var(--container), 100%); margin-inline: auto; padding-inline: var(--gutter); }
+    h1, h2, h3, p, ul { margin: 0; }
+    h1 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-display); line-height: 1.02; letter-spacing: var(--tracking-display); text-wrap: balance; }
+    h2, h3 { font-family: var(--font-display); font-weight: 500; letter-spacing: var(--tracking-display); line-height: 1.1; text-wrap: balance; }
+    .lead { margin-top: var(--space-lg); font-size: var(--type-lead); line-height: 1.45; color: var(--color-ink-2); max-width: 46ch; }
+    .muted { color: var(--color-muted); }
+
+    .mast { padding: calc(56px + var(--space-3xl)) 0 var(--space-xl); }
+    .mast-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); align-items: end; }
+    @media (min-width: 64rem) { .mast-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); } }
+    .controls { display: grid; gap: var(--space-md); justify-self: end; width: min(26rem, 100%); }
+    .filters { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+    .chip[aria-pressed='true'] { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+
+    main { padding: var(--space-xl) 0 var(--space-3xl); border-top: 1px solid var(--color-rule); }
+    .featured { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); align-items: center; padding: var(--space-lg) 0 var(--space-2xl); color: inherit; text-decoration: none; border-bottom: 1px solid var(--color-rule); }
+    @media (min-width: 64rem) { .featured { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: var(--space-2xl); } }
+    .featured h2 { margin-top: var(--space-sm); font-size: var(--type-section); }
+    .featured .excerpt { margin-top: var(--space-md); color: var(--color-ink-2); max-width: 52ch; }
+    .cover { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; object-fit: cover; background: var(--color-paper-3); border: 1px solid var(--color-rule); border-radius: var(--radius-surface); }
+    .meta { font-size: var(--type-sm); color: var(--color-muted); }
+    .more { display: inline-flex; align-items: center; min-height: 44px; margin-top: var(--space-md); font-weight: 600; color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; }
+    a.entry:hover .more { color: var(--color-ink); }
+    a.entry:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; border-radius: var(--radius-surface); }
+
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl) var(--space-xl); margin-top: var(--space-2xl); }
+    @media (min-width: 48rem) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 64rem) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    a.item { display: flex; flex-direction: column; gap: var(--space-sm); color: inherit; text-decoration: none; height: 100%; }
+    .item h3 { font-size: var(--type-xl); }
+    .item .excerpt { color: var(--color-ink-2); flex: 1; }
+
+    .empty { padding: var(--space-3xl) 0; text-align: center; }
+    .empty h2 { font-size: var(--type-section); }
+    .empty p { margin: var(--space-sm) 0 var(--space-lg); color: var(--color-muted); }
+
+    .strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-lg); margin-top: var(--space-3xl); padding: var(--space-xl); background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-surface); }
+    .strip h2 { margin-top: var(--space-2xs); font-size: var(--type-2xl); }
+    .tools { list-style: none; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); margin-top: var(--space-2xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); }
+    @media (min-width: 48rem) { .tools { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .tools a { display: block; color: inherit; text-decoration: none; }
+    .tools strong { display: block; font-weight: 600; text-decoration: underline; text-underline-offset: 0.2em; }
+    .tools a:hover strong { color: var(--color-accent-text); }
+    .tools a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; border-radius: 2px; }
+    .tools span { display: block; margin-top: var(--space-3xs); font-size: var(--type-sm); color: var(--color-muted); }
+
+    .follow { padding: var(--space-3xl) 0; background: var(--color-paper-2); border-top: 1px solid var(--color-rule); }
+    .follow h2 { font-size: var(--type-section); }
+    .follow p { margin-top: var(--space-md); color: var(--color-ink-2); max-width: 52ch; }
+    .actions { display: flex; flex-wrap: wrap; gap: var(--space-md); margin-top: var(--space-xl); }
   `],
   template: `
-    <div class="grain sans bg-[#FAF7F2] text-[#1A1714] antialiased">
+    <div class="page hm hm-on-light">
+      <app-public-header />
 
-      <!-- Floating island nav (matches landing) -->
-      <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
-        <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
-            <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-          </a>
-          <div class="hidden md:flex items-center gap-7 text-[13.5px] text-white/70">
-            <a routerLink="/" fragment="process" class="hover:text-white transition-colors">How it works</a>
-            <a routerLink="/" fragment="who" class="hover:text-white transition-colors">Who it's for</a>
-            <a routerLink="/blog" class="text-white font-medium">Journal</a>
-          </div>
-          <div class="flex items-center gap-1">
-            <app-nav-mobile-menu>
-              <a routerLink="/" fragment="process" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">How it works</a>
-              <a routerLink="/" fragment="who" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Who it\'s for</a>
-              <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
-            </app-nav-mobile-menu>
-            <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-11 pl-5 pr-5 sm:pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
-            Start creating
-            <span class="hidden sm:flex w-7 h-7 rounded-full bg-[#1A1714] text-white items-center justify-center text-sm leading-none" aria-hidden="true">↗</span>
-          </a>
-          </div>
-        </nav>
-      </header>
-
-      <!-- HERO · dark opening block -->
-      <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-16 md:pb-20">
-        <div class="absolute inset-0" style="background: radial-gradient(ellipse at 20% 15%, rgba(217,108,61,0.20), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.93));"></div>
-        <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-10 items-end">
+      <header class="mast">
+        <div class="wrap mast-grid">
           <div>
-            <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-white/15 text-white/70">
-              <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Journal &amp; Notes
-            </p>
-            <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(3rem,8vw,5.6rem)] text-balance">
-              Notes on<br><em class="font-light italic">video.</em>
-            </h1>
-            <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[46ch]">
+            <h1>Notes on video.</h1>
+            <p class="lead">
               Guides to the AI Shorts generator, quiz videos and the watermark tool: how they work, their limits and how to fix problems.
             </p>
           </div>
-          <div class="lg:justify-self-end w-full max-w-[420px]">
+          <div class="controls">
             <label for="journal-search" class="sr-only">Search essays</label>
-            <div class="rounded-[20px] p-2 bg-white/[0.06] border border-white/12 backdrop-blur flex items-center gap-2">
-              <span aria-hidden="true" class="pl-3 text-white/50">⌕</span>
-              <input id="journal-search" type="search" placeholder="Search essays…"
-                (input)="onSearch($event)"
-                class="flex-1 bg-transparent h-11 text-[15px] placeholder:text-white/60 outline-none">
-            </div>
-            <div class="mt-4 flex flex-wrap gap-2">
+            <input id="journal-search" type="search" placeholder="Search essays…" class="ui-field" (input)="onSearch($event)">
+            <div class="filters" role="group" aria-label="Filter by category">
               @for (c of categories; track c) {
-                <button type="button" (click)="setCategory(c)"
-                  [class]="activeCategory === c
-                    ? 'rounded-full bg-[#E8E0D2] text-[#141310] px-4 min-h-[44px] text-[13px] font-semibold'
-                    : 'rounded-full border border-white/15 text-white/70 px-4 min-h-[44px] text-[13px] hover:border-white/40 hover:text-white transition-colors'">
-                  {{ c }}
-                </button>
+                <button type="button" class="ui-btn ui-btn--secondary chip" [attr.aria-pressed]="activeCategory === c" (click)="setCategory(c)">{{ c }}</button>
               }
             </div>
           </div>
         </div>
-      </section>
+      </header>
 
-      <main class="bg-[#FAF7F2]">
-        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-16 md:py-24">
-
+      <main>
+        <div class="wrap">
           @if (filteredPosts.length === 0) {
-            <div class="reveal is-visible rounded-[20px] border border-black/10 bg-white p-12 text-center">
-              <p class="serif text-3xl">No essays found.</p>
-              <p class="mt-2 text-[#6B6560]">Try a different search or category.</p>
-              <button type="button" (click)="resetFilters()"
-                class="btn-primary mt-6 inline-flex items-center rounded-full bg-[#1A1714] text-white px-6 py-3 text-[14px] font-semibold">Clear filters</button>
+            <div class="empty">
+              <h2>No essays found.</h2>
+              <p>Try a different search or category.</p>
+              <button type="button" class="ui-btn ui-btn--primary" (click)="resetFilters()">Clear filters</button>
             </div>
           } @else {
-            <!-- Featured essay -->
             @if (showFeatured()) {
-              <a data-article [routerLink]="filteredPosts[0].route"
-                class="reveal card-lift group grid grid-cols-1 lg:grid-cols-2 overflow-hidden rounded-[20px] bg-white border border-black/[0.07]">
-
-                <img [src]="filteredPosts[0].cover" [alt]="filteredPosts[0].coverAlt" class="block w-full h-full min-h-[220px] object-cover bg-[#EDE8DB]" width="1200" height="630" fetchpriority="high">
-                <div class="p-8 md:p-12 flex flex-col justify-center">
-                  <p class="text-[12px] uppercase tracking-[0.08em] text-[#6B6560]">{{ filteredPosts[0].date }} · {{ filteredPosts[0].read }}</p>
-                  <h2 class="serif mt-3 font-medium leading-[1.02] tracking-[-0.01em] text-[clamp(1.8rem,3.5vw,2.8rem)]">{{ filteredPosts[0].title }}</h2>
-                  <p class="mt-4 text-[15.5px] text-[#6B6560] leading-relaxed">{{ filteredPosts[0].excerpt }}</p>
-                  <span class="mt-6 inline-flex w-max items-center gap-2 rounded-full bg-[#1A1714] text-white px-6 py-3 text-[14px] font-semibold">Read essay <span aria-hidden="true">→</span></span>
+              <a data-article [routerLink]="filteredPosts[0].route" class="entry featured">
+                <img [src]="filteredPosts[0].cover" [alt]="filteredPosts[0].coverAlt" class="cover" width="1200" height="630" fetchpriority="high">
+                <div>
+                  <p class="meta">{{ filteredPosts[0].date }} · {{ filteredPosts[0].read }}</p>
+                  <h2>{{ filteredPosts[0].title }}</h2>
+                  <p class="excerpt">{{ filteredPosts[0].excerpt }}</p>
+                  <span class="more">Read essay</span>
                 </div>
               </a>
             }
-
-            <!-- Archive grid -->
-            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="grid">
               @for (p of gridPosts(); track p.route) {
-                <a data-article [routerLink]="p.route" class="reveal card-lift group rounded-[20px] overflow-hidden bg-white border border-black/[0.07] flex flex-col">
-
-                  <img [src]="p.cover" [alt]="p.coverAlt" class="block w-full h-auto aspect-[1200/630] object-cover bg-[#EDE8DB]" width="1200" height="630" loading="lazy">
-                  <div class="p-6 md:p-7 flex flex-col flex-1">
-                    <p class="text-[12px] uppercase tracking-[0.06em] text-[#6B6560]">{{ p.date }} · {{ p.read }}</p>
-                    <h3 class="serif mt-2 text-[26px] leading-[1.05]">{{ p.title }}</h3>
-                    <p class="mt-2 text-[14.5px] text-[#6B6560] leading-relaxed flex-1">{{ p.excerpt }}</p>
-                    <span class="mt-4 text-[14px] font-semibold underline underline-offset-8 decoration-[#1A1714]/25 group-hover:decoration-[#1A1714] transition">Read essay →</span>
-                  </div>
+                <a data-article [routerLink]="p.route" class="entry item reveal" appReveal>
+                  <img [src]="p.cover" [alt]="p.coverAlt" class="cover" width="1200" height="630" loading="lazy">
+                  <p class="meta">{{ p.date }} · {{ p.read }}</p>
+                  <h3>{{ p.title }}</h3>
+                  <p class="excerpt">{{ p.excerpt }}</p>
+                  <span class="more">Read essay</span>
                 </a>
               }
             </div>
           }
 
-          <!-- Format strip -->
-          <div class="reveal mt-10 rounded-[20px] p-8 md:p-10 bg-[#1E3A2A] text-[#EDE8DB] flex flex-col md:flex-row md:items-center gap-6 justify-between">
+          <div class="strip">
             <div>
-              <p class="text-[12px] uppercase tracking-[0.08em] text-white/60">New to the format?</p>
-              <p class="serif mt-2 text-[28px] leading-tight">Format your TXT file once.<br>Render forever.</p>
+              <p class="meta">New to the format?</p>
+              <h2>Format your TXT file once. Render forever.</h2>
             </div>
-            <a routerLink="/blog/quiz-file-format-guide" class="btn-primary inline-flex w-max items-center gap-2 rounded-full bg-[#E8E0D2] text-[#141310] px-7 py-3.5 font-semibold text-[14.5px]">Open format guide →</a>
+            <a routerLink="/blog/quiz-file-format-guide" class="ui-btn ui-btn--secondary">Open format guide</a>
           </div>
 
-          <!-- Tools cross-link -->
-          <div class="reveal mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <a routerLink="/features/ai-shorts" class="rounded-[16px] border border-black/10 bg-white p-5 block hover:border-black/25 transition-colors">
-              <p class="font-semibold text-[14.5px]">AI Shorts generator</p>
-              <p class="mt-1 text-[13px] text-[#6B6560]">Long video or audio to up to 3 captioned 9:16 clips.</p>
-            </a>
-            <a routerLink="/features/txt-to-video-quiz" class="rounded-[16px] border border-black/10 bg-white p-5 block hover:border-black/25 transition-colors">
-              <p class="font-semibold text-[14.5px]">TXT to quiz video</p>
-              <p class="mt-1 text-[13px] text-[#6B6560]">Questions to narrated MP4.</p>
-            </a>
-            <a routerLink="/features/watermark" class="rounded-[16px] border border-black/10 bg-white p-5 block hover:border-black/25 transition-colors">
-              <p class="font-semibold text-[14.5px]">Watermark tool</p>
-              <p class="mt-1 text-[13px] text-[#6B6560]">Text or logo marks for images and video, in your browser.</p>
-            </a>
-          </div>
+          <ul class="tools">
+            <li><a routerLink="/features/ai-shorts"><strong>AI Shorts generator</strong><span>Long video or audio to up to 3 captioned 9:16 clips.</span></a></li>
+            <li><a routerLink="/features/txt-to-video-quiz"><strong>TXT to quiz video</strong><span>Questions to narrated MP4.</span></a></li>
+            <li><a routerLink="/features/watermark"><strong>Watermark tool</strong><span>Text or logo marks for images and video, in your browser.</span></a></li>
+          </ul>
         </div>
       </main>
 
-      <!-- CLOSING dark block -->
-      <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6]">
-        <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10 pt-20 pb-10">
-          <h2 class="reveal serif font-medium text-center leading-[1.0] text-[clamp(2rem,5vw,3.6rem)] max-w-[22ch] mx-auto text-balance">Follow the journal.</h2>
-          <p class="reveal mt-5 mx-auto max-w-[52ch] text-center text-[15.5px] leading-relaxed text-white/70">
-            New articles appear on this page first. To get them in a feed reader, add the RSS feed. There is no email list.
-          </p>
-          <div class="reveal mt-8 flex flex-wrap justify-center gap-3">
-            <a href="/feed.xml" class="btn-primary inline-flex items-center min-h-[44px] rounded-full bg-[#E8E0D2] text-[#141310] px-7 font-semibold text-[14.5px]">RSS feed</a>
-            <a routerLink="/contact" class="inline-flex items-center min-h-[44px] rounded-full border border-white/25 text-white/85 px-7 font-semibold text-[14.5px] hover:border-white/50 transition-colors">Suggest a topic</a>
+      <section class="follow" aria-labelledby="follow-heading">
+        <div class="wrap">
+          <h2 id="follow-heading">Follow the journal.</h2>
+          <p>New articles appear on this page first. To get them in a feed reader, add the RSS feed. There is no email list.</p>
+          <div class="actions">
+            <a href="/feed.xml" class="ui-btn ui-btn--primary">RSS feed</a>
+            <a routerLink="/contact" class="ui-btn ui-btn--secondary">Suggest a topic</a>
           </div>
-          <footer class="mt-16 border-t border-white/10 pt-10">
-            <p class="serif text-center leading-none tracking-[-0.03em] text-[clamp(3rem,13vw,10rem)] text-[#F4EFE6]/95 select-none">INDIFFERENT</p>
-            <div class="mt-10 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/60">
-              <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-              <span class="flex gap-5">
-                <a routerLink="/" class="hover:text-white">Home</a>
-                <a routerLink="/about" class="hover:text-white">About</a>
-                <a routerLink="/privacy" class="hover:text-white">Privacy</a>
-                <a routerLink="/terms" class="hover:text-white">Terms</a>
-              </span>
-            </div>
-          </footer>
         </div>
       </section>
+      <app-site-footer />
     </div>
   `,
 })
-export class BlogComponent implements OnInit, AfterViewInit {
-  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+export class BlogComponent implements OnInit {
   private readonly document = inject(DOCUMENT);
 
   ngOnInit(): void {
@@ -253,7 +212,6 @@ export class BlogComponent implements OnInit, AfterViewInit {
 
   setCategory(c: string): void {
     this.activeCategory = c;
-    this.revealAll();
   }
 
   onSearch(e: Event): void {
@@ -265,35 +223,5 @@ export class BlogComponent implements OnInit, AfterViewInit {
     this.query = '';
     const input = document.getElementById('journal-search') as HTMLInputElement | null;
     if (input) input.value = '';
-    this.revealAll();
-  }
-
-  ngAfterViewInit(): void {
-    // Browser-only scroll reveals; server prerender skips them.
-    if (!this.isBrowser) {
-      return;
-    }
-    this.observeReveals();
-  }
-
-  private observeReveals(): void {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const els = Array.from(document.querySelectorAll('.reveal'));
-    if (!('IntersectionObserver' in window) || reduce) {
-      els.forEach((e) => e.classList.add('is-visible'));
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => entries.forEach((en) => {
-        if (en.isIntersecting) { en.target.classList.add('is-visible'); io.unobserve(en.target); }
-      }),
-      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
-    );
-    els.forEach((e) => io.observe(e));
-  }
-
-  private revealAll(): void {
-    // New cards enter after filter change: observe them on next frame
-    requestAnimationFrame(() => this.observeReveals());
   }
 }
