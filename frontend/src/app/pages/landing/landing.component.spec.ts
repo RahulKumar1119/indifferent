@@ -137,7 +137,7 @@ describe('LandingComponent', () => {
   it('sets a unique title, description and canonical URL for the home page', () => {
     render();
 
-    expect(document.title).toBe('Indifferent: AI Shorts, Quiz Videos and Watermark Tool');
+    expect(document.title).toBe('Indifferent: Story to Video, AI Shorts and Quiz Videos');
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toContain('Free during beta');
     expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/');
   });
@@ -221,5 +221,27 @@ describe('LandingComponent positioning', () => {
       const id = section.getAttribute('aria-labelledby')!;
       expect(page.querySelector(`#${id}`)).withContext(id).not.toBeNull();
     }
+  });
+});
+
+describe('LandingComponent product screenshot', () => {
+  it('shows the real Story editor capture with its size, alt text and a caption', async () => {
+    TestBed.configureTestingModule({ imports: [LandingComponent], providers: [provideRouter([])] });
+    TestBed.overrideComponent(LandingComponent, {
+      remove: { imports: [FlipbookComponent, HeroSceneComponent] },
+      add: { schemas: [CUSTOM_ELEMENTS_SCHEMA] },
+    });
+    await TestBed.compileComponents();
+    const fixture = TestBed.createComponent(LandingComponent);
+    fixture.detectChanges();
+    const img = (fixture.nativeElement as HTMLElement).querySelector('figure.shot img')!;
+    expect(img.getAttribute('src')).toBe('landing/story-editor.webp');
+    expect(img.getAttribute('width')).toBe('1280');
+    expect(img.getAttribute('height')).toBe('860');
+    expect(img.getAttribute('loading')).toBe('lazy');
+    expect(img.getAttribute('alt')!.length).toBeGreaterThan(40);
+    expect(img.closest('figure')!.querySelector('figcaption')!.textContent).toContain('Story editor');
+    TestBed.resetTestingModule();
+    document.head.querySelectorAll('meta[name="robots"], script[data-seo-id], link[rel="canonical"]').forEach((el) => el.remove());
   });
 });

@@ -51,6 +51,9 @@ import { HeroSceneComponent } from './hero-scene.component';
     dl.spec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); margin: var(--space-xl) 0 0; padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); }
     dl.spec dt { font-size: var(--type-sm); color: var(--color-muted); }
     dl.spec dd { margin: var(--space-3xs) 0 0; font-weight: 600; }
+    figure.shot { margin: var(--space-2xl) auto 0; }
+    figure.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--color-rule); border-radius: var(--radius-surface); background: var(--color-paper-2); }
+    figure.shot figcaption { margin-top: var(--space-sm); font-size: var(--type-sm); color: var(--color-muted); max-width: 70ch; }
 
     .text-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: var(--space-md); font-weight: 600; color: var(--color-accent-text); text-underline-offset: 0.2em; }
     .text-link:hover { color: var(--color-ink); }
@@ -157,6 +160,17 @@ import { HeroSceneComponent } from './hero-scene.component';
               </dl>
             </div>
           </div>
+          <figure class="wrap shot reveal" appReveal>
+            <img
+              src="landing/story-editor.webp"
+              width="1280"
+              height="860"
+              loading="lazy"
+              decoding="async"
+              alt="The Story editor in Indifferent: a video plan with its opening line, the first of six scenes, a stock clip of two rowing boats, and the narration text ready to edit."
+            />
+            <figcaption>The Story editor, with a plan made from a short sample story. Each scene has a stock clip you can replace and narration you can edit.</figcaption>
+          </figure>
         </section>
 
         <!-- QUIZ: the plain text file -->
@@ -403,9 +417,9 @@ export class LandingComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    const title = 'Indifferent: AI Shorts, Quiz Videos and Watermark Tool';
+    const title = 'Indifferent: Story to Video, AI Shorts and Quiz Videos';
     const description =
-      'Cut long videos into captioned vertical clips, turn quiz text files into narrated MP4s, and watermark images in your browser. Free during beta.';
+      'Turn stories into narrated videos, cut long videos into captioned vertical clips, and make quiz videos from text. Free during beta.';
     setPageSeo(this.document, { title, description, canonical: 'https://indifferent.fun/' });
     setJsonLd(this.document, 'webpage', {
       '@context': 'https://schema.org',
