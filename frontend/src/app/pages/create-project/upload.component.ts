@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ApiService } from '../../core';
 
@@ -12,6 +12,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   imports: [
     CommonModule,
     LucideDynamicIcon,
+    RouterLink,
   ],
   template: `
     <div class="max-w-3xl mx-auto px-4 py-8">
@@ -20,6 +21,22 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
         Upload a TXT file containing multiple-choice questions. The file must be a plain text (.txt) file under 5MB.
       </p>
 
+      <!-- What a working file looks like -->
+      <section class="glass-card p-5 mb-6" aria-labelledby="format-hint-title">
+        <h2 id="format-hint-title" class="text-base font-semibold">What a working file looks like</h2>
+        <pre class="mt-3 overflow-x-auto rounded-lg bg-[hsl(var(--muted))] p-4 text-sm leading-relaxed" tabindex="0"><code>1. What is the capital of France?
+A. London
+B. Paris
+C. Berlin
+D. Madrid
+Answer: B</code></pre>
+        <p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]">
+          Number each question, list lettered options, and add an Answer line.
+          <a routerLink="/blog/quiz-file-format-guide" class="underline underline-offset-4">Read the format guide</a>
+          or
+          <a href="/samples/quiz-sample.txt" download="quiz-sample.txt" class="underline underline-offset-4">download a sample file</a>.
+        </p>
+      </section>
       <!-- Drop Zone -->
       <div
         class="relative glass-card p-10 text-center transition-all cursor-pointer"

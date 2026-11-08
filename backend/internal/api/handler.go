@@ -23,6 +23,7 @@ import (
 	"github.com/rahul/indifferent/backend/internal/auth"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/notifyprefs"
+	"github.com/rahul/indifferent/backend/internal/projectfail"
 	"github.com/rahul/indifferent/backend/internal/storage"
 	"github.com/rahul/indifferent/backend/internal/storymetrics"
 )
@@ -1342,6 +1343,9 @@ type PipelineProgress struct {
 	Percentage      int    `json:"percentage"`
 	SlidesProcessed *int   `json:"slidesProcessed,omitempty"`
 	SlidesTotal     *int   `json:"slidesTotal,omitempty"`
+	// FailureCode is set only for a failed project whose problem the person can
+	// fix (see package projectfail). The raw stored error never leaves the server.
+	FailureCode string `json:"failureCode,omitempty"`
 }
 
 // buildPipelineProgress constructs a progress object from the project state.
@@ -1365,6 +1369,7 @@ func buildPipelineProgress(project *models.Project) PipelineProgress {
 		progress.Percentage = 100
 	case "failed":
 		progress.Percentage = 0
+		progress.FailureCode = string(projectfail.Classify(project.Error))
 	}
 
 	return progress

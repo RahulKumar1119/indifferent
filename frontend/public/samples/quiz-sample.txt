@@ -1,0 +1,34 @@
+1. What is the capital of France?
+A. London
+B. Paris
+C. Berlin
+D. Madrid
+Answer: B
+
+2. Which planet is known as the Red Planet?
+A. Venus
+B. Jupiter
+C. Mars
+D. Saturn
+Answer: C
+
+3. How many sides does a hexagon have?
+A. Five
+B. Six
+C. Seven
+D. Eight
+Answer: B
+
+4. Which gas do plants take in from the air?
+A. Oxygen
+B. Nitrogen
+C. Carbon dioxide
+D. Hydrogen
+Answer: C
+
+5. In which year did humans first land on the Moon?
+A. 1959
+B. 1965
+C. 1969
+D. 1975
+Answer: C

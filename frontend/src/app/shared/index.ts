@@ -9,6 +9,7 @@ export type {
   ProjectStatus,
   Project,
   PipelineProgress,
+  FailureCode,
   CreateProjectRequest,
   CreateProjectResponse,
   WatermarkSettings,
