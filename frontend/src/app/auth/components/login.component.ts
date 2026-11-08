@@ -69,7 +69,7 @@ import { OAuthFlow, createOAuthFlow, rememberOAuthFlow } from '../oauth-flow';
       </div>
 
       <!-- Form -->
-      <div class="form-panel hm-on-light">
+      <main class="form-panel hm-on-light">
         <div class="form-inner">
           <h2>{{ isSignupMode ? 'Create your account.' : 'Sign in to your studio.' }}</h2>
           <p class="sub">Continue with Google, or use your email. No credit card.</p>
@@ -144,7 +144,7 @@ import { OAuthFlow, createOAuthFlow, rememberOAuthFlow } from '../oauth-flow';
           </p>
           <a routerLink="/" class="back">Back to home</a>
         </div>
-      </div>
+      </main>
     </div>
   `,
 })

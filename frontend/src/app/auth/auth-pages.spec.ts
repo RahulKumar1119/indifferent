@@ -45,6 +45,12 @@ describe('login page', () => {
     expect(page.textContent).not.toContain('No passwords');
   });
 
+  it('has one main landmark holding the form', async () => {
+    const { page } = await open();
+    expect(page.querySelectorAll('main').length).toBe(1);
+    expect(page.querySelector('main form')).not.toBeNull();
+  });
+
   it('keeps the Google button first in the page, with one separator only', async () => {
     const { page } = await open();
     expect(page.querySelector('button')!.textContent).toContain('Continue with Google');
