@@ -1,0 +1,102 @@
+/* Hallmark · shape: kept · genre: editorial · theme: brand · redesign: full
+ * paper: oklch(97% 0.008 80) · accent: oklch(52% 0.14 40) · display: Cormorant Garamond · body: Outfit · hero: kept · nav: kept · footer: kept · signature: kept
+ * axes: light/roman-serif/chromatic-terracotta · posture: kept · contrast: pass · fold: n/a · v2.0.0 */
+/* Hallmark · pre-emit critique: P3 H3 E4 S4 R4 V3 · weakest: V, pages still carry their own copies of these controls until their own issues land */
+
+/*
+ * Shared UI for the redesign (#245). Everything is opt-in, so a page that has
+ * not been redesigned yet looks exactly as it did:
+ *   .hm            a region that takes Hallmark's base rules (focus ring, reduced motion)
+ *   .ui-btn        buttons and button-shaped links (+ --primary, --secondary, --quiet)
+ *   .ui-field      text inputs, selects, textareas
+ *   .ui-surface    one level of card; never nest one inside another
+ * Colours come from tokens.css only. Motion is transform and opacity (plus
+ * colour changes), never `all`.
+ */
+
+.hm, .hm *, .hm *::before, .hm *::after { box-sizing: border-box; }
+
+.hm :focus-visible,
+.hm:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm *, .hm *::before, .hm *::after,
+  .ui-btn {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- Buttons: default, hover, focus-visible, active, disabled, loading ---- */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: var(--control-height);
+  padding: 0 var(--space-lg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font: 600 var(--type-sm)/1.2 var(--font-body);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform var(--dur-micro) var(--ease-out),
+    background-color var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out),
+    color var(--dur-short) var(--ease-out),
+    opacity var(--dur-short) var(--ease-out);
+}
+.ui-btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.ui-btn:active { transform: translateY(1px); }
+.ui-btn:disabled,
+.ui-btn[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; transform: none; }
+.ui-btn[aria-busy='true'] { cursor: progress; opacity: 0.75; }
+
+.ui-btn--primary { background: var(--color-accent); color: var(--color-accent-ink); }
+.ui-btn--primary:hover:not(:disabled):not([aria-disabled='true']) { background: var(--color-accent-hover); }
+
+.ui-btn--secondary { background: transparent; color: var(--color-ink); border-color: var(--color-muted); }
+.ui-btn--secondary:hover:not(:disabled):not([aria-disabled='true']) { background: var(--color-paper-3); }
+
+.ui-btn--quiet { background: transparent; color: var(--color-ink-2); }
+.ui-btn--quiet:hover:not(:disabled):not([aria-disabled='true']) { background: var(--color-paper-3); color: var(--color-ink); }
+
+/* ---- Fields: the edge is --color-muted so it holds 3:1 against the page ---- */
+.ui-field {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 1px solid var(--color-muted);
+  border-radius: var(--radius-control);
+  font: 400 var(--type-md)/1.4 var(--font-body);
+  transition: border-color var(--dur-short) var(--ease-out);
+}
+.ui-field::placeholder { color: var(--color-muted); }
+.ui-field:hover:not(:disabled) { border-color: var(--color-ink-2); }
+.ui-field:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-color: var(--color-ink); }
+.ui-field:disabled { opacity: 0.55; cursor: not-allowed; background: var(--color-paper-2); }
+.ui-field[aria-invalid='true'] { border-color: var(--color-negative); }
+
+/* ---- Surface: one level, a hairline and a lighter step, no shadow ---- */
+.ui-surface {
+  background: var(--color-paper-2);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-surface);
+}
+.ui-surface .ui-surface { background: transparent; border: 0; border-radius: 0; }
+
+/* ---- Text helpers ---- */
+.ui-label { font: 500 var(--type-sm)/1.3 var(--font-body); color: var(--color-ink-2); }
+.ui-hint { font: 400 var(--type-xs)/1.4 var(--font-body); color: var(--color-muted); }
+.ui-link { color: var(--color-accent-text); text-underline-offset: 0.16em; }
+.ui-link:hover { color: var(--color-ink); }
+
+/* ---- Skeleton bar for loading states (no shimmer sweep, so nothing loops) ---- */
+.ui-skeleton { background: var(--color-paper-3); border-radius: var(--radius-control); }

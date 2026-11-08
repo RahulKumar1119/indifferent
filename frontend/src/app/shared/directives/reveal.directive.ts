@@ -45,6 +45,9 @@ export class RevealDirective implements AfterViewInit, OnDestroy {
       el.classList.add('is-visible');
       return;
     }
+    // Hidden only once the script is running: with scripting off, or in the
+    // prerendered HTML, the element stays visible (see `.reveal` in styles.css).
+    el.classList.add('reveal-armed');
     this.observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {

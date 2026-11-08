@@ -10,9 +10,15 @@ let nextId = 0;
 @Component({
   selector: 'app-nav-menu',
   standalone: true,
+  styles: [`
+    .trigger { color: var(--color-muted); }
+    .trigger:hover, .trigger.open { color: var(--color-ink); }
+    .trigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
+    .panel { background: var(--color-paper-2); border: 1px solid var(--color-rule); color: var(--color-ink); box-shadow: 0 8px 24px rgb(0 0 0 / 0.35); }
+  `],
   template: `
     <div
-      class="relative"
+      class="relative hm-on-dark"
       (keydown.escape)="closeAndFocus()"
       (focusout)="onFocusOut($event)"
       (mouseenter)="hoverOpen()"
@@ -25,8 +31,8 @@ let nextId = 0;
         [attr.aria-expanded]="open()"
         [attr.aria-controls]="panelId"
         (click)="toggle()"
-        class="flex items-center gap-1.5 bg-transparent border-none text-[13.5px] transition-colors cursor-pointer p-0 min-h-[44px]"
-        [class]="open() ? 'text-white' : 'text-white/70 hover:text-white'"
+        class="trigger flex items-center gap-1.5 bg-transparent border-none text-[13.5px] transition-colors cursor-pointer p-0 min-h-[44px]"
+        [class.open]="open()"
       >
         {{ label() }}
         <svg
@@ -48,12 +54,12 @@ let nextId = 0;
       </button>
       <div
         [id]="panelId"
-        class="absolute top-full left-1/2 -translate-x-1/2 pt-3 z-10 transition-all duration-200 motion-reduce:transition-none"
+        class="absolute top-full left-1/2 -translate-x-1/2 pt-3 z-10 transition-[opacity,transform,visibility] duration-200 motion-reduce:transition-none"
         [class]="open() ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-1'"
         (click)="onPanelClick($event)"
       >
         <div
-          class="rounded-2xl border border-white/10 bg-[#17150F] shadow-lg p-2"
+          class="panel rounded-2xl p-2"
           [style.width.px]="width()"
         >
           <ng-content></ng-content>

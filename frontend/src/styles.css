@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Outfit:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "./tokens.css";
+@import "./ui.css";
 
 /* Custom design tokens */
 :root {
@@ -74,7 +75,7 @@ html, body {
   overflow-x: clip;
 }
 
-::selection { background: #D96C3D; color: #fff; }
+::selection { background: var(--color-accent); color: var(--color-accent-ink); }
 
 /* Aurora gradient background */
 .aurora-bg {
@@ -374,7 +375,7 @@ input:focus-visible,
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-paper) 40%, transparent), transparent);
   animation: skeleton-shimmer 1.4s ease infinite;
 }
 @keyframes skeleton-shimmer {
@@ -401,11 +402,15 @@ input:focus-visible,
  * neutralises every transition, so these need no per-rule reduced-motion gate.
  * ------------------------------------------------------------------------- */
 
-/* Scroll reveal: hidden until the appReveal directive adds `is-visible`. */
+/* Scroll reveal: the appReveal directive arms the element (`reveal-armed`) and
+ * adds `is-visible` on scroll. Before it runs, or with scripting off, the
+ * element is simply visible. */
 .reveal {
+  transition: opacity 0.8s var(--ease-enter), transform 0.8s var(--ease-enter);
+}
+.reveal.reveal-armed:not(.is-visible) {
   opacity: 0;
   transform: translateY(28px);
-  transition: opacity 0.8s var(--ease-enter), transform 0.8s var(--ease-enter);
 }
 .reveal.is-visible {
   opacity: 1;

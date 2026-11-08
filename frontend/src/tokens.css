@@ -16,9 +16,13 @@
  * -caution / -negative (styles.css owns --color-success / -warning / -error).
  *
  * Light is :root; dark is the .dark class ThemeService puts on <html>.
+ * .hm-on-light and .hm-on-dark pin a region to one set whatever the theme is,
+ * for parts that are always one tone: the public pages' paper body and footer
+ * (light), and the dark pill header with its dropdown menus (dark).
  * Contrast ratios in the comments are measured against the stated surface.
  */
-:root {
+:root,
+.hm-on-light {
   /* Surfaces */
   --color-paper: #FAF7F2;
   --color-paper-2: #F4EFE6;
@@ -39,7 +43,9 @@
   --color-positive: #1E3A2A;
   --color-caution: #8A5C00;
   --color-negative: #B3372F;
+}
 
+:root {
   /* Faces: the two the site already loads in index.html */
   --font-display: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
   --font-body: 'Outfit', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -72,7 +78,8 @@
   --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-nav: 300; --z-modal: 400; --z-toast: 500;
 }
 
-.dark {
+.dark,
+.hm-on-dark {
   --color-paper: #0F0E0B;
   --color-paper-2: #141310;
   --color-paper-3: #2A2620;

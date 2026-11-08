@@ -9,15 +9,21 @@ let nextId = 0;
 @Component({
   selector: 'app-nav-mobile-menu',
   standalone: true,
+  styles: [`
+    .trigger { color: var(--color-muted); }
+    .trigger:hover { color: var(--color-ink); }
+    .trigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    .panel { background: var(--color-paper-2); border: 1px solid var(--color-rule); color: var(--color-ink); box-shadow: 0 20px 60px rgb(0 0 0 / 0.5); }
+  `],
   template: `
-    <div class="md:hidden" (keydown.escape)="closeAndFocus()" (focusout)="onFocusOut($event)">
+    <div class="md:hidden hm-on-dark" (keydown.escape)="closeAndFocus()" (focusout)="onFocusOut($event)">
       <button
         #trigger
         type="button"
         [attr.aria-expanded]="open()"
         [attr.aria-controls]="panelId"
         (click)="open.set(!open())"
-        class="inline-flex items-center gap-2 h-11 px-3 rounded-full text-[13.5px] text-white/80 hover:text-white transition-colors cursor-pointer bg-transparent border-none"
+        class="trigger inline-flex items-center gap-2 h-11 px-3 rounded-full text-[13.5px] transition-colors cursor-pointer bg-transparent border-none"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -42,7 +48,7 @@ let nextId = 0;
       @if (open()) {
         <div
           [id]="panelId"
-          class="absolute left-0 right-0 top-full mt-2 max-h-[calc(100dvh-6.5rem)] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-[#17150F] p-2 shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
+          class="panel absolute left-0 right-0 top-full mt-2 max-h-[calc(100dvh-6.5rem)] overflow-y-auto overscroll-contain rounded-2xl p-2"
           (click)="onPanelClick($event)"
         >
           <ng-content></ng-content>

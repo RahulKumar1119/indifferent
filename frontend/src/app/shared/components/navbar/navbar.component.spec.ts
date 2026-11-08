@@ -27,3 +27,11 @@ describe('NavbarComponent', () => {
     expect(story?.textContent?.trim()).toBe('Story');
   });
 });
+
+describe('NavbarComponent controls', () => {
+  it('names the theme toggle for what it will do and keeps the brand linked home', () => {
+    const el = render();
+    expect(el.querySelector('button')?.getAttribute('aria-label')).toMatch(/^Switch to (light|dark) mode$/);
+    expect(el.querySelector('a.brand')?.getAttribute('href')).toBe('/');
+  });
+});
