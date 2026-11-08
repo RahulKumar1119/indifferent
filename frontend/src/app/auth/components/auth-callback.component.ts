@@ -11,10 +11,17 @@ import { takeOAuthFlow } from '../oauth-flow';
   selector: 'app-auth-callback',
   standalone: true,
   imports: [MatProgressSpinnerModule],
+  styles: [`
+    :host { display: block; }
+    main { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-md); background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); }
+    p { margin: 0; font-size: var(--type-lg); color: var(--color-ink-2); }
+    mat-spinner { --mdc-circular-progress-active-indicator-color: var(--color-accent); --mat-progress-spinner-active-indicator-color: var(--color-accent); }
+  `],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-gray-50">
-      <mat-spinner diameter="48"></mat-spinner>
-    </div>
+    <main class="hm hm-on-light" role="status" aria-live="polite">
+      <mat-spinner diameter="40" aria-hidden="true"></mat-spinner>
+      <p>Signing you in</p>
+    </main>
   `,
 })
 export class AuthCallbackComponent implements OnInit {

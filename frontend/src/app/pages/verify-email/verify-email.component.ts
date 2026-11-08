@@ -16,26 +16,35 @@ type State = 'working' | 'done' | 'failed';
   selector: 'app-verify-email',
   standalone: true,
   imports: [RouterLink],
+  styles: [`
+    :host { display: block; }
+    main { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: var(--space-xl) var(--gutter); background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); }
+    .panel { width: min(28rem, 100%); }
+    .brand { margin: 0; font-size: var(--type-sm); color: var(--color-muted); }
+    h1 { margin: var(--space-sm) 0 0; font-family: var(--font-display); font-weight: 500; font-size: var(--type-3xl); line-height: 1.08; letter-spacing: var(--tracking-display); text-wrap: balance; }
+    .text { margin: var(--space-md) 0 0; color: var(--color-ink-2); }
+    .action { margin-top: var(--space-xl); }
+  `],
   template: `
-    <main class="min-h-[100dvh] bg-[#FAF7F2] text-[#1A1714] flex items-center justify-center px-5">
-      <div class="w-full max-w-md rounded-2xl border border-black/10 bg-white p-8">
-        <p class="text-[13px] tracking-wide text-[#6B6560]">Indifferent</p>
+    <main class="hm hm-on-light">
+      <div class="panel">
+        <p class="brand">Indifferent</p>
         @switch (state()) {
           @case ('working') {
-            <h1 class="mt-3 text-2xl font-medium" role="status">Confirming your email address</h1>
-            <p class="mt-3 text-[15px] text-[#3E3A33]">One moment.</p>
+            <h1 role="status">Confirming your email address</h1>
+            <p class="text">One moment.</p>
           }
           @case ('done') {
-            <h1 class="mt-3 text-2xl font-medium">Your email address is confirmed</h1>
-            <p class="mt-3 text-[15px] text-[#3E3A33]">You can create projects and Shorts now.</p>
-            <a [routerLink]="signedIn ? '/dashboard' : '/login'" class="mt-6 inline-flex rounded-full bg-[#1A1714] px-6 py-3 text-[15px] font-semibold text-[#FAF7F2]">
+            <h1>Your email address is confirmed</h1>
+            <p class="text">You can create projects and Shorts now.</p>
+            <a [routerLink]="signedIn ? '/dashboard' : '/login'" class="ui-btn ui-btn--primary action">
               {{ signedIn ? 'Go to your dashboard' : 'Sign in' }}
             </a>
           }
           @case ('failed') {
-            <h1 class="mt-3 text-2xl font-medium">This link did not work</h1>
-            <p class="mt-3 text-[15px] text-[#3E3A33]" role="alert">{{ message() }}</p>
-            <a [routerLink]="signedIn ? '/account' : '/login'" class="mt-6 inline-flex rounded-full bg-[#1A1714] px-6 py-3 text-[15px] font-semibold text-[#FAF7F2]">
+            <h1>This link did not work</h1>
+            <p class="text" role="alert">{{ message() }}</p>
+            <a [routerLink]="signedIn ? '/account' : '/login'" class="ui-btn ui-btn--primary action">
               {{ signedIn ? 'Open your account page' : 'Sign in' }}
             </a>
           }

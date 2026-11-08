@@ -14,135 +14,135 @@ import { OAuthFlow, createOAuthFlow, rememberOAuthFlow } from '../oauth-flow';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, LucideDynamicIcon],
   styles: [`
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s, box-shadow .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(1px) scale(.98); }
-    .grain::before {
-      content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .05;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .btn-primary { transition: none; }
-    }
+    :host { display: block; }
+    .auth { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); font-family: var(--font-body); font-size: var(--type-md); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    @media (min-width: 64rem) { .auth { grid-template-columns: minmax(0, 52fr) minmax(0, 48fr); } }
+    h1, h2, p, ul { margin: 0; }
+
+    /* Left: a solid dark brand panel. Under 64rem it is a short band above the form. */
+    .brand-panel { background: var(--color-paper); color: var(--color-ink); padding: var(--space-xl) var(--gutter); display: flex; flex-direction: column; gap: var(--space-xl); }
+    @media (min-width: 64rem) { .brand-panel { padding: var(--space-2xl); justify-content: space-between; min-height: 100dvh; } }
+    .brand { display: inline-flex; align-items: center; min-height: 44px; width: max-content; font-size: var(--type-lg); font-weight: 600; letter-spacing: -0.01em; color: var(--color-ink); text-decoration: none; }
+    .brand .dot { color: var(--color-accent-text); }
+    .brand:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+    h1 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-display-s); line-height: 1.04; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; max-width: 14ch; }
+    .lede { margin-top: var(--space-md); font-size: var(--type-lead); line-height: 1.45; color: var(--color-ink-2); max-width: 36ch; }
+    .legal-note { font-size: var(--type-sm); color: var(--color-muted); }
+
+    /* Right: one form surface on paper */
+    .form-panel { background: var(--color-paper); color: var(--color-ink); padding: var(--space-2xl) var(--gutter); display: flex; align-items: center; justify-content: center; }
+    .form-inner { width: min(28rem, 100%); }
+    h2 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-2xl); line-height: 1.1; letter-spacing: var(--tracking-display); }
+    .sub { margin-top: var(--space-xs); color: var(--color-ink-2); }
+    .btn-block { width: 100%; white-space: nowrap; }
+    .google-btn { margin-top: var(--space-lg); }
+    .google-btn svg { flex-shrink: 0; }
+    .divider { display: flex; align-items: center; gap: var(--space-md); margin: var(--space-lg) 0; font-size: var(--type-sm); color: var(--color-muted); }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--color-rule); }
+    form { display: grid; gap: var(--space-md); }
+    .field { display: grid; gap: var(--space-2xs); }
+    .hint { font-size: var(--type-xs); color: var(--color-muted); }
+    .alert { margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); border: 1px solid color-mix(in oklab, var(--color-negative) 45%, transparent); border-radius: var(--radius-control); background: color-mix(in oklab, var(--color-negative) 8%, var(--color-paper)); color: var(--color-ink); font-size: var(--type-sm); }
+    .toggle { margin-top: var(--space-md); text-align: center; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .toggle a, .terms a { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; font-weight: 600; }
+    .toggle a:hover, .terms a:hover { color: var(--color-ink); }
+    .toggle a, .back, .terms a { display: inline-flex; align-items: center; min-height: 44px; }
+    .toggle a:focus-visible, .terms a:focus-visible, .back:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+    .perks { list-style: none; padding: 0; margin-top: var(--space-lg); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs) var(--space-md); font-size: var(--type-sm); color: var(--color-muted); }
+    .perks li { padding-left: var(--space-md); position: relative; }
+    .perks li::before { content: ''; position: absolute; left: 0; top: 0.6em; width: 8px; height: 2px; background: var(--color-accent); }
+    .terms { margin-top: var(--space-xl); font-size: var(--type-sm); color: var(--color-muted); }
+    .terms a { font-weight: 400; min-height: 0; }
+    .back { margin-top: var(--space-xs); font-size: var(--type-sm); color: var(--color-muted); text-decoration: none; }
+    .back:hover { color: var(--color-ink); text-decoration: underline; }
   `],
   template: `
-    <div class="grain sans flex min-h-[100dvh] bg-[#FAF7F2] text-[#1A1714] antialiased">
-
-      <!-- Left panel · dark studio -->
-      <div class="hidden lg:flex lg:w-[52%] relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] p-12 flex-col justify-between">
-        <div class="absolute inset-0" style="background: radial-gradient(ellipse at 80% 10%, rgba(217,108,61,0.22), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.94));"></div>
-
-        <div class="relative z-10">
-          <a routerLink="/" class="flex items-center gap-2">
-            <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-          </a>
+    <div class="auth hm">
+      <!-- Brand panel -->
+      <div class="brand-panel hm-on-dark">
+        <a routerLink="/" class="brand">Indifferent<span class="dot">.</span></a>
+        <div>
+          <h1>Enter the cutting room.</h1>
+          <p class="lede">Sign in to turn stories, quizzes and long videos into short videos.</p>
         </div>
-
-        <div class="relative z-10">
-          <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(2.6rem,4.5vw,4.2rem)] text-balance">
-            Enter the<br><em class="font-light italic">cutting room.</em>
-          </h1>
-          <p class="mt-5 text-[16px] leading-relaxed text-white/70 max-w-[44ch]">
-            Sign in to upload TXT files and render narrated quiz films.
-          </p>
-
-        </div>
-
-        <div class="relative z-10">
-          <p class="text-white/60 text-[12.5px]">© {{ currentYear }} Indifferent · Architecture of video</p>
-        </div>
+        <p class="legal-note">© {{ currentYear }} Indifferent. Architecture of video.</p>
       </div>
 
-      <!-- Right panel · sign in -->
-      <div class="flex-1 flex items-center justify-center px-5 py-14 md:p-12">
-        <div class="w-full max-w-[440px]">
-          <div class="lg:hidden flex items-center gap-2 justify-center mb-8">
-            <span class="text-lg font-bold">Indifferent<span class="text-[#D96C3D]">.</span></span>
+      <!-- Form -->
+      <div class="form-panel hm-on-light">
+        <div class="form-inner">
+          <h2>{{ isSignupMode ? 'Create your account.' : 'Sign in to your studio.' }}</h2>
+          <p class="sub">Continue with Google, or use your email. No credit card.</p>
+
+          <button type="button" (click)="signInWithGoogle()" class="ui-btn ui-btn--secondary btn-block google-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          <p class="divider">or continue with email</p>
+
+          <div id="auth-error" role="alert">
+            @if (formError) {
+              <p class="alert">{{ formError }}</p>
+            }
           </div>
 
-          <div class="rounded-[20px] p-2 bg-black/[0.04] border border-black/10">
-            <div class="rounded-[calc(20px-0.5rem)] bg-white border border-black/[0.06] p-8 md:p-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-              <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Welcome back</p>
-              <h2 class="serif mt-2 font-medium text-[clamp(2rem,4vw,2.8rem)] leading-[1.0]">Sign in to<br>your studio.</h2>
-              <p class="mt-3 text-[14.5px] text-[#6B6560] leading-relaxed">One click with Google. No passwords, no credit card.</p>
-
-              <button (click)="signInWithGoogle()"
-                class="btn-primary mt-7 w-full flex items-center justify-center gap-3 px-6 py-4 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">
-                <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                Continue with Google
-              </button>
-
-              <div class="relative my-6">
-                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-black/10"></div></div>
-                <div class="relative flex justify-center text-[11.5px] uppercase tracking-[0.14em]">
-                  <span class="bg-white px-4 text-[#6B6560]">Secure OAuth · Google</span>
-                </div>
+          <form (ngSubmit)="submitPasswordForm()" novalidate>
+            @if (isSignupMode) {
+              <div class="field">
+                <label for="auth-name" class="ui-label">Your name</label>
+                <input id="auth-name" [(ngModel)]="name" name="name" type="text" class="ui-field" placeholder="Your name" autocomplete="name">
               </div>
-
-              <div class="relative my-6">
-                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-black/10"></div></div>
-                <div class="relative flex justify-center text-[11.5px] uppercase tracking-[0.14em]">
-                  <span class="bg-white px-4 text-[#6B6560]">or continue with email</span>
-                </div>
-              </div>
-
-              @if (formError) {
-                <p class="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-2.5 text-[13px] text-red-600">{{ formError }}</p>
-              }
-
-              <form (ngSubmit)="submitPasswordForm()" class="space-y-3">
-                @if (isSignupMode) {
-                  <input [(ngModel)]="name" name="name" type="text" placeholder="Your name" autocomplete="name"
-                    class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/90 focus-visible:border-[hsl(var(--primary))]" />
-                }
-                <input [(ngModel)]="email" name="email" type="email" required placeholder="Email address" autocomplete="email"
-                  class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/90 focus-visible:border-[hsl(var(--primary))]" />
-                <input [(ngModel)]="password" name="password" type="password" required minlength="8" placeholder="Password (8+ characters)" autocomplete="{{ isSignupMode ? 'new-password' : 'current-password' }}"
-                  class="w-full h-12 px-4 rounded-xl border border-black/15 bg-white text-[14px] placeholder:text-[#6B6560]/70 focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/90 focus-visible:border-[hsl(var(--primary))]" />
-                <button type="submit" [disabled]="submitting"
-                  class="btn-primary w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#1A1714] text-white font-semibold text-[14.5px] hover:bg-[#2A2620] disabled:opacity-60">
-                  @if (submitting) {
-                    <svg lucideIcon="loader-2" [size]="16" class="animate-spin"></svg>
-                  }
-                  {{ isSignupMode ? 'Create account' : 'Sign in' }}
-                </button>
-              </form>
-
-              <p class="mt-4 text-center text-[13.5px] text-[#6B6560]">
-                @if (isSignupMode) {
-                  Already have an account?
-                  <a [routerLink]="[]" [queryParams]="{ mode: null }" queryParamsHandling="merge" class="font-semibold text-[#1A1714] underline underline-offset-4">Sign in</a>
-                } @else {
-                  New here?
-                  <a [routerLink]="[]" [queryParams]="{ mode: 'signup' }" class="font-semibold text-[#1A1714] underline underline-offset-4">Create an account</a>
-                }
-              </p>
-
-              <ul class="grid grid-cols-2 gap-x-4 gap-y-3 text-[13.5px] text-[#6B6560]">
-                <li class="flex items-center gap-2"><svg lucideIcon="check" [size]="15" class="text-[#1E3A2A]"></svg>Free to use</li>
-                <li class="flex items-center gap-2"><svg lucideIcon="check" [size]="15" class="text-[#1E3A2A]"></svg>No credit card</li>
-                <li class="flex items-center gap-2"><svg lucideIcon="check" [size]="15" class="text-[#1E3A2A]"></svg>5 AI voices</li>
-                <li class="flex items-center gap-2"><svg lucideIcon="check" [size]="15" class="text-[#1E3A2A]"></svg>HD 1080p MP4</li>
-              </ul>
+            }
+            <div class="field">
+              <label for="auth-email" class="ui-label">Email address</label>
+              <input id="auth-email" [(ngModel)]="email" name="email" type="email" required class="ui-field" placeholder="Email address" autocomplete="email"
+                [attr.aria-describedby]="formError ? 'auth-error' : null">
             </div>
-          </div>
+            <div class="field">
+              <label for="auth-password" class="ui-label">Password</label>
+              <input id="auth-password" [(ngModel)]="password" name="password" type="password" required minlength="8" class="ui-field" placeholder="Password (8+ characters)"
+                [attr.autocomplete]="isSignupMode ? 'new-password' : 'current-password'"
+                [attr.aria-describedby]="formError ? 'auth-error auth-password-hint' : 'auth-password-hint'">
+              <span id="auth-password-hint" class="hint">8 characters or more.</span>
+            </div>
+            <button type="submit" [disabled]="submitting" [attr.aria-busy]="submitting" class="ui-btn ui-btn--primary btn-block">
+              @if (submitting) {
+                <svg lucideIcon="loader-2" [size]="16" class="animate-spin" aria-hidden="true"></svg>
+              }
+              {{ isSignupMode ? 'Create account' : 'Sign in' }}
+            </button>
+          </form>
 
-          <p class="mt-6 text-center text-[12.5px] text-[#6B6560]">
-            By continuing, you agree to our
-            <a routerLink="/terms" class="underline underline-offset-4 decoration-black/25 hover:decoration-black">Terms of Service</a>
-            and
-            <a routerLink="/privacy" class="underline underline-offset-4 decoration-black/25 hover:decoration-black">Privacy Policy</a>
+          <p class="toggle">
+            @if (isSignupMode) {
+              Already have an account?
+              <a [routerLink]="[]" [queryParams]="{ mode: null }" queryParamsHandling="merge">Sign in</a>
+            } @else {
+              New here?
+              <a [routerLink]="[]" [queryParams]="{ mode: 'signup' }">Create an account</a>
+            }
           </p>
-          <div class="mt-4 text-center">
-            <a routerLink="/" class="inline-flex items-center min-h-[44px] text-[13.5px] text-[#6B6560] hover:text-[#1A1714] transition-colors">← Back to home</a>
-          </div>
+
+          <ul class="perks">
+            <li>Free to use</li>
+            <li>No credit card</li>
+            <li>5 AI voices</li>
+            <li>HD 1080p MP4</li>
+          </ul>
+
+          <p class="terms">
+            By continuing, you agree to our
+            <a routerLink="/terms">Terms of Service</a>
+            and
+            <a routerLink="/privacy">Privacy Policy</a>
+          </p>
+          <a routerLink="/" class="back">Back to home</a>
         </div>
       </div>
     </div>
