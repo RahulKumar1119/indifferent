@@ -1,115 +1,115 @@
 # DESIGN.md
 
-Status: DRAFT written by the agent for owner review. Nothing here is approved until the owner edits and accepts it.
+Status: DRAFT v2 for owner approval (issue #244, part of #243). The direction below comes from the owner's answers on #243. Everything marked "Proposed" is a decision made in this draft and needs the owner's yes. Nothing else in the redesign sub-issues (#245 to #256) starts until this is approved.
 
-Warning: agent-written direction tends toward default AI taste, which is the slop antislop filters. This draft is built from what the codebase already uses (colors, type, README, blog topics) instead of new taste. Sections marked Owner are left for the owner to decide or correct.
+The machine-readable half of this document is `frontend/src/tokens.css`. If the two disagree, fix the one that is wrong and say so in the PR.
 
 ## Identity
 
-Indifferent (indifferent.fun) is a studio with two pipelines and one free tool, per the README:
+Indifferent (indifferent.fun) is a creator studio that turns written or recorded material into short narrated video:
 
-- Quiz films: a TXT file of multiple-choice questions becomes a narrated MP4.
-- AI Shorts Generator: a long video or audio file (up to 1 hour) becomes ranked 9:16 clips with burned-in captions.
-- Watermark tool: free in-browser image watermarking. Nothing uploads.
+- Story to video: paste a story, get a plan of 2 to 10 scenes with stock media and narration, render up to 90 seconds.
+- AI Shorts: a long video or audio file (up to 1 hour) becomes ranked 9:16 clips with burned-in captions and optional AI thumbnails.
+- Quiz videos: a TXT file of multiple-choice questions becomes a narrated MP4.
+- Watermark tool: free, in the browser, nothing uploads.
 
-Audience (Owner to confirm): inferred only from the blog topics, which cover quiz videos for YouTube and educational video. Likely people who make quiz or educational videos, and creators who repurpose long videos. No visitor data was used.
+## Audience (owner, #243)
 
-## Personality
+Beginners and experienced creators who want engaging short-form video without advanced editing skills: YouTube Shorts, Reels and TikTok creators; storytellers and writers; educators and quiz makers; motivational, history and mythology channels; people repurposing long content; social media managers.
 
-Draft, taken from the existing type and palette: editorial and warm, closer to a printed page than a dashboard. Calm, plain-spoken, specific. Owner to edit the traits.
+## Direction (owner, #243)
+
+Technical Editorial. Premium, minimal, strong typography, generous whitespace, confident and creator-focused. No generic AI landing-page look, no excess gradients, no oversized rounded cards, no decoration that does not help.
+
+Two related treatments:
+
+- Public pages: expressive and editorial, conversion-led, one clear action per page.
+- App screens (dashboard, editors, workspace): quieter and utilitarian, compact, one accent used only where it means something. A professional creative tool, not a landing page.
+
+Primary action per public page: Home, try the free tool. Story page, paste a story and generate a first video. AI Shorts page, start creating. Features, understand then create. Login, get in with minimal friction. Blog, find something useful and convert.
 
 ## Palette
 
-Two or three core colors plus one accent (R-29).
+Kept from the existing brand (owner, #243). Defined once in `frontend/src/tokens.css`, light on `:root`, dark on `.dark` (set by ThemeService).
 
-| Role | Hex | Uses in frontend code |
+| Role | Light | Dark |
 |---|---|---|
-| Paper (base) | #FAF7F2 | 42 |
-| Paper, second surface | #F4EFE6 | 18 |
-| Ink (text) | #1A1714 | 117 |
-| Muted text | #6B6560 | 163 |
-| Deep green (second core) | #1E3A2A | 29 |
-| Accent: terracotta | #BC5227 | 66 |
-| Accent, lighter step for dark backgrounds | #D96C3D | 50 |
+| Paper | #FAF7F2 | #0F0E0B |
+| Paper 2 | #F4EFE6 | #141310 |
+| Paper 3 | #EDE8DB | #2A2620 |
+| Ink | #1A1714 | #FAF7F2 |
+| Ink 2 | #3E3A33 | #EDE8DB |
+| Muted | #6B6560 | #A8A196 |
+| Accent (fill) | #BC5227 | #D96C3D |
+| Text on accent fill | #FFFBF6 | #0F0E0B |
+| Accent as text | #A8481F | #D96C3D |
+| Focus ring | #A8481F | #D96C3D |
+| Positive / Caution / Negative | #1E3A2A / #8A5C00 / #B3372F | #6FBF8F / #E0A24A / #F08A74 |
 
-The accent belongs at the key moment only: the primary action and the active step. Not on every icon, badge, link and border.
+Every value except the dark Muted, the dark status colours, #FFFBF6 and #8A5C00 is already used in the app. Those four are new and exist only to pass contrast (Proposed). Contrast, computed (WCAG 2.x):
 
-Contrast, computed with contrast-check.py (WCAG 2.x). Text color on background:
+| Pair | Ratio | Small text (4.5) |
+|---|---|---|
+| Ink on paper | 16.7 | Pass |
+| Muted on paper / paper 3 | 5.4 / 4.7 | Pass |
+| Terracotta #BC5227 on paper | 4.49 | Fail |
+| Terracotta #BC5227 on paper 2 | 4.19 | Fail |
+| Accent text #A8481F on paper / paper 2 / paper 3 | 5.44 / 5.08 / 4.75 | Pass |
+| #FFFBF6 on terracotta fill | 4.66 | Pass |
+| #FFFBF6 on #A8481F (hover) | 5.64 | Pass |
+| Dark ink on dark paper | 18.1 | Pass |
+| Dark accent #D96C3D on dark paper / paper 3 | 5.66 / 4.41 | Pass / Fail (large text only on paper 3) |
+| Light status colours on all three papers | 4.75 or more | Pass |
 
-| Pair | Ratio | Normal text (4.5) | Large text (3.0) |
-|---|---|---|---|
-| #1A1714 on #FAF7F2 | 16.70 | Pass | Pass |
-| #6B6560 on #FAF7F2 | 5.38 | Pass | Pass |
-| #6B6560 on #F4EFE6 | 5.02 | Pass | Pass |
-| #BC5227 on #FAF7F2 | 4.49 | Fail | Pass |
-| White on #BC5227 | 4.80 | Pass | Pass |
-| #D96C3D on #1A1714 | 5.24 | Pass | Pass |
-| #FAF7F2 on #1E3A2A | 11.60 | Pass | Pass |
-| #FAF7F2 on #1A1714 | 16.70 | Pass | Pass |
-| #6366F1 on #FAF7F2 | 4.18 | Fail | Pass |
+Rules that follow:
 
-Rule from the results: terracotta #BC5227 on paper misses 4.5:1 by 0.01 as small text. On paper, use it for large text and button fills, or use a darker step for small text. White text on a #BC5227 fill passes.
+- Terracotta #BC5227 is for fills and large type. For words, links and small icons use `--color-accent-text`.
+- The accent marks the primary action, the current step and the current selection. Not every icon, badge and border.
+- Status always carries text or an icon, never colour alone.
 
-Status colors exist as tokens (success #10b981, warning #f59e0b, error #f43f5e). Every status also needs text or an icon, never color alone.
+## What stops being the palette (Proposed)
 
-Conflicts to resolve (Owner decision):
+The audit found a second, unrelated palette growing in the code. It goes away as pages are redesigned:
 
-- The token --color-primary #6366f1 (indigo) and the theme-color #7c3aed (purple) are not part of the palette above. Indigo on paper is 4.18:1 and fails as small text. Both read as the default AI palette (R-01).
-- The "Aurora gradient background" in styles.css, and 40 gradient uses across the frontend, each need a written reason or removal (R-01).
-- The slides the renderer produces for the Classic template (and the landing page shows) use a purple accent, #7C3AED, and plain white pages. That is not the palette above. Classic is frozen at these colors so existing projects render the same (golden images in backend/internal/slidegen/testdata/golden). Decide whether Classic should move to the brand terracotta; doing so changes every existing Classic project's look on its next render.
-- The renderer now honors the template name (issue #102): Modern, Education, Dark, Minimal and Neon are real palettes in backend/internal/slidegen/theme.go, palette only, with the same layout and fonts. Their palettes are proposals pending owner approval. All five pass 4.5:1 text contrast in a test. Classic's answer slide does not (wrong options 3.36:1, correct green 3.30:1), pinned in TestClassicKnownContrastShortfalls until the Classic decision above is made.
+- Indigo/violet: `--color-primary #6366f1`, `--primary`/`--accent`/`--ring` (239 84% 67%) in `styles.css`, the purple accent `#7C3AED` in the page `theme-color`, and the violet radial gradients in `.aurora-bg` and `.spotlight-card`. Indigo on paper is 4.18, and the whole set is the stock AI palette.
+- Slate and teal stragglers: #0F172A, #E2E8F0, #64748B, #0F766E, #115E59, #22D3EE, #FFD60A and similar.
+- Angular Material and `.glass-card` overrides in `styles.css` that hard-code white-alpha surfaces. They are rewritten against the tokens when the shared chrome lands (#245).
+
+Until each page adopts the tokens, the old values keep working, so this PR changes no page.
 
 ## Typography
 
-- Display: Cormorant Garamond. Reason: a high-contrast serif gives the editorial, printed-page feel, and it already appears in 13 font-family declarations.
-- UI and body: Outfit. Reason: a clean geometric sans that pairs with the serif, and it already appears in 19 font-family declarations plus the body rule.
-- Inter stays only as a fallback in the font stack.
+Kept from the existing brand.
+
+- Display: Cormorant Garamond. Headings, large numerals, editorial moments. Public pages only.
+- UI and body: Outfit. All app screens use Outfit alone; no display face on labels, buttons or data.
+- Labels, table heads, captions and nav links are the body face, a step smaller, sentence case, untracked. No tracked capitals, no eyebrows (the audit found 86 `uppercase` and 88 `tracking-[..em]` uses to retire).
+- Scale and spacing live in tokens.css (`--type-*`, `--space-*`). Body is 16px or larger.
 
 ## Theme
 
-Owner decision (R-21). The codebase has a light paper theme and dark values (#0F0E0B, #141310). Either ship a working light and dark toggle, or commit to one theme. Every theme shipped must pass the contrast and focus checks (R-34).
+Light and dark both ship (decided: ThemeService already toggles, default dark on first visit). Every screen is checked in both before it merges.
 
-## Mood
+## Motion
 
-Owner to fill in: sites you admire, and sites you do not want to look like. Left blank on purpose. No references were invented.
+Hover and focus states, and real progress feedback. `transform` and `opacity` only, never `transition: all`, every animation has a `prefers-reduced-motion` fallback, nothing hidden until a script runs.
 
-## Dials
+Landing page exception, kept from the earlier draft (owner request): the page-flip book and the hero slide pair may move. Nothing loops, the 3D scene draws only on change, and with reduced motion, data saver, no WebGL or a failed library load, visitors get static images and the same content as a plain list.
 
-Dial: ENERGY 2 / RHYTHM 2 / MOTION 1
+## Layout
 
-- ENERGY 2: the site has to explain two tools and earn trust, so it is confident but not experimental.
-- RHYTHM 2: sections stay consistent with a few deliberate breaks, so pages are not one repeated template (R-05).
-- MOTION 1: hover states and real progress feedback only. Both tools are task-driven, and motion should show job progress, not decorate.
+One container (1280px) centred, gutters grow on wide screens, the measure does not. One primary button style. One radius per nesting level: control 8px, surface 12px, pill for tags only. No card inside a card, no glass panels, no purple-to-blue gradient.
 
-Landing page exception: MOTION 3, requested by the owner (page-flip, three.js and GSAP). Everything else on the site stays at MOTION 1. The written purpose (R-19), and the limits that keep it honest:
+## Icons (R-31 / R-04)
 
-- The book turns pages through one real worked example, from a TXT file to the slides a video is made of. Page turns are the visitor's choice. The only automatic motion is one cover-opening flip, which never plays after the visitor has touched the book.
-- The hero shows the two slides every video is built from, a question slide and an answer slide, rendered by the product's own renderer. It tilts with the pointer and fans apart as the hero scrolls away.
-- Nothing loops. The 3D scene draws only when something changed, and measured 0 draw calls when idle.
-- With prefers-reduced-motion, or with data saver on, or without WebGL, or if a library fails to load, visitors get static images and the pages as a plain list. The three.js code is not even downloaded.
-- The libraries load after the page is interactive, so the first paint is a plain image.
+Lucide throughout. A single icon family keeps the studio from reading as a collage, and Lucide's line weight is neutral enough not to fight the type. Icons are used where they have a concrete referent (clapperboard, scissors, settings); otherwise text carries the label. The generic sparkles and zap glyphs stay removed. No new icon family without updating this reason.
 
-These are drafts for the owner to change.
+## Honest content
 
-## Measured starting point (counts, not audit findings)
-
-Counted in frontend/src on the day this draft was written:
-
-- backdrop-blur: 25 occurrences (R-10 caps glass at 1 or 2 elements)
-- gradient occurrences: 40 (R-01)
-- animate-pulse: 2 (R-19)
-- lucide mentions in .ts files: 301 (R-04)
-- .ts and .html files containing an em dash: 30 (R-02)
-
-Per-page work decides what to change. A count is not a verdict.
+No invented numbers, testimonials, customer logos or case-study counts. Real product screenshots where possible; where none exist, a clearly labelled product mockup. Facts printed on pages are checked against the code (for example 2 to 10 scenes and 90 seconds come from `storyplan` and `shorts` limits).
 
 ## Open decisions
 
-1. Audience and mood (Owner).
-2. Keep, change or drop the indigo and purple tokens.
-3. Light only, or light and dark.
-4. Radius, shadow and icon set are not decided yet. Each choice needs a written reason (R-31) before it is used.
-
-### Icon set reason (R-31 / R-04)
-
-Icons are Lucide throughout (≈300 references). Reason: a single, consistent icon family keeps the studio from reading like a collage of competing glyph styles, and Lucide's line-weight is neutral enough not to fight the editorial type. Exceptions are deliberate and rare: the generic `sparkles`/`zap` "AI" glyphs were removed because they carry no meaning beyond "AI" and read as default slop (R-04). Where an icon has a concrete referent (clapperboard = film, scissors = cut, settings = preferences, star = favorite) it is used; where it does not, text carries the label alone. No new icon family may be added without updating this reason.
+1. Approve this document and the Proposed items above (owner).
+2. Pricing and Examples pages do not exist yet (#255).
+3. The renderer's slide templates (Classic and the five palettes in `backend/internal/slidegen/theme.go`) are a separate system from the website. Classic still uses a purple accent and plain white and is frozen by golden images; moving it to the brand changes every existing Classic project on its next render. Not part of this redesign unless the owner asks.

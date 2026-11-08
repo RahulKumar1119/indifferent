@@ -1,0 +1,96 @@
+/* Hallmark · shape: kept · genre: editorial · theme: brand (terracotta, paper, ink) · redesign: full
+ * paper: oklch(97% 0.008 80) · accent: oklch(52% 0.14 40) · display: Cormorant Garamond · body: Outfit · hero: kept · nav: kept · footer: kept · signature: kept
+ * axes: light/roman-serif/chromatic-terracotta · posture: kept · contrast: pass (see DESIGN.md) · fold: n/a · v2.0.0 */
+/* Hallmark · pre-emit critique: P3 H3 E3 S4 R4 V2 · weakest: V, tokens only in this PR; nothing reads them yet, so no page changes until the shared chrome and pages adopt them (#245 onward) */
+
+/*
+ * Brand tokens for the redesign (#243, #244).
+ *
+ * Every value is a colour or face the app already ships; nothing here is new
+ * taste. The audit found the same palette hard-coded as hex in 46 component
+ * files, beside an unused indigo token set in styles.css. These tokens are the
+ * one place the palette lives from now on.
+ *
+ * Names avoid everything styles.css and Tailwind already define: the type scale
+ * is --type-* (Tailwind owns --text-*), status colours are --color-positive /
+ * -caution / -negative (styles.css owns --color-success / -warning / -error).
+ *
+ * Light is :root; dark is the .dark class ThemeService puts on <html>.
+ * Contrast ratios in the comments are measured against the stated surface.
+ */
+:root {
+  /* Surfaces */
+  --color-paper: #FAF7F2;
+  --color-paper-2: #F4EFE6;
+  --color-paper-3: #EDE8DB;
+  /* Text. ink 16.7, ink-2 10.6, muted 5.4 on paper (muted 4.7 on paper-3). */
+  --color-ink: #1A1714;
+  --color-ink-2: #3E3A33;
+  --color-muted: #6B6560;
+  --color-rule: rgb(26 23 20 / 0.12);
+  /* Terracotta. The fill #BC5227 is 4.49 on paper and 4.19 on paper-2, so it
+     is for fills and large type only. Use --color-accent-text for words. */
+  --color-accent: #BC5227;
+  --color-accent-ink: #FFFBF6;      /* on accent fill: 4.66 */
+  --color-accent-text: #A8481F;     /* on paper 5.44, paper-2 5.08, paper-3 4.75 */
+  --color-accent-hover: #A8481F;    /* fill on hover; accent-ink on it 5.6 */
+  --color-focus: #A8481F;           /* ring: 5.44 on paper, above the 3:1 needed */
+  /* Status text and marks, all >= 4.7 on every paper */
+  --color-positive: #1E3A2A;
+  --color-caution: #8A5C00;
+  --color-negative: #B3372F;
+
+  /* Faces: the two the site already loads in index.html */
+  --font-display: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --font-body: 'Outfit', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --tracking-display: -0.02em;
+
+  /* Spacing */
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px;
+  --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+
+  /* Type scale. Public pages use the fluid steps; app screens stay on --type-xs to --type-xl. */
+  --type-xs: 0.8125rem; --type-sm: 0.875rem; --type-md: 1rem; --type-lg: 1.25rem;
+  --type-xl: 1.5625rem; --type-2xl: 1.953rem; --type-3xl: 2.441rem;
+  --type-display-s: clamp(2.25rem, 4vw + 0.5rem, 3.75rem);
+  --type-display: clamp(2.75rem, 5vw + 1rem, 5.25rem);
+  --type-section: clamp(2rem, 2.5vw + 1rem, 3.5rem);
+  --type-title: clamp(1.25rem, 0.75vw + 0.875rem, 1.625rem);
+  --type-lead: clamp(1.125rem, 0.35vw + 1rem, 1.375rem);
+
+  /* Shape and layout */
+  --radius-control: 8px; --radius-surface: 12px; --radius-pill: 999px;
+  --container: 1280px; --gutter: 64px; --gap-columns: 32px;
+  --control-height: 44px;
+
+  /* Motion: transform and opacity only */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+
+  /* Layers */
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-nav: 300; --z-modal: 400; --z-toast: 500;
+}
+
+.dark {
+  --color-paper: #0F0E0B;
+  --color-paper-2: #141310;
+  --color-paper-3: #2A2620;
+  /* ink 18.1, ink-2 on paper-3 12.3, muted 7.5 on paper and 5.9 on paper-3 */
+  --color-ink: #FAF7F2;
+  --color-ink-2: #EDE8DB;
+  --color-muted: #A8A196;
+  --color-rule: rgb(250 247 242 / 0.14);
+  /* On dark the orange reads as text on paper and paper-2 (5.66; 4.41 on paper-3, so large type only there) and as a fill carrying dark type (5.66) */
+  --color-accent: #D96C3D;
+  --color-accent-ink: #0F0E0B;
+  --color-accent-text: #D96C3D;
+  --color-accent-hover: #E58A73;
+  --color-focus: #D96C3D;
+  --color-positive: #6FBF8F;
+  --color-caution: #E0A24A;
+  --color-negative: #F08A74;
+}
+
+@media (max-width: 60rem) { :root { --gutter: 24px; } }
+@media (max-width: 40rem) { :root { --gutter: 16px; --gap-columns: 16px; } }
