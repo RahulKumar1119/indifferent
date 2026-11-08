@@ -1,7 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
+import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
+import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { setPageSeo } from '../../shared/seo';
 import { TEMPLATE_OPTIONS } from '../../shared/models';
 import { PRODUCT_FACTS, durationLabel, joinAnd } from '../../core/config/product-facts';
@@ -9,201 +10,206 @@ import { PRODUCT_FACTS, durationLabel, joinAnd } from '../../core/config/product
 @Component({
   selector: 'app-about',
   standalone: true,
-  imports: [RouterLink, NavMobileMenuComponent],
+  imports: [RouterLink, PublicHeaderComponent, SiteFooterComponent],
   styles: [`
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(1px) scale(.98); }
-    .grain::before {
-      content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .05;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-    }
+    :host { display: block; }
+    .page { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--type-md); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    .wrap { width: min(var(--container), 100%); margin-inline: auto; padding-inline: var(--gutter); }
+    h1, h2, h3, p, ul, ol { margin: 0; }
+    h1 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-display); line-height: 1.02; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; max-width: 14ch; }
+    h2 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-section); line-height: 1.04; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+    h3 { font-size: var(--type-md); font-weight: 600; }
+    .lead { margin-top: var(--space-lg); font-size: var(--type-lead); line-height: 1.45; color: var(--color-ink-2); max-width: 52ch; }
+    .body { color: var(--color-ink-2); max-width: 60ch; margin-top: var(--space-md); }
+    .muted { color: var(--color-muted); }
+    a.inline { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; }
+    a.inline:hover { color: var(--color-ink); }
+    a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+
+    .hero { background: var(--color-paper); color: var(--color-ink); padding: calc(56px + var(--space-3xl)) 0 var(--space-3xl); }
+    .block { padding: var(--space-3xl) 0; border-top: 1px solid var(--color-rule); }
+    .block.first { border-top: 0; }
+    .block.tint { background: var(--color-paper-2); }
+    .split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); align-items: start; }
+    @media (min-width: 64rem) { .split { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); } }
+    .actions { display: flex; flex-wrap: wrap; gap: var(--space-md); margin-top: var(--space-xl); }
+
+    ul.rows, ol.rows { list-style: none; padding: 0; margin-top: var(--space-xl); border-top: 1px solid var(--color-rule); }
+    ul.rows > li, ol.rows > li { padding: var(--space-lg) 0; border-bottom: 1px solid var(--color-rule); }
+    ul.rows h3 a { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-ink); text-underline-offset: 0.2em; }
+    ul.rows h3 a:hover { color: var(--color-accent-text); }
+    ul.rows p { color: var(--color-ink-2); max-width: 60ch; }
+    ol.rows.flush { margin-top: 0; }
+    ol.rows > li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-lg); }
+    .num { font-size: var(--type-xl); font-weight: 500; line-height: 1.1; color: var(--color-accent-text); font-variant-numeric: tabular-nums; }
+    ol.rows p { margin-top: var(--space-2xs); color: var(--color-ink-2); }
+
+    ul.ticks { list-style: none; padding: 0; margin-top: var(--space-lg); display: grid; gap: var(--space-sm); color: var(--color-ink-2); }
+    ul.ticks li { padding-left: var(--space-lg); position: relative; }
+    ul.ticks li::before { content: ''; position: absolute; left: 0; top: 0.7em; width: 10px; height: 2px; background: var(--color-accent); }
+    .pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); }
+    @media (min-width: 64rem) { .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    ul.designs { list-style: none; padding: 0; margin-top: var(--space-xl); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); }
+    @media (min-width: 64rem) { ul.designs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    ul.designs img { display: block; width: 100%; height: auto; border: 1px solid var(--color-rule); border-radius: var(--radius-control); }
+    ul.designs h3 { margin-top: var(--space-sm); }
+    ul.designs p { font-size: var(--type-sm); color: var(--color-muted); }
+
+    ul.voices { list-style: none; padding: 0; border-top: 1px solid var(--color-rule); }
+    ul.voices li { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) 0; border-bottom: 1px solid var(--color-rule); }
+    .initials { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex-shrink: 0; border: 1px solid var(--color-muted); border-radius: var(--radius-control); font-size: var(--type-sm); font-weight: 600; }
+    .name { display: block; font-weight: 600; }
+    .voices small { display: block; font-size: var(--type-sm); color: var(--color-muted); }
+
+    ul.uses { list-style: none; padding: 0; margin-top: var(--space-xl); display: grid; grid-template-columns: minmax(0, 1fr); border-top: 1px solid var(--color-rule); }
+    @media (min-width: 40rem) { ul.uses { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-2xl); } }
+    @media (min-width: 64rem) { ul.uses { grid-template-columns: repeat(5, minmax(0, 1fr)); column-gap: var(--space-lg); } }
+    ul.uses li { padding: var(--space-md) 0; border-bottom: 1px solid var(--color-rule); }
+    ul.uses small { display: block; margin-top: var(--space-3xs); font-size: var(--type-sm); color: var(--color-muted); }
+
+    .stack { background: var(--color-paper); color: var(--color-ink); padding: var(--space-3xl) 0; }
+    ul.stack-list { list-style: none; padding: 0; margin-top: var(--space-xl); display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+    ul.stack-list li { border: 1px solid var(--color-rule); border-radius: var(--radius-pill); padding: var(--space-xs) var(--space-md); font-size: var(--type-sm); }
+    ul.stack-list small { color: var(--color-muted); margin-left: var(--space-xs); }
   `],
   template: `
-    <div class="grain sans bg-[#FAF7F2] text-[#1A1714] antialiased">
-      <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
-        <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
-            <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-          </a>
-          <div class="hidden md:flex items-center gap-7 text-[13.5px] text-white/70">
-            <a routerLink="/" fragment="process" class="hover:text-white transition-colors">How it works</a>
-            <a routerLink="/blog" class="hover:text-white transition-colors">Journal</a>
-            <a routerLink="/about" class="text-white font-medium">Studio</a>
-            <a routerLink="/contact" class="hover:text-white transition-colors">Contact</a>
-          </div>
-          <div class="flex items-center gap-1">
-            <app-nav-mobile-menu>
-              <a routerLink="/" fragment="process" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">How it works</a>
-              <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
-              <a routerLink="/about" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Studio</a>
-              <a routerLink="/contact" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Contact</a>
-            </app-nav-mobile-menu>
-            <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-11 pl-5 pr-5 sm:pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
-            Start creating
-            <span class="hidden sm:flex w-7 h-7 rounded-full bg-[#1A1714] text-white items-center justify-center text-sm leading-none" aria-hidden="true">↗</span>
-          </a>
-          </div>
-        </nav>
-      </header>
+    <div class="page hm hm-on-light">
+      <app-public-header />
 
-      <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-16 md:pb-20">
-        <div class="absolute inset-0" style="background: radial-gradient(ellipse at 75% 15%, rgba(217,108,61,0.20), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.93));"></div>
-        <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
-          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-white/15 text-white/70">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> The Studio
-          </p>
-          <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(2.8rem,7vw,5.2rem)] max-w-[16ch] text-balance">The studio behind the video.</h1>
-          <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[52ch]">Indifferent is a small studio of four video tools: quiz films from a text file, vertical clips from long footage, narrated videos from a written story, and a watermark tool that runs in your browser. No editing skills required.</p>
+      <section class="hero hm-on-dark" aria-labelledby="about-title">
+        <div class="wrap">
+          <h1 id="about-title">The studio behind the video.</h1>
+          <p class="lead">Indifferent is a small studio of four video tools: quiz films from a text file, vertical clips from long footage, narrated videos from a written story, and a watermark tool that runs in your browser. No editing skills required.</p>
         </div>
       </section>
 
-      <main class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-16 md:py-24">
-        <!-- Mission split -->
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-          <div>
-            <h2 class="serif font-medium tracking-[-0.02em] text-[clamp(2rem,4vw,3rem)] leading-[1.02]">Our mission</h2>
-            <p class="mt-4 text-[16px] text-[#3E3A33] leading-relaxed">Indifferent makes it simple to turn a text file, a long recording or a written story into a finished video, without editing software or editing skills.</p>
-            <a routerLink="/login" class="btn-primary mt-6 inline-flex items-center gap-3 rounded-full bg-[#1A1714] text-white pl-6 pr-2 py-2 font-semibold text-[14.5px]">Start creating <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">→</span></a>
+      <main>
+        <section class="block first">
+          <div class="wrap">
+            <h2>Our mission</h2>
+            <p class="body">Indifferent makes it simple to turn a text file, a long recording or a written story into a finished video, without editing software or editing skills.</p>
+            <div class="actions">
+              <a routerLink="/login" class="ui-btn ui-btn--primary">Start creating</a>
+            </div>
           </div>
-
         </section>
 
-        <!-- The four tools -->
-        <section class="mt-20" aria-labelledby="tools-heading">
-          <h2 id="tools-heading" class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">Four tools, one studio</h2>
-          <p class="mt-3 max-w-[60ch] text-[16px] leading-relaxed text-[#3E3A33]">They share one account. Each has its own page with the exact limits and a step-by-step guide.</p>
-          <ul class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            @for (t of tools; track t.href) {
-              <li class="rounded-[20px] bg-white border border-black/[0.07] p-6">
-                <h3 class="font-semibold text-[16px]"><a [routerLink]="t.href" class="inline-flex items-center min-h-[44px] underline underline-offset-4 decoration-black/25 hover:decoration-black">{{ t.title }}</a></h3>
-                <p class="text-[14.5px] leading-relaxed text-[#3E3A33]">{{ t.text }}</p>
-              </li>
-            }
-          </ul>
-        </section>
-
-        <!-- How a quiz film is made -->
-        <section class="mt-20 rounded-[20px] bg-[#F3EEE3] border border-black/[0.07] p-8 md:p-12">
-          <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">How a quiz film is made</h2>
-          <ol class="mt-6">
-            <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-t border-black/10">
-              <span class="serif italic text-[26px] text-[#BC5227] leading-none">01</span>
-              <div><h3 class="font-semibold">Upload your quiz file</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">Plain text (.txt) with multiple-choice questions. Numbered, bulleted, and tab-indented formats supported.</p></div>
-            </li>
-            <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-t border-black/10">
-              <span class="serif italic text-[26px] text-[#BC5227] leading-none">02</span>
-              <div><h3 class="font-semibold">Choose design &amp; voice</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">One of six slide designs and one of 5 professional AI voices powered by Amazon Polly.</p></div>
-            </li>
-            <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-t border-black/10">
-              <span class="serif italic text-[26px] text-[#BC5227] leading-none">03</span>
-              <div><h3 class="font-semibold">Automatic processing</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">Our serverless pipeline parses questions, builds question and answer slides, creates narration, and renders the video.</p></div>
-            </li>
-            <li class="grid grid-cols-[48px_1fr] gap-4 py-5 border-y border-black/10">
-              <span class="serif italic text-[26px] text-[#BC5227] leading-none">04</span>
-              <div><h3 class="font-semibold">Download &amp; share</h3><p class="mt-1 text-[14.5px] text-[#6B6560]">Preview in-browser and download the MP4, ready for YouTube, social, or any platform.</p></div>
-            </li>
-          </ol>
-        </section>
-
-        <!-- Formats + designs -->
-        <section class="mt-20 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="rounded-[20px] bg-white border border-black/[0.07] p-8">
-            <h2 class="serif text-[28px]">Quiz file formats</h2>
-            <ul class="mt-4 space-y-2.5 text-[14.5px] text-[#3E3A33]">
-              <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>Numbered questions (1. Question text)</li>
-              <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>Bulleted questions (• or - Question text)</li>
-              <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>Tab-indented answers</li>
-              <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>Multiple correct answers supported</li>
-              <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>Maximum file size: 5MB</li>
-            </ul>
-          </div>
-          <div class="rounded-[20px] bg-white border border-black/[0.07] p-8">
-            <h2 class="serif text-[28px]">Quiz film specifications</h2>
-            <ul class="mt-4 space-y-2.5 text-[14.5px] text-[#3E3A33]">
-              <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#1E3A2A] shrink-0"></span>Resolution: 1920×1080 (Full HD)</li>
-              <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#1E3A2A] shrink-0"></span>Format: MP4 (H.264), Audio: AAC</li>
-              <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#1E3A2A] shrink-0"></span>Question slides, answer reveals, AI narration</li>
-              <li class="flex gap-2.5"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#1E3A2A] shrink-0"></span>Automatic thumbnail generation</li>
+        <section class="block tint" aria-labelledby="tools-heading">
+          <div class="wrap">
+            <h2 id="tools-heading">Four tools, one studio</h2>
+            <p class="body">They share one account. Each has its own page with the exact limits and a step-by-step guide.</p>
+            <ul class="rows">
+              @for (t of tools; track t.href) {
+                <li>
+                  <h3><a [routerLink]="t.href">{{ t.title }}</a></h3>
+                  <p>{{ t.text }}</p>
+                </li>
+              }
             </ul>
           </div>
         </section>
 
-        <!-- Designs -->
-        <section class="mt-16">
-          <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">Six designs, six looks</h2>
-          <p class="mt-4 max-w-[60ch] text-[16px] leading-relaxed text-[#3E3A33]">A design sets the palette, type scale and layout together: the background, the text, the shape of the answer cards and the highlight on the correct answer. Timing is the same in all six. Every image below is a question slide drawn by the same renderer that makes your video.</p>
-          <ul class="mt-8 grid grid-cols-2 lg:grid-cols-3 gap-4">
-            @for (t of designs; track t.value) {
-              <li class="rounded-[12px] overflow-hidden bg-white border border-black/[0.07]">
-                <img [src]="'/templates/' + t.value + '.webp'" [alt]="t.label + ' design preview: ' + t.look" width="480" height="270" loading="lazy" class="block w-full h-auto border-b border-black/10" />
-                <div class="px-4 py-3">
-                  <h3 class="font-semibold text-[14.5px]">{{ t.label }}</h3>
-                  <p class="mt-0.5 text-[13px] text-[#6B6560]">{{ t.look }}</p>
-                </div>
-              </li>
-            }
-          </ul>
-        </section>
-
-        <!-- Voices -->
-        <section class="mt-16 grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-10 items-start">
-          <div>
-            <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">Five narrator voices</h2>
-            <p class="mt-3 text-[#6B6560] leading-relaxed">Professional text-to-speech via Amazon Polly. Pick the register that fits your audience.</p>
-          </div>
-          <ul class="rounded-[20px] bg-white border border-black/[0.07] divide-y divide-black/[0.07]">
-            @for (v of voices; track v.name) {
-              <li class="flex items-center gap-4 p-4">
-                <span class="w-10 h-10 rounded-full bg-[#1E3A2A] text-white flex items-center justify-center text-[13px] font-bold">{{ v.initials }}</span>
-                <span><span class="block font-semibold text-[14.5px]">{{ v.name }}</span><span class="block text-[12.5px] text-[#6B6560]">{{ v.desc }}</span></span>
-              </li>
-            }
-          </ul>
-        </section>
-
-        <!-- Use cases -->
-        <section class="mt-16">
-          <h2 class="serif font-medium text-[clamp(1.8rem,3.5vw,2.6rem)]">Who uses it</h2>
-          <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            @for (u of uses; track u.title) {
-              <div class="rounded-[20px] bg-white border border-black/[0.07] p-5">
-                <p class="font-semibold text-[14.5px]">{{ u.title }}</p>
-                <p class="text-[12.5px] text-[#6B6560] mt-1">{{ u.desc }}</p>
-              </div>
-            }
+        <section class="block">
+          <div class="wrap split">
+            <h2>How a quiz film is made</h2>
+            <ol class="rows flush">
+              <li><span class="num">01</span><div><h3>Upload your quiz file</h3><p>Plain text (.txt) with multiple-choice questions. Numbered, bulleted, and tab-indented formats supported.</p></div></li>
+              <li><span class="num">02</span><div><h3>Choose design &amp; voice</h3><p>One of six slide designs and one of 5 professional AI voices powered by Amazon Polly.</p></div></li>
+              <li><span class="num">03</span><div><h3>Automatic processing</h3><p>Our serverless pipeline parses questions, builds question and answer slides, creates narration, and renders the video.</p></div></li>
+              <li><span class="num">04</span><div><h3>Download &amp; share</h3><p>Preview in-browser and download the MP4, ready for YouTube, social, or any platform.</p></div></li>
+            </ol>
           </div>
         </section>
 
-        <!-- Stack -->
-        <section class="mt-16 rounded-[20px] bg-[#1E3A2A] text-[#EDE8DB] p-8 md:p-12">
-          <h2 class="serif text-[28px]">Built with</h2>
-          <div class="mt-5 flex flex-wrap gap-2">
-            @for (s of stack; track s) {
-              <span class="rounded-full border border-white/20 bg-white/[0.07] px-4 py-1.5 text-[13px]">{{ s }}</span>
-            }
+        <section class="block tint">
+          <div class="wrap pair">
+            <div>
+              <h2>Quiz file formats</h2>
+              <ul class="ticks">
+                <li>Numbered questions (1. Question text)</li>
+                <li>Bulleted questions (• or - Question text)</li>
+                <li>Tab-indented answers</li>
+                <li>Multiple correct answers supported</li>
+                <li>Maximum file size: 5MB</li>
+              </ul>
+            </div>
+            <div>
+              <h2>Quiz film specifications</h2>
+              <ul class="ticks">
+                <li>Resolution: 1920×1080 (Full HD)</li>
+                <li>Format: MP4 (H.264), Audio: AAC</li>
+                <li>Question slides, answer reveals, AI narration</li>
+                <li>Automatic thumbnail generation</li>
+              </ul>
+            </div>
           </div>
-          <p class="mt-6 text-white/65 text-[14px] max-w-[60ch]">Indifferent is built and maintained by a developer focused on making content creation accessible. No expensive software, no editing skills.</p>
-          <div class="mt-6 flex flex-wrap gap-3">
-            <a href="https://github.com/RahulKumar1119/indifferent/issues" target="_blank" rel="noopener" class="btn-primary inline-flex items-center rounded-full bg-[#E8E0D2] text-[#141310] px-6 py-3 font-semibold text-[14px]">Open an issue →</a>
-            <a routerLink="/contact" class="inline-flex items-center rounded-full border border-white/25 px-6 py-3 text-[14px] hover:border-white/60 transition-colors">Get in touch</a>
+        </section>
+
+        <section class="block">
+          <div class="wrap">
+            <h2>Six designs, six looks</h2>
+            <p class="body">A design sets the palette, type scale and layout together: the background, the text, the shape of the answer cards and the highlight on the correct answer. Timing is the same in all six. Every image below is a question slide drawn by the same renderer that makes your video.</p>
+            <ul class="designs">
+              @for (t of designs; track t.value) {
+                <li>
+                  <img [src]="'/templates/' + t.value + '.webp'" [alt]="t.label + ' design preview: ' + t.look" width="480" height="270" loading="lazy" />
+                  <h3>{{ t.label }}</h3>
+                  <p>{{ t.look }}</p>
+                </li>
+              }
+            </ul>
+          </div>
+        </section>
+
+        <section class="block tint">
+          <div class="wrap split">
+            <div>
+              <h2>Five narrator voices</h2>
+              <p class="body">Professional text-to-speech via Amazon Polly. Pick the register that fits your audience.</p>
+            </div>
+            <ul class="voices">
+              @for (v of voices; track v.name) {
+                <li>
+                  <span class="initials" aria-hidden="true">{{ v.initials }}</span>
+                  <span><span class="font-semibold name">{{ v.name }}</span><small>{{ v.desc }}</small></span>
+                </li>
+              }
+            </ul>
+          </div>
+        </section>
+
+        <section class="block">
+          <div class="wrap">
+            <h2>Who uses it</h2>
+            <ul class="uses">
+              @for (u of uses; track u.title) {
+                <li>
+                  <strong>{{ u.title }}</strong>
+                  <small>{{ u.desc }}</small>
+                </li>
+              }
+            </ul>
+          </div>
+        </section>
+
+        <section class="stack hm-on-dark">
+          <div class="wrap">
+            <h2>Built with</h2>
+            <ul class="stack-list">
+              @for (s of stack; track s) {
+                <li>{{ s.split(' · ')[0] }}<small>{{ s.split(' · ')[1] }}</small></li>
+              }
+            </ul>
+            <p class="body">Indifferent is built and maintained by a developer focused on making content creation accessible. No expensive software, no editing skills.</p>
+            <div class="actions">
+              <a href="https://github.com/RahulKumar1119/indifferent/issues" target="_blank" rel="noopener" class="ui-btn ui-btn--secondary">Open an issue</a>
+              <a routerLink="/contact" class="ui-btn ui-btn--quiet">Get in touch</a>
+            </div>
           </div>
         </section>
       </main>
-
-      <section class="bg-[#0F0E0B] text-[#F4EFE6]">
-        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/60">
-          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex gap-5">
-            <a routerLink="/" class="hover:text-white">Home</a>
-            <a routerLink="/blog" class="hover:text-white">Journal</a>
-            <a routerLink="/privacy" class="hover:text-white">Privacy</a>
-            <a routerLink="/terms" class="hover:text-white">Terms</a>
-          </span>
-        </div>
-      </section>
+      <app-site-footer />
     </div>
   `,
 })

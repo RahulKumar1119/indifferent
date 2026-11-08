@@ -2,6 +2,9 @@
  * paper: oklch(97% 0.008 80) · accent: oklch(52% 0.14 40) · display: Cormorant Garamond · body: Outfit · hero: kept · nav: kept · footer: kept · signature: kept
  * axes: light/roman-serif/chromatic-terracotta · posture: kept · contrast: pass · fold: n/a · v2.0.0 */
 /* Hallmark · pre-emit critique: P3 H3 E4 S4 R4 V3 · weakest: V, pages still carry their own copies of these controls until their own issues land */
+/* Hallmark · dropped /#process, /shorts-maker, #faq · the page-local headers on about, contact and shorts-maker carried these shortcuts; the shared public header replaced them (owner approved one header on #247) and its menus do not link them */
+/* Hallmark · waive 63 · the Shorts page keeps "MP4, MOV, MP3 or WAV · 1 hour max · 2 GB max" because an existing test pins that exact string */
+/* Hallmark · waive 58 · privacy and terms are documents, not marketing pages (owner approved on #247) */
 
 /*
  * Shared UI for the redesign (#245). Everything is opt-in, so a page that has
@@ -95,8 +98,66 @@
 /* ---- Text helpers ---- */
 .ui-label { font: 500 var(--type-sm)/1.3 var(--font-body); color: var(--color-ink-2); }
 .ui-hint { font: 400 var(--type-xs)/1.4 var(--font-body); color: var(--color-muted); }
-.ui-link { color: var(--color-accent-text); text-underline-offset: 0.16em; }
+.ui-link { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.16em; }
 .ui-link:hover { color: var(--color-ink); }
 
 /* ---- Skeleton bar for loading states (no shimmer sweep, so nothing loops) ---- */
 .ui-skeleton { background: var(--color-paper-3); border-radius: var(--radius-control); }
+
+/* ---- Disclosure: <details class="ui-disclosure"><summary>Question</summary><p>Answer</p></details> ---- */
+.ui-disclosure {
+  background: var(--color-paper-2);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-surface);
+  padding: 0 var(--space-lg);
+  color: var(--color-ink);
+}
+.ui-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-height: 56px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+}
+.ui-disclosure > summary::-webkit-details-marker { display: none; }
+.ui-disclosure > summary::after {
+  content: '';
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-right: 2px solid var(--color-muted);
+  border-bottom: 2px solid var(--color-muted);
+  transform: rotate(45deg);
+  transition: transform var(--dur-short) var(--ease-out);
+}
+.ui-disclosure[open] > summary::after { transform: rotate(-135deg); }
+.ui-disclosure > summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
+.ui-disclosure > :not(summary) { padding-bottom: var(--space-lg); color: var(--color-ink-2); }
+@media (prefers-reduced-motion: reduce) { .ui-disclosure > summary::after { transition: none; } }
+
+/* ---- Long-form document (privacy, terms, help): a readable measure and heading scale ---- */
+.ui-doc { max-width: 70ch; font-size: var(--type-md); line-height: 1.65; color: var(--color-ink-2); }
+.ui-doc > * + * { margin-top: var(--space-md); }
+.ui-doc h2 { margin-top: var(--space-2xl); font-family: var(--font-display); font-weight: 500; font-size: var(--type-2xl); line-height: 1.1; letter-spacing: var(--tracking-display); color: var(--color-ink); scroll-margin-top: var(--space-3xl); }
+.ui-doc h3 { margin-top: var(--space-xl); font-size: var(--type-lg); font-weight: 600; color: var(--color-ink); }
+.ui-doc ul, .ui-doc ol { padding-left: var(--space-lg); }
+.ui-doc ul { list-style: disc; }
+.ui-doc ol { list-style: decimal; }
+.ui-doc li::marker { color: var(--color-muted); }
+.ui-doc li + li { margin-top: var(--space-xs); }
+.ui-doc a { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; }
+.ui-doc a:hover { color: var(--color-ink); }
+.ui-doc a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+.ui-doc strong { color: var(--color-ink); font-weight: 600; }
+
+/* Contents list beside a long document */
+.ui-toc { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-rule); }
+.ui-toc li { border-bottom: 1px solid var(--color-rule); }
+.ui-toc a { display: flex; gap: var(--space-sm); align-items: baseline; min-height: 44px; padding: var(--space-xs) 0; font-size: var(--type-sm); color: var(--color-ink-2); text-decoration: none; }
+.ui-toc a:hover { color: var(--color-accent-text); }
+.ui-toc a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.ui-toc .n { color: var(--color-muted); font-variant-numeric: tabular-nums; }

@@ -1,7 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { legalUpdatedLabel } from '../../core/config/legal';
+import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
+import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { setPageSeo } from '../../shared/seo';
 
 interface DocSection {
@@ -17,86 +18,75 @@ interface DocSection {
 @Component({
   selector: 'app-terms',
   standalone: true,
-  imports: [RouterLink],
+  imports: [PublicHeaderComponent, SiteFooterComponent],
   styles: [`
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .grain::before {
-      content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .05;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-    }
+    :host { display: block; }
+    .page { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--type-md); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    .wrap { width: min(var(--container), 100%); margin-inline: auto; padding-inline: var(--gutter); }
+    h1, p { margin: 0; }
+    h1 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-display-s); line-height: 1.04; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+    .hero { padding: calc(56px + var(--space-3xl)) 0 var(--space-xl); border-bottom: 1px solid var(--color-rule); }
+    .updated { margin-top: var(--space-md); color: var(--color-muted); }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); padding-block: var(--space-2xl) var(--space-3xl); }
+    @media (min-width: 64rem) { .layout { grid-template-columns: 16rem minmax(0, 1fr); } }
+    aside { display: none; }
+    @media (min-width: 64rem) { aside { display: block; align-self: start; position: sticky; top: var(--space-3xl); } }
+    .toc-title { margin: 0 0 var(--space-sm); font-size: var(--type-sm); color: var(--color-muted); }
+    .doc-section { scroll-margin-top: var(--space-3xl); }
+    .doc-section + .doc-section { margin-top: var(--space-xl); padding-top: var(--space-xl); border-top: 1px solid var(--color-rule); }
+    .doc-section h2 { margin: 0; display: flex; align-items: baseline; gap: var(--space-md); }
+    .doc-section h2 .n { font-family: var(--font-body); font-size: var(--type-lg); font-weight: 500; color: var(--color-accent-text); font-variant-numeric: tabular-nums; }
+    .doc-section ul { margin: var(--space-md) 0 0; }
+    .doc-section p.links { display: flex; flex-wrap: wrap; column-gap: var(--space-lg); }
+    .doc-section p.links a { display: inline-flex; align-items: center; min-height: 44px; }
   `],
   template: `
-    <div class="grain sans bg-[#FAF7F2] text-[#1A1714] antialiased">
-      <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
-        <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
-            <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-          </a>
-          <a routerLink="/login" class="btn-primary inline-flex items-center h-11 px-5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">Sign in</a>
-        </nav>
-      </header>
-
-      <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-14">
-        <div class="absolute inset-0" style="background: radial-gradient(ellipse at 70% 10%, rgba(217,108,61,0.18), transparent 55%), linear-gradient(to bottom, #141310, #0F0E0B);"></div>
-        <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
-          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-white/15 text-white/70">Legal · Terms</p>
-          <h1 class="serif mt-5 font-medium leading-[0.95] text-[clamp(2.6rem,6vw,4.6rem)]">Terms of Service.</h1>
-          <p class="mt-4 text-white/60">Last updated: {{ updated }}</p>
+    <div class="page hm hm-on-light">
+      <app-public-header />
+      <section class="hero" aria-labelledby="doc-title">
+        <div class="wrap">
+          <h1 id="doc-title">Terms of Service.</h1>
+          <p class="updated">Last updated: {{ updated }}</p>
         </div>
       </section>
-
-      <main class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-14 md:py-20 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
-        <aside class="hidden lg:block">
-          <nav class="sticky top-24 rounded-[20px] bg-white border border-black/[0.07] p-6">
-            <p class="text-[11px] uppercase tracking-[0.08em] text-[#6B6560] mb-4">Contents</p>
-            <ol class="space-y-2.5 text-[13.5px]">
+      <main class="wrap layout">
+        <aside>
+          <nav aria-label="Contents">
+            <p class="toc-title">Contents</p>
+            <ol class="ui-toc">
               @for (s of sections; track s.id) {
-                <li><a [href]="'#' + s.id" class="text-[#3E3A33] hover:text-[#BC5227] transition-colors"><span class="serif italic text-[#BC5227] mr-2">{{ s.n }}</span>{{ s.title }}</a></li>
+                <li><a [href]="'#' + s.id"><span class="n">{{ s.n }}</span>{{ s.title }}</a></li>
               }
             </ol>
           </nav>
         </aside>
-        <div>
+        <div class="ui-doc">
           @for (s of sections; track s.id) {
-            <section [id]="s.id" class="scroll-mt-28 rounded-[20px] bg-white border border-black/[0.07] p-8 md:p-10 mb-5">
-              <h2 class="flex items-baseline gap-4"><span class="serif italic text-[28px] text-[#BC5227]">{{ s.n }}</span><span class="serif text-[30px] leading-tight">{{ s.title }}</span></h2>
-              @for (p of s.body ?? []; track p) { <p class="mt-4 text-[15px] text-[#3E3A33] leading-relaxed">{{ p }}</p> }
+            <section [id]="s.id" class="doc-section">
+              <h2><span class="n">{{ s.n }}</span><span>{{ s.title }}</span></h2>
+              @for (p of s.body ?? []; track p) { <p>{{ p }}</p> }
               @if (s.items) {
-                <ul class="mt-4 space-y-2.5">
+                <ul>
                   @for (it of s.items; track it) {
-                    <li class="flex gap-2.5 text-[14.5px] text-[#3E3A33]"><span class="mt-[7px] w-1.5 h-1.5 rounded-full bg-[#BC5227] shrink-0"></span>{{ it }}</li>
+                    <li>{{ it }}</li>
                   }
                 </ul>
               }
               @if (s.links) {
-                <p class="mt-4 flex flex-wrap gap-x-5 text-[14.5px] text-[#3E3A33]">
+                <p class="links">
                   @for (l of s.links; track l.href) {
-                    <a [href]="l.href" target="_blank" rel="noopener noreferrer" class="inline-flex items-center min-h-[44px] underline underline-offset-4 decoration-black/30 hover:decoration-black">{{ l.label }}</a>
+                    <a [href]="l.href" target="_blank" rel="noopener noreferrer">{{ l.label }}</a>
                   }
                 </p>
               }
               @if (s.id === 'contact') {
-                <p class="mt-4 text-[15px] text-[#3E3A33]">For questions about terms, contact <a href="mailto:support@indifferent.fun" class="font-semibold underline underline-offset-4 decoration-black/25 hover:decoration-black">support&#64;indifferent.fun</a></p>
+                <p>For questions about terms, contact <a href="mailto:support@indifferent.fun">support&#64;indifferent.fun</a></p>
               }
             </section>
           }
         </div>
       </main>
-
-      <section class="bg-[#0F0E0B] text-[#F4EFE6]">
-        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/60">
-          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex flex-wrap">
-            <a routerLink="/" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Home</a>
-            <a routerLink="/about" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Studio</a>
-            <a routerLink="/contact" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Contact</a>
-            <a routerLink="/privacy" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Privacy</a>
-          </span>
-        </div>
-      </section>
+      <app-site-footer />
     </div>
   `,
 })

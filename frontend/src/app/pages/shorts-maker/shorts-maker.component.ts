@@ -1,9 +1,9 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule, DOCUMENT } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
-import { NavMenuComponent } from '../../shared/components/nav-menu/nav-menu.component';
-import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
+import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
+import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { RevealDirective } from '../../shared/directives/reveal.directive';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { setCanonical, setJsonLd } from '../../shared/seo';
@@ -34,301 +34,259 @@ interface UseCaseLink {
 @Component({
   selector: 'app-shorts-maker',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavMenuComponent, NavMobileMenuComponent, RevealDirective],
+  imports: [RouterLink, LucideDynamicIcon, PublicHeaderComponent, SiteFooterComponent, RevealDirective],
   styles: [`
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    /* .reveal, .card-lift and button press live in the shared stylesheet
-     * (styles.css, issue #182). Only this page's FAQ chevron is local. */
-    details.faq summary::-webkit-details-marker { display: none; }
-    details.faq[open] .faq-chevron { transform: rotate(180deg); }
-    .faq-chevron { transition: transform .25s var(--ease-enter); }
-    .btn-primary { transition: transform .2s var(--ease-enter), background-color .2s var(--ease-enter); touch-action: manipulation; }
-    @media (hover: hover) and (pointer: fine) { .btn-primary:hover { transform: translateY(-1px); } }
-    .btn-primary:active { transform: translateY(1px) scale(.99); }
+    :host { display: block; }
+    .page { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--type-md); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    .wrap { width: min(var(--container), 100%); margin-inline: auto; padding-inline: var(--gutter); }
+    h1, h2, h3, p, ul, ol { margin: 0; }
+    h1 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-display); line-height: 1.02; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; max-width: 16ch; }
+    h2 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-section); line-height: 1.04; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; max-width: 22ch; }
+    h3 { font-size: var(--type-md); font-weight: 600; }
+    .lead { margin-top: var(--space-lg); font-size: var(--type-lead); line-height: 1.45; color: var(--color-ink-2); max-width: 52ch; }
+    .body { margin-top: var(--space-md); color: var(--color-ink-2); max-width: 60ch; }
+    .muted { color: var(--color-muted); }
+    .fine { margin-top: var(--space-xs); font-size: var(--type-sm); color: var(--color-muted); }
+    a.inline { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; }
+    a.inline:hover { color: var(--color-ink); }
+    a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+
+    .hero { background: var(--color-paper); color: var(--color-ink); padding: calc(56px + var(--space-3xl)) 0 var(--space-3xl); }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); margin-top: var(--space-xl); }
+    .block { padding: var(--space-3xl) 0; border-top: 1px solid var(--color-rule); scroll-margin-top: var(--space-3xl); }
+    .block.first { border-top: 0; }
+    .gap-top { margin-top: var(--space-3xl); }
+    .block.tint { background: var(--color-paper-2); }
+
+    .proof { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); align-items: center; margin-top: var(--space-2xl); }
+    @media (min-width: 48rem) { .proof { grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); } }
+    .proof.flush { margin-top: 0; }
+    .proof img { display: block; width: 100%; height: auto; border: 1px solid var(--color-rule); border-radius: var(--radius-surface); }
+    .proof .label { font-size: var(--type-sm); color: var(--color-muted); }
+    .proof p + .label { margin-top: var(--space-lg); }
+    .proof p.text { margin-top: var(--space-2xs); color: var(--color-ink-2); }
+
+    ul.captions { list-style: none; padding: 0; margin: var(--space-xl) 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
+    @media (min-width: 40rem) { ul.captions { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    figure { margin: 0; }
+    .frame { position: relative; aspect-ratio: 9 / 16; width: 100%; overflow: hidden; background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-surface); }
+    .frame .cap { position: absolute; inset-inline: 0; bottom: var(--space-sm); padding-inline: var(--space-xs); text-align: center; }
+    figcaption { margin-top: var(--space-sm); }
+    figcaption .name { display: block; font-size: var(--type-sm); font-weight: 600; }
+    figcaption .note { display: block; font-size: var(--type-xs); color: var(--color-muted); }
+
+    ul.items { list-style: none; padding: 0; margin: var(--space-xl) 0 0; display: grid; grid-template-columns: minmax(0, 1fr); border-top: 1px solid var(--color-rule); }
+    @media (min-width: 64rem) { ul.items { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-2xl); } }
+    ul.items > li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: var(--space-md); padding: var(--space-lg) 0; border-bottom: 1px solid var(--color-rule); }
+    .icon { color: var(--color-accent-text); padding-top: 2px; }
+    ul.items p { margin-top: var(--space-2xs); color: var(--color-ink-2); }
+
+    ol.steps { list-style: none; padding: 0; margin: var(--space-xl) 0 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); }
+    @media (min-width: 48rem) { ol.steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xl); } }
+    ol.steps li { padding-top: var(--space-md); border-top: 1px solid var(--color-rule); }
+    ol.steps .step { font-size: var(--type-sm); font-weight: 600; color: var(--color-accent-text); }
+    ol.steps h3 { margin-top: var(--space-xs); font-size: var(--type-lg); }
+    ol.steps p { margin-top: var(--space-xs); color: var(--color-ink-2); }
+
+    ul.rows { list-style: none; padding: 0; margin: var(--space-xl) 0 0; border-top: 1px solid var(--color-rule); }
+    ul.rows > li { border-bottom: 1px solid var(--color-rule); }
+    .row-link { display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg); padding: var(--space-lg) var(--space-xs); color: inherit; text-decoration: none; transition: background-color var(--dur-short) var(--ease-out); }
+    .row-link:hover { background: var(--color-paper-2); }
+    .row-title { display: block; font-family: var(--font-display); font-size: var(--type-2xl); line-height: 1.15; font-weight: 500; }
+    .row-text { display: block; margin-top: var(--space-2xs); color: var(--color-muted); max-width: 56ch; }
+    .row-cta { color: var(--color-accent-text); font-weight: 600; flex-shrink: 0; }
+
+    .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); margin: 0; }
+    .facts dt { font-size: var(--type-sm); color: var(--color-muted); }
+    .facts dd { margin: var(--space-3xs) 0 0; font-family: var(--font-display); font-size: var(--type-3xl); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
+
+    .faq-list { display: grid; gap: var(--space-sm); margin-top: var(--space-xl); max-width: 52rem; }
+    .closing { text-align: left; }
+    .more { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); margin-top: var(--space-xl); }
+    .more a { display: inline-flex; align-items: center; min-height: 44px; }
   `],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased">
+    <div class="page hm hm-on-light">
+      <app-public-header />
 
-      <!-- Sticky nav -->
-      <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
-        <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/shorts-maker" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
-            <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-            <span class="hidden sm:inline text-[11px] uppercase tracking-[0.06em] text-white/60 border border-white/15 rounded-full px-2 py-0.5">Shorts</span>
-          </a>
-          <div class="hidden md:flex items-center gap-6 text-[13.5px] text-white/70">
-            <app-nav-menu label="Product" [width]="340">
-                  <a routerLink="/shorts-maker" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">AI Shorts generator</span>
-                    <span class="block text-white/60 text-[12px] mt-0.5">Long video or audio into ranked 9:16 clips with burned-in captions.</span>
-                  </a>
-                  <a routerLink="/projects" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">TXT to narrated video</span>
-                    <span class="block text-white/60 text-[12px] mt-0.5">Quiz files into narrated video content with answer reveals.</span>
-                  </a>
-                  <a routerLink="/tools" class="block rounded-xl px-4 py-3 hover:bg-white/[0.06] transition-colors">
-                    <span class="block text-white text-[13.5px] font-medium">Free tools</span>
-                    <span class="block text-white/60 text-[12px] mt-0.5">Watermarks and more: private, in-browser utilities.</span>
-                  </a>
-            </app-nav-menu>
-            <app-nav-menu label="Use cases" [width]="300">
-                  @for (u of useCaseLinks; track u.slug) {
-                    <a [routerLink]="['/use-cases', u.slug]" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors">
-                      <span class="block text-white text-[13.5px] font-medium">{{ u.title }}</span>
-                    </a>
-                  }
-            </app-nav-menu>
-            <app-nav-menu label="Resources" [width]="300">
-                  <a routerLink="/blog" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">Blog</span></a>
-                  <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">Quiz videos for YouTube</span></a>
-                  <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">AI narration guide</span></a>
-                  <a routerLink="/about" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">About</span></a>
-                  <a href="#faq" class="block rounded-xl px-4 py-2.5 hover:bg-white/[0.06] transition-colors"><span class="block text-white text-[13.5px] font-medium">FAQ</span></a>
-            </app-nav-menu>
-          </div>
-          <div class="flex items-center gap-1">
-            <app-nav-mobile-menu>
-              <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Product</p>
-              <a routerLink="/shorts-maker" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">AI Shorts generator</a>
-              <a routerLink="/projects" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">TXT to narrated video</a>
-              <a routerLink="/tools" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Free tools</a>
-              <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Use cases</p>
-              @for (u of useCaseLinks; track u.slug) {
-                <a [routerLink]="['/use-cases', u.slug]" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">{{ u.title }}</a>
-              }
-              <p class="px-4 pt-3 pb-1 text-[12.5px] font-medium text-white/60">Resources</p>
-              <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Blog</a>
-              <a routerLink="/blog/quiz-videos-youtube" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Quiz videos for YouTube</a>
-              <a routerLink="/blog/ai-narration-guide" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">AI narration guide</a>
-              <a routerLink="/about" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">About</a>
-              <a href="#faq" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">FAQ</a>
-            </app-nav-mobile-menu>
-            <a routerLink="/login" class="hidden sm:inline-flex items-center h-11 px-4 rounded-full text-[13.5px] text-white/80 hover:text-white transition-colors">Login</a>
-            <a routerLink="/shorts" class="btn-primary inline-flex items-center h-11 px-4 rounded-full bg-[#BC5227] hover:bg-[#A8481F] text-white text-[13.5px] font-semibold">Upload a clip</a>
-          </div>
-        </nav>
-      </header>
-
-      <!-- Hero -->
-      <section class="pt-32 md:pt-40 pb-14 px-4">
-        <div class="max-w-5xl mx-auto text-center">
-          <h1 appReveal class="reveal font-medium tracking-[-0.03em] leading-[0.98] text-[clamp(2.6rem,6vw,4.8rem)]">
-            Turn long videos into <em class="italic font-light">ranked vertical shorts</em>
-          </h1>
-          <p appReveal class="reveal mt-5 text-[16.5px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
+      <section class="hero hm-on-dark" aria-labelledby="shorts-title">
+        <div class="wrap">
+          <h1 id="shorts-title">Turn long videos into ranked vertical shorts</h1>
+          <p class="lead">
             Upload a video or audio file.
             AI transcribes it, picks the strongest moments from the transcript, and renders up to 3 ranked 9:16 clips
             with burned-in captions.
           </p>
-          <div appReveal class="reveal mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a routerLink="/shorts" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Upload a video</a>
-            <a href="#how" class="btn-primary w-full sm:w-auto px-7 py-3.5 rounded-full border border-black/15 hover:bg-black/5 transition-colors font-semibold text-[15px]">See how it works</a>
+          <div class="actions">
+            <a routerLink="/shorts" class="ui-btn ui-btn--primary">Upload a video</a>
+            <a href="#how" class="ui-btn ui-btn--secondary">See how it works</a>
           </div>
-          <div appReveal class="reveal mt-6 flex flex-col items-center gap-2">
-            <p class="text-[13px] text-[#6B6560]">MP4, MOV, MP3 or WAV · 1 hour max · 2 GB max</p>
-            <p class="text-[13px] text-[#6B6560]">
+          <div>
+            <p class="fine">MP4, MOV, MP3 or WAV · 1 hour max · 2 GB max</p>
+            <p class="fine">
               Free during beta, no credit card.
-              <a routerLink="/terms" class="underline underline-offset-4 hover:text-[#1A1714]">Beta terms</a>
+              <a routerLink="/terms" class="inline">Beta terms</a>
             </p>
           </div>
+        </div>
+      </section>
 
-          <!-- Product proof: the real upload screen plus the real caption presets -->
-          <div appReveal class="reveal mt-12 mx-auto w-[min(880px,100%)]">
-            <div class="rounded-[20px] border border-black/10 bg-white p-3">
-              <div class="rounded-[12px] bg-[#0F0E0B] px-4 py-5 md:px-8 md:py-6 flex flex-col md:flex-row items-center gap-6">
-                <!-- Real upload screen -->
-                <img
-                  src="/screenshots/shorts-hero-still.png"
-                  alt="The Indifferent AI Shorts upload screen showing the file format and duration limits"
-                  class="w-full md:w-[300px] shrink-0 rounded-[10px] border border-white/15"
-                  loading="lazy"
-                  width="480"
-                  height="350"
-                />
-                <div class="text-left text-white flex-1">
-                  <p class="text-[11px] uppercase tracking-[0.06em] text-white/50">The upload screen</p>
-                  <p class="mt-2 text-[15px] leading-relaxed text-white/80">
-                    Drop a file and the limits are stated up front: MP4, MOV, MP3 or WAV, 1 hour, 2 GB.
-                  </p>
-                  <p class="mt-4 text-[11px] uppercase tracking-[0.06em] text-white/50">Pipeline</p>
-                  <p class="mt-2 text-[15px] leading-relaxed text-white/80">Transcribe, rank the moments, center the speaker, burn in captions, download.</p>
-                </div>
+      <main>
+        <!-- Product proof: the real upload screen plus the real caption presets -->
+        <section class="block first" aria-label="The upload screen and caption presets">
+          <div class="wrap">
+            <div appReveal class="reveal proof flush">
+              <img
+                src="/screenshots/shorts-hero-still.png"
+                alt="The Indifferent AI Shorts upload screen showing the file format and duration limits"
+                loading="lazy"
+                width="480"
+                height="350"
+              />
+              <div>
+                <p class="label">The upload screen</p>
+                <p class="text">Drop a file and the limits are stated up front: MP4, MOV, MP3 or WAV, 1 hour, 2 GB.</p>
+                <p class="label">Pipeline</p>
+                <p class="text">Transcribe, rank the moments, center the speaker, burn in captions, download.</p>
               </div>
             </div>
-          </div>
 
-          <!-- What you get: the caption styles the product actually renders -->
-          <div appReveal class="reveal mt-8 mx-auto w-[min(880px,100%)]">
-            <p class="text-center text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">Caption presets</p>
-            <p class="mt-2 text-center text-[15px] leading-relaxed text-[#6B6560] max-w-[52ch] mx-auto">
-              Every clip is captioned word by word from the transcript. The gallery has these four presets. Bold is the default, and a preset is used when a job's clips render, so a finished job keeps the look it was rendered with.
-            </p>
-            <div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              @for (p of captionPreviews; track p.id) {
-                <figure class="m-0">
-                  <div class="relative w-full rounded-[12px] border border-black/10 bg-[#0F0E0B] overflow-hidden" style="aspect-ratio: 9 / 16;">
-                    <div class="absolute inset-0" style="background: linear-gradient(160deg, #2A2620 0%, #0F0E0B 60%, #1A1714 100%);"></div>
-                    <div class="absolute inset-x-0 bottom-3 px-2 text-center">
-                      <span [style.color]="p.color" [style.font-size]="p.fontSize" [style.font-weight]="p.weight" [style.text-shadow]="p.shadow" [style.background]="p.background" [style.padding]="p.padding" [style.border-radius]="p.radius">{{ p.sample }}</span>
-                    </div>
+            <div appReveal class="reveal gap-top">
+              <h2>Caption presets</h2>
+              <p class="body">
+                Every clip is captioned word by word from the transcript. The gallery has these four presets. Bold is the default, and a preset is used when a job's clips render, so a finished job keeps the look it was rendered with.
+              </p>
+              <ul class="captions">
+                @for (p of captionPreviews; track p.id) {
+                  <li>
+                    <figure>
+                      <div class="frame hm-on-dark">
+                        <div class="cap">
+                          <span [style.color]="p.color" [style.font-size]="p.fontSize" [style.font-weight]="p.weight" [style.text-shadow]="p.shadow" [style.background]="p.background" [style.padding]="p.padding" [style.border-radius]="p.radius">{{ p.sample }}</span>
+                        </div>
+                      </div>
+                      <figcaption>
+                        <span class="name">{{ p.label }}</span>
+                        <span class="note">{{ p.blurb }}</span>
+                      </figcaption>
+                    </figure>
+                  </li>
+                }
+              </ul>
+              <p class="fine">Frames show each caption style over a still. Face-centered framing and blur-fill are applied when the clip renders.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Features -->
+        <section id="features" class="block tint" aria-labelledby="features-heading">
+          <div class="wrap">
+            <h2 id="features-heading" appReveal class="reveal">What the pipeline does to your file. Five things it handles for you.</h2>
+            <ul class="items">
+              @for (f of features; track f.title) {
+                <li appReveal class="reveal">
+                  <span class="icon"><svg lucideIcon="{{ f.icon }}" [size]="22"></svg></span>
+                  <div>
+                    <h3>{{ f.title }}</h3>
+                    <p>{{ f.text }}</p>
                   </div>
-                  <figcaption class="mt-2 text-center">
-                    <span class="block text-[13px] font-semibold">{{ p.label }}</span>
-                    <span class="block text-[11.5px] text-[#6B6560]">{{ p.blurb }}</span>
-                  </figcaption>
-                </figure>
-              }
-            </div>
-            <p class="mt-3 text-center text-[11.5px] text-[#6B6560]">Frames show each caption style over a still. Face-centered framing and blur-fill are applied when the clip renders.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Features -->
-      <section id="features" class="py-16 px-4 scroll-mt-24">
-        <div class="max-w-6xl mx-auto">
-          <p appReveal class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Features</p>
-          <h2 appReveal class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)] leading-tight">What the pipeline <span class="font-light italic">does to your file.</span><br><span class="font-light italic">Five things it handles for you.</span></h2>
-          <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            @for (f of features; track f.title) {
-              <div appReveal class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6">
-                <span class="inline-flex w-10 h-10 items-center justify-center rounded-xl bg-[#D96C3D]/12 text-[#A8481F]">
-                  <svg lucideIcon="{{ f.icon }}" [size]="20"></svg>
-                </span>
-                <h3 class="mt-4 font-semibold text-[16.5px]">{{ f.title }}</h3>
-                <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560]">{{ f.text }}</p>
-              </div>
-            }
-          </div>
-        </div>
-      </section>
-
-      <!-- How it works -->
-      <section id="how" class="py-16 px-4 scroll-mt-24 bg-[#0F0E0B] text-[#F4EFE6]">
-        <div class="max-w-6xl mx-auto">
-          <p appReveal class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-white/50">How it works</p>
-          <h2 appReveal class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Turn long videos into shorts.<br><span class="font-light italic text-white/70">Simple to use, built for speed.</span></h2>
-          <div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div appReveal class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
-              <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 1</p>
-              <h3 class="mt-2 font-semibold text-[17px]">Upload a video or audio file</h3>
-              <p class="mt-2 text-[14px] leading-relaxed text-white/60">MP4, MOV, MP3 or WAV up to 1 hour and 2 GB. Podcasts, interviews or phone footage.</p>
-            </div>
-            <div appReveal class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
-              <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 2</p>
-              <h3 class="mt-2 font-semibold text-[17px]">Let AI edit for you</h3>
-              <p class="mt-2 text-[14px] leading-relaxed text-white/60">AI transcribes the file, picks the strongest moments from the transcript, centers the 9:16 window on the speaker, and burns in short caption lines.</p>
-            </div>
-            <div appReveal class="reveal card-lift rounded-[20px] border border-white/10 bg-white/[0.05] p-6">
-              <p class="text-[12px] font-semibold tracking-[0.06em] text-[#D96C3D]">STEP 3</p>
-              <h3 class="mt-2 font-semibold text-[17px]">Preview and download</h3>
-              <p class="mt-2 text-[14px] leading-relaxed text-white/60">Ranked clips land in your gallery with previews. Download full-HD 9:16 MP4s, ready for Shorts, Reels and TikTok.</p>
-            </div>
-          </div>
-          <div appReveal class="reveal mt-8 text-center">
-            <a routerLink="/shorts" class="btn-primary inline-block px-7 py-3.5 rounded-full bg-[#BC5227] hover:bg-[#A8481F] text-white font-semibold text-[15px]">Upload your first video</a>
-          </div>
-        </div>
-      </section>
-
-      <!-- Use cases -->
-      <section id="use-cases" class="py-16 px-4 scroll-mt-24">
-        <div class="max-w-6xl mx-auto">
-          <p appReveal class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Use cases</p>
-          <h2 appReveal class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Six ways to use <span class="font-light italic">ranked clips.</span></h2>
-          <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            @for (u of useCases; track u.slug) {
-              <a [routerLink]="['/use-cases', u.slug]" appReveal class="reveal card-lift rounded-[20px] border border-black/10 bg-white p-6 block hover:border-black/25">
-                <h3 class="font-semibold text-[16.5px]">{{ u.title }}</h3>
-                <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560]">{{ u.text }}</p>
-                <span class="mt-3 inline-block text-[13.5px] font-semibold text-[#BC5227]">Learn more</span>
-              </a>
-            }
-          </div>
-        </div>
-      </section>
-
-      <!-- Stats band -->
-      <section class="px-4 pb-4">
-        <div appReveal class="reveal max-w-6xl mx-auto rounded-[20px] bg-[#1A1714] text-white px-6 py-12 md:py-14 grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
-          <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">Up to 3</p><p class="mt-1 text-[13.5px] text-white/60">ranked clips per upload</p></div>
-          <div><p class="text-[clamp(2.2rem,4vw,3.2rem)] font-medium tracking-tight">1080×1920</p><p class="mt-1 text-[13.5px] text-white/60">full-HD vertical export</p></div>
-        </div>
-      </section>
-
-      <!-- FAQ -->
-      <section id="faq" class="py-16 px-4 scroll-mt-24 bg-white border-y border-black/10">
-        <div class="max-w-3xl mx-auto">
-          <p appReveal class="reveal text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">FAQ</p>
-          <h2 appReveal class="reveal mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.8rem,3.5vw,2.8rem)]">Before you <span class="font-light italic">upload.</span></h2>
-          <div class="mt-8 space-y-3">
-            @for (f of faqs; track f.q) {
-              <details class="faq reveal group rounded-[16px] border border-black/10 bg-[#FAF7F2] px-5 py-4">
-                <summary class="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold text-[15px]">
-                  {{ f.q }}
-                  <svg class="faq-chevron shrink-0 text-[#6B6560]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                </summary>
-                <p class="mt-3 text-[14px] leading-relaxed text-[#6B6560]">{{ f.a }}</p>
-              </details>
-            }
-          </div>
-        </div>
-      </section>
-
-      <!-- Final CTA -->
-      <section class="py-20 px-4 text-center">
-        <h2 appReveal class="reveal font-medium tracking-[-0.02em] text-[clamp(2rem,4.5vw,3.4rem)] leading-tight">Start creating shorts<br><span class="font-light italic">from your long videos.</span></h2>
-        <div appReveal class="reveal mt-8">
-          <a routerLink="/shorts" class="btn-primary inline-block px-8 py-4 rounded-full bg-[#1A1714] text-white font-semibold text-[15px] hover:bg-[#2A2620]">Turn your next video into shorts</a>
-        </div>
-      </section>
-
-      <!-- Footer -->
-      <footer class="border-t border-black/10 px-4 py-12">
-        <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-8 text-[13.5px]">
-          <div class="col-span-2 md:col-span-1">
-            <span class="font-semibold tracking-tight text-[16px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-            <p class="mt-3 text-[#6B6560] leading-relaxed">Long video and audio to ranked 9:16 clips automatically.</p>
-          </div>
-          <div>
-            <p class="font-semibold mb-3">Product</p>
-            <ul class="space-y-2 text-[#6B6560]">
-              <li><a routerLink="/shorts-maker" class="hover:text-[#1A1714]">AI Shorts generator</a></li>
-              <li><a routerLink="/projects" class="hover:text-[#1A1714]">TXT to video</a></li>
-              <li><a routerLink="/tools" class="hover:text-[#1A1714]">Free tools</a></li>
-              <li><a routerLink="/tools/add-watermark" class="hover:text-[#1A1714]">Watermark tool</a></li>
-            </ul>
-          </div>
-          <div>
-            <p class="font-semibold mb-3">Use Cases</p>
-            <ul class="space-y-2 text-[#6B6560]">
-              @for (u of useCaseLinks; track u.slug) {
-                <li><a [routerLink]="['/use-cases', u.slug]" class="hover:text-[#1A1714]">{{ u.title }}</a></li>
+                </li>
               }
             </ul>
           </div>
-          <div>
-            <p class="font-semibold mb-3">Resources</p>
-            <ul class="space-y-2 text-[#6B6560]">
-              <li><a routerLink="/blog" class="hover:text-[#1A1714]">Blog</a></li>
-              <li><a routerLink="/blog/quiz-videos-youtube" class="hover:text-[#1A1714]">Quiz videos for YouTube</a></li>
-              <li><a routerLink="/blog/ai-narration-guide" class="hover:text-[#1A1714]">AI narration guide</a></li>
-              <li><a routerLink="/blog/educational-video-best-practices" class="hover:text-[#1A1714]">Educational video tips</a></li>
-              <li><a routerLink="/about" class="hover:text-[#1A1714]">About</a></li>
-              <li><a routerLink="/contact" class="hover:text-[#1A1714]">Contact</a></li>
+        </section>
+
+        <!-- How it works -->
+        <section id="how" class="block" aria-labelledby="how-heading">
+          <div class="wrap">
+            <h2 id="how-heading" appReveal class="reveal">Turn long videos into shorts. Simple to use, built for speed.</h2>
+            <ol class="steps">
+              <li appReveal class="reveal">
+                <p class="step">Step 1</p>
+                <h3>Upload a video or audio file</h3>
+                <p>MP4, MOV, MP3 or WAV up to 1 hour long and 2 GB. Podcasts, interviews or phone footage.</p>
+              </li>
+              <li appReveal class="reveal">
+                <p class="step">Step 2</p>
+                <h3>Let AI edit for you</h3>
+                <p>AI transcribes the file, picks the strongest moments from the transcript, centers the 9:16 window on the speaker, and burns in short caption lines.</p>
+              </li>
+              <li appReveal class="reveal">
+                <p class="step">Step 3</p>
+                <h3>Preview and download</h3>
+                <p>Ranked clips land in your gallery with previews. Download full-HD 9:16 MP4s, ready for Shorts, Reels and TikTok.</p>
+              </li>
+            </ol>
+            <div appReveal class="reveal actions">
+              <a routerLink="/shorts" class="ui-btn ui-btn--secondary">Upload your first video</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Use cases -->
+        <section id="use-cases" class="block tint" aria-labelledby="use-cases-heading">
+          <div class="wrap">
+            <h2 id="use-cases-heading" appReveal class="reveal">Six ways to use ranked clips.</h2>
+            <ul class="rows">
+              @for (u of useCases; track u.slug) {
+                <li appReveal class="reveal">
+                  <a [routerLink]="['/use-cases', u.slug]" class="row-link">
+                    <span>
+                      <span class="row-title">{{ u.title }}</span>
+                      <span class="row-text">{{ u.text }}</span>
+                    </span>
+                    <span class="row-cta">Learn more</span>
+                  </a>
+                </li>
+              }
             </ul>
           </div>
-          <div>
-            <p class="font-semibold mb-3">Legal</p>
-            <ul class="space-y-2 text-[#6B6560]">
-              <li><a routerLink="/terms" class="hover:text-[#1A1714]">Terms of Service</a></li>
-              <li><a routerLink="/privacy" class="hover:text-[#1A1714]">Privacy Policy</a></li>
-              <li><a routerLink="/login" class="hover:text-[#1A1714]">Sign in</a></li>
-            </ul>
+        </section>
+
+        <!-- Facts -->
+        <section class="block" aria-label="Output at a glance">
+          <div class="wrap">
+            <dl appReveal class="reveal facts">
+              <div><dt>ranked clips per upload</dt><dd>Up to 3</dd></div>
+              <div><dt>full-HD vertical export</dt><dd>1080×1920</dd></div>
+            </dl>
           </div>
-        </div>
-        <p class="mt-10 text-center text-[12.5px] text-[#6B6560]">© {{ currentYear }} Indifferent · Architecture of video</p>
-      </footer>
+        </section>
+
+        <!-- FAQ -->
+        <section id="faq" class="block tint" aria-labelledby="faq-heading">
+          <div class="wrap">
+            <h2 id="faq-heading" appReveal class="reveal">Before you upload.</h2>
+            <div class="faq-list">
+              @for (f of faqs; track f.q) {
+                <details class="faq ui-disclosure">
+                  <summary>{{ f.q }}</summary>
+                  <p>{{ f.a }}</p>
+                </details>
+              }
+            </div>
+          </div>
+        </section>
+
+        <!-- Final CTA -->
+        <section class="block closing" aria-labelledby="closing-heading">
+          <div class="wrap">
+            <h2 id="closing-heading" appReveal class="reveal">Start creating shorts from your long videos.</h2>
+            <div appReveal class="reveal actions">
+              <a routerLink="/shorts" class="ui-btn ui-btn--primary">Turn your next video into shorts</a>
+            </div>
+            <nav class="more" aria-label="More from the studio">
+              <a routerLink="/projects" class="inline">TXT to video</a>
+              <a routerLink="/tools" class="inline">Free tools</a>
+              <a routerLink="/tools/add-watermark" class="inline">Watermark tool</a>
+              <a routerLink="/blog/quiz-videos-youtube" class="inline">Quiz videos for YouTube</a>
+              <a routerLink="/blog/ai-narration-guide" class="inline">AI narration guide</a>
+              <a routerLink="/blog/educational-video-best-practices" class="inline">Educational video tips</a>
+            </nav>
+          </div>
+        </section>
+      </main>
+      <app-site-footer />
     </div>
   `,
 })

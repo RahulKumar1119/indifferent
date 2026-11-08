@@ -1,97 +1,68 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { NavMobileMenuComponent } from '../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
+import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
+import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { setPageSeo } from '../../shared/seo';
 
 @Component({
   selector: 'app-contact',
   standalone: true,
-  imports: [RouterLink, NavMobileMenuComponent],
+  imports: [PublicHeaderComponent, SiteFooterComponent],
   styles: [`
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(1px) scale(.98); }
-    .grain::before {
-      content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .05;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-    }
+    :host { display: block; }
+    .page { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--type-md); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    .wrap { width: min(var(--container), 100%); margin-inline: auto; padding-inline: var(--gutter); }
+    h1, h2, p { margin: 0; }
+    h1 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-display); line-height: 1.02; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; max-width: 12ch; }
+    h2 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-2xl); line-height: 1.1; letter-spacing: var(--tracking-display); }
+    .lead { margin-top: var(--space-lg); font-size: var(--type-lead); line-height: 1.45; color: var(--color-ink-2); max-width: 48ch; }
+    .hero { background: var(--color-paper); color: var(--color-ink); padding: calc(56px + var(--space-3xl)) 0 var(--space-3xl); }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); padding: var(--space-3xl) 0; }
+    @media (min-width: 64rem) { .grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); } }
+    .label { font-size: var(--type-sm); color: var(--color-muted); }
+    .item { padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); }
+    .item h2 { margin-top: var(--space-2xs); }
+    .item p.body { margin-top: var(--space-sm); color: var(--color-ink-2); max-width: 52ch; }
+    .side { display: grid; gap: var(--space-xl); align-content: start; }
+    .mail { display: inline-flex; align-items: center; min-height: 44px; margin-top: var(--space-sm); font-size: var(--type-lg); font-weight: 600; color: var(--color-accent-text); text-underline-offset: 0.2em; }
+    .mail:hover { color: var(--color-ink); }
+    .mail:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+    .actions { margin-top: var(--space-lg); }
   `],
   template: `
-    <div class="grain sans bg-[#FAF7F2] text-[#1A1714] antialiased">
-      <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
-        <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
-            <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-          </a>
-          <div class="hidden md:flex items-center gap-7 text-[13.5px] text-white/70">
-            <a routerLink="/" fragment="process" class="hover:text-white transition-colors">How it works</a>
-            <a routerLink="/blog" class="hover:text-white transition-colors">Journal</a>
-            <a routerLink="/about" class="hover:text-white transition-colors">Studio</a>
-            <a routerLink="/contact" class="text-white font-medium">Contact</a>
-          </div>
-          <div class="flex items-center gap-1">
-            <app-nav-mobile-menu>
-              <a routerLink="/" fragment="process" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">How it works</a>
-              <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
-              <a routerLink="/about" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Studio</a>
-              <a routerLink="/contact" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Contact</a>
-            </app-nav-mobile-menu>
-            <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-11 pl-5 pr-5 sm:pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
-            Start creating
-            <span class="hidden sm:flex w-7 h-7 rounded-full bg-[#1A1714] text-white items-center justify-center text-sm leading-none" aria-hidden="true">↗</span>
-          </a>
-          </div>
-        </nav>
-      </header>
-
-      <section class="relative overflow-hidden bg-[#0F0E0B] text-[#F4EFE6] pt-32 pb-16 md:pb-20">
-        <div class="absolute inset-0" style="background: radial-gradient(ellipse at 25% 15%, rgba(217,108,61,0.20), transparent 55%), linear-gradient(to bottom, rgba(15,14,11,0.55), rgba(15,14,11,0.93));"></div>
-        <div class="relative w-[min(1240px,100%)] mx-auto px-5 md:px-10">
-          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-white/15 text-white/70">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Correspondence
-          </p>
-          <h1 class="serif mt-5 font-medium leading-[0.95] tracking-[-0.02em] text-[clamp(2.8rem,7vw,5.2rem)] text-balance">Write to the studio.</h1>
-          <p class="mt-6 text-[17px] leading-relaxed text-white/70 max-w-[48ch]">Questions, feedback, or feature requests. Reach out through any channel below.</p>
+    <div class="page hm hm-on-light">
+      <app-public-header />
+      <section class="hero hm-on-dark" aria-labelledby="contact-title">
+        <div class="wrap">
+          <h1 id="contact-title">Write to the studio.</h1>
+          <p class="lead">Questions, feedback, or feature requests. Reach out through any channel below.</p>
         </div>
       </section>
-
-      <main class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-16 md:py-24">
-        <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
-          <div class="lg:col-span-3 rounded-[20px] bg-white border border-black/[0.07] p-8 md:p-10">
-            <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Bugs · Features · Questions</p>
-            <h2 class="serif mt-2 text-[32px] leading-tight">GitHub issues</h2>
-            <p class="mt-3 text-[15px] text-[#6B6560] leading-relaxed">The fastest route. Report a bug, request a feature, or ask a question where the work happens.</p>
-            <a href="https://github.com/RahulKumar1119/indifferent/issues" target="_blank" rel="noopener" class="btn-primary mt-6 inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white px-7 py-3.5 font-semibold text-[14.5px]">Open an issue →</a>
-          </div>
-          <div class="lg:col-span-2 flex flex-col gap-5">
-            <div class="rounded-[20px] bg-white border border-black/[0.07] p-8 flex-1">
-              <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Email</p>
-              <h2 class="serif mt-2 text-[28px]">General inquiries</h2>
-              <a href="mailto:support@indifferent.fun" class="mt-3 inline-flex items-center min-h-[44px] text-[16px] font-semibold underline underline-offset-8 decoration-[#1A1714]/25 hover:decoration-[#1A1714] transition">support&#64;indifferent.fun</a>
+      <main>
+        <div class="wrap grid">
+          <section class="item" aria-labelledby="issues-heading">
+            <p class="label">Bugs, features and questions</p>
+            <h2 id="issues-heading">GitHub issues</h2>
+            <p class="body">The fastest route. Report a bug, request a feature, or ask a question where the work happens.</p>
+            <div class="actions">
+              <a href="https://github.com/RahulKumar1119/indifferent/issues" target="_blank" rel="noopener" class="ui-btn ui-btn--primary">Open an issue</a>
             </div>
-            <div class="rounded-[20px] bg-[#1E3A2A] text-[#EDE8DB] p-8 flex-1">
-              <p class="text-[11.5px] uppercase tracking-[0.08em] text-white/60">Response time</p>
-              <p class="serif mt-2 text-[28px] leading-tight">Within 24–48 hours.</p>
-              <p class="mt-2 text-[13.5px] text-white/65">Usually faster on weekdays.</p>
-            </div>
+          </section>
+          <div class="side">
+            <section class="item" aria-labelledby="email-heading">
+              <p class="label">Email</p>
+              <h2 id="email-heading">General inquiries</h2>
+              <a href="mailto:support@indifferent.fun" class="mail">support&#64;indifferent.fun</a>
+            </section>
+            <section class="item" aria-labelledby="time-heading">
+              <p class="label">Response time</p>
+              <h2 id="time-heading">Within 24–48 hours.</h2>
+              <p class="body">Usually faster on weekdays.</p>
+            </section>
           </div>
         </div>
       </main>
-
-      <section class="bg-[#0F0E0B] text-[#F4EFE6]">
-        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-white/60">
-          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex flex-wrap">
-            <a routerLink="/" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Home</a>
-            <a routerLink="/about" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Studio</a>
-            <a routerLink="/privacy" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Privacy</a>
-            <a routerLink="/terms" class="inline-flex items-center min-h-[44px] px-3 hover:text-white">Terms</a>
-          </span>
-        </div>
-      </section>
+      <app-site-footer />
     </div>
   `,
 })

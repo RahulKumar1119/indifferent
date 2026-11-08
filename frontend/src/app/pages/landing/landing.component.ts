@@ -37,7 +37,7 @@ import { HeroSceneComponent } from './hero-scene.component';
     .facts dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); margin: 0; padding: var(--space-xl) 0; }
     @media (min-width: 48rem) { .facts dl { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     .facts dt { font-size: var(--type-sm); color: var(--color-muted); }
-    .facts dd { margin: var(--space-3xs) 0 0; font-family: var(--font-display); font-size: var(--type-2xl); font-weight: 500; font-variant-numeric: tabular-nums; }
+    .facts dd { margin: var(--space-3xs) 0 0; font-family: var(--font-display); font-size: var(--type-2xl); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
 
     .section { padding: var(--space-3xl) 0; }
     .section + .section { border-top: 1px solid var(--color-rule); }
@@ -73,7 +73,7 @@ import { HeroSceneComponent } from './hero-scene.component';
     ol.steps { list-style: none; margin: var(--space-xl) 0 0; padding: 0; }
     ol.steps > li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-lg); padding: var(--space-lg) 0; border-top: 1px solid var(--color-rule); }
     ol.steps > li:last-child { border-bottom: 1px solid var(--color-rule); }
-    .step-n { font-family: var(--font-display); font-size: var(--type-2xl); color: var(--color-accent-text); line-height: 1; font-variant-numeric: tabular-nums; }
+    .step-n { font-family: var(--font-display); font-size: var(--type-2xl); color: var(--color-accent-text); line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
     .step-title { margin: 0; font-size: var(--type-lg); font-weight: 600; }
 
     .faq-list { display: grid; gap: var(--space-sm); margin-top: var(--space-xl); }

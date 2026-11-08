@@ -2,6 +2,7 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { ROBOTS_NOINDEX, setPageSeo, setRobots } from '../../shared/seo';
 export interface UseCaseData {
@@ -98,44 +99,77 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
 @Component({
   selector: 'app-use-case',
   standalone: true,
-  imports: [CommonModule, RouterLink, SiteFooterComponent],
+  imports: [CommonModule, RouterLink, PublicHeaderComponent, SiteFooterComponent],
+  styles: [`
+    :host { display: block; }
+    .page { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--type-md); line-height: 1.55; -webkit-font-smoothing: antialiased; min-height: 100dvh; }
+    .wrap { width: min(var(--container), 100%); margin-inline: auto; padding-inline: var(--gutter); }
+    .col { width: min(52rem, 100%); display: grid; gap: var(--space-lg); }
+    h1, p, ul { margin: 0; }
+    h1.title { font-family: var(--font-display); font-weight: 500; font-size: var(--type-display-s); line-height: 1.04; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; max-width: 18ch; }
+    .lead { margin-top: var(--space-lg); font-size: var(--type-lead); line-height: 1.45; color: var(--color-ink-2); max-width: 46ch; }
+    .crumb { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: var(--space-md); font-size: var(--type-sm); color: var(--color-muted); text-underline-offset: 0.2em; }
+    .crumb:hover { color: var(--color-ink); }
+    .crumb:focus-visible, .link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+    .hero { background: var(--color-paper); color: var(--color-ink); padding: calc(56px + var(--space-3xl)) 0 var(--space-2xl); }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); margin-top: var(--space-xl); }
+    .fine { margin-top: var(--space-sm); font-size: var(--type-sm); color: var(--color-muted); }
+    .block { padding: var(--space-2xl) 0; border-top: 1px solid var(--color-rule); }
+    .intro { font-size: var(--type-lead); line-height: 1.5; color: var(--color-ink-2); }
+    ul.ticks { list-style: none; padding: 0; display: grid; gap: var(--space-sm); color: var(--color-ink-2); }
+    ul.ticks li { padding-left: var(--space-lg); position: relative; }
+    ul.ticks li::before { content: ''; position: absolute; left: 0; top: 0.7em; width: 10px; height: 2px; background: var(--color-accent); }
+    .cta { background: var(--color-paper-2); }
+    .cta .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-lg); }
+    .cta p { font-family: var(--font-display); font-size: var(--type-xl); font-weight: 500; line-height: 1.2; max-width: 30ch; }
+    .others-title { font-size: var(--type-sm); font-weight: 600; color: var(--color-muted); }
+    .others { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-sm); }
+  `],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <header class="max-w-3xl mx-auto px-4 pt-24 pb-6 text-center">
-        <a routerLink="/shorts-maker" class="inline-flex items-center min-h-[44px] text-[13px] text-[#6B6560] hover:text-[#1A1714]">← AI Shorts Maker</a>
-        <h1 class="mt-4 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2rem,5vw,3.4rem)]">{{ data.title }}</h1>
-        <p class="mt-4 text-[16.5px] text-[#6B6560] leading-relaxed">{{ data.hook }}</p>
-      </header>
-      <main class="max-w-3xl mx-auto px-4 pb-10">
-        <p class="text-[15.5px] leading-relaxed">{{ data.description }}</p>
-        <ul class="mt-6 space-y-3">
-          @for (b of data.benefits; track $index) {
-            <li class="flex items-start gap-3 rounded-[14px] border border-black/10 bg-white px-4 py-3 text-[14.5px]">
-              <span class="mt-0.5 inline-flex w-5 h-5 shrink-0 items-center justify-center rounded-full bg-[#D96C3D]/15 text-[#A8481F] text-[12px] font-bold">✓</span>
-              {{ b }}
-            </li>
-          }
-        </ul>
-        <div class="mt-8 rounded-[20px] bg-[#1A1714] text-white px-6 py-8 text-center">
-          <p class="font-medium text-[19px]">{{ data.cta }}</p>
-          <a routerLink="/shorts" class="mt-4 inline-block px-7 py-3.5 rounded-full bg-[#BC5227] hover:bg-[#A8481F] transition-colors text-white font-semibold text-[15px]">Try for free</a>
-          <p class="mt-3 text-[12.5px] text-white/60">Free during beta · No credit card</p>
-        </div>
-        <div class="mt-8">
-          <p class="text-[13.5px] font-semibold mb-3">Other use cases</p>
-          <div class="flex flex-wrap gap-2">
-            @for (u of others; track u.slug) {
-              <a [routerLink]="['/use-cases', u.slug]" class="inline-flex items-center min-h-[44px] rounded-full border border-black/15 px-4 text-[13px] hover:bg-black/5 transition-colors">{{ u.title }}</a>
-            }
+    <div class="page hm hm-on-light">
+      <app-public-header />
+      <main>
+        <section class="hero hm-on-dark" aria-labelledby="use-case-title">
+          <div class="wrap">
+            <a routerLink="/shorts-maker" class="crumb">AI Shorts Maker</a>
+            <h1 id="use-case-title" class="title">{{ data.title }}</h1>
+            <p class="lead">{{ data.hook }}</p>
+            <div class="actions">
+              <a routerLink="/shorts" class="ui-btn ui-btn--primary">Try for free</a>
+            </div>
+            <p class="fine">Free during beta. No credit card.</p>
           </div>
-        </div>
+        </section>
+        <section class="block">
+          <div class="wrap"><div class="col">
+            <p class="intro">{{ data.description }}</p>
+            <ul class="ticks">
+              @for (b of data.benefits; track $index) {
+                <li>{{ b }}</li>
+              }
+            </ul>
+          </div></div>
+        </section>
+        <section class="block cta" aria-label="Get started">
+          <div class="wrap">
+            <p>{{ data.cta }}</p>
+            <a routerLink="/shorts" class="ui-btn ui-btn--secondary">Try for free</a>
+          </div>
+        </section>
+        <section class="block">
+          <div class="wrap">
+            <p class="others-title">Other use cases</p>
+            <div class="others">
+              @for (u of others; track u.slug) {
+                <a [routerLink]="['/use-cases', u.slug]" class="ui-btn ui-btn--secondary">{{ u.title }}</a>
+              }
+            </div>
+          </div>
+        </section>
       </main>
       <app-site-footer />
     </div>
   `,
-  styles: [`
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-  `],
 })
 export class UseCaseComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
