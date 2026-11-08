@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import {
   provideLucideIcons,
@@ -18,6 +18,8 @@ import {
   LucideStamp,
   LucideUser,
   LucideSun,
+  LucideLayoutDashboard,
+  LucideArrowUpRight,
   LucideMoon,
 } from '@lucide/angular';
 import { Observable, of, throwError } from 'rxjs';
@@ -62,7 +64,7 @@ function setup(data: Data) {
       provideRouter([]),
       provideLucideIcons(
         LucideChevronRight, LucideCircleCheck, LucideCircleX, LucideClapperboard, LucideClock, LucideFilm,
-        LucideFolderOpen, LucideImage, LucidePencil, LucidePlus, LucideScissors, LucideStamp, LucideUser, LucideSun, LucideMoon,
+        LucideFolderOpen, LucideImage, LucidePencil, LucidePlus, LucideScissors, LucideStamp, LucideUser, LucideSun, LucideMoon, LucideLayoutDashboard, LucideArrowUpRight,
       ),
       { provide: ProjectService, useValue: { getProjects: () => data.projects } },
       { provide: ShortsService, useValue: { listJobs: () => data.shorts } },
@@ -179,5 +181,67 @@ describe('DashboardComponent', () => {
     expect(el.innerHTML).not.toMatch(/#[0-9A-Fa-f]{6}\b/);
     expect(el.innerHTML).not.toContain('uppercase');
     expect(el.textContent).not.toContain('\u00b7');
+  });
+  it('greets the signed-in user by first name, and still greets without one', () => {
+    const { fixture, el } = setup(full());
+    const http = TestBed.inject(HttpTestingController);
+    expect(el.querySelector('h1')!.textContent).toMatch(/^Good (morning|afternoon|evening)$/);
+    http.match((r) => r.url.endsWith('/auth/me')).forEach((r) => r.flush({ email: 'a@example.com', name: 'Asha Rao', avatarUrl: '', createdAt: '' }));
+    fixture.detectChanges();
+    expect(el.querySelector('h1')!.textContent).toMatch(/^Good (morning|afternoon|evening), Asha$/);
+  });
+  it('puts Total on the terracotta card and keeps the status labels', () => {
+    const { el } = setup(full());
+    const cards = Array.from(el.querySelectorAll('.stat'));
+    expect(cards.map((c) => c.querySelector('.stat-top span')!.textContent!.trim())).toEqual(['Total', 'Ready', 'Cutting', 'Retakes']);
+    expect(cards[0].classList).toContain('total');
+    expect(cards.slice(1).some((c) => c.classList.contains('total'))).toBeFalse();
+  });
+  it('charts real recent work and shows the status split', () => {
+    const d = full();
+    const now = new Date().toISOString();
+    d.projects = of([
+      { id: 'a', name: 'Today one', status: 'completed', createdAt: now },
+      { id: 'b', name: 'Today two', status: 'failed', createdAt: now },
+    ]);
+    const { el } = setup(d);
+    expect(el.querySelector('[data-testid="activity-empty"]')).toBeNull();
+    const cells = Array.from(el.querySelectorAll('app-activity-chart table td')).map((c) => c.textContent!.trim());
+    expect(cells[cells.length - 1]).toBe('2');
+    expect(el.querySelector('[data-testid="ring-Ready"]')!.textContent).toBe('2');
+    expect(el.querySelector('[data-testid="ring-Cutting"]')!.textContent).toBe('2');
+    expect(el.querySelector('[data-testid="ring-Retakes"]')!.textContent).toBe('2');
+  });
+  it('says so when nothing was made in the last 14 days', () => {
+    const { el } = setup(full());
+    expect(el.querySelector('[data-testid="activity-empty"]')).toBeTruthy();
+  });
+  it('leaves the charts out when there is no work at all', () => {
+    const empty = of([]);
+    const { el } = setup({
+      projects: empty,
+      shorts: empty,
+      videos: of({ videos: [], hasMore: false }),
+      plans: of({ plans: [], hasMore: false }),
+      thumbnails: of({ thumbnails: [], hasMore: false }),
+    });
+    expect(el.querySelector('app-activity-chart')).toBeNull();
+    expect(el.querySelector('app-status-ring')).toBeNull();
+  });
+  it('shows the rendering panel only for jobs that are being made, linked to their progress pages', () => {
+    const d = full();
+    d.projects = of([{ id: 'p9', name: 'Rendering quiz', status: 'parsing', createdAt: '2026-01-06T00:00:00Z' }]);
+    const { el } = setup(d);
+    const links = Array.from(el.querySelectorAll('[data-testid="rendering"] a')).map((a) => a.getAttribute('href'));
+    expect(links).toEqual(['/projects/p9/progress', '/shorts/s1/progress']);
+    const none = full();
+    none.shorts = of([]);
+    TestBed.resetTestingModule();
+    expect(setup(none).el.querySelector('[data-testid="rendering"]')).toBeNull();
+  });
+  it('has desktop sidebar links to existing pages', () => {
+    const { el } = setup(full());
+    const hrefs = Array.from(el.querySelectorAll('app-dashboard-sidebar nav a')).map((a) => a.getAttribute('href'));
+    expect(hrefs).toEqual(['/dashboard', '/projects', '/shorts', '/story', '/shorts/history', '/tools/add-watermark', '/profile']);
   });
 });
