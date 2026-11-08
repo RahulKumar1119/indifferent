@@ -36,576 +36,408 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
   standalone: true,
   imports: [CommonModule, FormsModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent],
   styles: [`
-    @keyframes card-in {
-      from { opacity: 0; transform: translateY(14px); }
-      to { opacity: 1; transform: none; }
-    }
-    .card-enter { opacity: 0; animation: card-in .45s cubic-bezier(0.23,1,0.32,1) forwards; }
-    @media (prefers-reduced-motion: reduce) {
-      .card-enter { opacity: 1; animation: none; }
-    }
+    :host { display: block; }
+    @keyframes card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    .card-enter { opacity: 0; animation: card-in .45s var(--ease-out) forwards; }
+    .tools { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+    .tools .ui-btn[aria-expanded='true'] { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-paper); }
+    .cs-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); }
+    .presets { margin-top: var(--space-md); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); }
+    @media (min-width: 64rem) { .presets { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .preset { display: flex; flex-direction: column; gap: var(--space-3xs); min-height: 44px; padding: var(--space-sm); border-radius: var(--radius-control); border: 1px solid var(--color-rule); background: transparent; color: var(--color-ink); text-align: left; font: inherit; cursor: pointer; }
+    .preset:hover { background: var(--color-paper-3); }
+    .preset[aria-pressed='true'] { border: 2px solid var(--color-accent); background: color-mix(in oklab, var(--color-accent) 7%, var(--app-card)); }
+    .preset b { font-size: var(--type-sm); }
+    .preset small { font-size: var(--type-xs); color: var(--color-muted); }
+    .sample { margin-top: var(--space-2xs); display: block; padding: var(--space-sm) var(--space-xs); border-radius: 6px; text-align: center; background: var(--color-paper); }
+    .sample.light { background: var(--color-paper-3); }
+    .unlit { color: var(--color-muted); }
+    .cs-grid { margin-top: var(--space-md); display: grid; gap: var(--space-md); }
+    @media (min-width: 40rem) { .cs-grid { grid-template-columns: 1fr 1fr; } }
+    .cs-foot { margin-top: var(--space-md); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+    .bad-text { margin: var(--space-xs) 0 0; color: var(--color-negative); font-size: var(--type-sm); font-weight: 500; }
+    .selbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+    .box { width: 1.25rem; height: 1.25rem; flex: none; border-radius: 4px; border: 2px solid var(--color-muted); display: inline-flex; align-items: center; justify-content: center; }
+    .box.on { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-ink); }
+    .count { font-size: var(--type-sm); color: var(--color-ink-2); font-variant-numeric: tabular-nums; }
+    .bulk-head { display: flex; justify-content: space-between; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .track { margin-top: var(--space-xs); height: 8px; border-radius: var(--radius-pill); background: var(--color-paper-3); overflow: hidden; }
+    .track div { height: 100%; border-radius: inherit; background: var(--color-accent); transition: width var(--dur-long) var(--ease-out); }
+    .clips { display: grid; gap: var(--space-lg); grid-template-columns: minmax(0, 1fr); align-items: start; }
+    @media (min-width: 36rem) { .clips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 64rem) { .clips { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (min-width: 110rem) { .clips { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .clip { display: flex; flex-direction: column; gap: var(--space-sm); padding: var(--space-sm); min-width: 0; }
+    .clip.sel { outline: 2px solid var(--color-accent); outline-offset: -1px; }
+    .player { position: relative; width: 100%; max-width: 26rem; margin-inline: auto; aspect-ratio: 9 / 16; border-radius: var(--radius-control); overflow: hidden; background: var(--color-paper); }
+    .player video, .player img { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .player video { object-fit: contain; cursor: pointer; }
+    .player img { object-fit: cover; }
+    .cover { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-xs); border: 0; background: transparent; color: var(--color-ink-2); cursor: pointer; font: inherit; font-size: var(--type-xs); }
+    .cover:hover { color: var(--color-ink); }
+    .cover:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
+    .play { width: 3.5rem; height: 3.5rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--color-accent); color: var(--color-accent-ink); box-shadow: 0 6px 20px -6px color-mix(in oklab, var(--color-ink) 60%, transparent); }
+    .pick { position: absolute; top: 0; left: 0; z-index: 2; width: 44px; height: 44px; border: 0; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .pick > span { width: 2rem; height: 2rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in oklab, var(--color-paper) 75%, transparent); color: var(--color-ink); border: 1px solid var(--color-rule); }
+    .pick[aria-checked='true'] > span { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-ink); }
+    .pick:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -4px; border-radius: 50%; }
+    .ring { position: absolute; top: var(--space-2xs); right: var(--space-2xs); width: 2.5rem; height: 2.5rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in oklab, var(--color-paper) 75%, transparent); }
+    .ring svg { transform: rotate(-90deg); }
+    .ring b { position: absolute; font-size: 0.625rem; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+    .rank { position: absolute; bottom: var(--space-xs); left: var(--space-xs); padding: var(--space-3xs) var(--space-xs); border-radius: var(--radius-pill); font-size: var(--type-xs); font-weight: 700; background: color-mix(in oklab, var(--color-paper) 75%, transparent); color: var(--color-ink); }
+    .rank.top { background: var(--color-accent); color: var(--color-accent-ink); }
+    .info { display: flex; flex-direction: column; gap: var(--space-3xs); padding-inline: var(--space-3xs); }
+    .hook { margin: 0; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+    .meta { display: flex; flex-wrap: wrap; gap: 0 var(--space-sm); font-size: var(--type-xs); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+    .tag { padding: 0 var(--space-2xs); border-radius: var(--radius-pill); background: color-mix(in oklab, var(--color-accent) 14%, var(--app-card)); color: var(--color-accent-text); font-weight: 600; }
+    .acts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-3xs); border-top: 1px solid var(--color-rule); padding-top: var(--space-2xs); }
+    .act { min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-ink-2); font: 500 0.6875rem/1.1 var(--font-body); cursor: pointer; }
+    .act:hover:not(:disabled) { background: var(--color-paper-3); color: var(--color-ink); }
+    .act[aria-expanded='true'] { color: var(--color-accent-text); background: color-mix(in oklab, var(--color-accent) 9%, var(--app-card)); }
+    .act:disabled { opacity: 0.5; cursor: progress; }
+    .ok { color: var(--color-positive); }
+    .strip { display: flex; gap: var(--space-xs); overflow-x: auto; padding-bottom: var(--space-3xs); }
+    .frame { flex: none; padding: 0; border-radius: 6px; overflow: hidden; border: 2px solid transparent; background: transparent; cursor: pointer; }
+    .frame[aria-pressed='true'] { border-color: var(--color-accent); }
+    .frame img { display: block; width: 54px; height: 96px; object-fit: cover; }
+    .frame-sk { flex: none; width: 54px; height: 96px; }
+    .editor { padding: var(--space-md); border-radius: var(--radius-control); border: 1px solid var(--color-rule); background: color-mix(in oklab, var(--color-paper-3) 40%, transparent); display: flex; flex-direction: column; gap: var(--space-sm); }
+    .editor p { margin: 0; }
+    .small { font-size: var(--type-xs); color: var(--color-muted); }
+    .words { margin: 0; padding: 0 var(--space-3xs) 0 0; list-style: none; max-height: 13rem; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-2xs); }
+    .words li { display: flex; align-items: center; gap: var(--space-xs); }
+    .words time { flex: none; width: 5.5rem; font-size: var(--type-xs); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+    .words .ui-field { flex: 1; min-width: 0; }
+    .warn-text { color: var(--color-caution); font-size: var(--type-sm); }
+    @media (prefers-reduced-motion: reduce) { .card-enter { opacity: 1; animation: none; } .track div { transition: none; } }
   `],
   template: `
-    <app-navbar></app-navbar>
-    <app-toasts></app-toasts>
-    <div class="max-w-7xl mx-auto px-4 py-8">
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 class="text-2xl font-bold mb-1">Your Shorts</h1>
-          <p class="text-[hsl(var(--muted-foreground))]">
-            Ranked by predicted engagement. Hover to preview, download or share.
-          </p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          @if (clips.length > 1) {
-            <button
-              class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium disabled:opacity-50"
-              [disabled]="zipping"
-              (click)="downloadAll()"
-            >
-              @if (zipping) {
-                <span class="inline-flex items-center gap-1.5"><svg lucideIcon="loader-2" [size]="16" class="animate-spin"></svg>Zipping…</span>
-              } @else {
-                Download all (ZIP)
-              }
-            </button>
-            <button
-              class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
-              (click)="copyAllCaptions()"
-            >
-              {{ allCopied ? 'Copied!' : 'Copy all captions' }}
-            </button>
-          }
-          <button
-            class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium inline-flex items-center gap-1.5"
-            (click)="goToThumbnails()"
-          >
-            <svg lucideIcon="sparkles" [size]="15"></svg>
-            AI thumbnails
-          </button>
-          <button
-            class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium inline-flex items-center gap-1.5"
-            (click)="toggleStylePanel()"
-            [attr.aria-expanded]="styleOpen"
-            aria-label="Caption styles"
-          >
-            <svg lucideIcon="captions" [size]="15"></svg>
-            Captions
-          </button>
-          <button
-            class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium inline-flex items-center gap-1.5"
-            (click)="toggleEffectsPanel()"
-            [attr.aria-expanded]="effectsOpen"
-            aria-label="Video effects"
-          >
-            <svg lucideIcon="film" [size]="15"></svg>
-            Effects
-          </button>
-          <button
-            class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
-            (click)="goToUpload()"
-          >
-            New Shorts
-          </button>
-          <button
-            class="btn-interactive px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium inline-flex items-center gap-1.5"
-            (click)="pendingDelete = true"
-            [disabled]="isLoading || !!error"
-            aria-label="Delete this short and all its assets"
-          >
-            <svg lucideIcon="trash-2" [size]="15"></svg>
-            Delete
-          </button>
-        </div>
-      </div>
-
-      @if (isLoading) {
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" aria-label="Loading clips">
-          @for (i of [1,2,3,4]; track i) {
-            <div class="skeleton aspect-[9/16] rounded-xl"></div>
-          }
-        </div>
-      }
-
-      @if (error) {
-        <div class="p-3 glass-card !border-red-500/30">
-          <p class="text-sm text-red-400 flex items-center gap-2">
-            <svg lucideIcon="circle-x" [size]="16"></svg>
-            {{ error }}
-          </p>
-          <button
-            type="button"
-            (click)="reload()"
-            class="mt-3 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[13px] font-medium hover:bg-white/5"
-          >
-            Try again
-          </button>
-        </div>
-      }
-
-      @if (!isLoading && !error && clips.length === 0) {
-        <div class="glass-card p-10 text-center">
-          <svg lucideIcon="clapperboard" [size]="40" class="mx-auto text-[hsl(var(--muted-foreground))]"></svg>
-          <p class="mt-3 font-medium">No clips were generated for this job.</p>
-          <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Try a longer video for better results.</p>
-        </div>
-      }
-
-      @if (clips.length > 0) {
-        <!-- Caption studio -->
-        @if (styleOpen) {
-          <div class="mb-4 glass-card p-5" aria-label="Caption styles">
-            <div class="flex items-center justify-between gap-2">
-              <h2 class="font-semibold text-[15px]">Caption style</h2>
-              <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Saved per job · used by renders and retries</span>
-            </div>
-            @if (styleLoaded && styleLoadError) {
-              <p class="mt-2 rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-2.5 text-[13px] text-red-400" role="alert">
-                Couldn't load the saved style. Check your connection and reopen this panel.
-              </p>
-            } @else if (styleLoaded && !styleEditable) {
-              <p class="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-2.5 text-[13px] text-[hsl(var(--muted-foreground))]" role="note">
-                This job is already rendered. Styles apply to future renders. Retry the job to re-render with a new style.
-              </p>
-            }
-            <div class="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2.5" role="group" aria-label="Caption presets">
-              @for (p of captionPresets; track p.id) {
-                <button
-                  type="button"
-                  (click)="selectPreset(p.id)"
-                  [attr.aria-pressed]="styleDraft.preset === p.id"
-                  class="rounded-xl border p-3 text-left transition-colors min-h-[44px]"
-                  [class]="styleDraft.preset === p.id ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/[.07]' : 'border-[hsl(var(--border))] hover:bg-white/5'"
-                >
-                  <span class="block text-[13.5px] font-semibold">{{ p.label }}</span>
-                  <span class="block text-[11.5px] text-[hsl(var(--muted-foreground))]">{{ p.blurb }}</span>
-                  <span class="mt-2 block rounded-lg bg-black px-2 py-3 text-center" aria-hidden="true">
-                    @if (p.id === 'karaoke') {
-                      <span [ngStyle]="swatchStyle(p.id)">Sample</span>
-                      <span style="color:#9AA0A6" [style.font-size]="swatchStyle(p.id)['font-size']"> caption</span>
-                    } @else {
-                      <span [ngStyle]="swatchStyle(p.id)">Sample caption</span>
-                    }
-                  </span>
-                  <span class="mt-1.5 block rounded-lg bg-zinc-200 px-2 py-3 text-center" aria-hidden="true">
-                    @if (p.id === 'karaoke') {
-                      <span [ngStyle]="swatchStyle(p.id)">Sample</span>
-                      <span style="color:#5b5b5b" [style.font-size]="swatchStyle(p.id)['font-size']"> caption</span>
-                    } @else {
-                      <span [ngStyle]="swatchStyle(p.id)">Sample caption</span>
-                    }
-                  </span>
-                </button>
-              }
-            </div>
-            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Size · <span class="tabular-nums">{{ styleDraft.fontSize }}</span></span>
-                <input type="range" min="8" max="72" step="1" [(ngModel)]="styleDraft.fontSize" class="w-full" aria-label="Caption font size" />
-              </label>
-              <div class="flex items-center gap-4">
-                <label class="flex items-center gap-2 text-[12.5px] font-medium">
-                  Text
-                  <input type="color" [(ngModel)]="styleDraft.color" class="w-10 h-10 rounded-lg border border-[hsl(var(--border))] cursor-pointer bg-transparent" aria-label="Caption text color" />
-                </label>
-                <label class="flex items-center gap-2 text-[12.5px] font-medium">
-                  Highlight
-                  <input type="color" [(ngModel)]="styleDraft.highlight" class="w-10 h-10 rounded-lg border border-[hsl(var(--border))] cursor-pointer bg-transparent" aria-label="Karaoke highlight color" />
-                </label>
-              </div>
-            </div>
-            <div class="mt-3 flex flex-wrap items-center gap-2">
-              <span class="text-[12.5px] font-medium" id="cap-pos-label">Position</span>
-              <div class="flex gap-1.5" role="group" aria-labelledby="cap-pos-label">
-                @for (pos of positionOptions; track pos) {
-                  <button
-                    type="button"
-                    (click)="styleDraft.position = pos"
-                    [attr.aria-pressed]="styleDraft.position === pos"
-                    class="min-h-[40px] px-4 rounded-full border text-[13px] font-medium capitalize"
-                    [class]="styleDraft.position === pos ? 'bg-[hsl(var(--foreground))] text-[hsl(var(--background))] border-transparent' : 'border-[hsl(var(--border))]'"
-                  >{{ pos }}</button>
+    <div class="ui-app">
+      <app-navbar></app-navbar>
+      <app-toasts></app-toasts>
+      <main id="main" class="ui-app-main hm" style="width: min(90rem, 100%)">
+        <div class="ui-page-head">
+          <div>
+            <h1 class="ui-h1">Clips</h1>
+            <p class="ui-lead">Ranked by predicted engagement. Hover to preview, download or share.</p>
+          </div>
+          <div class="tools">
+            @if (clips.length > 1) {
+              <button type="button" class="ui-btn ui-btn--secondary" [disabled]="zipping" (click)="downloadAll()">
+                @if (zipping) {
+                  <svg lucideIcon="loader-2" [size]="16" class="ui-spin" aria-hidden="true"></svg>Zipping
+                } @else {
+                  <svg lucideIcon="download" [size]="16" aria-hidden="true"></svg>Download all (ZIP)
                 }
-              </div>
-              <span class="flex-1"></span>
-              <button type="button" (click)="resetStyleDraft()" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Defaults</button>
-              <button
-                type="button"
-                (click)="saveStyle()"
-                [disabled]="styleSaving || !styleEditable"
-                [title]="!styleEditable && styleLoaded ? 'Styles apply to future renders only' : 'Save caption style'"
-                class="btn-interactive min-h-[40px] px-5 rounded-full bg-[hsl(var(--primary))] text-white text-[13.5px] font-semibold disabled:opacity-50"
-              >{{ styleSaving ? 'Saving…' : 'Save style' }}</button>
-            </div>
-            @if (styleError) {
-              <p class="mt-2 text-[13px] text-red-400" role="alert">{{ styleError }}</p>
+              </button>
+              <button type="button" class="ui-btn ui-btn--secondary" (click)="copyAllCaptions()">
+                <svg lucideIcon="copy" [size]="16" aria-hidden="true"></svg>{{ allCopied ? 'Copied' : 'Copy all captions' }}
+              </button>
             }
-          </div>
-        }
-        <!-- Video effects (same rules as the caption studio: editable while uploaded or failed) -->
-        @if (effectsOpen) {
-          <div class="mb-4">
-            <app-shorts-effects-panel></app-shorts-effects-panel>
-          </div>
-        }
-        <!-- Selection toolbar -->        <div class="mb-4 flex flex-wrap items-center gap-2" aria-label="Clip selection">
-          <button
-            type="button"
-            (click)="toggleSelectAll()"
-            [attr.aria-pressed]="allSelected"
-            class="btn-interactive inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium min-h-[40px]"
-          >
-            <span
-              class="w-5 h-5 rounded-md border flex items-center justify-center shrink-0"
-              [class]="allSelected ? 'bg-[hsl(var(--primary))] border-[hsl(var(--primary))]' : 'border-[hsl(var(--muted-foreground))]'"
-              aria-hidden="true"
-            >
-              @if (allSelected) {
-                <svg lucideIcon="check" [size]="14" class="text-white"></svg>
-              }
-            </span>
-            {{ allSelected ? 'Deselect all' : 'Select all' }}
-          </button>
-          <span class="text-[13px] text-[hsl(var(--muted-foreground))]" role="status" aria-live="polite">
-            {{ selectedCount }} of {{ clips.length }} selected
-          </span>
-          <span class="flex-1"></span>
-          @if (selectedCount > 0) {
-            <button
-              type="button"
-              (click)="clearSelection()"
-              class="btn-interactive px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium min-h-[40px]"
-            >
-              Clear
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="goToThumbnails()">
+              <svg lucideIcon="sparkles" [size]="16" aria-hidden="true"></svg>AI thumbnails
             </button>
-          }
-          <button
-            type="button"
-            (click)="downloadSelected()"
-            [disabled]="selectedCount === 0 || bulkActive"
-            class="btn-interactive inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-semibold disabled:opacity-40 min-h-[40px]"
-          >
-            @if (bulkActive) {
-              <svg lucideIcon="loader-2" [size]="15" class="animate-spin"></svg>
-              {{ bulkLabel }}
-            } @else {
-              <svg lucideIcon="download" [size]="15"></svg>
-              Download selected
-            }
-          </button>
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="toggleStylePanel()" [attr.aria-expanded]="styleOpen" aria-label="Caption styles">
+              <svg lucideIcon="captions" [size]="16" aria-hidden="true"></svg>Captions
+            </button>
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="toggleEffectsPanel()" [attr.aria-expanded]="effectsOpen" aria-label="Video effects">
+              <svg lucideIcon="film" [size]="16" aria-hidden="true"></svg>Effects
+            </button>
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="goToUpload()">New Shorts</button>
+            <button type="button" class="ui-btn ui-btn--danger" (click)="pendingDelete = true" [disabled]="isLoading || !!error" aria-label="Delete this short and all its assets">
+              <svg lucideIcon="trash-2" [size]="16" aria-hidden="true"></svg>Delete
+            </button>
+          </div>
         </div>
 
-        @if (bulkActive || bulkFailed.length > 0) {
-          <div class="mb-4 glass-card p-4" role="status" aria-live="polite">
-            <div class="flex justify-between text-[13px] text-[hsl(var(--muted-foreground))] mb-2">
-              <span>{{ bulkLabel }}</span>
-              <span>{{ bulkDone }} / {{ bulkTotal }}</span>
-            </div>
-            <div class="h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden">
-              <div
-                class="h-full rounded-full bg-gradient-to-r from-[hsl(var(--primary))] to-purple-400 transition-all duration-300"
-                [style.width.%]="bulkTotal ? (bulkDone / bulkTotal) * 100 : 0"
-              ></div>
-            </div>
-            @if (bulkFailed.length > 0 && !bulkActive) {
-              <p class="mt-2 text-[13px] text-red-400">
-                Couldn't download: {{ bulkFailed.join(', ') }}. The rest saved successfully. Retry these individually.
-              </p>
+        @if (isLoading) {
+          <div class="clips" role="status" aria-label="Loading clips">
+            @for (i of [1, 2, 3]; track i) {
+              <div class="ui-skeleton" style="aspect-ratio: 9 / 16"></div>
             }
           </div>
         }
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          @for (clip of clips; track clip.clipId; let i = $index) {
-            <div class="glass-card p-3 flex flex-col card-enter group" [style.animation-delay]="(i * 0.05) + 's'" [attr.data-clip]="clip.clipId" [class.ring-2]="isSelected(clip)" [class.ring-[hsl(var(--primary))]]="isSelected(clip)">
-              <!-- 9:16 video -->
-              <div
-                class="relative w-full rounded-lg overflow-hidden bg-black aspect-[9/16]"
-                (mouseenter)="hoverPlay(clip, $event)"
-                (mouseleave)="hoverStop(clip)"
-              >
-                @if (showVideo[clip.clipId] && previewUrls[clip.clipId]) {
-                  <video
-                    [src]="previewUrls[clip.clipId]"
-                    muted
-                    playsinline
-                    preload="metadata"
-                    class="absolute inset-0 w-full h-full object-contain bg-black cursor-pointer"
-                    (click)="togglePlay(clip, $event)"
-                  ></video>
-                } @else if (thumbs[clip.clipId]) {
-                  <img
-                    [src]="thumbs[clip.clipId]"
-                    [alt]="'Thumbnail for clip ' + clip.rank"
-                    class="absolute inset-0 w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  <button
-                    type="button"
-                    (click)="playThumb(clip)"
-                    [attr.aria-label]="'Play clip ' + clip.rank"
-                    class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/30 transition-colors group/play"
-                  >
-                    <span class="w-12 h-12 rounded-full bg-white/90 text-black flex items-center justify-center transition-transform group-hover/play:scale-105" aria-hidden="true">
-                      <svg lucideIcon="play" [size]="20"></svg>
+        @if (error) {
+          <div class="ui-card ui-error-card" role="alert">
+            <p><svg lucideIcon="circle-x" [size]="16" aria-hidden="true"></svg>{{ error }}</p>
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="reload()">Try again</button>
+          </div>
+        }
+
+        @if (!isLoading && !error && clips.length === 0) {
+          <div class="ui-card ui-empty">
+            <span class="ui-chip" aria-hidden="true"><svg lucideIcon="clapperboard" [size]="18"></svg></span>
+            <p><strong>No clips were generated for this job.</strong></p>
+            <p>Try a longer video for better results.</p>
+          </div>
+        }
+
+        @if (clips.length > 0) {
+          @if (styleOpen) {
+            <section class="ui-card" aria-label="Caption styles">
+              <div class="cs-head">
+                <h2 class="ui-card-title">Caption style</h2>
+                <span class="small">Saved per job, used by renders and retries</span>
+              </div>
+              @if (styleLoaded && styleLoadError) {
+                <p class="ui-alert ui-alert--bad" role="alert">Couldn't load the saved style. Check your connection and reopen this panel.</p>
+              } @else if (styleLoaded && !styleEditable) {
+                <p class="ui-alert ui-alert--warn" role="note">This job is already rendered. Styles apply to future renders. Retry the job to re-render with a new style.</p>
+              }
+              <div class="presets" role="group" aria-label="Caption presets">
+                @for (p of captionPresets; track p.id) {
+                  <button type="button" class="preset" (click)="selectPreset(p.id)" [attr.aria-pressed]="styleDraft.preset === p.id">
+                    <b>{{ p.label }}</b>
+                    <small>{{ p.blurb }}</small>
+                    <span class="sample hm-on-dark" aria-hidden="true">
+                      @if (p.id === 'karaoke') {
+                        <span [ngStyle]="swatchStyle(p.id)">Sample</span><span class="unlit" [style.font-size]="swatchStyle(p.id)['font-size']"> caption</span>
+                      } @else {
+                        <span [ngStyle]="swatchStyle(p.id)">Sample caption</span>
+                      }
+                    </span>
+                    <span class="sample light hm-on-light" aria-hidden="true">
+                      @if (p.id === 'karaoke') {
+                        <span [ngStyle]="swatchStyle(p.id)">Sample</span><span class="unlit" [style.font-size]="swatchStyle(p.id)['font-size']"> caption</span>
+                      } @else {
+                        <span [ngStyle]="swatchStyle(p.id)">Sample caption</span>
+                      }
                     </span>
                   </button>
-                } @else {
-                  <button
-                    class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[hsl(var(--muted-foreground))] hover:text-white transition-colors"
-                    [disabled]="loadingPreview[clip.clipId]"
-                    (click)="playThumb(clip)"
-                    [attr.aria-label]="'Preview clip ' + clip.rank"
-                  >
-                    @if (loadingPreview[clip.clipId]) {
-                      <svg lucideIcon="loader-2" [size]="36" class="animate-spin"></svg>
-                    } @else {
-                      <svg lucideIcon="play" [size]="36"></svg>
-                      <span class="text-xs">Tap to preview</span>
-                    }
-                  </button>
                 }
-
-                <!-- Selection checkbox -->
-                <button
-                  type="button"
-                  (click)="toggleSelect(clip)"
-                  role="checkbox"
-                  [attr.aria-checked]="isSelected(clip)"
-                  [attr.aria-label]="(isSelected(clip) ? 'Deselect' : 'Select') + ' clip ' + clip.rank"
-                  class="absolute top-2 left-2 z-10 w-9 h-9 rounded-full backdrop-blur flex items-center justify-center transition-colors"
-                  [class]="isSelected(clip) ? 'bg-[hsl(var(--primary))] text-white' : 'bg-black/55 text-white hover:bg-black/75'"
-                >
-                  @if (isSelected(clip)) {
-                    <svg lucideIcon="check" [size]="17"></svg>
-                  } @else {
-                    <span class="w-[18px] h-[18px] rounded-full border-2 border-white/80" aria-hidden="true"></span>
-                  }
-                </button>
-
-                <!-- Rank badge -->
-                <span
-                  class="absolute bottom-2 left-2 inline-flex items-center text-[11px] font-bold px-2 py-1 rounded-full text-white shadow"
-                  [class]="rankBadgeClass(clip.rank)"
-                >
-                  #{{ clip.rank }}
-                </span>
-
-                <!-- Engagement score ring -->
-                <span
-                  class="absolute top-2 right-2 w-9 h-9 rounded-full bg-black/60 flex items-center justify-center"
-                  [attr.aria-label]="'Engagement score ' + scorePercent(clip) + '%'"
-                  [title]="'Engagement score ' + scorePercent(clip) + '%'"
-                >
-                  <svg width="36" height="36" viewBox="0 0 36 36" class="-rotate-90">
-                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="3.5" />
-                    <circle
-                      cx="18" cy="18" r="15.5" fill="none"
-                      [attr.stroke]="scoreColor(clip)"
-                      stroke-width="3.5" stroke-linecap="round"
-                      [attr.stroke-dasharray]="ringDash(clip)"
-                      stroke-dashoffset="0"
-                    />
-                  </svg>
-                  <span class="absolute text-[9px] font-bold text-white">{{ scorePercent(clip) }}</span>
-                </span>
               </div>
-
-              <!-- Action bar: hover on desktop, always visible on touch -->
-              <div class="flex items-center justify-between mt-2 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
-                <button
-                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-[13px]"
-                  [disabled]="downloading[clip.clipId]"
-                  (click)="download(clip)"
-                  aria-label="Download clip"
-                >
-                  @if (downloading[clip.clipId]) {
-                    <svg lucideIcon="loader-2" [size]="15" class="animate-spin"></svg>
-                  } @else {
-                    <svg lucideIcon="download" [size]="15"></svg>
-                  }
-                  <span class="hidden sm:inline">Download</span>
-                </button>
-                <button
-                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-[13px]"
-                  (click)="copyCaption(clip)"
-                  aria-label="Copy caption"
-                >
-                  @if (copied[clip.clipId]) {
-                    <svg lucideIcon="check" [size]="15" class="text-green-400"></svg>
-                  } @else {
-                    <svg lucideIcon="copy" [size]="15"></svg>
-                  }
-                  <span class="hidden sm:inline">{{ copied[clip.clipId] ? 'Copied' : 'Caption' }}</span>
-                </button>
-                <button
-                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-[13px]"
-                  (click)="share(clip)"
-                  aria-label="Share clip"
-                >
-                  <svg lucideIcon="share-2" [size]="15"></svg>
-                  <span class="hidden sm:inline">Share</span>
-                </button>
-                <button
-                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-[13px]"
-                  (click)="toggleStrip(clip)"
-                  [attr.aria-expanded]="stripFor === clip.clipId"
-                  [attr.aria-label]="(stripFor === clip.clipId ? 'Hide' : 'Choose') + ' thumbnail frames for clip ' + clip.rank"
-                >
-                  <svg lucideIcon="image" [size]="15"></svg>
-                  <span class="hidden sm:inline">Frames</span>
-                </button>
-                <button
-                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-[13px]"
-                  (click)="toggleEditor(clip)"
-                  [attr.aria-expanded]="editorFor === clip.clipId"
-                  [attr.aria-label]="'Edit boundaries and captions for clip ' + clip.rank"
-                >
-                  <svg lucideIcon="pencil" [size]="15"></svg>
-                  <span class="hidden sm:inline">Edit</span>
-                </button>
+              <div class="cs-grid">
+                <label class="ui-f">
+                  <span class="ui-flabel">Size <span class="ui-val">{{ styleDraft.fontSize }}</span></span>
+                  <input type="range" class="ui-range" min="8" max="72" step="1" [(ngModel)]="styleDraft.fontSize" aria-label="Caption font size" />
+                </label>
+                <div class="ui-colors">
+                  <label class="ui-col">Text <input type="color" class="ui-swatch" [(ngModel)]="styleDraft.color" aria-label="Caption text color" /></label>
+                  <label class="ui-col">Highlight <input type="color" class="ui-swatch" [(ngModel)]="styleDraft.highlight" aria-label="Karaoke highlight color" /></label>
+                </div>
               </div>
-
-              @if (stripFor === clip.clipId) {
-                <div class="mt-2 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Thumbnail frame choices">
-                  @if (stripLoading && !(stripThumbs[clip.clipId]?.length)) {
-                    @for (i of [1, 2, 3, 4, 5]; track i) {
-                      <div class="skeleton w-[54px] h-[96px] rounded-lg shrink-0"></div>
-                    }
-                  } @else {
-                    @for (f of stripThumbs[clip.clipId] ?? []; track $index; let fi = $index) {
-                      <button
-                        type="button"
-                        (click)="selectStripFrame(clip, fi)"
-                        [attr.aria-pressed]="thumbs[clip.clipId] === f"
-                        [attr.aria-label]="'Use frame ' + (fi + 1) + ' as thumbnail for clip ' + clip.rank"
-                        class="shrink-0 rounded-lg overflow-hidden border-2 transition-colors"
-                        [class]="thumbs[clip.clipId] === f ? 'border-[hsl(var(--primary))]' : 'border-transparent hover:border-white/40'"
-                      >
-                        <img [src]="f" [alt]="'Frame option ' + (fi + 1)" class="w-[54px] h-[96px] object-cover" loading="lazy" />
-                      </button>
-                    }
-                    @if (!(stripThumbs[clip.clipId]?.length)) {
-                      <p class="text-[12px] text-[hsl(var(--muted-foreground))] py-2">Play the clip first, then pick a frame.</p>
-                    }
+              <div class="cs-foot">
+                <span class="ui-flabel" id="cap-pos-label">Position</span>
+                <div class="ui-row" role="group" aria-labelledby="cap-pos-label">
+                  @for (pos of positionOptions; track pos) {
+                    <button type="button" class="ui-btn ui-btn--secondary ui-seg" (click)="styleDraft.position = pos" [attr.aria-pressed]="styleDraft.position === pos">{{ pos }}</button>
                   }
                 </div>
+                <span class="ui-spacer"></span>
+                <button type="button" class="ui-btn ui-btn--secondary" (click)="resetStyleDraft()">Defaults</button>
+                <button type="button" class="ui-btn ui-btn--primary" (click)="saveStyle()" [disabled]="styleSaving || !styleEditable"
+                  [title]="!styleEditable && styleLoaded ? 'Styles apply to future renders only' : 'Save caption style'">{{ styleSaving ? 'Saving' : 'Save style' }}</button>
+              </div>
+              @if (styleError) {
+                <p class="bad-text" role="alert">{{ styleError }}</p>
               }
+            </section>
+          }
 
-              <p class="mt-1 px-1 text-[11px] text-[hsl(var(--muted-foreground))]">
-                {{ formatDuration(clip.duration) }}
-                @if (clip.hookText) {
-                  · {{ clip.hookText }}
-                }
-                @if (boundsFor(clip); as bounds) {
-                  <span class="block tabular-nums">
-                    {{ formatTime(bounds.start) }} – {{ formatTime(bounds.end) }}
-                    @if (boundsEdited(clip)) {
-                      <span class="ml-1 rounded-full bg-[hsl(var(--primary))]/15 text-white px-1.5 py-px text-[10px] font-semibold">edited</span>
-                    }
-                  </span>
-                }
-              </p>
+          @if (effectsOpen) {
+            <app-shorts-effects-panel></app-shorts-effects-panel>
+          }
 
-              @if (editorFor === clip.clipId) {
-                <div class="mt-2 rounded-xl border border-[hsl(var(--border))] bg-white/[0.02] p-3.5" aria-label="Clip editor">
-                  @if (editorLoading || !editor) {
-                    <div class="space-y-2" aria-label="Loading editor">
-                      <div class="skeleton h-4 w-2/3"></div>
-                      <div class="skeleton h-10 w-full"></div>
-                      <div class="skeleton h-10 w-full"></div>
-                    </div>
-                  } @else {
-                    <p class="text-[12px] text-[hsl(var(--muted-foreground))]">
-                      AI suggestion:
-                      <span class="tabular-nums">{{ formatTime(editor.aiStart) }} – {{ formatTime(editor.aiEnd) }}</span>
-                      @if (editor.hasSavedEdit) {
-                        <span class="ml-1 rounded-full bg-[hsl(var(--primary))]/15 text-white px-1.5 py-px text-[10px] font-semibold">customized</span>
-                      }
-                    </p>
-                    <div class="mt-3 space-y-3">
-                      <label class="block">
-                        <span class="flex justify-between text-[12.5px] font-medium">
-                          Start <span class="tabular-nums">{{ formatTime(editor.start) }}</span>
-                        </span>
-                        <input type="range" min="0" [max]="editor.sourceDuration" step="0.1" [(ngModel)]="editor.start" class="w-full" aria-label="Clip start time in seconds" />
-                      </label>
-                      <label class="block">
-                        <span class="flex justify-between text-[12.5px] font-medium">
-                          End <span class="tabular-nums">{{ formatTime(editor.end) }}</span>
-                        </span>
-                        <input type="range" min="0" [max]="editor.sourceDuration" step="0.1" [(ngModel)]="editor.end" class="w-full" aria-label="Clip end time in seconds" />
-                      </label>
-                    </div>
-                    <button
-                      type="button"
-                      (click)="previewRange()"
-                      class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[12.5px] font-medium hover:bg-white/5 min-h-[40px]"
-                    >
-                      <svg lucideIcon="play" [size]="14"></svg>
-                      Preview range
-                    </button>
-                    <div class="mt-3">
-                      <p class="text-[12.5px] font-medium mb-1.5">
-                        Captions
-                        <span class="font-normal text-[hsl(var(--muted-foreground))]">· timings preserved, text is editable</span>
-                      </p>
-                      @if (editor.words.length === 0) {
-                        <p class="text-[12.5px] text-[hsl(var(--muted-foreground))]">No captions in this range.</p>
-                      } @else {
-                        <ul class="max-h-44 overflow-y-auto space-y-1.5 pr-1">
-                          @for (w of editor.words; track $index; let wi = $index) {
-                            <li class="flex items-center gap-2">
-                              <span class="shrink-0 text-[11px] font-mono text-[hsl(var(--muted-foreground))] tabular-nums w-[86px]">{{ formatTime(w.start) }}</span>
-                              <input
-                                type="text"
-                                [(ngModel)]="editor.words[wi].text"
-                                maxlength="60"
-                                class="min-w-0 flex-1 rounded-lg border border-[hsl(var(--border))] bg-transparent px-2.5 py-2 text-[13px] outline-none focus:border-[hsl(var(--primary))]"
-                                [attr.aria-label]="'Caption word ' + (wi + 1) + ' at ' + formatTime(w.start)"
-                              />
-                            </li>
-                          }
-                        </ul>
-                      }
-                    </div>
-                    @if (!editorValid() && !editor.saving) {
-                      <p class="mt-2 text-[12.5px] text-red-400" role="alert">
-                        Check the range: need 0 ≤ start &lt; end ≤ {{ formatTime(editor.sourceDuration) }}, at least 1s long, and no empty captions.
-                      </p>
-                    }
-                    @if (editor.dropped !== null && editor.dropped > 0) {
-                      <p class="mt-2 text-[12.5px] text-amber-400">
-                        {{ editor.dropped }} caption{{ editor.dropped === 1 ? '' : 's' }} fall outside the new range and won't render.
-                      </p>
-                    }
-                    @if (editor.error) {
-                      <p class="mt-2 text-[12.5px] text-red-400" role="alert">{{ editor.error }}</p>
-                    }
-                    <div class="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        (click)="saveEdit()"
-                        [disabled]="editor.saving || !editorValid()"
-                        class="btn-interactive min-h-[40px] px-5 rounded-full bg-[hsl(var(--primary))] text-white text-[13px] font-semibold disabled:opacity-50"
-                      >{{ editor.saving ? 'Saving…' : 'Save changes' }}</button>
-                      @if (editor.hasSavedEdit) {
-                        <button
-                          type="button"
-                          (click)="resetEdit()"
-                          [disabled]="editor.saving"
-                          class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
-                        >Reset to AI suggestion</button>
-                      }
-                    </div>
-                    <p class="mt-2 text-[11.5px] text-[hsl(var(--muted-foreground))]">Saved edits apply on retry or re-render. The original clip stays until the new render succeeds.</p>
-                  }
-                </div>
+          <div class="selbar" aria-label="Clip selection">
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="toggleSelectAll()" [attr.aria-pressed]="allSelected">
+              <span class="box" [class.on]="allSelected" aria-hidden="true">
+                @if (allSelected) {
+                  <svg lucideIcon="check" [size]="14"></svg>
+                }
+              </span>
+              {{ allSelected ? 'Deselect all' : 'Select all' }}
+            </button>
+            <span class="count" role="status" aria-live="polite">{{ selectedCount }} of {{ clips.length }} selected</span>
+            <span class="ui-spacer"></span>
+            @if (selectedCount > 0) {
+              <button type="button" class="ui-btn ui-btn--quiet" (click)="clearSelection()">Clear</button>
+            }
+            <button type="button" class="ui-btn ui-btn--primary" (click)="downloadSelected()" [disabled]="selectedCount === 0 || bulkActive">
+              @if (bulkActive) {
+                <svg lucideIcon="loader-2" [size]="16" class="ui-spin" aria-hidden="true"></svg>{{ bulkLabel }}
+              } @else {
+                <svg lucideIcon="download" [size]="16" aria-hidden="true"></svg>Download selected
+              }
+            </button>
+          </div>
+
+          @if (bulkActive || bulkFailed.length > 0) {
+            <div class="ui-card" role="status" aria-live="polite">
+              <div class="bulk-head"><span>{{ bulkLabel }}</span><span>{{ bulkDone }} / {{ bulkTotal }}</span></div>
+              <div class="track"><div [style.width.%]="bulkTotal ? (bulkDone / bulkTotal) * 100 : 0"></div></div>
+              @if (bulkFailed.length > 0 && !bulkActive) {
+                <p class="bad-text">Couldn't download: {{ bulkFailed.join(', ') }}. The rest saved successfully. Retry these individually.</p>
               }
             </div>
           }
-        </div>
-      }
+
+          <div class="clips">
+            @for (clip of clips; track clip.clipId; let i = $index) {
+              <article class="ui-card clip card-enter" [style.animation-delay]="(i * 0.05) + 's'" [attr.data-clip]="clip.clipId" [class.sel]="isSelected(clip)" [attr.aria-label]="'Clip ' + clip.rank">
+                <div class="player hm-on-dark" (mouseenter)="hoverPlay(clip, $event)" (mouseleave)="hoverStop(clip)">
+                  @if (showVideo[clip.clipId] && previewUrls[clip.clipId]) {
+                    <video [src]="previewUrls[clip.clipId]" muted playsinline preload="metadata" (click)="togglePlay(clip, $event)"></video>
+                  } @else if (thumbs[clip.clipId]) {
+                    <img [src]="thumbs[clip.clipId]" [alt]="'Thumbnail for clip ' + clip.rank" loading="lazy" />
+                    <button type="button" class="cover" (click)="playThumb(clip)" [attr.aria-label]="'Play clip ' + clip.rank">
+                      <span class="play" aria-hidden="true"><svg lucideIcon="play" [size]="22"></svg></span>
+                    </button>
+                  } @else {
+                    <button type="button" class="cover" [disabled]="loadingPreview[clip.clipId]" (click)="playThumb(clip)" [attr.aria-label]="'Preview clip ' + clip.rank">
+                      @if (loadingPreview[clip.clipId]) {
+                        <svg lucideIcon="loader-2" [size]="32" class="ui-spin" aria-hidden="true"></svg>
+                      } @else {
+                        <span class="play" aria-hidden="true"><svg lucideIcon="play" [size]="22"></svg></span>
+                        <span>Tap to preview</span>
+                      }
+                    </button>
+                  }
+                  <button type="button" class="pick" (click)="toggleSelect(clip)" role="checkbox" [attr.aria-checked]="isSelected(clip)" [attr.aria-label]="(isSelected(clip) ? 'Deselect' : 'Select') + ' clip ' + clip.rank">
+                    <span>
+                      @if (isSelected(clip)) {
+                        <svg lucideIcon="check" [size]="16" aria-hidden="true"></svg>
+                      }
+                    </span>
+                  </button>
+                  <span class="rank" [class]="rankBadgeClass(clip.rank)">#{{ clip.rank }}</span>
+                  <span class="ring" [attr.aria-label]="'Engagement score ' + scorePercent(clip) + '%'" [title]="'Engagement score ' + scorePercent(clip) + '%'" role="img">
+                    <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
+                      <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--color-rule)" stroke-width="3.5" />
+                      <circle cx="18" cy="18" r="15.5" fill="none" [attr.stroke]="scoreColor(clip)" stroke-width="3.5" stroke-linecap="round" [attr.stroke-dasharray]="ringDash(clip)" stroke-dashoffset="0" />
+                    </svg>
+                    <b aria-hidden="true">{{ scorePercent(clip) }}</b>
+                  </span>
+                </div>
+
+                <div class="info">
+                  @if (clip.hookText) {
+                    <p class="hook">{{ clip.hookText }}</p>
+                  }
+                  <p class="meta" style="margin: 0">
+                    <span>{{ formatDuration(clip.duration) }}</span>
+                    @if (boundsFor(clip); as bounds) {
+                      <span>{{ formatTime(bounds.start) }} to {{ formatTime(bounds.end) }}</span>
+                      @if (boundsEdited(clip)) {
+                        <span class="tag">edited</span>
+                      }
+                    }
+                  </p>
+                </div>
+
+                <div class="acts">
+                  <button type="button" class="act" [disabled]="downloading[clip.clipId]" (click)="download(clip)" aria-label="Download clip">
+                    @if (downloading[clip.clipId]) {
+                      <svg lucideIcon="loader-2" [size]="16" class="ui-spin" aria-hidden="true"></svg>
+                    } @else {
+                      <svg lucideIcon="download" [size]="16" aria-hidden="true"></svg>
+                    }
+                    <span aria-hidden="true">Download</span>
+                  </button>
+                  <button type="button" class="act" (click)="copyCaption(clip)" aria-label="Copy caption">
+                    @if (copied[clip.clipId]) {
+                      <svg lucideIcon="check" [size]="16" class="ok" aria-hidden="true"></svg>
+                    } @else {
+                      <svg lucideIcon="copy" [size]="16" aria-hidden="true"></svg>
+                    }
+                    <span aria-hidden="true">{{ copied[clip.clipId] ? 'Copied' : 'Caption' }}</span>
+                  </button>
+                  <button type="button" class="act" (click)="share(clip)" aria-label="Share clip">
+                    <svg lucideIcon="share-2" [size]="16" aria-hidden="true"></svg>
+                    <span aria-hidden="true">Share</span>
+                  </button>
+                  <button type="button" class="act" (click)="toggleStrip(clip)" [attr.aria-expanded]="stripFor === clip.clipId" [attr.aria-label]="(stripFor === clip.clipId ? 'Hide' : 'Choose') + ' thumbnail frames for clip ' + clip.rank">
+                    <svg lucideIcon="image" [size]="16" aria-hidden="true"></svg>
+                    <span aria-hidden="true">Frames</span>
+                  </button>
+                  <button type="button" class="act" (click)="toggleEditor(clip)" [attr.aria-expanded]="editorFor === clip.clipId" [attr.aria-label]="'Edit boundaries and captions for clip ' + clip.rank">
+                    <svg lucideIcon="pencil" [size]="16" aria-hidden="true"></svg>
+                    <span aria-hidden="true">Edit</span>
+                  </button>
+                </div>
+
+                @if (stripFor === clip.clipId) {
+                  <div class="strip" role="group" aria-label="Thumbnail frame choices">
+                    @if (stripLoading && !(stripThumbs[clip.clipId]?.length)) {
+                      @for (i of [1, 2, 3, 4, 5]; track i) {
+                        <div class="ui-skeleton frame-sk"></div>
+                      }
+                    } @else {
+                      @for (f of stripThumbs[clip.clipId] ?? []; track $index; let fi = $index) {
+                        <button type="button" class="frame" (click)="selectStripFrame(clip, fi)" [attr.aria-pressed]="thumbs[clip.clipId] === f" [attr.aria-label]="'Use frame ' + (fi + 1) + ' as thumbnail for clip ' + clip.rank">
+                          <img [src]="f" [alt]="'Frame option ' + (fi + 1)" loading="lazy" />
+                        </button>
+                      }
+                      @if (!(stripThumbs[clip.clipId]?.length)) {
+                        <p class="small" style="margin: 0; padding: var(--space-xs) 0">Play the clip first, then pick a frame.</p>
+                      }
+                    }
+                  </div>
+                }
+
+                @if (editorFor === clip.clipId) {
+                  <div class="editor" aria-label="Clip editor">
+                    @if (editorLoading || !editor) {
+                      <div style="display: flex; flex-direction: column; gap: var(--space-xs)" aria-label="Loading editor">
+                        <div class="ui-skeleton" style="height: 1rem; width: 66%"></div>
+                        <div class="ui-skeleton" style="height: 2.5rem"></div>
+                        <div class="ui-skeleton" style="height: 2.5rem"></div>
+                      </div>
+                    } @else {
+                      <p class="small">
+                        AI suggestion: <span style="font-variant-numeric: tabular-nums">{{ formatTime(editor.aiStart) }} to {{ formatTime(editor.aiEnd) }}</span>
+                        @if (editor.hasSavedEdit) {
+                          <span class="tag">customized</span>
+                        }
+                      </p>
+                      <label class="ui-f">
+                        <span class="ui-flabel">Start <span class="ui-val">{{ formatTime(editor.start) }}</span></span>
+                        <input type="range" class="ui-range" min="0" [max]="editor.sourceDuration" step="0.1" [(ngModel)]="editor.start" aria-label="Clip start time in seconds" />
+                      </label>
+                      <label class="ui-f">
+                        <span class="ui-flabel">End <span class="ui-val">{{ formatTime(editor.end) }}</span></span>
+                        <input type="range" class="ui-range" min="0" [max]="editor.sourceDuration" step="0.1" [(ngModel)]="editor.end" aria-label="Clip end time in seconds" />
+                      </label>
+                      <div><button type="button" class="ui-btn ui-btn--secondary" (click)="previewRange()"><svg lucideIcon="play" [size]="14" aria-hidden="true"></svg>Preview range</button></div>
+                      <div>
+                        <p class="ui-flabel" style="justify-content: flex-start">Captions <span class="small" style="font-weight: 400">Timings preserved, text is editable</span></p>
+                        @if (editor.words.length === 0) {
+                          <p class="small">No captions in this range.</p>
+                        } @else {
+                          <ul class="words">
+                            @for (w of editor.words; track $index; let wi = $index) {
+                              <li>
+                                <time>{{ formatTime(w.start) }}</time>
+                                <input type="text" class="ui-field" [(ngModel)]="editor.words[wi].text" maxlength="60" [attr.aria-label]="'Caption word ' + (wi + 1) + ' at ' + formatTime(w.start)" />
+                              </li>
+                            }
+                          </ul>
+                        }
+                      </div>
+                      @if (!editorValid() && !editor.saving) {
+                        <p class="bad-text" role="alert">Check the range: need 0 ≤ start &lt; end ≤ {{ formatTime(editor.sourceDuration) }}, at least 1s long, and no empty captions.</p>
+                      }
+                      @if (editor.dropped !== null && editor.dropped > 0) {
+                        <p class="warn-text">{{ editor.dropped }} caption{{ editor.dropped === 1 ? '' : 's' }} fall outside the new range and won't render.</p>
+                      }
+                      @if (editor.error) {
+                        <p class="bad-text" role="alert">{{ editor.error }}</p>
+                      }
+                      <div class="ui-row">
+                        <button type="button" class="ui-btn ui-btn--primary" (click)="saveEdit()" [disabled]="editor.saving || !editorValid()">{{ editor.saving ? 'Saving' : 'Save changes' }}</button>
+                        @if (editor.hasSavedEdit) {
+                          <button type="button" class="ui-btn ui-btn--secondary" (click)="resetEdit()" [disabled]="editor.saving">Reset to AI suggestion</button>
+                        }
+                      </div>
+                      <p class="small">Saved edits apply on retry or re-render. The original clip stays until the new render succeeds.</p>
+                    }
+                  </div>
+                }
+              </article>
+            }
+          </div>
+        }
+      </main>
     </div>
 
     <app-confirm-dialog
@@ -795,9 +627,9 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   scoreColor(clip: Clip): string {
     const pct = this.scorePercent(clip);
-    if (pct > 80) return 'var(--color-success)';
-    if (pct >= 50) return 'var(--color-warning)';
-    return 'var(--color-error)';
+    if (pct > 80) return 'var(--color-positive)';
+    if (pct >= 50) return 'var(--color-caution)';
+    return 'var(--color-negative)';
   }
 
   ringDash(clip: Clip): string {
@@ -806,12 +638,8 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   }
 
   rankBadgeClass(rank: number): string {
-    if (rank === 1) return 'bg-gradient-to-br from-yellow-300 to-amber-600';
-    if (rank === 2) return 'bg-gradient-to-br from-slate-200 to-slate-500';
-    if (rank === 3) return 'bg-gradient-to-br from-orange-300 to-amber-700';
-    return 'bg-black/60';
+    return rank === 1 ? 'rank top' : 'rank';
   }
-
   preview(clip: Clip): Promise<void> {
     if (this.previewUrls[clip.clipId] || this.loadingPreview[clip.clipId]) {
       return Promise.resolve();
