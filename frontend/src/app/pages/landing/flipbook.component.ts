@@ -54,9 +54,9 @@ type GsapModule = typeof import('./gsap-landing');
       .fb-page {
         box-sizing: border-box;
         overflow: hidden;
-        background: #faf7f2;
-        color: #1a1714;
-        border: 1px solid rgba(26, 23, 20, 0.1);
+        background: var(--color-paper);
+        color: var(--color-ink);
+        border: 1px solid var(--color-rule);
         border-radius: 16px;
         line-height: 1.5;
       }
@@ -71,23 +71,23 @@ type GsapModule = typeof import('./gsap-landing');
         font-size: 4.2cqw;
         border-radius: 0;
         border: 0;
-        box-shadow: inset 0 0 0 1px rgba(26, 23, 20, 0.1);
+        box-shadow: inset 0 0 0 1px var(--color-rule);
       }
       .fb-hard {
-        background: #1a1714;
-        color: #faf7f2;
-        border-color: rgba(255, 255, 255, 0.12);
+        background: var(--color-ink);
+        color: var(--color-paper);
+        border-color: color-mix(in oklab, var(--color-paper) 12%, transparent);
       }
       .fb-kicker {
         font-size: 0.78em;
-        color: #6b6560;
+        color: var(--color-muted);
         margin: 0;
       }
       .fb-hard .fb-kicker {
-        color: rgba(250, 247, 242, 0.7);
+        color: color-mix(in oklab, var(--color-paper) 70%, transparent);
       }
       .fb-title {
-        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-family: var(--font-display);
         font-weight: 500;
         font-size: 1.9em;
         line-height: 1.05;
@@ -105,16 +105,16 @@ type GsapModule = typeof import('./gsap-landing');
         font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
         font-size: 0.86em;
         line-height: 1.55;
-        background: #f3eee3;
+        background: var(--color-paper-2);
         border-radius: 10px;
         padding: 0.9em 1em;
         margin: 0 0 0.9em;
         white-space: pre-wrap;
-        color: #1a1714;
+        color: var(--color-ink);
       }
       .fb-note {
         margin: 0;
-        color: #6b6560;
+        color: var(--color-muted);
         font-size: 0.9em;
       }
       .fb-list {
@@ -124,10 +124,10 @@ type GsapModule = typeof import('./gsap-landing');
       }
       .fb-list li {
         padding: 0.55em 0;
-        border-top: 1px solid rgba(26, 23, 20, 0.12);
+        border-top: 1px solid var(--color-rule);
       }
       .fb-list li:last-child {
-        border-bottom: 1px solid rgba(26, 23, 20, 0.12);
+        border-bottom: 1px solid var(--color-rule);
       }
       .fb-list b {
         font-weight: 600;
@@ -138,7 +138,7 @@ type GsapModule = typeof import('./gsap-landing');
         width: 100%;
         height: auto;
         border-radius: 8px;
-        border: 1px solid rgba(26, 23, 20, 0.15);
+        border: 1px solid var(--color-rule);
         margin: 0.3em 0 0.8em;
       }
       .fb-controls {
@@ -157,8 +157,8 @@ type GsapModule = typeof import('./gsap-landing');
         padding: 0 20px;
         border-radius: 999px;
         border: 0;
-        background: #1a1714;
-        color: #faf7f2;
+        background: var(--color-ink);
+        color: var(--color-paper);
         font: inherit;
         font-size: 14px;
         font-weight: 600;
@@ -166,7 +166,7 @@ type GsapModule = typeof import('./gsap-landing');
         transition: background-color 0.2s;
       }
       .fb-btn:hover:not(:disabled) {
-        background: #2a2620;
+        background: color-mix(in oklab, var(--color-ink) 85%, var(--color-paper));
       }
       .fb-btn:disabled {
         opacity: 0.4;
@@ -174,14 +174,14 @@ type GsapModule = typeof import('./gsap-landing');
       }
       .fb-btn:focus-visible,
       .fb-stage:focus-visible {
-        outline: 2px solid #a8481f;
+        outline: 2px solid var(--color-focus);
         outline-offset: 3px;
       }
       .fb-count {
         min-width: 7.5em;
         text-align: center;
         font-size: 14px;
-        color: #6b6560;
+        color: var(--color-muted);
       }
       @media (prefers-reduced-motion: reduce) {
         .fb-btn {
@@ -191,7 +191,7 @@ type GsapModule = typeof import('./gsap-landing');
     `,
   ],
   template: `
-    <section aria-label="An example, page by page: from a TXT file to a narrated video">
+    <section class="hm-on-light" aria-label="An example, page by page: from a TXT file to a narrated video">
       <div
         #stage
         class="fb-stage"

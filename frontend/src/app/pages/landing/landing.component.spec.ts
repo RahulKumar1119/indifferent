@@ -170,3 +170,56 @@ describe('LandingComponent', () => {
     expect(page.innerHTML).not.toContain('picsum.photos');
   });
 });
+
+describe('LandingComponent positioning', () => {
+  beforeEach(async () => {
+    TestBed.configureTestingModule({ imports: [LandingComponent], providers: [provideRouter([])] });
+    TestBed.overrideComponent(LandingComponent, {
+      remove: { imports: [FlipbookComponent, HeroSceneComponent] },
+      add: { schemas: [CUSTOM_ELEMENTS_SCHEMA] },
+    });
+    await TestBed.compileComponents();
+  });
+  afterEach(() => {
+    document.head
+      .querySelectorAll('meta[name="robots"], script[data-seo-id], link[rel="canonical"]')
+      .forEach((el) => el.remove());
+  });
+  function render(): HTMLElement {
+    const fixture = TestBed.createComponent(LandingComponent);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('leads with Story to video: the h1, the sentence and one primary action into the story flow', () => {
+    const page = render();
+    expect(page.querySelector('h1')?.textContent?.trim()).toBe('Turn your stories into captivating videos.');
+    const hero = page.querySelector('section[aria-labelledby="hero-title"]')!;
+    expect(hero.textContent).toContain('Transform written stories into narrated videos with automatically generated scenes.');
+    const primary = hero.querySelector('a.ui-btn--primary');
+    expect(primary?.textContent?.trim()).toBe('Create my first video');
+    expect(primary?.getAttribute('href')).toBe('/story');
+  });
+
+  it('keeps the quiz video reachable from the page and its header menu', () => {
+    const page = render();
+    expect(page.querySelectorAll('a[href="/features/txt-to-video-quiz"]').length).toBeGreaterThan(1);
+    expect(page.querySelector('#format')).not.toBeNull();
+    expect(page.querySelector('#process')).not.toBeNull();
+  });
+
+  it('has no tracked-capital labels, no glued arrows and no inline gradient', () => {
+    const html = render().innerHTML;
+    expect(html).not.toMatch(/uppercase|tracking-\[/);
+    expect(html).not.toMatch(/gradient\(/);
+    expect(render().textContent).not.toMatch(/[\u2197\u2192]/);
+  });
+
+  it('gives every section a heading that names it', () => {
+    const page = render();
+    for (const section of Array.from(page.querySelectorAll('section[aria-labelledby]'))) {
+      const id = section.getAttribute('aria-labelledby')!;
+      expect(page.querySelector(`#${id}`)).withContext(id).not.toBeNull();
+    }
+  });
+});

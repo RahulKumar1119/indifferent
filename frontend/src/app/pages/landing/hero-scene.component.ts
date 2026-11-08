@@ -33,9 +33,14 @@ type SceneState = 'static' | 'loading' | 'ready' | 'failed';
         width: 86%;
         height: auto;
         border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+        border: 1px solid var(--color-rule);
         transition: opacity 0.5s ease;
+      }
+      .caption {
+        margin: var(--space-md) 0 0;
+        font-size: var(--type-sm);
+        line-height: 1.5;
+        color: var(--color-muted);
       }
       .hs-canvas {
         position: absolute;
@@ -66,8 +71,8 @@ type SceneState = 'static' | 'loading' | 'ready' | 'failed';
       />
       <canvas #canvas class="hs-canvas" aria-hidden="true"></canvas>
     </div>
-    <p class="mt-4 text-[13px] leading-relaxed text-white/60">
-      Real output from the sample file: each question is a question slide, then an answer slide.
+    <p class="caption">
+      Real output from the quiz video tool: each question is a question slide, then an answer slide.
     </p>
   `,
 })
