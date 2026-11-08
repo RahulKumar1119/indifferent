@@ -1,11 +1,13 @@
 import { Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { NavMobileMenuComponent } from '../../../shared/components/nav-mobile-menu/nav-mobile-menu.component';
+import { LucideDynamicIcon } from '@lucide/angular';
+import { PublicHeaderComponent } from '../../../shared/components/public-header/public-header.component';
+import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
 import { FormsModule } from '@angular/forms';
 import gsap from 'gsap';
 import { setJsonLd, setPageSeo } from '../../../shared/seo';
 import { loadVerifiedCore } from './ffmpeg-core';
+import { WatermarkAboutComponent, WatermarkHeroComponent } from './watermark-sections.component';
 
 // FFmpeg.wasm single-thread core (no COOP/COEP headers needed). Fetched lazily
 // on first video export, never on page load, and hash-checked first
@@ -60,454 +62,317 @@ interface FfmpegEngine {
 @Component({
   selector: 'app-watermark',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, NavMobileMenuComponent],
+  imports: [CommonModule, FormsModule, LucideDynamicIcon, PublicHeaderComponent, SiteFooterComponent, WatermarkHeroComponent, WatermarkAboutComponent],
   styles: [`
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(1px) scale(.98); }
-    .grain::before {
-      content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .05;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-    }
-    input[type="range"] { accent-color: #BC5227; }
-    .drag-surface { touch-action: none; }
-    details.faq summary::-webkit-details-marker { display: none; }
-    details.faq[open] .faq-chevron { transform: rotate(180deg); }
-    .faq-chevron { transition: transform .25s; }
-    @media (prefers-reduced-motion: reduce) {
-      .btn-primary { transition: none; }
-      .faq-chevron { transition: none; }
-    }
+    :host { display: block; }
+    .page { --page: var(--color-paper-2); --card: var(--color-paper); background: var(--page); color: var(--color-ink); font-family: var(--font-body); min-height: 100dvh; -webkit-font-smoothing: antialiased; }
+    .wrap { width: min(80rem, 100%); margin-inline: auto; padding-inline: var(--space-md); }
+    @media (min-width: 48rem) { .wrap { padding-inline: var(--space-xl); } }
+    .stage { margin-top: calc(-1 * var(--space-2xl)); position: relative; padding-bottom: var(--space-2xl); }
+    .card { background: var(--card); border: 1px solid var(--color-rule); border-radius: var(--radius-surface); box-shadow: 0 1px 2px color-mix(in oklab, var(--color-ink) 5%, transparent), 0 12px 32px -18px color-mix(in oklab, var(--color-ink) 28%, transparent); }
+    .drop { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-sm); padding: var(--space-2xl) var(--space-lg); border: 2px dashed color-mix(in oklab, var(--color-ink) 22%, transparent); border-radius: calc(var(--radius-surface) - 4px); margin: var(--space-xs); cursor: pointer; transition: border-color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out); }
+    .drop:hover, .drop.over { border-color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 6%, var(--card)); }
+    @media (max-width: 40rem), (max-height: 30rem) { .drop { padding: var(--space-lg) var(--space-md); } }
+    .drop h2 { margin: 0; font-size: var(--type-xl); font-weight: 600; }
+    .drop-icon { width: 3.5rem; height: 3.5rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in oklab, var(--color-accent) 12%, var(--card)); color: var(--color-accent-text); }
+    .muted { color: var(--color-muted); font-size: var(--type-sm); margin: 0; }
+    .local { display: flex; align-items: flex-start; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-control); background: color-mix(in oklab, var(--color-positive) 9%, var(--card)); color: var(--color-ink); font-size: var(--type-sm); line-height: 1.45; text-align: left; }
+    .local svg { flex: none; margin-top: 2px; color: var(--color-positive); }
+    .err { color: var(--color-negative); font-size: var(--type-sm); font-weight: 500; margin: 0; }
+    .editor { display: grid; gap: var(--space-md); align-items: start; }
+    @media (min-width: 64rem) { .editor { grid-template-columns: 22rem minmax(0, 1fr); gap: var(--space-lg); } .preview { order: 2; } .controls { position: sticky; top: calc(56px + var(--space-xl)); } }
+    .preview { padding: var(--space-sm); min-width: 0; }
+    @media (min-width: 40rem) { .preview { padding: var(--space-md); } }
+    .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); margin-bottom: var(--space-sm); }
+    .seg { display: inline-flex; flex-wrap: wrap; gap: var(--space-2xs); }
+    .chipbtn { min-height: 44px; padding: 0 var(--space-sm); border-radius: var(--radius-pill); border: 1px solid var(--color-rule); background: transparent; color: var(--color-ink-2); font: 600 var(--type-xs)/1 var(--font-body); cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-2xs); transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out); }
+    .chipbtn:hover { background: var(--color-paper-3); color: var(--color-ink); }
+    .chipbtn[aria-pressed='true'] { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-paper); }
+    .chipbtn.ba[aria-pressed='true'] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-ink); }
+    .canvas-box { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; min-height: 280px; border-radius: var(--radius-control); background: var(--color-paper-3); cursor: crosshair; touch-action: none; }
+    canvas { max-width: 100%; max-height: 62vh; border-radius: 6px; }
+    .tag { position: absolute; bottom: var(--space-sm); left: 50%; transform: translateX(-50%); pointer-events: none; white-space: nowrap; padding: var(--space-3xs) var(--space-sm); border-radius: var(--radius-pill); background: var(--card); color: var(--color-ink-2); font-size: var(--type-xs); border: 1px solid var(--color-rule); }
+    .tag.ba { background: var(--color-accent); color: var(--color-accent-ink); border-color: var(--color-accent); }
+    .player { margin-top: var(--space-sm); display: flex; align-items: center; gap: var(--space-sm); }
+    input[type='range'] { accent-color: var(--color-accent); min-height: 44px; flex: 1; min-width: 0; }
+    .controls { padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md); }
+    .ctl-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+    .ctl-head h2 { margin: 0; font-size: var(--type-lg); font-weight: 600; }
+    .field { display: flex; flex-direction: column; gap: var(--space-2xs); }
+    .row { display: flex; align-items: center; gap: var(--space-sm); }
+    .val { min-width: 3rem; text-align: right; font-size: var(--type-xs); font-weight: 600; color: var(--color-accent-text); font-variant-numeric: lining-nums tabular-nums; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xs); }
+    .opt { min-height: 44px; border-radius: var(--radius-control); border: 1px solid var(--color-rule); background: transparent; color: var(--color-ink); font: 600 var(--type-sm)/1 var(--font-body); cursor: pointer; }
+    .opt:hover { border-color: var(--color-ink-2); }
+    .opt[aria-pressed='true'] { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-paper); }
+    .menu { position: absolute; z-index: var(--z-dropdown); margin-top: var(--space-2xs); width: 100%; max-height: 14rem; overflow-y: auto; padding: var(--space-2xs) 0; list-style: none; border-radius: var(--radius-control); border: 1px solid var(--color-rule); background: var(--card); box-shadow: 0 12px 32px -12px color-mix(in oklab, var(--color-ink) 35%, transparent); }
+    .menu button { width: 100%; min-height: 44px; padding: 0 var(--space-md); text-align: left; border: 0; background: transparent; color: var(--color-ink); font-size: var(--type-md); cursor: pointer; }
+    .menu button:hover, .menu button[aria-selected='true'] { background: var(--color-paper-3); }
+    .swatches { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+    .sw { width: 44px; height: 44px; border-radius: var(--radius-control); border: 2px solid var(--color-rule); cursor: pointer; padding: 0; }
+    .sw[aria-pressed='true'] { border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--card) inset; }
+    input[type='color'].sw { padding: 3px; background: transparent; }
+    .spots { display: grid; grid-template-columns: repeat(3, 44px); gap: var(--space-2xs); }
+    .spot { width: 44px; height: 44px; border-radius: var(--radius-control); border: 1px solid var(--color-rule); background: transparent; cursor: pointer; }
+    .spot:hover { border-color: var(--color-ink-2); }
+    .spot[aria-pressed='true'] { background: var(--color-accent); border-color: var(--color-accent); }
+    .gate { padding: var(--space-md); border-radius: var(--radius-control); border: 1px solid color-mix(in oklab, var(--color-caution) 45%, transparent); background: color-mix(in oklab, var(--color-caution) 8%, var(--card)); display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--type-sm); }
+    .gate p { margin: 0; }
+    .export { padding-top: var(--space-md); border-top: 1px solid var(--color-rule); display: flex; flex-direction: column; gap: var(--space-sm); }
+    .export .ui-btn { width: 100%; }
+    .big { min-height: 52px; font-size: var(--type-md); }
+    .fixed { min-height: 44px; display: flex; align-items: center; padding: 0 var(--space-md); border-radius: var(--radius-control); border: 1px solid var(--color-rule); font-size: var(--type-sm); font-weight: 600; }
+    .spin { width: 1rem; height: 1rem; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--color-accent-ink) 40%, transparent); border-top-color: var(--color-accent-ink); animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .track { height: 8px; border-radius: var(--radius-pill); background: var(--color-paper-3); overflow: hidden; }
+    .track div { height: 100%; background: var(--color-accent); border-radius: inherit; }
+    .share { margin-top: var(--space-md); padding: var(--space-md); border-radius: var(--radius-control); background: var(--color-paper-3); }
+    .share h3 { margin: 0; font-size: var(--type-md); font-weight: 600; }
+    .share .seg { margin-top: var(--space-sm); }
+    @media (prefers-reduced-motion: reduce) { .spin { animation: none; } .drop, .chipbtn { transition: none; } }
   `],
   template: `
-    <div class="grain sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh] flex flex-col">
-      <!-- Floating island nav -->
-      <header class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(1120px,calc(100%-2rem))]">
-        <nav class="flex items-center justify-between h-14 pl-5 pr-2 rounded-full bg-[#0F0E0B]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(20,15,10,0.25)]">
-          <a routerLink="/" class="flex items-center gap-2 min-h-[44px] text-[#FAF7F2]">
-            <span class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></span>
-          </a>
-          <div class="hidden md:flex items-center gap-7 text-[13.5px] text-white/70">
-            <a routerLink="/" fragment="process" class="hover:text-white transition-colors">How it works</a>
-            <a routerLink="/blog" class="hover:text-white transition-colors">Journal</a>
-            <a routerLink="/about" class="hover:text-white transition-colors">Studio</a>
-          </div>
-          <div class="flex items-center gap-1">
-            <app-nav-mobile-menu>
-              <a routerLink="/" fragment="process" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">How it works</a>
-              <a routerLink="/blog" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Journal</a>
-              <a routerLink="/about" class="block rounded-xl px-4 py-3 text-[14px] text-white hover:bg-white/[0.06] transition-colors">Studio</a>
-            </app-nav-mobile-menu>
-            <a routerLink="/login" class="btn-primary inline-flex items-center gap-2 h-11 pl-5 pr-5 sm:pr-1.5 rounded-full bg-[#FAF7F2] text-[#141310] text-[13.5px] font-semibold">
-            Sign in
-            <span class="hidden sm:flex w-7 h-7 rounded-full bg-[#1A1714] text-white items-center justify-center text-sm leading-none" aria-hidden="true">↗</span>
-          </a>
-          </div>
-        </nav>
-      </header>
+    <div class="page hm hm-on-light">
+      <app-public-header />
+      <app-watermark-hero />
 
-      <!-- Compact light hero -->
-      <section class="pt-28 pb-10 border-b border-black/[0.07]">
-        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10">
-          <p class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] uppercase tracking-[0.1em] border border-black/15 text-[#6B6560]">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#D96C3D]"></span> Free tool
-          </p>
-          <h1 class="serif mt-4 font-medium leading-[0.95] text-[clamp(2.4rem,5vw,3.8rem)]">Watermark images and video.</h1>
-          <p class="mt-3 text-[#6B6560] max-w-[56ch] leading-relaxed">Add a text or logo watermark to JPG, PNG, WebP, MP4, WebM or MOV. Free, private, processed in your browser. Nothing uploads anywhere.</p>
-        </div>
-      </section>
-
-      <!-- How it works: what the tool does, before the upload -->
-      <section class="border-b border-black/[0.07] bg-[#F3EEE3]">
-        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 md:py-16">
-          <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-10 items-center">
-            <div>
-              <h2 class="serif font-medium tracking-[-0.02em] text-[clamp(1.6rem,3vw,2.4rem)] leading-tight">Three steps, nothing leaves your device.</h2>
-              <ol class="mt-6">
-                <li class="grid grid-cols-[40px_1fr] gap-4 py-4 border-t border-black/10">
-                  <span class="serif italic text-[24px] text-[#BC5227] leading-none">01</span>
-                  <div>
-                    <h3 class="font-semibold text-[16px]">Open a file</h3>
-                    <p class="mt-1 text-[14.5px] text-[#6B6560] leading-relaxed">Drop in an image or a video. It is read by your browser, not sent to a server.</p>
-                  </div>
-                </li>
-                <li class="grid grid-cols-[40px_1fr] gap-4 py-4 border-t border-black/10">
-                  <span class="serif italic text-[24px] text-[#BC5227] leading-none">02</span>
-                  <div>
-                    <h3 class="font-semibold text-[16px]">Place the mark</h3>
-                    <p class="mt-1 text-[14.5px] text-[#6B6560] leading-relaxed">Drag the watermark anywhere on the preview. Set the text, font, size, opacity, color and rotation, or use a logo image.</p>
-                  </div>
-                </li>
-                <li class="grid grid-cols-[40px_1fr] gap-4 py-4 border-t border-black/[0.15]">
-                  <span class="serif italic text-[24px] text-[#BC5227] leading-none">03</span>
-                  <div>
-                    <h3 class="font-semibold text-[16px]">Download it</h3>
-                    <p class="mt-1 text-[14.5px] text-[#6B6560] leading-relaxed">Images export at full resolution as PNG or JPEG. Video is rendered locally with FFmpeg and exported as MP4.</p>
-                  </div>
-                </li>
-              </ol>
-              <p class="mt-5 text-[13.5px] text-[#6B6560]">No account, no upload, no queue. Images work with the network off once the page has loaded, and the first video export downloads a processing engine of about 30 MB.</p>
-            </div>
-            <div class="rounded-[20px] overflow-hidden border border-black/10 bg-white">
-              <img
-                src="/screenshots/watermark-tool.png"
-                alt="The Indifferent watermark tool: image preview on the left with position, opacity, size and color controls on the right"
-                class="w-full h-auto"
-                loading="lazy"
-                width="1160"
-                height="600"
+      <main id="main" class="stage">
+        <div class="wrap">
+          @if (!file) {
+            <div class="card" data-testid="upload">
+              <div
+                class="drop"
+                [class.over]="isDragOver"
+                (click)="fileInput.click()"
+                (dragover)="onDragOver($event)"
+                (dragleave)="onDragLeave($event)"
+                (drop)="onDrop($event)"
+              >
+                <span class="drop-icon" aria-hidden="true"><svg lucideIcon="upload" [size]="24"></svg></span>
+                <h2>Drop an image or video here</h2>
+                <p class="muted">JPG, PNG or WebP images, MP4, WebM or MOV video.</p>
+                <button type="button" class="ui-btn ui-btn--primary" (click)="$event.stopPropagation(); fileInput.click()">Choose a file</button>
+                <p class="local" data-testid="local-note">
+                  <svg lucideIcon="shield-check" [size]="18" aria-hidden="true"></svg>
+                  <span>Your file is processed in this browser tab and is never uploaded. Video export downloads a processing engine of about 30&nbsp;MB the first time.</span>
+                </p>
+                @if (fileError) {
+                  <p class="err" role="alert">{{ fileError }}</p>
+                }
+              </div>
+              <input
+                #fileInput
+                type="file"
+                accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
+                (change)="onFileSelected($event)"
+                aria-label="Choose an image or video to watermark"
+                hidden
               />
             </div>
-          </div>
-        </div>
-      </section>
+          }
 
-      <main class="flex-1 w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-12 md:py-16">
-        <!-- Upload State -->
-        <div *ngIf="!file" class="flex justify-center">
-          <div
-            class="rounded-[20px] border-2 border-dashed px-8 py-16 text-center cursor-pointer w-full max-w-[560px] transition-colors"
-            [class]="isDragOver ? 'border-[#BC5227] bg-[#BC5227]/[.06]' : 'border-black/20 bg-white hover:border-black/40'"
-            (click)="fileInput.click()"
-            (dragover)="onDragOver($event)"
-            (dragleave)="onDragLeave($event)"
-            (drop)="onDrop($event)"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-5 text-[#6B6560]" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            <h2 class="serif text-[30px] leading-tight">Drop your file here</h2>
-            <p class="mt-2 text-[14px] text-[#6B6560]">or click to browse · JPG, PNG, WebP, MP4, WebM, MOV</p>
-            <p class="mt-1 text-[13px] text-[#6B6560]">Once it loads you can drag the watermark anywhere on the preview.</p>
-            @if (fileError) {
-              <p class="mt-3 text-[13.5px] font-medium text-red-600" role="alert">{{ fileError }}</p>
-            }
-          </div>
-          <input
-            #fileInput
-            type="file"
-            accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
-            (change)="onFileSelected($event)"
-            style="display: none;"
-          />
-        </div>
-
-        <!-- Editor: two panels — preview first on mobile, controls first on desktop -->
-        <div *ngIf="file" class="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-5 items-start">
-          <!-- LIVE PREVIEW (70%) -->
-          <div class="order-first lg:order-2 rounded-[20px] p-2 bg-black/[0.04] border border-black/10 min-w-0">
-            <div class="rounded-[calc(20px-0.5rem)] bg-white border border-black/[0.06] p-3 sm:p-4">
-              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <div class="flex items-center gap-1.5" role="group" aria-label="Aspect ratio">
-                  @for (a of aspectOptions; track a) {
-                    <button
-                      type="button"
-                      (click)="toggleAspect(a)"
-                      [attr.aria-pressed]="aspect === a"
-                      class="min-h-[36px] px-3 rounded-full text-[12.5px] font-semibold border transition-colors"
-                      [class]="aspect === a ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 text-[#3E3A33] hover:border-black/40'"
-                    >{{ a === 'original' ? 'Original' : a }}</button>
-                  }
-                </div>
-                <button
-                  type="button"
-                  (click)="showOriginal = !showOriginal; updatePreview()"
-                  [attr.aria-pressed]="showOriginal"
-                  class="min-h-[36px] px-4 rounded-full text-[12.5px] font-semibold border transition-colors"
-                  [class]="showOriginal ? 'bg-[#BC5227] text-white border-[#BC5227]' : 'border-black/15 text-[#3E3A33] hover:border-black/40'"
-                >{{ showOriginal ? 'Show watermarked' : 'Before / After' }}</button>
-              </div>
-
-              <div
-                #fxLayer
-                class="drag-surface relative flex items-center justify-center overflow-hidden rounded-xl bg-[#1A1714]/[.03] min-h-[280px] cursor-crosshair"
-                (pointerdown)="onPointerDown($event)"
-                (pointermove)="onPointerMove($event)"
-                (pointerup)="onPointerUp()"
-                (pointercancel)="onPointerUp()"
-                (pointerleave)="onPointerUp()"
-              >
-                <canvas #previewCanvas class="max-w-full max-h-[62vh] rounded-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)]"></canvas>
-                <video #videoEl class="hidden" [src]="fileUrl" muted playsInline preload="auto" (loadedmetadata)="onVideoLoaded()" (seeked)="renderPreview()" (ended)="onVideoEnded()" (error)="onVideoError()"></video>
-                <span class="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1A1714]/[.06] border border-black/10 text-[#3E3A33] text-[11.5px] font-medium px-3 py-1 pointer-events-none whitespace-nowrap">Drag to move watermark</span>
-              </div>
-
-              @if (fileType === 'video') {
-                <div class="mt-3 flex items-center gap-3">
-                  <button
-                    type="button"
-                    (click)="togglePlay()"
-                    class="shrink-0 w-11 h-11 rounded-full bg-[#1A1714] text-white inline-flex items-center justify-center text-[15px]"
-                    [attr.aria-label]="playing ? 'Pause video' : 'Play video'"
-                  >{{ playing ? '❚❚' : '▶' }}</button>
-                  <input
-                    type="range" min="0" [max]="videoDuration || 0" step="0.1"
-                    [ngModel]="videoTime" (ngModelChange)="scrubTo($event)"
-                    class="flex-1" aria-label="Video timeline scrubber"
-                  />
-                  <span class="text-[12px] font-mono text-[#6B6560] tabular-nums shrink-0">{{ formatTime(videoTime) }} / {{ formatTime(videoDuration) }}</span>
-                </div>
-              }
-
-              @if (showShare) {
-                <div class="mt-4 rounded-2xl border border-black/10 bg-[#1E3A2A] text-[#EDE8DB] p-5">
-                  <p class="serif text-[20px]">Share this tool</p>
-                  <p class="mt-1 text-[13px] text-white/70">Your file stayed on your device, so there is nothing to link to. Send the tool instead.</p>
-                  <div class="mt-3 flex flex-wrap gap-2">
-                    <a [href]="xShareHref" target="_blank" rel="noopener"
-                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">Share on X</a>
-                    <a [href]="facebookShareHref" target="_blank" rel="noopener"
-                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">Facebook</a>
-                    <a [href]="whatsappShareHref" target="_blank" rel="noopener"
-                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">WhatsApp</a>
-                    <button type="button" (click)="copyShareLink()"
-                      class="inline-flex items-center min-h-[40px] rounded-full bg-white/10 border border-white/15 px-4 text-[13px] font-semibold hover:bg-white/20 transition-colors">
-                      {{ copiedLink ? 'Copied!' : 'Copy tool link' }}
-                    </button>
+          @if (file) {
+            <div class="editor">
+              <section class="card preview" aria-label="Preview">
+                <div class="bar">
+                  <div class="seg" role="group" aria-label="Aspect ratio">
+                    @for (a of aspectOptions; track a) {
+                      <button type="button" class="chipbtn" (click)="toggleAspect(a)" [attr.aria-pressed]="aspect === a">{{ a === 'original' ? 'Original' : a }}</button>
+                    }
                   </div>
-                </div>
-              }
-            </div>
-          </div>
-
-          <!-- CONTROLS (30%) -->
-          <div class="order-last lg:order-1 rounded-[20px] bg-white border border-black/[0.07] p-5 lg:sticky lg:top-24">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="serif text-[20px]">Settings</h2>
-              <button type="button" (click)="resetFile()" class="text-[12.5px] font-semibold text-[#BC5227] hover:underline min-h-[32px]">New file</button>
-            </div>
-
-            <div class="mb-4">
-              <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" id="wm-type-label">Type</span>
-              <div class="grid grid-cols-2 gap-2" role="group" aria-labelledby="wm-type-label">
-                <button type="button" (click)="setKind('text')" [attr.aria-pressed]="wmKind === 'text'"
-                  class="min-h-[44px] rounded-[12px] border text-[14px] font-semibold transition-colors"
-                  [class]="wmKind === 'text' ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 hover:border-black/40'">Text</button>
-                <button type="button" (click)="setKind('logo')" [attr.aria-pressed]="wmKind === 'logo'"
-                  class="min-h-[44px] rounded-[12px] border text-[14px] font-semibold transition-colors"
-                  [class]="wmKind === 'logo' ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 hover:border-black/40'">Logo</button>
-              </div>
-            </div>
-
-            @if (wmKind === 'text') {
-              <div class="mb-4">
-                <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-text">Watermark text</label>
-                <input id="wm-text" type="text" [(ngModel)]="watermarkText" (ngModelChange)="updatePreview()" maxlength="60"
-                  class="w-full rounded-[12px] border border-black/15 bg-transparent px-4 h-11 text-[14.5px] outline-none focus:border-[#BC5227]" />
-              </div>
-              <div class="mb-4">
-                <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-font">Font</label>
-                <div class="relative">
-                  <button type="button" id="wm-font" (click)="fontOpen = !fontOpen" [attr.aria-expanded]="fontOpen"
-                    class="w-full min-h-[44px] rounded-[12px] border border-black/15 bg-transparent px-4 text-left text-[14.5px] flex items-center justify-between gap-2"
-                    [style.font-family]="fontStack">
-                    <span class="truncate">{{ fontLabel }}</span><span aria-hidden="true">▾</span>
+                  <button type="button" class="chipbtn ba" (click)="showOriginal = !showOriginal; updatePreview()" [attr.aria-pressed]="showOriginal">
+                    <svg lucideIcon="rotate-ccw" [size]="14" aria-hidden="true"></svg>
+                    {{ showOriginal ? 'Showing before' : 'Before / After' }}
                   </button>
-                  @if (fontOpen) {
-                    <ul class="absolute z-20 mt-1.5 w-full max-h-56 overflow-y-auto rounded-[12px] border border-black/15 bg-white shadow-xl py-1" role="listbox" aria-label="Font choices">
-                      @for (f of fonts; track f.label) {
-                        <li>
-                          <button type="button" role="option" [attr.aria-selected]="fontStack === f.stack"
-                            (click)="fontStack = f.stack; fontLabel = f.label; fontOpen = false; updatePreview()"
-                            class="w-full text-left px-4 py-2.5 text-[15px] hover:bg-black/[0.04] min-h-[44px]"
-                            [style.font-family]="f.stack">{{ f.label }}</button>
-                        </li>
+                </div>
+                <div
+                  #fxLayer
+                  class="canvas-box"
+                  (pointerdown)="onPointerDown($event)"
+                  (pointermove)="onPointerMove($event)"
+                  (pointerup)="onPointerUp()"
+                  (pointercancel)="onPointerUp()"
+                  (pointerleave)="onPointerUp()"
+                >
+                  <canvas #previewCanvas [attr.aria-label]="showOriginal ? 'Original file, before the watermark' : 'Preview with the watermark'" role="img"></canvas>
+                  @if (fileType === 'video') {
+                    <video #videoEl hidden [src]="fileUrl" muted playsInline preload="auto" (loadedmetadata)="onVideoLoaded()" (seeked)="renderPreview()" (ended)="onVideoEnded()" (error)="onVideoError()"></video>
+                  }
+                  <span class="tag" [class.ba]="showOriginal">{{ showOriginal ? 'Before' : 'After: drag to move the watermark' }}</span>
+                </div>
+
+                @if (fileType === 'video') {
+                  <div class="player">
+                    <button type="button" class="ui-btn ui-btn--secondary" style="padding: 0; width: 44px; flex: none" (click)="togglePlay()" [attr.aria-label]="playing ? 'Pause video' : 'Play video'">
+                      <svg [lucideIcon]="playing ? 'pause' : 'play'" [size]="18" aria-hidden="true"></svg>
+                    </button>
+                    <input type="range" min="0" [max]="videoDuration || 0" step="0.1" [ngModel]="videoTime" (ngModelChange)="scrubTo($event)" aria-label="Video timeline scrubber" />
+                    <span class="ui-hint" style="flex: none; font-variant-numeric: tabular-nums">{{ formatTime(videoTime) }} / {{ formatTime(videoDuration) }}</span>
+                  </div>
+                }
+
+                @if (showShare) {
+                  <div class="share" data-testid="share">
+                    <h3>Share this tool</h3>
+                    <p class="muted">Your file stayed on your device, so there is nothing to link to. Send the tool instead.</p>
+                    <div class="seg">
+                      <a [href]="xShareHref" target="_blank" rel="noopener" class="chipbtn">Share on X</a>
+                      <a [href]="facebookShareHref" target="_blank" rel="noopener" class="chipbtn">Facebook</a>
+                      <a [href]="whatsappShareHref" target="_blank" rel="noopener" class="chipbtn">WhatsApp</a>
+                      <button type="button" class="chipbtn" (click)="copyShareLink()">{{ copiedLink ? 'Link copied' : 'Copy tool link' }}</button>
+                    </div>
+                  </div>
+                }
+              </section>
+
+              <section class="card controls" aria-labelledby="wm-settings">
+                <div class="ctl-head">
+                  <h2 id="wm-settings">Watermark</h2>
+                  <button type="button" class="ui-btn ui-btn--quiet" (click)="resetFile()">New file</button>
+                </div>
+
+                <div class="field">
+                  <span class="ui-label" id="wm-type-label">Type</span>
+                  <div class="two" role="group" aria-labelledby="wm-type-label">
+                    <button type="button" class="opt" (click)="setKind('text')" [attr.aria-pressed]="wmKind === 'text'">Text</button>
+                    <button type="button" class="opt" (click)="setKind('logo')" [attr.aria-pressed]="wmKind === 'logo'">Logo</button>
+                  </div>
+                </div>
+
+                @if (wmKind === 'text') {
+                  <div class="field">
+                    <label class="ui-label" for="wm-text">Watermark text</label>
+                    <input id="wm-text" type="text" class="ui-field" [(ngModel)]="watermarkText" (ngModelChange)="updatePreview()" maxlength="60" />
+                  </div>
+                  <div class="field" style="position: relative">
+                    <span class="ui-label" id="wm-font-label">Font</span>
+                    <button type="button" id="wm-font" class="ui-field" style="display: flex; align-items: center; justify-content: space-between; text-align: left; cursor: pointer" (click)="fontOpen = !fontOpen" [attr.aria-expanded]="fontOpen" aria-labelledby="wm-font-label wm-font" [style.font-family]="fontStack">
+                      <span>{{ fontLabel }}</span><svg lucideIcon="chevron-right" [size]="16" aria-hidden="true" style="transform: rotate(90deg)"></svg>
+                    </button>
+                    @if (fontOpen) {
+                      <ul class="menu" role="listbox" aria-label="Font choices" style="top: 100%">
+                        @for (f of fonts; track f.label) {
+                          <li>
+                            <button type="button" role="option" [attr.aria-selected]="fontStack === f.stack" (click)="fontStack = f.stack; fontLabel = f.label; fontOpen = false; updatePreview()" [style.font-family]="f.stack">{{ f.label }}</button>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                } @else {
+                  <div class="field">
+                    <span class="ui-label">Logo image</span>
+                    <button type="button" class="ui-btn ui-btn--secondary" (click)="logoInput.click()">
+                      <svg lucideIcon="upload" [size]="16" aria-hidden="true"></svg>
+                      {{ logoUrl ? 'Change logo' : 'Upload a logo' }}
+                    </button>
+                    <span class="ui-hint">PNG, JPG or WebP. A PNG with transparency works best.</span>
+                    <input #logoInput type="file" accept="image/png,image/jpeg,image/webp" (change)="onLogoSelected($event)" aria-label="Choose a logo image" hidden />
+                  </div>
+                }
+
+                <div class="field">
+                  <label class="ui-label" for="wm-opacity">Opacity</label>
+                  <div class="row"><input id="wm-opacity" type="range" min="0" max="100" step="1" [(ngModel)]="opacityPct" (ngModelChange)="updatePreview()" /><span class="val">{{ opacityPct }}%</span></div>
+                </div>
+                <div class="field">
+                  <label class="ui-label" for="wm-size">Size, as a share of the frame width</label>
+                  <div class="row"><input id="wm-size" type="range" min="10" max="50" step="1" [(ngModel)]="sizePct" (ngModelChange)="updatePreview()" /><span class="val">{{ sizePct }}%</span></div>
+                </div>
+                <div class="field">
+                  <span class="ui-label" id="wm-color-label">Colour</span>
+                  <div class="swatches" role="group" aria-labelledby="wm-color-label">
+                    <input id="wm-color" type="color" class="sw" [(ngModel)]="color" (ngModelChange)="updatePreview()" aria-label="Custom watermark colour" />
+                    @for (preset of colorPresets; track preset) {
+                      <button type="button" class="sw" (click)="color = preset; updatePreview()" [attr.aria-label]="'Use colour ' + preset" [attr.aria-pressed]="color === preset" [style.background]="preset"></button>
+                    }
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="ui-label" for="wm-rotation">Rotation</label>
+                  <div class="row"><input id="wm-rotation" type="range" min="-180" max="180" step="1" [(ngModel)]="rotation" (ngModelChange)="updatePreview()" /><span class="val">{{ rotation }}&deg;</span></div>
+                </div>
+                <div class="field">
+                  <span class="ui-label" id="wm-pos-label">Position</span>
+                  <div class="spots" role="group" aria-labelledby="wm-pos-label">
+                    @for (row of gridRows; track row; let ri = $index) {
+                      @for (col of row; track col; let ci = $index) {
+                        <button type="button" class="spot" (click)="snapToSpot(ri, ci)" [attr.aria-label]="'Move watermark to ' + spotName(ri, ci)" [attr.aria-pressed]="isActiveSpot(ri, ci)"></button>
                       }
-                    </ul>
-                  }
-                </div>
-              </div>
-            } @else {
-              <div class="mb-4">
-                <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Logo image</span>
-                <button type="button" (click)="logoInput.click()"
-                  class="w-full min-h-[44px] rounded-[12px] border border-dashed border-black/25 px-4 text-[13.5px] font-semibold text-[#3E3A33] hover:border-black/50 transition-colors">
-                  {{ logoUrl ? 'Change logo (PNG with transparency works best)' : 'Upload logo (PNG/JPG/WebP)' }}
-                </button>
-                <input #logoInput type="file" accept="image/png,image/jpeg,image/webp" (change)="onLogoSelected($event)" style="display: none;" />
-              </div>
-            }
-
-            <div class="mb-4">
-              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-opacity">Opacity</label>
-              <div class="flex items-center gap-3">
-                <input id="wm-opacity" type="range" min="0" max="100" step="1" [(ngModel)]="opacityPct" (ngModelChange)="updatePreview()" class="flex-1" />
-                <span class="text-[12.5px] font-semibold text-[#BC5227] min-w-11 text-right tabular-nums">{{ opacityPct }}%</span>
-              </div>
-            </div>
-
-            <div class="mb-4">
-              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-size">Size · % of frame width</label>
-              <div class="flex items-center gap-3">
-                <input id="wm-size" type="range" min="10" max="50" step="1" [(ngModel)]="sizePct" (ngModelChange)="updatePreview()" class="flex-1" />
-                <span class="text-[12.5px] font-semibold text-[#BC5227] min-w-11 text-right tabular-nums">{{ sizePct }}%</span>
-              </div>
-            </div>
-
-            <div class="mb-4">
-              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-color">Color</label>
-              <div class="flex items-center gap-2 flex-wrap">
-                <input id="wm-color" type="color" [(ngModel)]="color" (ngModelChange)="updatePreview()" aria-label="Custom watermark color"
-                  class="w-11 h-11 rounded-[12px] border border-black/15 cursor-pointer p-1 bg-transparent" />
-                @for (preset of colorPresets; track preset) {
-                  <button type="button" (click)="color = preset; updatePreview()"
-                    [attr.aria-label]="'Use color ' + preset" [attr.aria-pressed]="color === preset"
-                    class="w-11 h-11 rounded-[12px] border-2 transition-transform hover:scale-105 min-w-[44px] min-h-[44px]"
-                    [style.background]="preset"
-                    [class]="color === preset ? 'border-[#BC5227]' : 'border-black/15'"></button>
-                }
-              </div>
-            </div>
-
-            <div class="mb-4">
-              <label class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" for="wm-rotation">Rotation</label>
-              <div class="flex items-center gap-3">
-                <input id="wm-rotation" type="range" min="-180" max="180" step="1" [(ngModel)]="rotation" (ngModelChange)="updatePreview()" class="flex-1" />
-                <span class="text-[12.5px] font-semibold text-[#BC5227] min-w-11 text-right tabular-nums">{{ rotation }}&deg;</span>
-              </div>
-            </div>
-
-            <div class="mb-2">
-              <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5" id="wm-pos-label">Position</span>
-              <div class="grid grid-cols-3 gap-1.5 w-fit" role="group" aria-labelledby="wm-pos-label">
-                @for (row of gridRows; track row; let ri = $index) {
-                  @for (col of row; track col; let ci = $index) {
-                    <button type="button"
-                      (click)="snapToSpot(ri, ci)"
-                      [attr.aria-label]="'Move watermark to ' + spotName(ri, ci)"
-                      [attr.aria-pressed]="isActiveSpot(ri, ci)"
-                      class="w-11 h-11 rounded-[10px] border transition-colors min-w-[44px] min-h-[44px]"
-                      [class]="isActiveSpot(ri, ci) ? 'bg-[#BC5227] border-[#BC5227]' : 'border-black/15 hover:border-black/40 bg-transparent'"></button>
-                  }
-                }
-              </div>
-              <p class="mt-1.5 text-[12px] text-[#6B6560]">Tip: drag directly on the preview, too.</p>
-            </div>
-
-            @if (sizeGate && !sizeGateDismissed) {
-              <div class="rounded-2xl border border-amber-500/40 bg-amber-500/[0.07] p-4" role="alert">
-                <p class="text-[13.5px] font-semibold">Large file (over 500&nbsp;MB)</p>
-                <p class="mt-1 text-[12.5px] text-[#6B6560] leading-relaxed">
-                  This file is over 500&nbsp;MB. Rendering happens on your own machine, so it needs roughly
-                  2&nbsp;GB of free memory and a browser tab that stays open until it finishes.
-                  You can try anyway, or pick a smaller file.
-                </p>
-                <div class="mt-3 flex flex-col gap-2">
-                  <button type="button" (click)="dismissGate()"
-                    class="w-full rounded-full bg-[#1A1714] text-white py-2.5 text-[13px] font-semibold">Process anyway</button>
-                  <button type="button" (click)="reset()"
-                    class="w-full rounded-full border border-black/15 py-2.5 text-[13px] font-semibold hover:border-black/40 transition-colors">Choose smaller file</button>
-                </div>
-              </div>
-            }
-
-            @if (fileError) {
-              <p class="mt-3 text-[13px] font-medium text-red-600" role="alert">{{ fileError }}</p>
-            }
-
-            @if (exportError) {
-              <p class="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3 text-[13px] font-medium text-red-600" role="alert">{{ exportError }}</p>
-            }
-
-            <div class="flex flex-col gap-2.5 mt-5 pt-5 border-t border-black/10">
-              @if (fileType === 'image') {
-                <div>
-                  <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Format</span>
-                  <div class="grid grid-cols-2 gap-2" role="group" aria-label="Image export format">
-                    <button type="button" (click)="setImgFormat('png')" [attr.aria-pressed]="imgFormat === 'png'"
-                      class="min-h-[44px] rounded-[12px] border text-[14px] font-semibold transition-colors"
-                      [class]="imgFormat === 'png' ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 hover:border-black/40'">PNG</button>
-                    <button type="button" (click)="setImgFormat('jpeg')" [attr.aria-pressed]="imgFormat === 'jpeg'"
-                      class="min-h-[44px] rounded-[12px] border text-[14px] font-semibold transition-colors"
-                      [class]="imgFormat === 'jpeg' ? 'bg-[#1A1714] text-white border-[#1A1714]' : 'border-black/15 hover:border-black/40'">JPEG</button>
+                    }
                   </div>
-                  <p class="mt-1.5 text-[12px] text-[#6B6560]">JPEG flattens transparency onto white.</p>
+                  <span class="ui-hint">You can also drag it on the preview.</span>
                 </div>
-                <button class="btn-primary w-full rounded-full bg-[#1A1714] text-white py-3.5 font-semibold text-[14.5px] disabled:opacity-40 disabled:cursor-not-allowed"
-                  (click)="download()" [disabled]="!downloadUrl || exportBusy()">
-                  {{ exportState === 'done' ? 'Downloaded ✓' : 'Download ' + (imgFormat === 'jpeg' ? 'JPEG' : 'PNG') }}
-                </button>
-              } @else {
-                <div>
-                  <span class="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1.5">Format</span>
-                  <div class="rounded-[12px] border border-black/15 px-4 min-h-[44px] flex items-center text-[14px] font-semibold">MP4 · H.264 + AAC</div>
-                  <p class="mt-1.5 text-[12px] text-[#6B6560]">Video always exports as MP4, whatever you uploaded.</p>
-                </div>
-                <button class="btn-primary w-full rounded-full bg-[#1A1714] text-white py-3.5 font-semibold text-[14.5px] disabled:opacity-40 disabled:cursor-not-allowed"
-                  (click)="exportVideo()" [disabled]="!videoReady || exportBusy() || (sizeGate && !sizeGateDismissed)">
-                  @if (exportState === 'loading') {
-                    <span class="inline-flex items-center justify-center gap-2"><span class="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true"></span>Loading engine…</span>
-                  } @else if (exportState === 'rendering') {
-                    <span class="inline-flex items-center justify-center gap-2"><span class="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true"></span>Rendering…{{ showProgressBar ? ' ' + exportProgress + '%' : '' }}</span>
-                  } @else if (exportState === 'done') {
-                    Downloaded ✓
+
+                @if (sizeGate && !sizeGateDismissed) {
+                  <div class="gate" role="alert">
+                    <p><strong>Large file (over 500&nbsp;MB)</strong></p>
+                    <p>Rendering happens on your own machine, so it needs roughly 2&nbsp;GB of free memory and a browser tab that stays open until it finishes. You can try anyway, or pick a smaller file.</p>
+                    <button type="button" class="ui-btn ui-btn--secondary" (click)="dismissGate()">Process anyway</button>
+                    <button type="button" class="ui-btn ui-btn--quiet" (click)="reset()">Choose a smaller file</button>
+                  </div>
+                }
+                @if (fileError) {
+                  <p class="err" role="alert">{{ fileError }}</p>
+                }
+                @if (exportError) {
+                  <p class="err" role="alert">{{ exportError }}</p>
+                }
+
+                <div class="export">
+                  @if (fileType === 'image') {
+                    <div class="field">
+                      <span class="ui-label" id="wm-format-label">Format</span>
+                      <div class="two" role="group" aria-labelledby="wm-format-label">
+                        <button type="button" class="opt" (click)="setImgFormat('png')" [attr.aria-pressed]="imgFormat === 'png'">PNG</button>
+                        <button type="button" class="opt" (click)="setImgFormat('jpeg')" [attr.aria-pressed]="imgFormat === 'jpeg'">JPEG</button>
+                      </div>
+                      <span class="ui-hint">JPEG flattens transparency onto white. Images export at full resolution.</span>
+                    </div>
+                    <button type="button" class="ui-btn ui-btn--primary big" (click)="download()" [disabled]="!downloadUrl || exportBusy()">
+                      <svg [lucideIcon]="exportState === 'done' ? 'check' : 'download'" [size]="18" aria-hidden="true"></svg>
+                      {{ exportState === 'done' ? 'Downloaded' : 'Download ' + (imgFormat === 'jpeg' ? 'JPEG' : 'PNG') }}
+                    </button>
                   } @else {
-                    Export watermarked video
+                    <div class="field">
+                      <span class="ui-label">Format</span>
+                      <div class="fixed">MP4 with H.264 video and AAC audio</div>
+                      <span class="ui-hint">Video always exports as MP4, whatever you uploaded.</span>
+                    </div>
+                    <button type="button" class="ui-btn ui-btn--primary big" (click)="exportVideo()" [disabled]="!videoReady || exportBusy() || (sizeGate && !sizeGateDismissed)">
+                      @if (exportState === 'loading') {
+                        <span class="spin" aria-hidden="true"></span>Loading engine
+                      } @else if (exportState === 'rendering') {
+                        <span class="spin" aria-hidden="true"></span>Rendering{{ showProgressBar ? ' ' + exportProgress + '%' : '' }}
+                      } @else if (exportState === 'done') {
+                        <svg lucideIcon="check" [size]="18" aria-hidden="true"></svg>Downloaded
+                      } @else {
+                        <svg lucideIcon="download" [size]="18" aria-hidden="true"></svg>Export watermarked video
+                      }
+                    </button>
+                    @if (showProgressBar && exportState === 'rendering') {
+                      <div class="track" role="progressbar" [attr.aria-valuenow]="exportProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Render progress">
+                        <div [style.width.%]="exportProgress"></div>
+                      </div>
+                    }
+                    @if (!engineReady) {
+                      <span class="ui-hint">The first export downloads a processing engine (about 30&nbsp;MB) and caches it for later exports.</span>
+                    }
                   }
-                </button>
-                @if (showProgressBar && exportState === 'rendering') {
-                  <div class="h-2 rounded-full bg-black/10 overflow-hidden" role="progressbar"
-                    [attr.aria-valuenow]="exportProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Render progress">
-                    <div class="h-full bg-[#BC5227] rounded-full transition-all duration-300" [style.width.%]="exportProgress"></div>
-                  </div>
-                }
-                <p class="text-[12px] text-[#6B6560] leading-relaxed">Rendered fully in your browser. Nothing uploads anywhere.</p>
-                @if (!engineReady) {
-                  <p class="mt-1.5 text-[12px] text-[#6B6560] leading-relaxed">
-                    The first export downloads a processing engine (about 30&nbsp;MB) and caches it for later exports.
+                  <p class="local" data-testid="local-note">
+                    <svg lucideIcon="shield-check" [size]="18" aria-hidden="true"></svg>
+                    <span>Processed in your browser. Nothing is uploaded.</span>
                   </p>
-                }
-              }
-              <button class="w-full rounded-full border border-black/15 py-3 text-[13.5px] font-semibold text-[#3E3A33] hover:border-black/40 transition-colors" (click)="reset()">Reset</button>
+                  <button type="button" class="ui-btn ui-btn--secondary" (click)="reset()">Reset</button>
+                </div>
+              </section>
             </div>
-          </div>
+          }
         </div>
-
-        <!-- Hidden file input for editor view -->
-        <input
-          *ngIf="file"
-          #fileInput
-          type="file"
-          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
-          (change)="onFileSelected($event)"
-          style="display: none;"
-        />
       </main>
 
-      <!-- FAQ -->
-      <section id="faq" class="border-t border-black/[0.07] bg-white">
-        <div class="w-[min(900px,100%)] mx-auto px-5 md:px-10 py-14 md:py-20">
-          <p class="text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">FAQ</p>
-          <h2 class="serif mt-3 text-center font-medium tracking-[-0.02em] text-[clamp(1.7rem,3.2vw,2.6rem)]">Before you <em class="font-light">watermark.</em></h2>
-          <div class="mt-8 space-y-3">
-            @for (f of faqs; track f.q) {
-              <details class="faq rounded-[16px] border border-black/10 bg-[#FAF7F2] px-5 py-4">
-                <summary class="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold text-[15px]">
-                  {{ f.q }}
-                  <svg class="shrink-0 text-[#6B6560] faq-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                </summary>
-                <p class="mt-3 text-[14px] leading-relaxed text-[#6B6560]">{{ f.a }}</p>
-              </details>
-            }
-          </div>
-        </div>
-      </section>
-
-      <section class="border-t border-black/[0.07]">
-        <div class="w-[min(1240px,100%)] mx-auto px-5 md:px-10 py-10 flex flex-col sm:flex-row justify-between gap-3 text-[12.5px] text-[#6B6560]">
-          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex flex-wrap">
-            <a routerLink="/" class="inline-flex items-center min-h-[44px] px-3 hover:text-[#1A1714]">Home</a>
-            <a routerLink="/about" class="inline-flex items-center min-h-[44px] px-3 hover:text-[#1A1714]">Studio</a>
-            <a routerLink="/privacy" class="inline-flex items-center min-h-[44px] px-3 hover:text-[#1A1714]">Privacy</a>
-            <a routerLink="/terms" class="inline-flex items-center min-h-[44px] px-3 hover:text-[#1A1714]">Terms</a>
-          </span>
-        </div>
-      </section>
+      <app-watermark-about [faqs]="faqs" />
+      <app-site-footer />
     </div>
   `,
 })
@@ -1189,7 +1054,9 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!layer) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return;
-    const colors = ['#BC5227', '#D96C3D', '#1A1714', '#6366f1', '#22c55e', '#eab308'];
+    // Brand colours, read from the tokens so the burst matches the page.
+    const css = getComputedStyle(layer);
+    const colors = ['--color-accent', '--color-accent-text', '--color-ink', '--color-caution'].map((v) => css.getPropertyValue(v).trim() || 'currentColor');
     const rect = layer.getBoundingClientRect();
     for (let i = 0; i < 48; i++) {
       const p = document.createElement('span');
