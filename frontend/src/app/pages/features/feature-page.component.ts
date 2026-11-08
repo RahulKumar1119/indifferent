@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DOCUMENT } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { PRODUCT_FACTS, durationLabel, joinAnd, joinOr, shortsOutputLabel, storyOutputLabel } from '../../core/config/product-facts';
+import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { ROBOTS_NOINDEX, setJsonLd, setPageSeo, setRobots } from '../../shared/seo';
 import { ArticleMeta, articlePath, findArticle, formatLongDate } from '../blog/articles/registry';
@@ -310,110 +311,187 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
 @Component({
   selector: 'app-feature-page',
   standalone: true,
-  imports: [RouterLink, SiteFooterComponent],
+  imports: [RouterLink, PublicHeaderComponent, SiteFooterComponent],
+  styles: [`
+    :host { display: block; }
+    .page { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--type-md); line-height: 1.55; -webkit-font-smoothing: antialiased; min-height: 100dvh; }
+    .wrap { width: min(var(--container), 100%); margin-inline: auto; padding-inline: var(--gutter); }
+    .col { width: min(52rem, 100%); display: grid; gap: var(--space-lg); }
+    h1, h2, h3, p, ul, ol, dl, dd { margin: 0; }
+    h1.title { font-family: var(--font-display); font-weight: 500; font-size: var(--type-display-s); line-height: 1.04; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; max-width: 16ch; }
+    h2 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-2xl); line-height: 1.1; letter-spacing: var(--tracking-display); }
+    h3 { font-size: var(--type-md); font-weight: 600; }
+    .lead { margin-top: var(--space-lg); font-size: var(--type-lead); line-height: 1.45; color: var(--color-ink-2); max-width: 46ch; }
+    .muted { color: var(--color-muted); }
+
+    .hero { background: var(--color-paper); color: var(--color-ink); padding: calc(56px + var(--space-3xl)) 0 var(--space-2xl); }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); align-items: end; }
+    @media (min-width: 64rem) { .hero-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); } }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); margin-top: var(--space-xl); }
+    .fine { margin-top: var(--space-sm); font-size: var(--type-sm); color: var(--color-muted); }
+    .glance { list-style: none; padding: 0; display: grid; gap: var(--space-xs); border-top: 1px solid var(--color-rule); }
+    .glance li { padding: var(--space-sm) 0; border-bottom: 1px solid var(--color-rule); font-size: var(--type-sm); color: var(--color-ink-2); }
+
+    .block { padding: var(--space-2xl) 0; border-top: 1px solid var(--color-rule); }
+    .block.first { border-top: 0; }
+    .block > .wrap > * + * { margin-top: var(--space-lg); }
+    .intro { font-size: var(--type-lead); line-height: 1.5; color: var(--color-ink-2); max-width: 60ch; }
+    ul.ticks { list-style: none; padding: 0; display: grid; gap: var(--space-sm); color: var(--color-ink-2); }
+    ul.ticks li { padding-left: var(--space-lg); position: relative; }
+    ul.ticks li::before { content: ''; position: absolute; left: 0; top: 0.7em; width: 10px; height: 2px; background: var(--color-accent); }
+
+    ol.steps { list-style: none; padding: 0; counter-reset: step; border-top: 1px solid var(--color-rule); }
+    ol.steps > li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--space-lg); padding: var(--space-lg) 0; border-bottom: 1px solid var(--color-rule); }
+    ol.steps > li::before { counter-increment: step; content: counter(step); font-family: var(--font-body); font-size: var(--type-xl); font-weight: 500; line-height: 1.1; color: var(--color-accent-text); font-variant-numeric: tabular-nums; }
+    ol.steps p { margin-top: var(--space-2xs); color: var(--color-ink-2); }
+
+    dl.limits { border-top: 1px solid var(--color-rule); }
+    dl.limits > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3xs); padding: var(--space-sm) 0; border-bottom: 1px solid var(--color-rule); }
+    @media (min-width: 40rem) { dl.limits > div { grid-template-columns: 14rem minmax(0, 1fr); gap: var(--space-lg); } }
+    dl.limits dt { font-weight: 600; }
+    dl.limits dd { color: var(--color-ink-2); }
+
+    .text { color: var(--color-ink-2); max-width: 65ch; }
+    .link { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; }
+    .link:hover { color: var(--color-ink); }
+    .link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+
+    .faq { display: grid; gap: var(--space-sm); }
+    .faq p { color: var(--color-ink-2); }
+
+    .cta { background: var(--color-paper-2); }
+    .cta .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-lg); }
+    .cta p { font-family: var(--font-display); font-size: var(--type-xl); font-weight: 500; line-height: 1.2; max-width: 30ch; }
+
+    ul.cards { list-style: none; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-md); }
+    @media (min-width: 40rem) { ul.cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .card { display: block; height: 100%; padding: var(--space-md) var(--space-lg); background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-surface); color: inherit; text-decoration: none; transition: border-color var(--dur-short) var(--ease-out); }
+    .card:hover { border-color: var(--color-muted); }
+    .card:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    .card small { display: block; font-size: var(--type-sm); color: var(--color-muted); }
+    .card strong { display: block; margin-top: var(--space-3xs); font-weight: 600; line-height: 1.35; }
+
+    .others { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+    .reviewed { font-size: var(--type-sm); color: var(--color-muted); }
+    @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+  `],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <header class="max-w-3xl mx-auto px-4 pt-24 pb-6 text-center">
-        <a routerLink="/" class="inline-flex items-center min-h-[44px] text-[13px] text-[#6B6560] hover:text-[#1A1714]">← Indifferent</a>
-        <h1 class="mt-4 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2rem,5vw,3.4rem)]">{{ data.title }}</h1>
-        <p class="mt-4 text-[16.5px] text-[#6B6560] leading-relaxed">{{ data.hook }}</p>
-      </header>
-      <main class="max-w-3xl mx-auto px-4 pb-10">
-        <p class="text-[15.5px] leading-relaxed">{{ data.description }}</p>
-        <ul class="mt-6 space-y-3">
-          @for (b of data.bullets; track $index) {
-            <li class="flex items-start gap-3 rounded-[14px] border border-black/10 bg-white px-4 py-3 text-[14.5px]">
-              <span class="mt-0.5 inline-flex w-5 h-5 shrink-0 items-center justify-center rounded-full bg-[#D96C3D]/15 text-[#A8481F] text-[12px] font-bold" aria-hidden="true">✓</span>
-              {{ b }}
-            </li>
-          }
-        </ul>
-        <div class="mt-6 flex flex-wrap gap-2">
-          @for (spec of data.specs; track $index) {
-            <span class="rounded-full border border-black/15 px-3 py-1 text-[12px] text-[#6B6560]">{{ spec }}</span>
-          }
-        </div>
-
-        <section class="mt-10" aria-labelledby="steps-heading">
-          <h2 id="steps-heading" class="text-[20px] font-semibold">Step by step</h2>
-          <ol class="mt-4 space-y-3">
-            @for (s of data.steps; track s.title; let i = $index) {
-              <li class="flex gap-4 rounded-[16px] border border-black/10 bg-white p-5">
-                <span class="mt-0.5 inline-flex w-7 h-7 shrink-0 items-center justify-center rounded-full bg-[#1A1714] text-white text-[13px] font-semibold" aria-hidden="true">{{ i + 1 }}</span>
-                <div>
-                  <h3 class="font-semibold text-[15px]">{{ s.title }}</h3>
-                  <p class="mt-1 text-[14px] leading-relaxed text-[#3E3A33]">{{ s.text }}</p>
-                </div>
-              </li>
-            }
-          </ol>
-        </section>
-
-        <section class="mt-10" aria-labelledby="limits-heading">
-          <h2 id="limits-heading" class="text-[20px] font-semibold">Limits and formats</h2>
-          <dl class="mt-4 rounded-[16px] border border-black/10 bg-white divide-y divide-black/10">
-            @for (l of data.limits; track l.label) {
-              <div class="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-1 sm:gap-4 px-5 py-3 text-[14px]">
-                <dt class="font-semibold">{{ l.label }}</dt>
-                <dd class="text-[#3E3A33]">{{ l.value }}</dd>
+    <div class="page hm hm-on-light">
+      <app-public-header />
+      <main>
+        <section class="hero hm-on-dark" aria-labelledby="feature-title">
+          <div class="wrap hero-grid">
+            <div>
+              <h1 id="feature-title" class="title">{{ data.title }}</h1>
+              <p class="lead">{{ data.hook }}</p>
+              <div class="actions">
+                <a [routerLink]="data.ctaLink" class="ui-btn ui-btn--primary">Try for free</a>
               </div>
-            }
-          </dl>
-        </section>
-
-        <section class="mt-10" aria-labelledby="handling-heading">
-          <h2 id="handling-heading" class="text-[20px] font-semibold">How your files are handled</h2>
-          <p class="mt-3 text-[14.5px] leading-relaxed text-[#3E3A33]">{{ data.handling }} The <a routerLink="/privacy" class="underline underline-offset-4">privacy policy</a> has the full list of services and the deletion details.</p>
-        </section>
-
-        <section class="mt-10" aria-labelledby="trouble-heading">
-          <h2 id="trouble-heading" class="text-[20px] font-semibold">Troubleshooting</h2>
-          <div class="mt-4 space-y-3">
-            @for (t of data.troubleshooting; track t.q) {
-              <details class="rounded-[14px] border border-black/10 bg-white px-5 py-4">
-                <summary class="cursor-pointer font-semibold text-[14.5px]">{{ t.q }}</summary>
-                <p class="mt-3 text-[14px] leading-relaxed text-[#3E3A33]">{{ t.a }}</p>
-              </details>
-            }
+              <p class="fine">Free during beta. No credit card.</p>
+            </div>
+            <ul class="glance" aria-label="At a glance">
+              @for (spec of data.specs; track $index) {
+                <li>{{ spec }}</li>
+              }
+            </ul>
           </div>
         </section>
 
-        <div class="mt-10 rounded-[20px] bg-[#1A1714] text-white px-6 py-8 text-center">
-          <p class="font-medium text-[19px]">{{ data.cta }}</p>
-          <a [routerLink]="data.ctaLink" class="mt-4 inline-flex items-center min-h-[44px] px-7 rounded-full bg-[#BC5227] hover:bg-[#A8481F] transition-colors text-white font-semibold text-[15px]">Try for free</a>
-          <p class="mt-3 text-[12.5px] text-white/70">Free during beta · No credit card</p>
-        </div>
-
-        <section class="mt-10" aria-labelledby="guides-heading">
-          <h2 id="guides-heading" class="text-[20px] font-semibold">Guides</h2>
-          <ul class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            @for (g of guides; track g.slug) {
-              <li>
-                <a [routerLink]="path(g.slug)" class="block h-full rounded-[14px] border border-black/10 bg-white p-4 hover:border-black/30 transition-colors">
-                  <span class="block text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">{{ g.category }}</span>
-                  <span class="mt-1 block text-[14.5px] font-semibold leading-snug">{{ g.title }}</span>
-                </a>
-              </li>
-            }
-          </ul>
+        <section class="block first">
+          <div class="wrap"><div class="col">
+            <p class="intro">{{ data.description }}</p>
+            <ul class="ticks">
+              @for (b of data.bullets; track $index) {
+                <li>{{ b }}</li>
+              }
+            </ul>
+          </div></div>
         </section>
 
-        <div class="mt-10">
-          <p class="text-[13.5px] font-semibold mb-3">Other tools</p>
-          <div class="flex flex-wrap gap-2">
-            @for (f of others; track f.slug) {
-              <a [routerLink]="['/features', f.slug]" class="inline-flex items-center min-h-[44px] rounded-full border border-black/15 px-4 text-[13px] hover:bg-black/5 transition-colors">{{ f.title }}</a>
-            }
+        <section class="block" aria-labelledby="steps-heading">
+          <div class="wrap"><div class="col">
+            <h2 id="steps-heading">Step by step</h2>
+            <ol class="steps">
+              @for (s of data.steps; track s.title) {
+                <li>
+                  <div>
+                    <h3>{{ s.title }}</h3>
+                    <p>{{ s.text }}</p>
+                  </div>
+                </li>
+              }
+            </ol>
+          </div></div>
+        </section>
+
+        <section class="block" aria-labelledby="limits-heading">
+          <div class="wrap"><div class="col">
+            <h2 id="limits-heading">Limits and formats</h2>
+            <dl class="limits">
+              @for (l of data.limits; track l.label) {
+                <div>
+                  <dt>{{ l.label }}</dt>
+                  <dd>{{ l.value }}</dd>
+                </div>
+              }
+            </dl>
+          </div></div>
+        </section>
+
+        <section class="block" aria-labelledby="handling-heading">
+          <div class="wrap"><div class="col">
+            <h2 id="handling-heading">How your files are handled</h2>
+            <p class="text">{{ data.handling }} The <a routerLink="/privacy" class="link">privacy policy</a> has the full list of services and the deletion details.</p>
+          </div></div>
+        </section>
+
+        <section class="block" aria-labelledby="trouble-heading">
+          <div class="wrap"><div class="col">
+            <h2 id="trouble-heading">Troubleshooting</h2>
+            <div class="faq">
+              @for (t of data.troubleshooting; track t.q) {
+                <details class="ui-disclosure">
+                  <summary>{{ t.q }}</summary>
+                  <p>{{ t.a }}</p>
+                </details>
+              }
+            </div>
+          </div></div>
+        </section>
+
+        <section class="block cta" aria-label="Get started">
+          <div class="wrap">
+            <p>{{ data.cta }}</p>
+            <a [routerLink]="data.ctaLink" class="ui-btn ui-btn--secondary">Try for free</a>
           </div>
-        </div>
-        <p class="mt-8 text-[12.5px] text-[#6B6560]">Last checked against the product on {{ reviewed }}.</p>
+        </section>
+
+        <section class="block" aria-labelledby="guides-heading">
+          <div class="wrap">
+            <h2 id="guides-heading">Guides</h2>
+            <ul class="cards">
+              @for (g of guides; track g.slug) {
+                <li>
+                  <a [routerLink]="path(g.slug)" class="card">
+                    <small>{{ g.category }}</small>
+                    <strong>{{ g.title }}</strong>
+                  </a>
+                </li>
+              }
+            </ul>
+            <p class="muted" style="font-size:var(--type-sm);font-weight:600;margin-top:var(--space-xl)">Other tools</p>
+            <div class="others">
+              @for (f of others; track f.slug) {
+                <a [routerLink]="['/features', f.slug]" class="ui-btn ui-btn--secondary">{{ f.title }}</a>
+              }
+            </div>
+            <p class="reviewed">Last checked against the product on {{ reviewed }}.</p>
+          </div>
+        </section>
       </main>
       <app-site-footer />
     </div>
   `,
-  styles: [`
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-  `],
 })
 export class FeaturePageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);

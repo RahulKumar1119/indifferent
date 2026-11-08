@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { setPageSeo } from '../../shared/seo';
 import { FEATURE_DATA, FeatureData, FeatureFaq } from '../features/feature-page.component';
@@ -50,52 +51,76 @@ export const GENERAL_FAQ: FeatureFaq[] = [
 @Component({
   selector: 'app-help',
   standalone: true,
-  imports: [RouterLink, SiteFooterComponent],
+  imports: [RouterLink, PublicHeaderComponent, SiteFooterComponent],
   styles: [`
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
+    :host { display: block; }
+    .page { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: var(--type-md); line-height: 1.55; -webkit-font-smoothing: antialiased; min-height: 100dvh; }
+    .wrap { width: min(var(--container), 100%); margin-inline: auto; padding-inline: var(--gutter); }
+    .col { width: min(52rem, 100%); }
+    h1, h2, p { margin: 0; }
+    h1 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-display-s); line-height: 1.04; letter-spacing: var(--tracking-display); overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+    h2 { font-family: var(--font-display); font-weight: 500; font-size: var(--type-2xl); line-height: 1.1; letter-spacing: var(--tracking-display); }
+    .hero { padding: calc(56px + var(--space-3xl)) 0 var(--space-xl); }
+    .lead { margin-top: var(--space-lg); font-size: var(--type-lead); line-height: 1.45; color: var(--color-ink-2); max-width: 52ch; }
+    .jump { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xl); }
+    section.faq-section { padding: var(--space-xl) 0; border-top: 1px solid var(--color-rule); scroll-margin-top: var(--space-3xl); }
+    .intro { margin-top: var(--space-xs); color: var(--color-ink-2); }
+    .list { display: grid; gap: var(--space-sm); margin-top: var(--space-lg); }
+    .more { margin-top: var(--space-md); }
+    .link { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; color: var(--color-accent-text); text-underline-offset: 0.2em; }
+    .link:hover { color: var(--color-ink); }
+    .link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
+    .stuck { background: var(--color-paper-2); border-top: 1px solid var(--color-rule); padding: var(--space-2xl) 0; }
+    .stuck p { margin-top: var(--space-sm); color: var(--color-ink-2); max-width: 60ch; }
+    .stuck a { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; }
+    .stuck a:hover { color: var(--color-ink); }
+    .stuck a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
   `],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <header class="max-w-3xl mx-auto px-4 pt-24 pb-6">
-        <a routerLink="/" class="inline-flex items-center min-h-[44px] text-[13px] text-[#6B6560] hover:text-[#1A1714]">← Indifferent</a>
-        <h1 class="serif mt-4 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2.2rem,5vw,3.4rem)]">Help and FAQ</h1>
-        <p class="mt-4 text-[16.5px] leading-relaxed text-[#3E3A33]">
-          Answers about the four tools, your files and your account. Each tool also has a page with its exact limits and a step-by-step guide.
-        </p>
-        <nav aria-label="Sections" class="mt-6 flex flex-wrap gap-2">
-          @for (s of sections; track s.id) {
-            <a [href]="'#' + s.id" class="inline-flex items-center min-h-[44px] rounded-full border border-black/15 px-4 text-[13px] hover:bg-black/5 transition-colors">{{ s.title }}</a>
-          }
-        </nav>
+    <div class="page hm hm-on-light">
+      <app-public-header />
+      <header class="hero">
+        <div class="wrap"><div class="col">
+          <h1>Help and FAQ</h1>
+          <p class="lead">
+            Answers about the four tools, your files and your account. Each tool also has a page with its exact limits and a step-by-step guide.
+          </p>
+          <nav aria-label="Sections" class="jump">
+            @for (s of sections; track s.id) {
+              <a [href]="'#' + s.id" class="ui-btn ui-btn--secondary">{{ s.title }}</a>
+            }
+          </nav>
+        </div></div>
       </header>
-
-      <main class="max-w-3xl mx-auto px-4 pb-12">
+      <main>
         @for (s of sections; track s.id) {
-          <section [id]="s.id" class="mt-10 scroll-mt-24" [attr.aria-labelledby]="s.id + '-heading'">
-            <h2 [id]="s.id + '-heading'" class="text-[22px] font-semibold">{{ s.title }}</h2>
-            @if (s.intro) {
-              <p class="mt-2 text-[14.5px] leading-relaxed text-[#3E3A33]">{{ s.intro }}</p>
-            }
-            <div class="mt-4 space-y-3">
-              @for (f of s.faqs; track f.q) {
-                <details class="rounded-[14px] border border-black/10 bg-white px-5 py-4">
-                  <summary class="cursor-pointer font-semibold text-[14.5px]">{{ f.q }}</summary>
-                  <p class="mt-3 text-[14px] leading-relaxed text-[#3E3A33]">{{ f.a }}</p>
-                </details>
+          <section [id]="s.id" class="faq-section" [attr.aria-labelledby]="s.id + '-heading'">
+            <div class="wrap"><div class="col">
+              <h2 [id]="s.id + '-heading'">{{ s.title }}</h2>
+              @if (s.intro) {
+                <p class="intro">{{ s.intro }}</p>
               }
-            </div>
-            @if (s.more) {
-              <p class="mt-4"><a [routerLink]="s.more.path" class="inline-flex items-center min-h-[44px] text-[14px] font-semibold underline underline-offset-4">{{ s.more.label }}</a></p>
-            }
+              <div class="list">
+                @for (f of s.faqs; track f.q) {
+                  <details class="ui-disclosure">
+                    <summary>{{ f.q }}</summary>
+                    <p>{{ f.a }}</p>
+                  </details>
+                }
+              </div>
+              @if (s.more) {
+                <p class="more"><a [routerLink]="s.more.path" class="link">{{ s.more.label }}</a></p>
+              }
+            </div></div>
           </section>
         }
-
-        <section class="mt-12 rounded-[20px] bg-[#1A1714] text-white px-6 py-8" aria-labelledby="contact-heading">
-          <h2 id="contact-heading" class="text-[20px] font-semibold">Still stuck?</h2>
-          <p class="mt-2 text-[14.5px] leading-relaxed text-white/75">
-            Email <a href="mailto:support@indifferent.fun" class="underline underline-offset-4">support&#64;indifferent.fun</a> with the file type, its length and what the page showed. The <a routerLink="/contact" class="underline underline-offset-4">contact page</a> lists the other ways to reach us.
-          </p>
+        <section class="stuck" aria-labelledby="contact-heading">
+          <div class="wrap"><div class="col">
+            <h2 id="contact-heading">Still stuck?</h2>
+            <p>
+              Email <a href="mailto:support@indifferent.fun">support&#64;indifferent.fun</a> with the file type, its length and what the page showed. The <a routerLink="/contact">contact page</a> lists the other ways to reach us.
+            </p>
+          </div></div>
         </section>
       </main>
       <app-site-footer />
