@@ -9,6 +9,7 @@ import { StoryPlanService } from '../story/story-plan.service';
 import { StoryVideoService } from '../story/story-video.service';
 import { ThumbnailService } from '../thumbnails/thumbnail.service';
 import { buildRecentWork, RecentWork, WORK_KINDS, WorkItem, WorkKind, WorkState } from './recent-work';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { EmailConfirmBannerComponent } from '../../shared/components/email-confirm-banner/email-confirm-banner.component';
 
 interface Tool {
@@ -30,205 +31,179 @@ const RECENT_LIMIT = 10;
     CommonModule,
     RouterLink,
     LucideDynamicIcon,
+    NavbarComponent,
     EmailConfirmBannerComponent,
   ],
   styles: [`
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(1px) scale(.98); }
-    .row-hover { transition: background-color .2s; }
-    .row-hover:hover { background-color: rgba(26,23,20,0.04); }
-    @media (prefers-reduced-motion: reduce) {
-      .btn-primary, .row-hover { transition: none; }
+    :host { display: block; background: var(--color-paper); color: var(--color-ink); min-height: 100dvh; font-family: var(--font-body); }
+    main { max-width: 64rem; margin: 0 auto; padding: var(--space-xl) var(--space-md) var(--space-2xl); }
+    h1 { font-size: var(--type-2xl); font-weight: 600; line-height: 1.1; }
+    h2 { font-size: var(--type-lg); font-weight: 600; line-height: 1.2; }
+    .head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-xs) var(--space-md); }
+    .sub { font-size: var(--type-sm); color: var(--color-ink-2); }
+    .num { font-variant-numeric: lining-nums tabular-nums; }
+    .notice { margin-top: var(--space-md); padding: var(--space-sm) var(--space-md); border-left: 3px solid var(--color-caution); background: var(--color-paper-2); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); font-size: var(--type-sm); }
+    .notice.err { border-left-color: var(--color-negative); }
+    .stats { margin-top: var(--space-lg); display: grid; grid-template-columns: repeat(2, 1fr); border-top: 1px solid var(--color-rule); border-bottom: 1px solid var(--color-rule); }
+    .stat { padding: var(--space-md) var(--space-md) var(--space-md) 0; }
+    .stat:nth-child(even) { padding-left: var(--space-md); border-left: 1px solid var(--color-rule); }
+    .stat:nth-child(n+3) { border-top: 1px solid var(--color-rule); }
+    .stat-n { font-size: var(--type-xl); font-weight: 600; line-height: 1; }
+    .stat-l { margin-top: var(--space-2xs); font-size: var(--type-sm); color: var(--color-ink-2); }
+    section { margin-top: var(--space-xl); }
+    .sec-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-md); }
+    .links { display: flex; flex-wrap: wrap; gap: 0 var(--space-md); }
+    .links a, .rows a, .tools a { display: flex; align-items: center; min-height: 44px; }
+    .links a { font-size: var(--type-sm); }
+    .tools { margin-top: var(--space-xs); display: grid; grid-template-columns: repeat(2, 1fr); border-top: 1px solid var(--color-rule); }
+    .tools li { border-bottom: 1px solid var(--color-rule); }
+    .tools li:nth-child(odd) { padding-right: var(--space-md); }
+    .tools li:nth-child(even) { padding-left: var(--space-md); border-left: 1px solid var(--color-rule); }
+    .tools a { height: 100%; gap: var(--space-sm); padding: var(--space-sm) 0; border-radius: var(--radius-control); }
+    .tools a:hover .t-name { color: var(--color-accent-text); }
+    .t-name { font-weight: 600; font-size: var(--type-md); display: block; }
+    .t-note { font-size: var(--type-xs); color: var(--color-ink-2); display: block; }
+    .icon { flex: none; color: var(--color-ink-2); }
+    .rows { margin-top: var(--space-xs); border-top: 1px solid var(--color-rule); }
+    .rows li { border-bottom: 1px solid var(--color-rule); }
+    .rows a { gap: var(--space-sm); padding: var(--space-xs) var(--space-2xs); }
+    .rows a:hover { background: var(--color-paper-2); }
+    .r-main { flex: 1; min-width: 0; }
+    .r-title { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .r-meta { display: flex; flex-wrap: wrap; gap: 0 var(--space-sm); font-size: var(--type-xs); color: var(--color-ink-2); }
+    .state { display: inline-flex; align-items: center; gap: var(--space-2xs); font-size: var(--type-xs); font-weight: 500; flex: none; }
+    .s-done { color: var(--color-positive); } .s-failed { color: var(--color-negative); }
+    .s-working { color: var(--color-caution); } .s-draft { color: var(--color-ink-2); }
+    .empty { padding: var(--space-xl) 0; border-top: 1px solid var(--color-rule); margin-top: var(--space-xs); }
+    .empty p:first-child { font-size: var(--type-lg); font-weight: 600; }
+    .empty p + p { margin-top: var(--space-2xs); color: var(--color-ink-2); }
+    .empty a { margin-top: var(--space-md); }
+    @media (min-width: 640px) {
+      main { padding-inline: var(--space-lg); }
+      .stats { grid-template-columns: repeat(4, 1fr); }
+      .stat, .stat:nth-child(even), .stat:nth-child(n+3) { padding: var(--space-md); border-left: 1px solid var(--color-rule); border-top: 0; }
+      .stat:first-child, .stat:nth-child(1) { padding-left: 0; border-left: 0; }
+      .tools { grid-template-columns: repeat(5, 1fr); }
+      .tools li, .tools li:nth-child(odd), .tools li:nth-child(even) { padding: 0 var(--space-sm); border-left: 1px solid var(--color-rule); }
+      .tools li:first-child { padding-left: 0; border-left: 0; }
+      .tools a { align-items: flex-start; flex-direction: column; gap: var(--space-xs); padding: var(--space-md) 0; }
     }
   `],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <!-- App header -->
-      <header class="border-b border-black/[0.07] bg-[#FAF7F2]/90 backdrop-blur sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
-          <a routerLink="/" class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></a>
-          <div class="flex items-center gap-2 sm:gap-3">
-            <a routerLink="/" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Home</a>
-            <a routerLink="/projects" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Projects</a>
-            <a routerLink="/blog" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Journal</a>
-            <a routerLink="/profile" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Profile</a>
-            <a routerLink="/profile" class="sm:hidden w-9 h-9 rounded-full hover:bg-black/[0.05] inline-flex items-center justify-center text-[#3E3A33]" aria-label="Profile">
-              <svg lucideIcon="user" [size]="17"></svg>
-            </a>
-            <a routerLink="/projects/new" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white pl-4 pr-1.5 py-1.5 text-[13.5px] font-semibold">
-              New project
-              <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
-                <svg lucideIcon="plus" [size]="15"></svg>
-              </span>
-            </a>
+    <app-navbar />
+    <main id="main" class="hm">
+      <app-email-confirm-banner class="block" style="margin-bottom: var(--space-md)" />
+      <div class="head">
+        <h1>Dashboard</h1>
+        <p class="sub num" data-testid="subtitle">{{ total }}{{ anyMore ? '+' : '' }} {{ total === 1 && !anyMore ? 'piece' : 'pieces' }} of work in the cutting room</p>
+      </div>
+
+      @if (loadError) {
+        <div class="notice err" role="alert">
+          <p><strong>Couldn't load your work.</strong> Check your connection and try again.</p>
+          <button type="button" (click)="reload()" class="ui-btn ui-btn--secondary">Retry</button>
+        </div>
+      }
+
+      @if (!isLoading && !loadError && missing.length > 0) {
+        <div class="notice" role="status" data-testid="partial">
+          <p><strong>Some work could not be loaded:</strong> {{ missing.join(', ') }}. The rest is shown below.</p>
+          <button type="button" (click)="reload()" class="ui-btn ui-btn--secondary">Retry</button>
+        </div>
+      }
+
+      @if (isLoading && !loadError) {
+        <div role="status" aria-label="Loading your work">
+          <div class="stats">
+            @for (i of [1, 2, 3, 4]; track i) {
+              <div class="stat"><div class="ui-skeleton" style="height: 1.5rem; width: 3rem"></div><div class="ui-skeleton" style="height: 1rem; width: 5rem; margin-top: var(--space-xs)"></div></div>
+            }
+          </div>
+          <div style="margin-top: var(--space-xl)">
+            @for (i of [1, 2, 3]; track i) {
+              <div class="ui-skeleton" style="height: 2.75rem; margin-top: var(--space-xs)"></div>
+            }
           </div>
         </div>
-      </header>
+      }
 
-      <main class="max-w-7xl mx-auto px-5 md:px-8 py-10 md:py-14">
-        <app-email-confirm-banner class="mb-8 block" />
-        <div class="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Studio · Overview</p>
-            <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">Dashboard.</h1>
+      @if (!isLoading) {
+        <div class="stats">
+          <div class="stat">
+            <p class="stat-n num" data-testid="total">{{ total }}{{ anyMore ? '+' : '' }}</p>
+            <p class="stat-l">Total</p>
           </div>
-          <p class="text-[13.5px] text-[#6B6560]" data-testid="subtitle">{{ total }}{{ anyMore ? '+' : '' }} {{ total === 1 && !anyMore ? 'piece' : 'pieces' }} of work in the cutting room</p>
+          <div class="stat">
+            <p class="stat-n num" data-testid="done">{{ doneCount }}</p>
+            <p class="stat-l">Ready</p>
+          </div>
+          <div class="stat">
+            <p class="stat-n num" data-testid="inProgress">{{ inProgressCount }}</p>
+            <p class="stat-l">Cutting</p>
+          </div>
+          <div class="stat">
+            <p class="stat-n num" data-testid="failed">{{ failedCount }}</p>
+            <p class="stat-l">Retakes</p>
+          </div>
         </div>
 
-        @if (loadError) {
-          <div class="mt-6 rounded-[20px] border border-red-500/30 bg-red-500/[0.06] p-5 flex flex-wrap items-center justify-between gap-3" role="alert">
-            <p class="text-[14px]"><span class="font-semibold">Couldn't load your work.</span> Check your connection and try again.</p>
-            <button type="button" (click)="reload()" class="rounded-full bg-[#1A1714] text-white px-5 py-2.5 text-[13.5px] font-semibold">Retry</button>
-          </div>
-        }
-
-        @if (!isLoading && !loadError && missing.length > 0) {
-          <div class="mt-6 rounded-[20px] border border-[#956400]/30 bg-[#956400]/[0.06] p-5 flex flex-wrap items-center justify-between gap-3" role="status" data-testid="partial">
-            <p class="text-[14px]"><span class="font-semibold">Some work could not be loaded:</span> {{ missing.join(', ') }}. The rest is shown below.</p>
-            <button type="button" (click)="reload()" class="min-h-11 rounded-full bg-[#1A1714] text-white px-5 py-2.5 text-[13.5px] font-semibold">Retry</button>
-          </div>
-        }
-        @if (isLoading && !loadError) {
-          <div class="mt-8 flex flex-col gap-4">
-            <div class="skeleton h-[24px] w-[18%]"></div>
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              @for (i of [1, 2, 3, 4]; track i) {
-                <div class="rounded-[20px] bg-white border border-black/[0.07] p-5">
-                  <div class="skeleton h-[44px] mb-2"></div>
-                  <div class="skeleton h-[14px] w-[35%]"></div>
-                </div>
-              }
-            </div>
-            <section class="mt-6 rounded-[20px] bg-white border border-black/[0.07] p-5">
-              <h2 class="skeleton h-[26px] w-[40%]"></h2>
-              <div class="skeleton h-[16px] w-[60%] mt-2"></div>
-              <div class="skeleton h-[14px] w-[100%] mt-3"></div>
-              <div class="skeleton h-[14px] w-[100%] mt-2"></div>
-            </section>
-          </div>
-        }
-
-        @if (!isLoading) {
-          <!-- Summary cards -->
-        <div class="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-6">
-            <div class="flex items-start justify-between">
-              <p class="text-[12px] uppercase tracking-[0.14em] text-[#6B6560]">Total</p>
-              <span class="w-8 h-8 rounded-full bg-[#1A1714]/[.06] flex items-center justify-center">
-                <svg lucideIcon="folder-open" [size]="16" class="text-[#1A1714]"></svg>
-              </span>
-            </div>
-            <p class="serif text-[44px] leading-none mt-2" data-testid="total">{{ total }}{{ anyMore ? '+' : '' }}</p>
-            <p class="text-[12.5px] text-[#6B6560] mt-1">All work</p>
-          </div>
-          <div class="rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-6">
-            <div class="flex items-start justify-between">
-              <p class="text-[12px] uppercase tracking-[0.14em] text-[#6B6560]">Ready</p>
-              <span class="w-8 h-8 rounded-full bg-[#1E3A2A]/10 flex items-center justify-center">
-                <svg lucideIcon="circle-check" [size]="16" class="text-[#1E3A2A]"></svg>
-              </span>
-            </div>
-            <p class="serif text-[44px] leading-none mt-2 text-[#1E3A2A]" data-testid="done">{{ doneCount }}</p>
-            <p class="text-[12.5px] text-[#6B6560] mt-1">Completed</p>
-          </div>
-          <div class="rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-6">
-            <div class="flex items-start justify-between">
-              <p class="text-[12px] uppercase tracking-[0.14em] text-[#6B6560]">Cutting</p>
-              <span class="w-8 h-8 rounded-full bg-[#956400]/10 flex items-center justify-center">
-                <svg lucideIcon="clock" [size]="16" class="text-[#956400]"></svg>
-              </span>
-            </div>
-            <p class="serif text-[44px] leading-none mt-2 text-[#956400]" data-testid="inProgress">{{ inProgressCount }}</p>
-            <p class="text-[12.5px] text-[#6B6560] mt-1">Rendering or draft</p>
-          </div>
-          <div class="rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-6">
-            <div class="flex items-start justify-between">
-              <p class="text-[12px] uppercase tracking-[0.14em] text-[#6B6560]">Retakes</p>
-              <span class="w-8 h-8 rounded-full bg-[#BC5227]/10 flex items-center justify-center">
-                <svg lucideIcon="circle-x" [size]="16" class="text-[#BC5227]"></svg>
-              </span>
-            </div>
-            <p class="serif text-[44px] leading-none mt-2 text-[#BC5227]" data-testid="failed">{{ failedCount }}</p>
-            <p class="text-[12.5px] text-[#6B6560] mt-1">Failed</p>
-          </div>
-        </div>
-        <!-- Tools -->
-        <section class="mt-6" aria-labelledby="tools-heading">
-          <h2 id="tools-heading" class="serif text-[26px] mb-3">Your tools</h2>
-          <ul class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <section aria-labelledby="tools-heading">
+          <h2 id="tools-heading">Your tools</h2>
+          <ul class="tools">
             @for (tool of tools; track tool.label) {
               <li>
-                <a
-                  [routerLink]="tool.link"
-                  class="row-hover flex h-full min-h-11 flex-col gap-2 rounded-[20px] bg-white border border-black/[0.07] p-5"
-                >
-                  <span class="w-8 h-8 rounded-full bg-[#1A1714]/[.06] flex items-center justify-center">
-                    <svg [lucideIcon]="tool.icon" [size]="16" class="text-[#1A1714]"></svg>
+                <a [routerLink]="tool.link">
+                  <svg [lucideIcon]="tool.icon" [size]="18" class="icon" aria-hidden="true"></svg>
+                  <span>
+                    <span class="t-name">{{ tool.label }}</span>
+                    <span class="t-note num">{{ toolNote(tool) }}</span>
                   </span>
-                  <span class="font-medium text-[15px]">{{ tool.label }}</span>
-                  <span class="text-[12.5px] text-[#6B6560]">{{ toolNote(tool) }}</span>
                 </a>
               </li>
             }
           </ul>
         </section>
-        <!-- Recent work -->
-        <section class="mt-6 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
-          <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 mb-2">
-            <h2 class="serif text-[26px]">Recent work</h2>
-            <span class="flex flex-wrap gap-x-5 gap-y-1">
-              <a routerLink="/projects" class="inline-flex min-h-11 items-center text-[13.5px] font-semibold underline underline-offset-8 decoration-black/25 hover:decoration-black transition">All projects</a>
-              <a routerLink="/shorts/history" class="inline-flex min-h-11 items-center text-[13.5px] font-semibold underline underline-offset-8 decoration-black/25 hover:decoration-black transition">All shorts</a>
+
+        <section aria-labelledby="recent-heading">
+          <div class="sec-head">
+            <h2 id="recent-heading">Recent work</h2>
+            <span class="links">
+              <a routerLink="/projects" class="ui-link">All projects</a>
+              <a routerLink="/shorts/history" class="ui-link">All shorts</a>
             </span>
           </div>
           @if (recent.length === 0) {
-            <div class="py-12 text-center">
-              <p class="serif text-[28px]">Nothing here yet.</p>
-              <p class="mt-2 text-[14.5px] text-[#6B6560]">Make a quiz video, cut shorts from a recording, or turn a story into a video.</p>
-              <a routerLink="/projects/new" class="btn-primary mt-6 inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white px-7 py-3.5 font-semibold text-[14.5px]">
-                Create your first video →
-              </a>
+            <div class="empty">
+              <p>Nothing here yet.</p>
+              <p>Make a quiz video, cut shorts from a recording, or turn a story into a video.</p>
+              <a routerLink="/projects/new" class="ui-btn ui-btn--primary">Create your first video</a>
             </div>
           } @else {
-            <ul class="divide-y divide-black/[0.07]">
+            <ul class="rows divide-y">
               @for (item of recent; track item.id) {
                 <li>
-                  <a [routerLink]="item.link" class="row-hover flex items-center gap-4 px-2 md:px-3 py-4 rounded-xl">
-                    <span class="w-9 h-9 rounded-full bg-[#1A1714]/[.05] flex items-center justify-center shrink-0">
-                      <svg [lucideIcon]="stateIcon(item.state)" [size]="17" [class]="stateColor(item.state)"></svg>
-                    </span>
-                    <span class="flex-1 min-w-0">
-                      <span class="block font-medium truncate text-[15px]">{{ item.title }}</span>
-                      <span class="block text-[12.5px] text-[#6B6560]">
-                        {{ kindLabel[item.kind] }} &middot; {{ formatDate(item.date) }}
+                  <a [routerLink]="item.link">
+                    <svg [lucideIcon]="stateIcon(item.state)" [size]="18" class="icon" [class]="stateClass(item.state)" aria-hidden="true"></svg>
+                    <span class="r-main">
+                      <span class="r-title">{{ item.title }}</span>
+                      <span class="r-meta num">
+                        <span>{{ kindLabel[item.kind] }}</span>
+                        <span>{{ formatDate(item.date) }}</span>
                         @if (item.detail) {
-                          &middot; {{ item.detail }}
+                          <span>{{ item.detail }}</span>
                         }
                       </span>
                     </span>
-                    <span class="sm:hidden sr-only">{{ stateLabel[item.state] }}</span>
-                    <span class="hidden sm:inline-flex rounded-full border border-black/10 px-3 py-1 text-[11.5px] font-medium" [class]="stateColor(item.state)">{{ stateLabel[item.state] }}</span>
-                    <svg lucideIcon="chevron-right" [size]="16" class="text-[#6B6560] shrink-0"></svg>
+                    <span class="state" [class]="stateClass(item.state)">{{ stateLabel[item.state] }}</span>
+                    <svg lucideIcon="chevron-right" [size]="16" class="icon" aria-hidden="true"></svg>
                   </a>
                 </li>
               }
             </ul>
           }
         </section>
-        }
-        <footer class="mt-10 pt-6 border-t border-black/[0.07] flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-[#6B6560]">
-          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex gap-5">
-            <a routerLink="/" class="hover:text-[#1A1714]">Home</a>
-            <a routerLink="/blog" class="hover:text-[#1A1714]">Journal</a>
-            <a routerLink="/contact" class="hover:text-[#1A1714]">Contact</a>
-          </span>
-        </footer>
-      </main>
-    </div>
+      }
+    </main>
   `,
 })
 export class DashboardComponent implements OnInit {
@@ -237,7 +212,6 @@ export class DashboardComponent implements OnInit {
   private readonly storyPlans = inject(StoryPlanService);
   private readonly storyVideos = inject(StoryVideoService);
   private readonly thumbnails = inject(ThumbnailService);
-  currentYear = new Date().getFullYear();
 
   recent: WorkItem[] = [];
   counts: RecentWork['counts'] = buildRecentWork({ projects: null, shorts: null, videos: null, plans: null, thumbnails: null }).counts;
@@ -317,8 +291,8 @@ export class DashboardComponent implements OnInit {
     return { done: 'circle-check', failed: 'circle-x', draft: 'pencil', working: 'clock' }[state];
   }
 
-  stateColor(state: WorkState): string {
-    return { done: 'text-[#1E3A2A]', failed: 'text-[#9B3D1C]', draft: 'text-[#6B6560]', working: 'text-[#956400]' }[state];
+  stateClass(state: WorkState): string {
+    return `s-${state}`;
   }
 
   formatDate(dateStr: string): string {

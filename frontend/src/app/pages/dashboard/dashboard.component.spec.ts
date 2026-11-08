@@ -17,6 +17,8 @@ import {
   LucideScissors,
   LucideStamp,
   LucideUser,
+  LucideSun,
+  LucideMoon,
 } from '@lucide/angular';
 import { Observable, of, throwError } from 'rxjs';
 import { DashboardComponent } from './dashboard.component';
@@ -60,7 +62,7 @@ function setup(data: Data) {
       provideRouter([]),
       provideLucideIcons(
         LucideChevronRight, LucideCircleCheck, LucideCircleX, LucideClapperboard, LucideClock, LucideFilm,
-        LucideFolderOpen, LucideImage, LucidePencil, LucidePlus, LucideScissors, LucideStamp, LucideUser,
+        LucideFolderOpen, LucideImage, LucidePencil, LucidePlus, LucideScissors, LucideStamp, LucideUser, LucideSun, LucideMoon,
       ),
       { provide: ProjectService, useValue: { getProjects: () => data.projects } },
       { provide: ShortsService, useValue: { listJobs: () => data.shorts } },
@@ -158,5 +160,24 @@ describe('DashboardComponent', () => {
     const { rows, text } = setup(d);
     expect(rows().length).toBe(10);
     expect(text('total')).toBe('16');
+  });
+  it('uses the shared app navbar and exactly one h1', () => {
+    const { el } = setup(full());
+    expect(el.querySelector('app-navbar')).toBeTruthy();
+    expect(el.querySelectorAll('h1').length).toBe(1);
+    expect(el.querySelector('header')?.closest('main')).toBeNull();
+  });
+  it('shows the state word on every row', () => {
+    const { rows } = setup(full());
+    const r = rows().join('|');
+    expect(r).toContain('Completed');
+    expect(r).toContain('In progress');
+    expect(r).toContain('Failed');
+  });
+  it('keeps hex colours and tracked capitals out of the markup', () => {
+    const { el } = setup(full());
+    expect(el.innerHTML).not.toMatch(/#[0-9A-Fa-f]{6}\b/);
+    expect(el.innerHTML).not.toContain('uppercase');
+    expect(el.textContent).not.toContain('\u00b7');
   });
 });
