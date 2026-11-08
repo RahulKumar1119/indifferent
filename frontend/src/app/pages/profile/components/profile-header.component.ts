@@ -1,309 +1,165 @@
-import { Component, ElementRef, ViewChild, input, output } from '@angular/core';
+import { Component, ElementRef, OnChanges, ViewChild, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { CreatorProfile } from '../models/creator-profile.model';
 
 /**
- * Profile header: avatar (upload / crop / remove), name, username, badge,
- * bio and the Edit Profile action. Emits the updated profile upward so the
+ * Profile details: avatar (upload / crop / remove) and a labelled form for
+ * name, username and bio with one Save action. Emits the updated profile upward so the
  * parent stays the single source of truth for persistence.
  */
 @Component({
   selector: 'app-profile-header',
   standalone: true,
   imports: [FormsModule, LucideDynamicIcon],
-  styles: [
-    `
-      .crop-frame {
-        touch-action: none;
-        cursor: grab;
-      }
-      .crop-frame:active {
-        cursor: grabbing;
-      }
-    `,
-  ],
+  styles: [`
+    :host { display: block; }
+    .wrap { display: grid; gap: var(--space-lg); }
+    @media (min-width: 56rem) { .wrap { grid-template-columns: 16rem minmax(0, 1fr); gap: var(--space-xl); } }
+    .who { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
+    .avatar { position: relative; width: 6rem; height: 6rem; border-radius: 50%; overflow: hidden; border: 2px solid color-mix(in oklab, var(--color-accent) 35%, transparent); background: color-mix(in oklab, var(--color-accent) 12%, var(--app-card)); padding: 0; cursor: pointer; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .initials { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; font-size: var(--type-xl); font-weight: 600; color: var(--color-accent-text); }
+    .name { margin: 0; font-size: var(--type-xl); font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+    .handle, .mail { margin: 0; font-size: var(--type-sm); color: var(--color-muted); overflow-wrap: anywhere; }
+    .bio { margin: var(--space-2xs) 0 0; color: var(--color-ink-2); line-height: 1.5; }
+    .badge { display: inline-flex; align-items: center; gap: var(--space-3xs); color: var(--color-accent-text); }
+    form { display: flex; flex-direction: column; gap: var(--space-md); }
+    .field { display: flex; flex-direction: column; gap: var(--space-2xs); }
+    .prefix { position: relative; }
+    .prefix span { position: absolute; left: var(--space-md); top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
+    .prefix .ui-field { padding-left: calc(var(--space-md) + 1rem); }
+    textarea.ui-field { min-height: 6rem; padding-top: var(--space-sm); resize: vertical; }
+    .count { align-self: flex-end; font-size: var(--type-xs); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+    .err { margin: 0; font-size: var(--type-sm); color: var(--color-negative); font-weight: 500; }
+    .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); padding-top: var(--space-md); border-top: 1px solid var(--color-rule); }
+    .bar .btns { display: flex; gap: var(--space-xs); }
+    .local { margin: 0; display: flex; gap: var(--space-xs); align-items: flex-start; font-size: var(--type-xs); color: var(--color-muted); max-width: 40ch; }
+    .sk { border-radius: var(--radius-control); background: var(--color-paper-3); }
+    .dialog { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: flex-end; justify-content: center; padding: var(--space-md); }
+    @media (min-width: 40rem) { .dialog { align-items: center; } }
+    .scrim { position: absolute; inset: 0; background: color-mix(in oklab, var(--color-ink) 55%, transparent); }
+    .panel { position: relative; width: 100%; max-width: 28rem; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+    .icon-btn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-ink-2); cursor: pointer; }
+    .icon-btn:hover { background: var(--color-paper-3); }
+    .upload { margin-top: var(--space-md); width: 100%; display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); padding: var(--space-xl) var(--space-md); border: 2px dashed var(--color-rule); border-radius: var(--radius-surface); background: transparent; color: var(--color-ink-2); cursor: pointer; font: inherit; }
+    .upload:hover { border-color: var(--color-accent); color: var(--color-ink); }
+    .crop-frame { position: relative; width: 240px; height: 240px; overflow: hidden; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--color-accent) 45%, transparent); touch-action: none; cursor: grab; user-select: none; }
+    .crop-frame:active { cursor: grabbing; }
+    .crop { margin-top: var(--space-md); display: flex; flex-direction: column; align-items: center; gap: var(--space-sm); }
+    .zoom { display: flex; align-items: center; gap: var(--space-sm); width: 100%; font-size: var(--type-sm); }
+    .zoom input { flex: 1; accent-color: var(--color-accent); min-height: 44px; }
+    .foot { margin-top: var(--space-md); display: flex; justify-content: space-between; gap: var(--space-xs); }
+  `],
   template: `
-    <section
-      class="glass-card spotlight-card relative overflow-hidden p-6 md:p-8"
-      aria-label="Creator profile header"
-    >
+    <section class="ui-card" aria-labelledby="profile-details">
       @if (loading()) {
-        <div class="flex items-center gap-6">
-          <div class="skeleton h-20 w-20 md:h-24 md:w-24 rounded-full shrink-0"></div>
-          <div class="flex-1 space-y-3">
-            <div class="skeleton h-6 w-48"></div>
-            <div class="skeleton h-4 w-32"></div>
-            <div class="skeleton h-4 w-64"></div>
-          </div>
+        <div class="wrap" aria-hidden="true">
+          <div class="who"><div class="sk" style="width: 6rem; height: 6rem; border-radius: 50%"></div><div class="sk" style="width: 10rem; height: 1.25rem"></div></div>
+          <div style="display: grid; gap: var(--space-md)"><div class="sk" style="height: 44px"></div><div class="sk" style="height: 44px"></div><div class="sk" style="height: 6rem"></div></div>
         </div>
       } @else {
-        <div class="flex flex-col sm:flex-row sm:items-center gap-6">
-          <!-- Avatar -->
-          <div class="relative shrink-0 self-start">
-            <button
-              type="button"
-              (click)="openAvatarDialog()"
-              class="group relative block h-20 w-20 md:h-24 md:w-24 rounded-full overflow-hidden border-2 border-[hsl(var(--primary))]/30 hover:border-[hsl(var(--primary))]/60 transition-colors"
-              aria-label="Change profile avatar"
-              title="Change avatar"
-            >
+        <div class="wrap">
+          <div class="who">
+            <button type="button" class="avatar" (click)="openAvatarDialog()" aria-label="Change profile picture">
               @if (profile().avatarUrl) {
-                <img
-                  [src]="profile().avatarUrl"
-                  [alt]="profile().name + ' avatar'"
-                  class="h-full w-full object-cover"
-                />
+                <img [src]="profile().avatarUrl" alt="" />
               } @else {
-                <span
-                  class="flex h-full w-full items-center justify-center text-2xl md:text-3xl font-bold bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]"
-                  aria-hidden="true"
-                >
-                  {{ avatarInitials() }}
-                </span>
+                <span class="initials" aria-hidden="true">{{ avatarInitials() }}</span>
               }
-              <span
-                class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-hidden="true"
-              >
-                <svg lucideIcon="image" [size]="20" class="text-white"></svg>
-              </span>
             </button>
-            <span
-              class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(var(--primary))] text-white flex items-center justify-center border-2 border-[hsl(var(--background))]"
-              aria-hidden="true"
-            >
-              <svg lucideIcon="pencil" [size]="12"></svg>
-            </span>
-          </div>
-
-          <!-- Identity -->
-          <div class="flex-1 min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <h1 class="text-xl md:text-2xl font-bold tracking-tight truncate">
-                {{ profile().name || 'Your creator name' }}
-              </h1>
-              <span
-                class="inline-flex items-center gap-1 rounded-full bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] px-2.5 py-1 text-[11.5px] font-semibold"
-              >
-                <svg lucideIcon="sparkles" [size]="12" aria-hidden="true"></svg>
-                {{ profile().badge || 'AI Creator' }}
-              </span>
-            </div>
-            <p class="mt-0.5 text-sm text-[hsl(var(--muted-foreground))]">
-              &#64;{{ profile().username || 'username' }}
+            <button type="button" class="ui-btn ui-btn--quiet" style="padding-inline: var(--space-2xs); margin-left: calc(-1 * var(--space-2xs))" (click)="openAvatarDialog()">
+              <svg lucideIcon="image" [size]="16" aria-hidden="true"></svg>
+              Change picture
+            </button>
+            <div>
+              <p class="name">{{ profile().name || 'Your creator name' }}</p>
+              <p class="handle">&#64;{{ profile().username || 'username' }}</p>
               @if (profile().email) {
-                <span aria-hidden="true"> · </span>{{ profile().email }}
+                <p class="mail">{{ profile().email }}</p>
               }
-            </p>
-            <p class="mt-2 text-[14.5px] leading-relaxed max-w-[52ch]">
-              {{ profile().bio || 'Tell the world what you create.' }}
-            </p>
+              <p class="handle badge"><svg lucideIcon="sparkles" [size]="14" aria-hidden="true"></svg>{{ profile().badge || 'AI Creator' }}</p>
+              <p class="bio">{{ profile().bio || 'Tell the world what you create.' }}</p>
+            </div>
           </div>
 
-          <button
-            type="button"
-            (click)="openEditDialog()"
-            class="btn-interactive shrink-0 inline-flex items-center gap-2 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-5 py-2.5 text-[13.5px] font-semibold"
-          >
-            <svg lucideIcon="pencil" [size]="15" aria-hidden="true"></svg>
-            Edit Profile
-          </button>
+          <form (ngSubmit)="save()" novalidate data-testid="profile-form">
+            <h2 id="profile-details" class="ui-card-title">Profile details</h2>
+            <div class="field">
+              <label class="ui-label" for="pf-name">Creator name</label>
+              <input id="pf-name" name="name" class="ui-field" [(ngModel)]="draftName" maxlength="60" autocomplete="name" />
+            </div>
+            <div class="field">
+              <label class="ui-label" for="pf-username">Username</label>
+              <div class="prefix">
+                <span aria-hidden="true">&#64;</span>
+                <input id="pf-username" name="username" class="ui-field" [(ngModel)]="draftUsername" maxlength="24" autocomplete="username"
+                  aria-describedby="pf-username-hint" [attr.aria-invalid]="usernameError ? 'true' : null" />
+              </div>
+              <span id="pf-username-hint" class="ui-hint">2 to 24 letters, numbers or underscores.</span>
+              @if (usernameError) {
+                <p class="err" role="alert">{{ usernameError }}</p>
+              }
+            </div>
+            <div class="field">
+              <label class="ui-label" for="pf-bio">Bio</label>
+              <textarea id="pf-bio" name="bio" class="ui-field" [(ngModel)]="draftBio" maxlength="160" rows="3"></textarea>
+              <span class="count" aria-live="polite">{{ draftBio.length }} of 160</span>
+            </div>
+            <div class="bar">
+              <p class="local">
+                <svg lucideIcon="lock" [size]="14" aria-hidden="true"></svg>
+                Name, username, bio and picture are saved in this browser.
+              </p>
+              <div class="btns">
+                <button type="button" class="ui-btn ui-btn--secondary" (click)="discard()" [disabled]="!dirty()">Discard</button>
+                <button type="submit" class="ui-btn ui-btn--primary" [disabled]="!dirty()">Save changes</button>
+              </div>
+            </div>
+          </form>
         </div>
       }
     </section>
 
-    <!-- Edit profile dialog -->
-    @if (editOpen) {
-      <div
-        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Edit profile"
-        (keydown.escape)="closeEditDialog()"
-      >
-        <div class="absolute inset-0 bg-black/60" (click)="closeEditDialog()" aria-hidden="true"></div>
-        <div
-          class="relative w-full max-w-md rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 shadow-2xl"
-        >
-          <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold">Edit Profile</h2>
-            <button
-              type="button"
-              (click)="closeEditDialog()"
-              class="w-9 h-9 rounded-lg hover:bg-white/5 inline-flex items-center justify-center"
-              aria-label="Close edit profile"
-            >
-              <svg lucideIcon="x" [size]="18"></svg>
-            </button>
-          </div>
-          <div class="mt-4 space-y-4">
-            <label class="block">
-              <span class="text-[13px] font-medium">Creator name</span>
-              <input
-                [(ngModel)]="draftName"
-                maxlength="60"
-                class="mt-1.5 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--secondary))] px-3.5 py-2.5 text-[14px] outline-none focus:border-[hsl(var(--primary))]"
-                placeholder="Rahul Kumar"
-              />
-            </label>
-            <label class="block">
-              <span class="text-[13px] font-medium">Username</span>
-              <div class="mt-1.5 flex items-center rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--secondary))] focus-within:border-[hsl(var(--primary))]">
-                <span class="pl-3.5 text-[14px] text-[hsl(var(--muted-foreground))]">&#64;</span>
-                <input
-                  [(ngModel)]="draftUsername"
-                  maxlength="24"
-                  pattern="[a-zA-Z0-9_]+"
-                  class="w-full bg-transparent px-1.5 py-2.5 text-[14px] outline-none"
-                  placeholder="rahulkumar"
-                />
-              </div>
-              @if (usernameError) {
-                <span class="mt-1 block text-[12px] text-red-400">{{ usernameError }}</span>
-              }
-            </label>
-            <label class="block">
-              <span class="text-[13px] font-medium">Bio</span>
-              <textarea
-                [(ngModel)]="draftBio"
-                maxlength="160"
-                rows="3"
-                class="mt-1.5 w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--secondary))] px-3.5 py-2.5 text-[14px] outline-none focus:border-[hsl(var(--primary))] resize-none"
-                placeholder="Creating AI-powered Shorts with Indifferent"
-              ></textarea>
-              <span class="mt-1 block text-right text-[11.5px] text-[hsl(var(--muted-foreground))]">
-                {{ draftBio.length }}/160
-              </span>
-            </label>
-          </div>
-          <div class="mt-5 flex justify-end gap-2">
-            <button
-              type="button"
-              (click)="closeEditDialog()"
-              class="rounded-full px-5 py-2.5 text-[13.5px] font-medium border border-[hsl(var(--border))] hover:bg-white/5"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              (click)="saveEditDialog()"
-              class="btn-interactive rounded-full px-5 py-2.5 text-[13.5px] font-semibold bg-[hsl(var(--primary))] text-white"
-            >
-              Save changes
-            </button>
-          </div>
-        </div>
-      </div>
-    }
-
-    <!-- Avatar dialog: upload, crop (zoom + drag), preview, remove -->
     @if (avatarOpen) {
-      <div
-        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Change avatar"
-        (keydown.escape)="closeAvatarDialog()"
-      >
-        <div class="absolute inset-0 bg-black/60" (click)="closeAvatarDialog()" aria-hidden="true"></div>
-        <div
-          class="relative w-full max-w-md rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 shadow-2xl"
-        >
-          <div class="flex items-center justify-between">
-            <h2 class="text-lg font-semibold">Profile Avatar</h2>
-            <button
-              type="button"
-              (click)="closeAvatarDialog()"
-              class="w-9 h-9 rounded-lg hover:bg-white/5 inline-flex items-center justify-center"
-              aria-label="Close avatar editor"
-            >
-              <svg lucideIcon="x" [size]="18"></svg>
+      <div class="dialog hm" role="dialog" aria-modal="true" aria-labelledby="avatar-title" (keydown.escape)="closeAvatarDialog()">
+        <div class="scrim" (click)="closeAvatarDialog()" aria-hidden="true"></div>
+        <div class="panel ui-card">
+          <div class="panel-head">
+            <h2 id="avatar-title" class="ui-card-title">Profile picture</h2>
+            <button type="button" class="icon-btn" (click)="closeAvatarDialog()" aria-label="Close">
+              <svg lucideIcon="x" [size]="18" aria-hidden="true"></svg>
             </button>
           </div>
-
-          <input
-            #fileInput
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            class="hidden"
-            (change)="onFileSelected($event)"
-            aria-label="Upload avatar image"
-          />
-
+          <input #fileInput type="file" accept="image/png,image/jpeg,image/webp" hidden (change)="onFileSelected($event)" aria-label="Upload a profile picture" />
           @if (!cropImageSrc) {
-            <button
-              type="button"
-              (click)="fileInput.click()"
-              class="mt-4 flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-[hsl(var(--border))] px-4 py-10 text-[14px] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--foreground))] transition-colors"
-            >
+            <button type="button" class="upload" (click)="fileInput.click()">
               <svg lucideIcon="upload" [size]="24" aria-hidden="true"></svg>
               Upload a photo
-              <span class="text-[12px]">PNG, JPG or WebP · cropped to a circle</span>
+              <span class="ui-hint">PNG, JPG or WebP, cropped to a circle</span>
             </button>
             @if (profile().avatarUrl) {
-              <button
-                type="button"
-                (click)="removeAvatar()"
-                class="mt-3 inline-flex items-center gap-2 text-[13.5px] text-red-400 hover:text-red-300"
-              >
-                <svg lucideIcon="trash-2" [size]="15" aria-hidden="true"></svg>
-                Remove current avatar
+              <button type="button" class="ui-btn ui-btn--danger" style="margin-top: var(--space-sm)" (click)="removeAvatar()">
+                <svg lucideIcon="trash-2" [size]="16" aria-hidden="true"></svg>
+                Remove current picture
               </button>
             }
           } @else {
-            <div class="mt-4 flex flex-col items-center">
-              <div
-                #cropFrame
-                class="crop-frame relative h-60 w-60 overflow-hidden rounded-full border-2 border-[hsl(var(--primary))]/40 select-none"
-                (pointerdown)="onCropPointerDown($event)"
-                (pointermove)="onCropPointerMove($event)"
-                (pointerup)="onCropPointerEnd()"
-                (pointerleave)="onCropPointerEnd()"
-                aria-label="Drag to position the crop"
-              >
-                <img
-                  #cropImg
-                  [src]="cropImageSrc"
-                  alt="Avatar crop preview"
-                  class="absolute max-w-none"
-                  [style.width.px]="cropDisplayWidth()"
-                  [style.height.px]="cropDisplayHeight()"
-                  [style.left.px]="cropOffsetX"
-                  [style.top.px]="cropOffsetY"
-                  draggable="false"
-                />
+            <div class="crop">
+              <div #cropFrame class="crop-frame" (pointerdown)="onCropPointerDown($event)" (pointermove)="onCropPointerMove($event)" (pointerup)="onCropPointerEnd()" (pointerleave)="onCropPointerEnd()">
+                <img #cropImg [src]="cropImageSrc" alt="Crop preview" style="position: absolute; max-width: none"
+                  [style.width.px]="cropDisplayWidth()" [style.height.px]="cropDisplayHeight()" [style.left.px]="cropOffsetX" [style.top.px]="cropOffsetY" draggable="false" />
               </div>
-              <label class="mt-4 flex w-full items-center gap-3 text-[13px]">
-                <span class="shrink-0 text-[hsl(var(--muted-foreground))]">Zoom</span>
-                <input
-                  type="range"
-                  min="1"
-                  max="3"
-                  step="0.05"
-                  [(ngModel)]="cropZoom"
-                  (ngModelChange)="onZoomChange()"
-                  class="w-full accent-[hsl(var(--primary))]"
-                  aria-label="Crop zoom"
-                />
+              <label class="zoom">
+                <span>Zoom</span>
+                <input type="range" min="1" max="3" step="0.05" [(ngModel)]="cropZoom" (ngModelChange)="onZoomChange()" />
               </label>
-              <p class="mt-1 text-[12px] text-[hsl(var(--muted-foreground))]">Drag to reposition · slider to zoom</p>
+              <p class="ui-hint" style="margin: 0">Drag the photo to position it. Use the slider to zoom.</p>
             </div>
-            <div class="mt-5 flex justify-between gap-2">
-              <button
-                type="button"
-                (click)="resetCrop()"
-                class="rounded-full px-5 py-2.5 text-[13.5px] font-medium border border-[hsl(var(--border))] hover:bg-white/5"
-              >
-                Choose different
-              </button>
-              <button
-                type="button"
-                (click)="saveCroppedAvatar()"
-                class="btn-interactive rounded-full px-5 py-2.5 text-[13.5px] font-semibold bg-[hsl(var(--primary))] text-white"
-              >
-                Save avatar
-              </button>
+            <div class="foot">
+              <button type="button" class="ui-btn ui-btn--secondary" (click)="resetCrop()">Choose another</button>
+              <button type="button" class="ui-btn ui-btn--primary" (click)="saveCroppedAvatar()">Save picture</button>
             </div>
           }
         </div>
@@ -311,7 +167,7 @@ import { CreatorProfile } from '../models/creator-profile.model';
     }
   `,
 })
-export class ProfileHeaderComponent {
+export class ProfileHeaderComponent implements OnChanges {
   readonly profile = input.required<CreatorProfile>();
   readonly loading = input(false);
   readonly profileChange = output<Partial<CreatorProfile>>();
@@ -319,7 +175,6 @@ export class ProfileHeaderComponent {
   @ViewChild('cropFrame') cropFrame?: ElementRef<HTMLDivElement>;
   @ViewChild('cropImg') cropImg?: ElementRef<HTMLImageElement>;
 
-  editOpen = false;
   draftName = '';
   draftUsername = '';
   draftBio = '';
@@ -348,26 +203,31 @@ export class ProfileHeaderComponent {
 
   // ---------------------------------------------------------- edit profile
 
-  openEditDialog(): void {
+  /** Fill the form from the saved profile whenever it changes. */
+  ngOnChanges(): void {
+    this.discard();
+  }
+
+  dirty(): boolean {
+    const p = this.profile();
+    return this.draftName !== p.name || this.draftUsername !== p.username || this.draftBio !== p.bio;
+  }
+
+  discard(): void {
     const p = this.profile();
     this.draftName = p.name;
     this.draftUsername = p.username;
     this.draftBio = p.bio;
     this.usernameError = '';
-    this.editOpen = true;
   }
 
-  closeEditDialog(): void {
-    this.editOpen = false;
-  }
-
-  saveEditDialog(): void {
+  save(): void {
     const username = this.draftUsername.trim().replace(/^@/, '');
     if (username && !/^[a-zA-Z0-9_]{2,24}$/.test(username)) {
-      this.usernameError = 'Use 2–24 letters, numbers or underscores.';
+      this.usernameError = 'Use 2 to 24 letters, numbers or underscores.';
       return;
     }
-    this.editOpen = false;
+    this.usernameError = '';
     this.profileChange.emit({
       name: this.draftName.trim().slice(0, 60),
       username: username.toLowerCase(),

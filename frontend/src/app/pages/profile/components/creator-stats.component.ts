@@ -7,42 +7,36 @@ import { CreatorStats } from '../models/creator-stats.model';
   selector: 'app-creator-stats',
   standalone: true,
   imports: [LucideDynamicIcon],
+  styles: [`
+    :host { display: block; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
+    @media (min-width: 60rem) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-md); } }
+    .stat { display: flex; flex-direction: column; gap: var(--space-2xs); }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); font-size: var(--type-sm); font-weight: 600; }
+    .n { margin: var(--space-xs) 0 0; font-size: var(--type-2xl); font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+    .hint { margin: 0; font-size: var(--type-xs); color: var(--color-muted); }
+    .sk { height: 7.5rem; border-radius: var(--radius-surface); background: var(--color-paper-3); }
+  `],
   template: `
     <section aria-label="Creator statistics">
-      @if (loading()) {
-        <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
-          @for (i of [1, 2, 3, 4, 5, 6]; track i) {
-            <div class="skeleton h-[118px] rounded-2xl"></div>
+      <div class="grid">
+        @if (loading()) {
+          @for (i of [1, 2, 3, 4]; track i) {
+            <div class="sk" aria-hidden="true"></div>
           }
-        </div>
-      } @else {
-        <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
+        } @else {
           @for (stat of cards(); track stat.label) {
-            <div
-              class="glass-card spotlight-card group rounded-2xl p-4 md:p-5 transition-transform duration-200 hover:-translate-y-1"
-            >
-              <div class="flex items-start justify-between gap-2">
-                <p
-                  class="text-[11px] uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]"
-                >
-                  {{ stat.label }}
-                </p>
-                <span
-                  class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                  [style.background]="stat.tint"
-                  aria-hidden="true"
-                >
-                  <svg lucideIcon="{{ stat.icon }}" [size]="15" [style.color]="stat.color"></svg>
-                </span>
+            <div class="ui-card stat">
+              <div class="top">
+                <span>{{ stat.label }}</span>
+                <span class="ui-chip" aria-hidden="true"><svg [lucideIcon]="stat.icon" [size]="18"></svg></span>
               </div>
-              <p class="mt-1 text-[30px] md:text-[34px] leading-none font-semibold tracking-tight" [style.color]="stat.color || 'inherit'">
-                {{ stat.value }}
-              </p>
-              <p class="mt-1 text-[12px] text-[hsl(var(--muted-foreground))]">{{ stat.hint }}</p>
+              <p class="n">{{ stat.value }}</p>
+              <p class="hint">{{ stat.hint }}</p>
             </div>
           }
-        </div>
-      }
+        }
+      </div>
     </section>
   `,
 })

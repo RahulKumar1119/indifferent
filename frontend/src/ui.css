@@ -195,3 +195,26 @@
 .ui-article .ui-note .note-title { font-weight: 600; color: var(--color-ink); }
 .ui-article .code-label { margin: 0 0 0.25rem; font-size: var(--type-sm); color: var(--color-muted); }
 @media (prefers-reduced-motion: reduce) { .ui-article a { transition: none; } }
+/* ---- App screens (#267 and on): a warm page with paper cards. Light pages sit on paper-2 with paper cards; dark flips them. ---- */
+.ui-app { --app-page: var(--color-paper-2); --app-card: var(--color-paper); background: var(--app-page); color: var(--color-ink); font-family: var(--font-body); min-height: 100dvh; -webkit-font-smoothing: antialiased; }
+.dark .ui-app { --app-page: var(--color-paper); --app-card: var(--color-paper-2); }
+.ui-app-main { width: min(72rem, 100%); margin: 0 auto; padding: var(--space-lg) var(--space-md) var(--space-2xl); display: flex; flex-direction: column; gap: var(--space-lg); }
+@media (min-width: 40rem) { .ui-app-main { padding: var(--space-xl) var(--space-lg) var(--space-2xl); } }
+.ui-card { background: var(--app-card, var(--color-paper)); border: 1px solid var(--color-rule); border-radius: var(--radius-surface); box-shadow: 0 1px 2px color-mix(in oklab, var(--color-ink) 5%, transparent), 0 8px 24px -16px color-mix(in oklab, var(--color-ink) 18%, transparent); padding: var(--space-lg); }
+@media (max-width: 39.99rem) { .ui-card { padding: var(--space-md); } }
+.ui-card-title { margin: 0; font-size: var(--type-lg); font-weight: 600; line-height: 1.25; }
+.ui-card-sub { margin: var(--space-3xs) 0 0; font-size: var(--type-sm); color: var(--color-muted); }
+.ui-chip { width: 2.25rem; height: 2.25rem; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in oklab, var(--color-accent) 12%, var(--app-card, var(--color-paper))); color: var(--color-accent-text); }
+.ui-pill { display: inline-flex; align-items: center; gap: var(--space-3xs); min-height: 1.5rem; padding: 0 var(--space-xs); border-radius: var(--radius-pill); border: 1px solid currentColor; font-size: var(--type-xs); font-weight: 600; white-space: nowrap; }
+.ui-danger { border-color: color-mix(in oklab, var(--color-negative) 55%, transparent); }
+.ui-btn--danger { background: transparent; color: var(--color-negative); border-color: var(--color-negative); }
+.ui-btn--danger:hover:not(:disabled):not([aria-disabled='true']) { background: color-mix(in oklab, var(--color-negative) 10%, transparent); }
+/* Switch: a 44px button with role="switch" holding a smaller visible track. */
+.ui-switch { display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 44px; padding: 0; border: 0; background: transparent; cursor: pointer; flex: none; }
+.ui-switch:disabled { cursor: not-allowed; opacity: 0.5; }
+.ui-switch:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-pill); }
+.ui-switch > span { position: relative; display: block; width: 48px; height: 28px; border-radius: var(--radius-pill); background: var(--color-paper-3); border: 1px solid var(--color-muted); transition: background-color var(--dur-short) var(--ease-out); }
+.ui-switch > span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-muted); transition: transform var(--dur-short) var(--ease-out); }
+.ui-switch[aria-checked='true'] > span { background: var(--color-accent); border-color: var(--color-accent); }
+.ui-switch[aria-checked='true'] > span::after { background: var(--color-accent-ink); transform: translateX(20px); }
+@media (prefers-reduced-motion: reduce) { .ui-switch > span, .ui-switch > span::after { transition: none; } }
