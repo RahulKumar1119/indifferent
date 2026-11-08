@@ -31,168 +31,170 @@ const STAGES: Stage[] = [
   standalone: true,
   imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent, ShortsEffectsPanelComponent],
   styles: [`
-    @keyframes eq-bounce {
-      0%, 100% { transform: scaleY(0.3); }
-      50% { transform: scaleY(1); }
-    }
-    .eq-bar {
-      transform-origin: bottom;
-      animation: eq-bounce 1.1s ease-in-out infinite;
-    }
-    .stage-bar { transition: width .6s cubic-bezier(0.23,1,0.32,1); }
-    @media (prefers-reduced-motion: reduce) {
-      .eq-bar { animation: none; transform: none; }
-    }
+    :host { display: block; }
+    .wrap { width: min(44rem, 100%); margin-inline: auto; display: flex; flex-direction: column; gap: var(--space-lg); }
+    h1 { margin: 0; font-size: var(--type-2xl); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; }
+    .lead { margin: var(--space-2xs) 0 0; color: var(--color-ink-2); }
+    .resumed { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--type-sm); border-left: 4px solid var(--color-accent); }
+    .resumed p { margin: 0; }
+    ol { margin: 0; padding: 0; list-style: none; }
+    .step { display: flex; gap: var(--space-md); }
+    .rail { display: flex; flex-direction: column; align-items: center; }
+    .dot { position: relative; width: 2.5rem; height: 2.5rem; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--color-rule); color: var(--color-muted); font-size: var(--type-xs); font-weight: 600; }
+    .dot.done { background: var(--color-positive); border-color: var(--color-positive); color: var(--color-paper); }
+    .dot.active { border-color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 12%, var(--app-card)); }
+    .dot.active span { width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--color-accent); }
+    .dot.active::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; border: 2px solid var(--color-accent); animation: ping 1.4s var(--ease-out) infinite; }
+    @keyframes ping { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(1.5); opacity: 0; } }
+    .line { flex: 1; width: 2px; min-height: 1.75rem; margin: var(--space-3xs) 0; border-radius: 2px; background: var(--color-rule); }
+    .line.done { background: var(--color-positive); }
+    .body { flex: 1; min-width: 0; padding-bottom: var(--space-lg); }
+    .step:last-child .body { padding-bottom: 0; }
+    .label { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); min-height: 2.5rem; }
+    .label p { margin: 0; font-weight: 500; color: var(--color-ink-2); }
+    .label p.done { color: var(--color-positive); }
+    .label p.active { color: var(--color-ink); font-weight: 600; }
+    .pct { font-size: var(--type-xs); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+    .track { position: relative; height: 8px; border-radius: var(--radius-pill); background: var(--color-paper-3); overflow: hidden; }
+    .track .fill { height: 100%; border-radius: inherit; background: var(--color-accent); transition: width 0.6s var(--ease-out); }
+    .eq { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; gap: 3px; padding-bottom: 1px; opacity: 0.45; }
+    .eq span { width: 3px; border-radius: 2px; background: var(--color-accent-ink); transform-origin: bottom; animation: eq 1.1s ease-in-out infinite; }
+    @keyframes eq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+    .cancel { margin-top: var(--space-md); display: flex; justify-content: center; }
+    .muted { margin: var(--space-md) 0 0; text-align: center; font-size: var(--type-sm); color: var(--color-muted); }
+    .thumbs { margin: 0; text-align: center; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .result { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); }
+    .result h2 { margin: var(--space-xs) 0 0; font-size: var(--type-lg); font-weight: 600; }
+    .result p { margin: 0; color: var(--color-ink-2); font-size: var(--type-sm); max-width: 52ch; }
+    .result.ok { border-top: 4px solid var(--color-positive); } .result.ok svg.big { color: var(--color-positive); }
+    .result.bad { border-top: 4px solid var(--color-negative); } .result.bad svg.big { color: var(--color-negative); }
+    .result.bad h2 { color: var(--color-negative); }
+    .fx { width: 100%; text-align: left; margin-top: var(--space-sm); }
+    .acts { margin-top: var(--space-sm); display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-xs); }
+    .spin { animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .eq span, .dot.active::after, .spin { animation: none; } .eq span { transform: none; } .track .fill { transition: none; } }
   `],
   template: `
-    <app-navbar></app-navbar>
-    <app-toasts></app-toasts>
-    <div class="max-w-3xl mx-auto px-4 py-12">
-      <h1 class="text-2xl font-bold text-center mb-2">Generating Your Shorts</h1>
-      <p class="text-center text-[hsl(var(--muted-foreground))] mb-8">
-        @if (eta && (status === 'transcribing' || status === 'ranking' || status === 'rendering')) {
-          {{ eta }}. Feel free to leave, we'll keep working.
-        } @else {
-          We're analyzing your media and rendering the best moments.
-        }
-      </p>
-
-      <!-- Resume toast -->
-      @if (resumed) {
-        <div class="glass-card p-3 mb-6 !border-[hsl(var(--primary))]/40">
-          <p class="text-sm flex items-center gap-2">
-            <svg lucideIcon="clock" [size]="16" class="text-[hsl(var(--primary))]"></svg>
-            Your shorts are still processing. You can navigate away and come back anytime.
-          </p>
-        </div>
-      }
-
-      <!-- Vertical stepper -->
-      <div class="glass-card p-6 md:p-8 mb-6" role="progressbar" aria-label="Processing pipeline">
-        @for (stage of stages; track stage.key; let i = $index; let last = $last) {
-          <div class="flex gap-4" [class.pb-8]="!last">
-            <div class="flex flex-col items-center">
-              <div
-                class="relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all shrink-0"
-                [ngClass]="{
-                  'border-green-500 bg-green-500 text-white': stageState(i) === 'done',
-                  'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10': stageState(i) === 'active',
-                  'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]': stageState(i) === 'pending'
-                }"
-              >
-                @if (stageState(i) === 'active') {
-                  <span class="absolute inset-0 rounded-full border-2 border-[hsl(var(--primary))] animate-ping opacity-40"></span>
-                  <span class="w-3 h-3 rounded-full bg-[hsl(var(--primary))]"></span>
-                } @else if (stageState(i) === 'done') {
-                  <svg lucideIcon="check" [size]="18" [attr.data-stage-check]="stage.key"></svg>
-                } @else {
-                  <span class="text-xs font-medium">{{ i + 1 }}</span>
-                }
-              </div>
-              @if (!last) {
-                <div
-                  class="flex-1 w-0.5 my-1 rounded-full min-h-[28px]"
-                  [ngClass]="stageState(i) === 'done' ? 'bg-green-500' : 'bg-[hsl(var(--border))]'"
-                ></div>
+    <div class="ui-app">
+      <app-navbar></app-navbar>
+      <app-toasts></app-toasts>
+      <main id="main" class="ui-app-main hm">
+        <div class="wrap">
+          <div>
+            <h1>Making your shorts</h1>
+            <p class="lead">
+              @if (eta && (status === 'transcribing' || status === 'ranking' || status === 'rendering')) {
+                {{ eta }}. Feel free to leave, we'll keep working.
+              } @else {
+                We're analyzing your media and rendering the best moments.
               }
+            </p>
+          </div>
+
+          @if (resumed) {
+            <div class="ui-card resumed" role="status">
+              <svg lucideIcon="clock" [size]="16" aria-hidden="true"></svg>
+              <p>Your shorts are still processing. You can navigate away and come back anytime.</p>
             </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between gap-3">
-                <p
-                  class="font-medium"
-                  [ngClass]="{
-                    'text-green-400': stageState(i) === 'done',
-                    'text-white': stageState(i) === 'active'
-                  }"
-                >
-                  {{ stage.label }}
-                </p>
-                @if (stageState(i) === 'active') {
-                  <span class="text-xs text-[hsl(var(--muted-foreground))] tabular-nums">{{ stagePercent(i) }}%</span>
-                }
-                @if (stageState(i) === 'done') {
-                  <svg lucideIcon="check" [size]="14" class="text-green-400"></svg>
-                }
-              </div>
-              @if (stageState(i) === 'active') {
-                <div class="relative mt-2 h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden">
-                  <div
-                    class="stage-bar h-full rounded-full bg-[hsl(var(--primary))]"
-                    [style.width.%]="stagePercent(i)"
-                  ></div>
-                  <div class="absolute inset-0 flex items-end justify-center gap-[3px] pb-[3px] opacity-40" aria-hidden="true">
-                    @for (b of eqBars; track b) {
-                      <span class="eq-bar w-[3px] rounded-full bg-white" [style.height.%]="b.h" [style.animation-delay]="b.d"></span>
+          }
+
+          <section class="ui-card" role="progressbar" aria-label="Processing pipeline">
+            <ol>
+              @for (stage of stages; track stage.key; let i = $index; let last = $last) {
+                <li class="step" [attr.data-testid]="'stage-' + stage.key" [attr.data-state]="stageState(i)">
+                  <div class="rail">
+                    <span class="dot" [class.done]="stageState(i) === 'done'" [class.active]="stageState(i) === 'active'">
+                      @if (stageState(i) === 'active') {
+                        <span></span>
+                      } @else if (stageState(i) === 'done') {
+                        <svg lucideIcon="check" [size]="18" [attr.data-stage-check]="stage.key" aria-hidden="true"></svg>
+                      } @else {
+                        {{ i + 1 }}
+                      }
+                    </span>
+                    @if (!last) {
+                      <span class="line" [class.done]="stageState(i) === 'done'"></span>
                     }
                   </div>
-                </div>
+                  <div class="body">
+                    <div class="label">
+                      <p [class.done]="stageState(i) === 'done'" [class.active]="stageState(i) === 'active'">
+                        {{ stage.label }}
+                        @if (stageState(i) === 'done') {
+                          <span class="sr-only">, done</span>
+                        } @else if (stageState(i) === 'active') {
+                          <span class="sr-only">, in progress</span>
+                        }
+                      </p>
+                      @if (stageState(i) === 'active') {
+                        <span class="pct">{{ stagePercent(i) }}%</span>
+                      }
+                    </div>
+                    @if (stageState(i) === 'active') {
+                      <div class="track">
+                        <div class="fill" [style.width.%]="stagePercent(i)"></div>
+                        <div class="eq" aria-hidden="true">
+                          @for (b of eqBars; track b) {
+                            <span [style.height.%]="b.h" [style.animation-delay]="b.d"></span>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </li>
               }
-            </div>
-          </div>
-        }
-
-        @if (cancelling || cancelDone) {
-          <p class="mt-4 text-center text-sm text-[hsl(var(--muted-foreground))]">
-            {{ cancelDone ? 'Cancellation requested…' : 'Cancelling…' }}
-          </p>
-        } @else if (status && status !== 'completed' && status !== 'failed') {
-          <div class="mt-6 text-center">
-            <button
-              class="btn-interactive px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm"
-              [disabled]="cancelling"
-              (click)="cancel()"
-            >
-              Cancel processing
-            </button>
-          </div>
-        }
-      </div>
-
-      <!-- AI thumbnails start by themselves after transcription for video uploads -->
-      @if (isVideo && (status === 'ranking' || status === 'rendering')) {
-        <p class="mb-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
-          We're also making thumbnail suggestions for your video.
-          <a [routerLink]="['/shorts', jobId, 'thumbnails']" class="font-medium text-[hsl(var(--primary))] underline underline-offset-4">See AI thumbnails</a>
-        </p>
-      }
-      <!-- Completion Message -->
-      @if (status === 'completed') {
-        <div class="text-center glass-card p-8 !border-green-500/30">
-          <svg lucideIcon="circle-check" [size]="48" class="mx-auto mb-3 text-green-400"></svg>
-          <h2 class="text-lg font-semibold text-green-400">Shorts Ready!</h2>
-          <p class="text-sm text-[hsl(var(--muted-foreground))] mt-1">Redirecting to your clips…</p>
-        </div>
-      }
-
-      <!-- Error Message -->
-      @if (status === 'failed') {
-        <div class="text-center glass-card p-8 !border-red-500/30">
-          <svg lucideIcon="circle-x" [size]="48" class="mx-auto mb-3 text-red-400"></svg>
-          <h2 class="text-lg font-semibold text-red-400">Processing Failed</h2>
-          <p class="text-sm text-[hsl(var(--muted-foreground))] mt-2">
-            {{ errorMessage || 'Something went wrong while processing your media. Please try again.' }}
-          </p>
-          <!-- A failed job can change its video effects before Retry re-renders it. -->
-          <app-shorts-effects-panel class="mt-5 block"></app-shorts-effects-panel>
-          <div class="mt-4 flex flex-wrap justify-center gap-2">
-            @if (retryableFailure) {
-              <button class="glow-btn" (click)="retry()" [disabled]="retrying">
-                @if (retrying) {
-                  <svg lucideIcon="loader-2" [size]="16" class="animate-spin"></svg>
-                  Restarting…
-                } @else {
-                  Retry processing
-                }
-              </button>
-            } @else {
-              <p class="w-full text-[13px] text-[hsl(var(--muted-foreground))]">
-                This file can't be processed as-is. Try a different file with clear speech, under an hour long.
-              </p>
+            </ol>
+            @if (cancelling || cancelDone) {
+              <p class="muted">{{ cancelDone ? 'Cancellation requested' : 'Cancelling' }}</p>
+            } @else if (status && status !== 'completed' && status !== 'failed') {
+              <div class="cancel">
+                <button type="button" class="ui-btn ui-btn--danger" [disabled]="cancelling" (click)="cancel()">Cancel processing</button>
+              </div>
             }
-            <button class="glow-btn" (click)="goToUpload()">Start Over</button>
-          </div>
+          </section>
+
+          @if (isVideo && (status === 'ranking' || status === 'rendering')) {
+            <p class="thumbs">
+              We're also making thumbnail suggestions for your video.
+              <a [routerLink]="['/shorts', jobId, 'thumbnails']" class="ui-link">See AI thumbnails</a>
+            </p>
+          }
+
+          @if (status === 'completed') {
+            <div class="ui-card result ok" role="status">
+              <svg lucideIcon="circle-check" [size]="44" class="big" aria-hidden="true"></svg>
+              <h2>Your shorts are ready</h2>
+              <p>Redirecting to your clips</p>
+            </div>
+          }
+
+          @if (status === 'failed') {
+            <div class="ui-card result bad" role="alert">
+              <svg lucideIcon="circle-x" [size]="44" class="big" aria-hidden="true"></svg>
+              <h2>Processing failed</h2>
+              <p>{{ errorMessage || 'Something went wrong while processing your media. Please try again.' }}</p>
+              <!-- A failed job can change its video effects before Retry re-renders it. -->
+              <app-shorts-effects-panel class="fx"></app-shorts-effects-panel>
+              <div class="acts">
+                @if (retryableFailure) {
+                  <button type="button" class="ui-btn ui-btn--primary" (click)="retry()" [disabled]="retrying">
+                    @if (retrying) {
+                      <svg lucideIcon="loader-2" [size]="16" class="spin" aria-hidden="true"></svg>
+                      Restarting
+                    } @else {
+                      Retry processing
+                    }
+                  </button>
+                } @else {
+                  <p style="width: 100%">This file can't be processed as-is. Try a different file with clear speech, under an hour long.</p>
+                }
+                <button type="button" class="ui-btn ui-btn--secondary" (click)="goToUpload()">Start Over</button>
+              </div>
+            </div>
+          }
         </div>
-      }
+      </main>
     </div>
   `,
 })
