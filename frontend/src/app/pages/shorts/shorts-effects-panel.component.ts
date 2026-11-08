@@ -34,110 +34,143 @@ interface Option<T extends string> {
   selector: 'app-shorts-effects-panel',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  styles: [`
+    :host { display: block; }
+    .fx { text-align: left; }
+    .fx-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); }
+    .fx-head-end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+    .groups { margin: var(--space-md) 0 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--space-sm); }
+    .groups:disabled { opacity: 0.6; }
+    .grp { padding: var(--space-md); border: 1px solid var(--color-rule); border-radius: var(--radius-control); background: color-mix(in oklab, var(--color-paper-3) 35%, transparent); }
+    .g-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); }
+    .g-head > div { flex: 1; min-width: 12rem; }
+    .g-title { margin: 0; font-size: var(--type-md); font-weight: 600; }
+    .g-sub { margin: var(--space-3xs) 0 0; font-size: var(--type-xs); color: var(--color-muted); line-height: 1.45; }
+    .g-hint { margin: var(--space-xs) 0 0; font-size: var(--type-xs); color: var(--color-muted); }
+    .chips { margin-top: var(--space-sm); display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+    .chips.tight { margin-top: var(--space-2xs); }
+    .tog { display: inline-flex; align-items: center; gap: var(--space-xs); min-height: 44px; font-size: var(--type-sm); font-weight: 600; cursor: pointer; }
+    .sw { appearance: none; -webkit-appearance: none; margin: 0; position: relative; width: 48px; height: 44px; flex: none; border: 0; background: transparent; cursor: pointer; }
+    .sw::before { content: ''; position: absolute; left: 2px; top: 9px; width: 44px; height: 26px; border-radius: var(--radius-pill); background: var(--color-paper-3); border: 1px solid var(--color-muted); box-sizing: border-box; transition: background-color var(--dur-short) var(--ease-out); }
+    .sw::after { content: ''; position: absolute; top: 13px; left: 6px; width: 18px; height: 18px; border-radius: 50%; background: var(--color-muted); transition: transform var(--dur-short) var(--ease-out); }
+    .sw:checked::before { background: var(--color-accent); border-color: var(--color-accent); }
+    .sw:checked::after { background: var(--color-accent-ink); transform: translateX(18px); }
+    .sw:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    .grid2, .grid3 { margin-top: var(--space-md); display: grid; gap: var(--space-md); }
+    @media (min-width: 40rem) { .grid2 { grid-template-columns: 1fr 1fr; } .grid3 { grid-template-columns: repeat(3, 1fr); } }
+    .ui-f.narrow { margin-top: var(--space-md); max-width: 28rem; }
+    .sub-h { margin: var(--space-md) 0 0; font-size: var(--type-sm); font-weight: 600; }
+    .rowx { margin-top: var(--space-xs); display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-xs); }
+    .num { display: flex; flex-direction: column; gap: var(--space-3xs); width: 7rem; }
+    .num.grow { flex: 1; min-width: 10rem; }
+    .f-err { font-size: var(--type-xs); font-weight: 500; color: var(--color-negative); }
+    .add { margin-top: var(--space-sm); white-space: nowrap; }
+    .fx-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); padding-top: var(--space-xs); }
+    @media (prefers-reduced-motion: reduce) { .sw::before, .sw::after { transition: none; } }
+  `],
   template: `
-    <section class="glass-card p-5 text-left" aria-label="Video effects">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="font-semibold text-[15px]">Video effects</h2>
-        <span class="flex flex-wrap items-center gap-3">
-          <span class="text-[12px] text-[hsl(var(--muted-foreground))]">{{ startStep ? 'Off by default · saved when you start' : draftMode ? 'Saved when you start the render' : 'Saved per job · used by the next render or retry' }}</span>
+    <section class="ui-card fx" aria-label="Video effects">
+      <div class="fx-head">
+        <h2 class="ui-card-title">Video effects</h2>
+        <span class="fx-head-end">
+          <span class="g-sub">{{ startStep ? 'Off by default, saved when you start' : draftMode ? 'Saved when you start the render' : 'Saved per job, used by the next render or retry' }}</span>
           @if (draftMode) {
-            <button type="button" (click)="cancelled.emit()" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Cancel</button>
+            <button type="button" (click)="cancelled.emit()" class="ui-btn ui-btn--secondary">Cancel</button>
           }
         </span>
       </div>
 
       @if (loadError) {
-        <p class="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] px-4 py-2.5 text-[13px] text-red-400" role="alert">
+        <p class="ui-alert ui-alert--bad" role="alert">
           Couldn't load the saved effects. Check your connection and reopen this panel.
         </p>
       } @else if (loaded && !editable) {
-        <p class="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-2.5 text-[13px] text-[hsl(var(--muted-foreground))]" role="note">
+        <p class="ui-alert ui-alert--warn" role="note">
           Effects can change only before a render starts, or after a render failed. This job is locked.
         </p>
       }
 
       @if (loaded && !loadError) {
-        <fieldset class="mt-4 min-w-0 space-y-4" [disabled]="!editable">
+        <fieldset class="groups" [disabled]="!editable">
           <!-- One-click presets: each fills the panel with a combination the user can then edit. -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <h3 class="text-[13.5px] font-semibold">Quick presets</h3>
-            <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Start from a combination, then adjust anything below.</p>
-            <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Effect presets">
+          <div class="grp">
+            <h3 class="g-title">Quick presets</h3>
+            <p class="g-sub">Start from a combination, then adjust anything below.</p>
+            <div class="chips" role="group" aria-label="Effect presets">
               @for (p of presets; track p.id) {
                 <button
                   type="button"
                   (click)="applyPreset(p.id)"
                   [title]="p.blurb"
-                  class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5"
+                  class="ui-btn ui-btn--secondary"
                 >{{ p.label }}</button>
               }
             </div>
             @if (appliedPreset) {
-              <p class="mt-2 text-[12px] text-[hsl(var(--muted-foreground))]" role="status">{{ appliedPreset }}</p>
+              <p class="g-hint" role="status">{{ appliedPreset }}</p>
             }
           </div>
 
           <!-- Animated captions -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grp">
+            <div class="g-head">
               <div>
-                <h3 class="text-[13.5px] font-semibold">Animated captions</h3>
-                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Words light up as they are spoken. While on, these replace the Caption style.</p>
+                <h3 class="g-title">Animated captions</h3>
+                <p class="g-sub">Words light up as they are spoken. While on, these replace the Caption style.</p>
               </div>
-              <label class="flex items-center gap-2 text-[13px] font-medium">
-                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.captions.enabled" aria-label="Turn on animated captions" />
+              <label class="tog">
+                <input type="checkbox" class="sw" [(ngModel)]="draft.captions.enabled" aria-label="Turn on animated captions" />
                 On
               </label>
             </div>
-            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Dim unspoken words · <span class="tabular-nums">{{ draft.captions.intensity }}</span></span>
-                <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.captions.intensity" aria-label="Animated captions dimming" />
+            <div class="grid2">
+              <label class="ui-f">
+                <span class="ui-flabel">Dim unspoken words <span class="ui-val">{{ draft.captions.intensity }}</span></span>
+                <input type="range" class="ui-range" min="0" max="100" step="1" [(ngModel)]="draft.captions.intensity" aria-label="Animated captions dimming" />
               </label>
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Font</span>
-                <select class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="draft.captions.font" aria-label="Animated captions font">
+              <label class="ui-f">
+                <span class="ui-flabel">Font</span>
+                <select class="ui-field" [(ngModel)]="draft.captions.font" aria-label="Animated captions font">
                   @for (f of fonts; track f.id) {
                     <option [ngValue]="f.id">{{ f.label }}</option>
                   }
                 </select>
               </label>
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Size · <span class="tabular-nums">{{ draft.captions.fontSize }}</span></span>
-                <input type="range" min="8" max="72" step="1" class="w-full" [(ngModel)]="draft.captions.fontSize" aria-label="Animated captions size" />
+              <label class="ui-f">
+                <span class="ui-flabel">Size <span class="ui-val">{{ draft.captions.fontSize }}</span></span>
+                <input type="range" class="ui-range" min="8" max="72" step="1" [(ngModel)]="draft.captions.fontSize" aria-label="Animated captions size" />
               </label>
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Outline · <span class="tabular-nums">{{ draft.captions.outline }}</span></span>
-                <input type="range" min="0" max="12" step="1" class="w-full" [(ngModel)]="draft.captions.outline" aria-label="Animated captions outline" />
+              <label class="ui-f">
+                <span class="ui-flabel">Outline <span class="ui-val">{{ draft.captions.outline }}</span></span>
+                <input type="range" class="ui-range" min="0" max="12" step="1" [(ngModel)]="draft.captions.outline" aria-label="Animated captions outline" />
               </label>
-              <div class="flex items-center gap-4">
-                <label class="flex items-center gap-2 text-[12.5px] font-medium">
+              <div class="ui-colors">
+                <label class="ui-col">
                   Text
-                  <input type="color" class="h-10 w-10 cursor-pointer rounded-lg border border-[hsl(var(--border))] bg-transparent" [(ngModel)]="draft.captions.color" aria-label="Animated captions text color" />
+                  <input type="color" class="ui-swatch" [(ngModel)]="draft.captions.color" aria-label="Animated captions text color" />
                 </label>
-                <label class="flex items-center gap-2 text-[12.5px] font-medium">
+                <label class="ui-col">
                   Spoken word
-                  <input type="color" class="h-10 w-10 cursor-pointer rounded-lg border border-[hsl(var(--border))] bg-transparent" [(ngModel)]="draft.captions.highlight" aria-label="Animated captions highlight color" />
+                  <input type="color" class="ui-swatch" [(ngModel)]="draft.captions.highlight" aria-label="Animated captions highlight color" />
                 </label>
               </div>
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Background</span>
-                <select class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="draft.captions.background" aria-label="Animated captions background">
+              <label class="ui-f">
+                <span class="ui-flabel">Background</span>
+                <select class="ui-field" [(ngModel)]="draft.captions.background" aria-label="Animated captions background">
                   @for (b of backgrounds; track b.id) {
                     <option [ngValue]="b.id">{{ b.label }}</option>
                   }
                 </select>
               </label>
               <div>
-                <span class="text-[12.5px] font-medium">Position</span>
-                <div class="mt-1 flex flex-wrap gap-2" role="group" aria-label="Animated captions position">
+                <span class="ui-flabel">Position</span>
+                <div class="chips tight" role="group" aria-label="Animated captions position">
                   @for (pos of positions; track pos) {
                     <button
                       type="button"
                       (click)="draft.captions.position = pos"
                       [attr.aria-pressed]="draft.captions.position === pos"
-                      class="min-h-[40px] px-4 rounded-full border text-[13px] font-medium capitalize"
-                      [class]="draft.captions.position === pos ? 'bg-[hsl(var(--foreground))] text-[hsl(var(--background))] border-transparent' : 'border-[hsl(var(--border))]'"
+                      class="ui-btn ui-btn--secondary ui-seg"
                     >{{ pos }}</button>
                   }
                 </div>
@@ -146,294 +179,293 @@ interface Option<T extends string> {
           </div>
 
           <!-- Dynamic zoom -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grp">
+            <div class="g-head">
               <div>
-                <h3 class="text-[13.5px] font-semibold">Dynamic zoom</h3>
-                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Pushes in at each punch-in time, then eases back out.</p>
+                <h3 class="g-title">Dynamic zoom</h3>
+                <p class="g-sub">Pushes in at each punch-in time, then eases back out.</p>
               </div>
-              <label class="flex items-center gap-2 text-[13px] font-medium">
-                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.zoom.enabled" aria-label="Turn on dynamic zoom" />
+              <label class="tog">
+                <input type="checkbox" class="sw" [(ngModel)]="draft.zoom.enabled" aria-label="Turn on dynamic zoom" />
                 On
               </label>
             </div>
-            <label class="mt-4 block max-w-md">
-              <span class="text-[12.5px] font-medium">Zoom strength · <span class="tabular-nums">{{ draft.zoom.intensity }}</span></span>
-              <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.zoom.intensity" aria-label="Zoom strength" />
+            <label class="ui-f narrow">
+              <span class="ui-flabel">Zoom strength <span class="ui-val">{{ draft.zoom.intensity }}</span></span>
+              <input type="range" class="ui-range" min="0" max="100" step="1" [(ngModel)]="draft.zoom.intensity" aria-label="Zoom strength" />
             </label>
-            <p class="mt-4 text-[12.5px] font-medium">Punch-ins</p>
+            <p class="sub-h">Punch-ins</p>
             @for (p of draft.zoom.punchIns; track $index; let i = $index) {
-              <div class="mt-2 flex flex-wrap items-end gap-2">
-                <label class="block w-28">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
-                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="p.at" [attr.aria-label]="'Punch-in ' + (i + 1) + ' start in seconds'" [attr.aria-invalid]="blank(p.at)" />
+              <div class="rowx">
+                <label class="num">
+                  <span class="ui-flabel">At (s)</span>
+                  <input type="number" min="0" max="90" step="0.1" class="ui-field" [(ngModel)]="p.at" [attr.aria-label]="'Punch-in ' + (i + 1) + ' start in seconds'" [attr.aria-invalid]="blank(p.at)" />
                   @if (blank(p.at)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a start time in seconds.</span>
+                    <span class="f-err" role="alert">Enter a start time in seconds.</span>
                   }
                 </label>
-                <label class="block w-28">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Length (s)</span>
-                  <input type="number" min="0.5" max="6" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="p.duration" [attr.aria-label]="'Punch-in ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(p.duration)" />
+                <label class="num">
+                  <span class="ui-flabel">Length (s)</span>
+                  <input type="number" min="0.5" max="6" step="0.1" class="ui-field" [(ngModel)]="p.duration" [attr.aria-label]="'Punch-in ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(p.duration)" />
                   @if (blank(p.duration)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a length in seconds.</span>
+                    <span class="f-err" role="alert">Enter a length in seconds.</span>
                   }
                 </label>
-                <button type="button" (click)="removePunchIn(i)" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Remove</button>
+                <button type="button" (click)="removePunchIn(i)" class="ui-btn ui-btn--quiet">Remove</button>
               </div>
             }
             <button
               type="button"
               (click)="addPunchIn()"
               [disabled]="draft.zoom.punchIns.length >= maxPunchIns"
-              class="mt-3 min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+              class="ui-btn ui-btn--secondary add"
             >Add punch-in</button>
-            <p class="mt-2 text-[11.5px] text-[hsl(var(--muted-foreground))]">Up to {{ maxPunchIns }}. Times are seconds from the start of each clip.</p>
+            <p class="g-hint">Up to {{ maxPunchIns }}. Times are seconds from the start of each clip.</p>
           </div>
 
           <!-- Cinematic grading -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grp">
+            <div class="g-head">
               <div>
-                <h3 class="text-[13.5px] font-semibold">Color grading</h3>
-                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">A cinematic, warm, cool or high-contrast look over the whole clip.</p>
+                <h3 class="g-title">Color grading</h3>
+                <p class="g-sub">A cinematic, warm, cool or high-contrast look over the whole clip.</p>
               </div>
-              <label class="flex items-center gap-2 text-[13px] font-medium">
-                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.grade.enabled" aria-label="Turn on color grading" />
+              <label class="tog">
+                <input type="checkbox" class="sw" [(ngModel)]="draft.grade.enabled" aria-label="Turn on color grading" />
                 On
               </label>
             </div>
-            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Look</span>
-                <select class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="draft.grade.look" aria-label="Color grading look">
+            <div class="grid2">
+              <label class="ui-f">
+                <span class="ui-flabel">Look</span>
+                <select class="ui-field" [(ngModel)]="draft.grade.look" aria-label="Color grading look">
                   @for (l of looks; track l.id) {
                     <option [ngValue]="l.id">{{ l.label }}</option>
                   }
                 </select>
               </label>
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Strength · <span class="tabular-nums">{{ draft.grade.intensity }}</span></span>
-                <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.grade.intensity" aria-label="Color grading strength" />
+              <label class="ui-f">
+                <span class="ui-flabel">Strength <span class="ui-val">{{ draft.grade.intensity }}</span></span>
+                <input type="range" class="ui-range" min="0" max="100" step="1" [(ngModel)]="draft.grade.intensity" aria-label="Color grading strength" />
               </label>
             </div>
           </div>
 
           <!-- Freeze frame and impact text -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grp">
+            <div class="g-head">
               <div>
-                <h3 class="text-[13.5px] font-semibold">Freeze frame and impact text</h3>
-                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Holds the picture and adds short text at chosen times. Audio is silent during each hold, and captions move with it.</p>
+                <h3 class="g-title">Freeze frame and impact text</h3>
+                <p class="g-sub">Holds the picture and adds short text at chosen times. Audio is silent during each hold, and captions move with it.</p>
               </div>
-              <label class="flex items-center gap-2 text-[13px] font-medium">
-                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.freeze.enabled" aria-label="Turn on freeze frame and impact text" />
+              <label class="tog">
+                <input type="checkbox" class="sw" [(ngModel)]="draft.freeze.enabled" aria-label="Turn on freeze frame and impact text" />
                 On
               </label>
             </div>
-            <label class="mt-4 block max-w-md">
-              <span class="text-[12.5px] font-medium">Impact text size · <span class="tabular-nums">{{ draft.freeze.intensity }}</span></span>
-              <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.freeze.intensity" aria-label="Impact text size" />
+            <label class="ui-f narrow">
+              <span class="ui-flabel">Impact text size <span class="ui-val">{{ draft.freeze.intensity }}</span></span>
+              <input type="range" class="ui-range" min="0" max="100" step="1" [(ngModel)]="draft.freeze.intensity" aria-label="Impact text size" />
             </label>
 
-            <p class="mt-4 text-[12.5px] font-medium">Freezes</p>
+            <p class="sub-h">Freezes</p>
             @for (h of draft.freeze.freezes; track $index; let i = $index) {
-              <div class="mt-2 flex flex-wrap items-end gap-2">
-                <label class="block w-28">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
-                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="h.at" [attr.aria-label]="'Freeze ' + (i + 1) + ' time in seconds'" [attr.aria-invalid]="blank(h.at)" />
+              <div class="rowx">
+                <label class="num">
+                  <span class="ui-flabel">At (s)</span>
+                  <input type="number" min="0" max="90" step="0.1" class="ui-field" [(ngModel)]="h.at" [attr.aria-label]="'Freeze ' + (i + 1) + ' time in seconds'" [attr.aria-invalid]="blank(h.at)" />
                   @if (blank(h.at)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a time in seconds.</span>
+                    <span class="f-err" role="alert">Enter a time in seconds.</span>
                   }
                 </label>
-                <label class="block w-28">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Hold (s)</span>
-                  <input type="number" min="0.2" max="3" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="h.duration" [attr.aria-label]="'Freeze ' + (i + 1) + ' hold length in seconds'" [attr.aria-invalid]="blank(h.duration)" />
+                <label class="num">
+                  <span class="ui-flabel">Hold (s)</span>
+                  <input type="number" min="0.2" max="3" step="0.1" class="ui-field" [(ngModel)]="h.duration" [attr.aria-label]="'Freeze ' + (i + 1) + ' hold length in seconds'" [attr.aria-invalid]="blank(h.duration)" />
                   @if (blank(h.duration)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a hold length in seconds.</span>
+                    <span class="f-err" role="alert">Enter a hold length in seconds.</span>
                   }
                 </label>
-                <button type="button" (click)="removeFreeze(i)" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Remove</button>
+                <button type="button" (click)="removeFreeze(i)" class="ui-btn ui-btn--quiet">Remove</button>
               </div>
             }
             <button
               type="button"
               (click)="addFreeze()"
               [disabled]="draft.freeze.freezes.length >= maxFreezes"
-              class="mt-3 min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+              class="ui-btn ui-btn--secondary add"
             >Add freeze</button>
 
-            <p class="mt-5 text-[12.5px] font-medium">Impact text</p>
+            <p class="sub-h">Impact text</p>
             @for (t of draft.freeze.impactTexts; track $index; let i = $index) {
-              <div class="mt-2 flex flex-wrap items-end gap-2">
-                <label class="block w-24">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
-                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="t.at" [attr.aria-label]="'Impact text ' + (i + 1) + ' time in seconds'" [attr.aria-invalid]="blank(t.at)" />
+              <div class="rowx">
+                <label class="num">
+                  <span class="ui-flabel">At (s)</span>
+                  <input type="number" min="0" max="90" step="0.1" class="ui-field" [(ngModel)]="t.at" [attr.aria-label]="'Impact text ' + (i + 1) + ' time in seconds'" [attr.aria-invalid]="blank(t.at)" />
                   @if (blank(t.at)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a time in seconds.</span>
+                    <span class="f-err" role="alert">Enter a time in seconds.</span>
                   }
                 </label>
-                <label class="block w-24">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Length (s)</span>
-                  <input type="number" min="0.3" max="4" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="t.duration" [attr.aria-label]="'Impact text ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(t.duration)" />
+                <label class="num">
+                  <span class="ui-flabel">Length (s)</span>
+                  <input type="number" min="0.3" max="4" step="0.1" class="ui-field" [(ngModel)]="t.duration" [attr.aria-label]="'Impact text ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(t.duration)" />
                   @if (blank(t.duration)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a length in seconds.</span>
+                    <span class="f-err" role="alert">Enter a length in seconds.</span>
                   }
                 </label>
-                <label class="block min-w-[10rem] flex-1">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Text, 16 characters</span>
-                  <input type="text" maxlength="16" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="t.text" [attr.aria-label]="'Impact text ' + (i + 1) + ' words'" />
+                <label class="num grow">
+                  <span class="ui-flabel">Text, 16 characters</span>
+                  <input type="text" maxlength="16" class="ui-field" [(ngModel)]="t.text" [attr.aria-label]="'Impact text ' + (i + 1) + ' words'" />
                 </label>
-                <button type="button" (click)="removeImpactText(i)" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Remove</button>
+                <button type="button" (click)="removeImpactText(i)" class="ui-btn ui-btn--quiet">Remove</button>
               </div>
             }
             <button
               type="button"
               (click)="addImpactText()"
               [disabled]="draft.freeze.impactTexts.length >= maxImpactTexts"
-              class="mt-3 min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+              class="ui-btn ui-btn--secondary add"
             >Add impact text</button>
           </div>
 
           <!-- Fade in and out -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grp">
+            <div class="g-head">
               <div>
-                <h3 class="text-[13.5px] font-semibold">Fade in and out</h3>
-                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Eases the clip up from black at the start and down at the end. Picture and sound fade together. Set a side to 0 to skip it.</p>
+                <h3 class="g-title">Fade in and out</h3>
+                <p class="g-sub">Eases the clip up from black at the start and down at the end. Picture and sound fade together. Set a side to 0 to skip it.</p>
               </div>
-              <label class="flex items-center gap-2 text-[13px] font-medium">
-                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.fade.enabled" aria-label="Turn on fade in and out" />
+              <label class="tog">
+                <input type="checkbox" class="sw" [(ngModel)]="draft.fade.enabled" aria-label="Turn on fade in and out" />
                 On
               </label>
             </div>
-            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Fade in · <span class="tabular-nums">{{ draft.fade.inDuration }}s</span></span>
-                <input type="range" min="0" max="2" step="0.1" class="w-full" [(ngModel)]="draft.fade.inDuration" aria-label="Fade-in length in seconds" />
+            <div class="grid2">
+              <label class="ui-f">
+                <span class="ui-flabel">Fade in <span class="ui-val">{{ draft.fade.inDuration }}s</span></span>
+                <input type="range" class="ui-range" min="0" max="2" step="0.1" [(ngModel)]="draft.fade.inDuration" aria-label="Fade-in length in seconds" />
               </label>
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Fade out · <span class="tabular-nums">{{ draft.fade.outDuration }}s</span></span>
-                <input type="range" min="0" max="2" step="0.1" class="w-full" [(ngModel)]="draft.fade.outDuration" aria-label="Fade-out length in seconds" />
+              <label class="ui-f">
+                <span class="ui-flabel">Fade out <span class="ui-val">{{ draft.fade.outDuration }}s</span></span>
+                <input type="range" class="ui-range" min="0" max="2" step="0.1" [(ngModel)]="draft.fade.outDuration" aria-label="Fade-out length in seconds" />
               </label>
             </div>
           </div>
 
           <!-- Speed ramping -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grp">
+            <div class="g-head">
               <div>
-                <h3 class="text-[13.5px] font-semibold">Speed</h3>
-                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Slow motion or fast motion over chosen moments. 1.0 is normal speed, below 1 is slower, above 1 is faster. Audio is retimed to match.</p>
+                <h3 class="g-title">Speed</h3>
+                <p class="g-sub">Slow motion or fast motion over chosen moments. 1.0 is normal speed, below 1 is slower, above 1 is faster. Audio is retimed to match.</p>
               </div>
-              <label class="flex items-center gap-2 text-[13px] font-medium">
-                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.speed.enabled" aria-label="Turn on speed" />
+              <label class="tog">
+                <input type="checkbox" class="sw" [(ngModel)]="draft.speed.enabled" aria-label="Turn on speed" />
                 On
               </label>
             </div>
             @if (speedFreezeConflict) {
-              <p class="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-2.5 text-[13px] text-amber-400" role="alert">
+              <p class="ui-alert ui-alert--warn" role="alert">
                 Speed and freeze frame can't both be on for the same clip yet. Turn one off before saving.
               </p>
             }
             @for (w of draft.speed.windows; track $index; let i = $index) {
-              <div class="mt-2 flex flex-wrap items-end gap-2">
-                <label class="block w-24">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
-                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="w.at" [attr.aria-label]="'Speed window ' + (i + 1) + ' start in seconds'" [attr.aria-invalid]="blank(w.at)" />
+              <div class="rowx">
+                <label class="num">
+                  <span class="ui-flabel">At (s)</span>
+                  <input type="number" min="0" max="90" step="0.1" class="ui-field" [(ngModel)]="w.at" [attr.aria-label]="'Speed window ' + (i + 1) + ' start in seconds'" [attr.aria-invalid]="blank(w.at)" />
                   @if (blank(w.at)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a start time in seconds.</span>
+                    <span class="f-err" role="alert">Enter a start time in seconds.</span>
                   }
                 </label>
-                <label class="block w-24">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Length (s)</span>
-                  <input type="number" min="0.3" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="w.duration" [attr.aria-label]="'Speed window ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(w.duration)" />
+                <label class="num">
+                  <span class="ui-flabel">Length (s)</span>
+                  <input type="number" min="0.3" max="90" step="0.1" class="ui-field" [(ngModel)]="w.duration" [attr.aria-label]="'Speed window ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(w.duration)" />
                   @if (blank(w.duration)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a length in seconds.</span>
+                    <span class="f-err" role="alert">Enter a length in seconds.</span>
                   }
                 </label>
-                <label class="block w-28">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Rate · <span class="tabular-nums">{{ w.rate }}x</span></span>
-                  <input type="range" min="0.25" max="4" step="0.25" class="w-full" [(ngModel)]="w.rate" [attr.aria-label]="'Speed window ' + (i + 1) + ' rate'" />
+                <label class="num">
+                  <span class="ui-flabel">Rate <span class="ui-val">{{ w.rate }}x</span></span>
+                  <input type="range" class="ui-range" min="0.25" max="4" step="0.25" [(ngModel)]="w.rate" [attr.aria-label]="'Speed window ' + (i + 1) + ' rate'" />
                 </label>
-                <button type="button" (click)="removeSpeedWindow(i)" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Remove</button>
+                <button type="button" (click)="removeSpeedWindow(i)" class="ui-btn ui-btn--quiet">Remove</button>
               </div>
             }
             <button
               type="button"
               (click)="addSpeedWindow()"
               [disabled]="draft.speed.windows.length >= maxSpeedWindows"
-              class="mt-3 min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+              class="ui-btn ui-btn--secondary add"
             >Add speed window</button>
-            <p class="mt-2 text-[11.5px] text-[hsl(var(--muted-foreground))]">Up to {{ maxSpeedWindows }}. Times are seconds from the start of each clip. Windows can't overlap.</p>
+            <p class="g-hint">Up to {{ maxSpeedWindows }}. Times are seconds from the start of each clip. Windows can't overlap.</p>
           </div>
 
           <!-- Finish: film grain, glow, light leaks -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grp">
+            <div class="g-head">
               <div>
-                <h3 class="text-[13.5px] font-semibold">Film look</h3>
-                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Optional grain, glow and a warm light leak over the whole clip. Set any to 0 to skip it.</p>
+                <h3 class="g-title">Film look</h3>
+                <p class="g-sub">Optional grain, glow and a warm light leak over the whole clip. Set any to 0 to skip it.</p>
               </div>
-              <label class="flex items-center gap-2 text-[13px] font-medium">
-                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.finish.enabled" aria-label="Turn on film look" />
+              <label class="tog">
+                <input type="checkbox" class="sw" [(ngModel)]="draft.finish.enabled" aria-label="Turn on film look" />
                 On
               </label>
             </div>
-            <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Grain · <span class="tabular-nums">{{ draft.finish.grain }}</span></span>
-                <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.finish.grain" aria-label="Film grain strength" />
+            <div class="grid3">
+              <label class="ui-f">
+                <span class="ui-flabel">Grain <span class="ui-val">{{ draft.finish.grain }}</span></span>
+                <input type="range" class="ui-range" min="0" max="100" step="1" [(ngModel)]="draft.finish.grain" aria-label="Film grain strength" />
               </label>
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Glow · <span class="tabular-nums">{{ draft.finish.glow }}</span></span>
-                <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.finish.glow" aria-label="Glow strength" />
+              <label class="ui-f">
+                <span class="ui-flabel">Glow <span class="ui-val">{{ draft.finish.glow }}</span></span>
+                <input type="range" class="ui-range" min="0" max="100" step="1" [(ngModel)]="draft.finish.glow" aria-label="Glow strength" />
               </label>
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Light leak · <span class="tabular-nums">{{ draft.finish.lightLeak }}</span></span>
-                <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.finish.lightLeak" aria-label="Light leak strength" />
+              <label class="ui-f">
+                <span class="ui-flabel">Light leak <span class="ui-val">{{ draft.finish.lightLeak }}</span></span>
+                <input type="range" class="ui-range" min="0" max="100" step="1" [(ngModel)]="draft.finish.lightLeak" aria-label="Light leak strength" />
               </label>
             </div>
           </div>
 
           <!-- Audio visualizer -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grp">
+            <div class="g-head">
               <div>
-                <h3 class="text-[13.5px] font-semibold">Audio visualizer</h3>
-                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Draws the sound as a waveform or frequency bars. Useful for audio-only clips.</p>
+                <h3 class="g-title">Audio visualizer</h3>
+                <p class="g-sub">Draws the sound as a waveform or frequency bars. Useful for audio-only clips.</p>
               </div>
-              <label class="flex items-center gap-2 text-[13px] font-medium">
-                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.waveform.enabled" aria-label="Turn on the audio visualizer" />
+              <label class="tog">
+                <input type="checkbox" class="sw" [(ngModel)]="draft.waveform.enabled" aria-label="Turn on the audio visualizer" />
                 On
               </label>
             </div>
-            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Style</span>
-                <select class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="draft.waveform.style" aria-label="Visualizer style">
+            <div class="grid2">
+              <label class="ui-f">
+                <span class="ui-flabel">Style</span>
+                <select class="ui-field" [(ngModel)]="draft.waveform.style" aria-label="Visualizer style">
                   @for (s of waveStyles; track s.id) {
                     <option [ngValue]="s.id">{{ s.label }}</option>
                   }
                 </select>
               </label>
-              <label class="block">
-                <span class="text-[12.5px] font-medium">Height · <span class="tabular-nums">{{ draft.waveform.height }}%</span></span>
-                <input type="range" min="10" max="50" step="1" class="w-full" [(ngModel)]="draft.waveform.height" aria-label="Visualizer height percent" />
+              <label class="ui-f">
+                <span class="ui-flabel">Height <span class="ui-val">{{ draft.waveform.height }}%</span></span>
+                <input type="range" class="ui-range" min="10" max="50" step="1" [(ngModel)]="draft.waveform.height" aria-label="Visualizer height percent" />
               </label>
-              <label class="flex items-center gap-2 text-[12.5px] font-medium">
+              <label class="ui-col">
                 Color
-                <input type="color" class="h-10 w-10 cursor-pointer rounded-lg border border-[hsl(var(--border))] bg-transparent" [(ngModel)]="draft.waveform.color" aria-label="Visualizer color" />
+                <input type="color" class="ui-swatch" [(ngModel)]="draft.waveform.color" aria-label="Visualizer color" />
               </label>
               <div>
-                <span class="text-[12.5px] font-medium">Position</span>
-                <div class="mt-1 flex flex-wrap gap-2" role="group" aria-label="Visualizer position">
+                <span class="ui-flabel">Position</span>
+                <div class="chips tight" role="group" aria-label="Visualizer position">
                   @for (pos of positions; track pos) {
                     <button
                       type="button"
                       (click)="draft.waveform.position = pos"
                       [attr.aria-pressed]="draft.waveform.position === pos"
-                      class="min-h-[40px] px-4 rounded-full border text-[13px] font-medium capitalize"
-                      [class]="draft.waveform.position === pos ? 'bg-[hsl(var(--foreground))] text-[hsl(var(--background))] border-transparent' : 'border-[hsl(var(--border))]'"
+                      class="ui-btn ui-btn--secondary ui-seg"
                     >{{ pos }}</button>
                   }
                 </div>
@@ -442,66 +474,66 @@ interface Option<T extends string> {
           </div>
 
           <!-- Camera shake -->
-          <div class="rounded-xl border border-[hsl(var(--border))] p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="grp">
+            <div class="g-head">
               <div>
-                <h3 class="text-[13.5px] font-semibold">Camera shake</h3>
-                <p class="text-[12px] text-[hsl(var(--muted-foreground))]">Adds a subtle shake over chosen moments. The frame is zoomed slightly first, so no black edges show.</p>
+                <h3 class="g-title">Camera shake</h3>
+                <p class="g-sub">Adds a subtle shake over chosen moments. The frame is zoomed slightly first, so no black edges show.</p>
               </div>
-              <label class="flex items-center gap-2 text-[13px] font-medium">
-                <input type="checkbox" class="h-5 w-5 accent-[hsl(var(--primary))]" [(ngModel)]="draft.shake.enabled" aria-label="Turn on camera shake" />
+              <label class="tog">
+                <input type="checkbox" class="sw" [(ngModel)]="draft.shake.enabled" aria-label="Turn on camera shake" />
                 On
               </label>
             </div>
-            <label class="mt-4 block max-w-md">
-              <span class="text-[12.5px] font-medium">Strength · <span class="tabular-nums">{{ draft.shake.intensity }}</span></span>
-              <input type="range" min="0" max="100" step="1" class="w-full" [(ngModel)]="draft.shake.intensity" aria-label="Shake strength" />
+            <label class="ui-f narrow">
+              <span class="ui-flabel">Strength <span class="ui-val">{{ draft.shake.intensity }}</span></span>
+              <input type="range" class="ui-range" min="0" max="100" step="1" [(ngModel)]="draft.shake.intensity" aria-label="Shake strength" />
             </label>
-            <p class="mt-4 text-[12.5px] font-medium">Shake moments</p>
+            <p class="sub-h">Shake moments</p>
             @for (w of draft.shake.windows; track $index; let i = $index) {
-              <div class="mt-2 flex flex-wrap items-end gap-2">
-                <label class="block w-28">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">At (s)</span>
-                  <input type="number" min="0" max="90" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="w.at" [attr.aria-label]="'Shake ' + (i + 1) + ' start in seconds'" [attr.aria-invalid]="blank(w.at)" />
+              <div class="rowx">
+                <label class="num">
+                  <span class="ui-flabel">At (s)</span>
+                  <input type="number" min="0" max="90" step="0.1" class="ui-field" [(ngModel)]="w.at" [attr.aria-label]="'Shake ' + (i + 1) + ' start in seconds'" [attr.aria-invalid]="blank(w.at)" />
                   @if (blank(w.at)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a start time in seconds.</span>
+                    <span class="f-err" role="alert">Enter a start time in seconds.</span>
                   }
                 </label>
-                <label class="block w-28">
-                  <span class="text-[12px] text-[hsl(var(--muted-foreground))]">Length (s)</span>
-                  <input type="number" min="0.2" max="6" step="0.1" class="mt-1 block min-h-[40px] w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 text-[13px] text-[hsl(var(--foreground))]" [(ngModel)]="w.duration" [attr.aria-label]="'Shake ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(w.duration)" />
+                <label class="num">
+                  <span class="ui-flabel">Length (s)</span>
+                  <input type="number" min="0.2" max="6" step="0.1" class="ui-field" [(ngModel)]="w.duration" [attr.aria-label]="'Shake ' + (i + 1) + ' length in seconds'" [attr.aria-invalid]="blank(w.duration)" />
                   @if (blank(w.duration)) {
-                    <span class="mt-1 block text-[12px] text-red-400" role="alert">Enter a length in seconds.</span>
+                    <span class="f-err" role="alert">Enter a length in seconds.</span>
                   }
                 </label>
-                <button type="button" (click)="removeShakeWindow(i)" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Remove</button>
+                <button type="button" (click)="removeShakeWindow(i)" class="ui-btn ui-btn--quiet">Remove</button>
               </div>
             }
             <button
               type="button"
               (click)="addShakeWindow()"
               [disabled]="draft.shake.windows.length >= maxShakeWindows"
-              class="mt-3 min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
+              class="ui-btn ui-btn--secondary add"
             >Add shake moment</button>
-            <p class="mt-2 text-[11.5px] text-[hsl(var(--muted-foreground))]">Up to {{ maxShakeWindows }}. Times are seconds from the start of each clip. They can't overlap.</p>
+            <p class="g-hint">Up to {{ maxShakeWindows }}. Times are seconds from the start of each clip. They can't overlap.</p>
           </div>
 
-          <div class="flex flex-wrap items-center gap-3">
-            <button type="button" (click)="resetDraft()" class="min-h-[40px] px-4 rounded-full border border-[hsl(var(--border))] text-[13px] font-medium hover:bg-white/5">Reset to defaults</button>
-            <span class="flex-1"></span>
+          <div class="fx-foot">
+            <button type="button" (click)="resetDraft()" class="ui-btn ui-btn--secondary">Reset to defaults</button>
+            <span class="ui-spacer"></span>
             <button
               type="button"
               (click)="save()"
               [disabled]="saving || hasBlankNumbers() || speedFreezeConflict"
-              class="btn-interactive min-h-[40px] px-5 rounded-full bg-[hsl(var(--primary))] text-white text-[13.5px] font-semibold disabled:opacity-50"
-            >{{ saving ? 'Saving…' : startStep ? 'Start processing' : draftMode ? 'Start render' : 'Save effects' }}</button>
+              class="ui-btn ui-btn--primary" data-testid="fx-save"
+            >{{ saving ? 'Saving' : startStep ? 'Start processing' : draftMode ? 'Start render' : 'Save effects' }}</button>
           </div>
         </fieldset>
 
         @if (error) {
-          <p class="mt-3 text-[13px] text-red-400" role="alert">{{ error }}</p>
+          <p class="ui-alert ui-alert--bad" role="alert">{{ error }}</p>
         } @else if (saved) {
-          <p class="mt-3 text-[13px] text-[hsl(var(--muted-foreground))]" role="status">Effects saved. They apply to the next render or retry.</p>
+          <p class="g-hint" role="status">Effects saved. They apply to the next render or retry.</p>
         }
       }
     </section>
