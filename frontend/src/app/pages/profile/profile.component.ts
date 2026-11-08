@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
@@ -23,19 +23,22 @@ import { MyContentComponent, VideoActionEvent } from './components/my-content.co
 import { CreatorDnaComponent } from './components/creator-dna.component';
 import { ConnectedAccountsComponent } from './components/connected-accounts.component';
 import { RecentActivityComponent } from './components/recent-activity.component';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { AccountNavComponent } from '../account/account-nav.component';
 
 /**
- * Creator Profile: the creator command center. Identity header, live stats,
- * tabbed content library (projects + shorts), Creator DNA, AI credits,
- * connected accounts and recent activity. Persists personal settings locally
+ * Profile: profile details (saved in this browser), live stats, the content
+ * library (projects + shorts), Creator DNA, connected accounts and recent
+ * activity. Account and security live on /account, preferences on /profile/settings. Persists personal settings locally
  * and merges live backend data for content and stats.
  */
 @Component({
   selector: 'app-profile',
   standalone: true,
   imports: [
-    RouterLink,
     LucideDynamicIcon,
+    NavbarComponent,
+    AccountNavComponent,
     ProfileHeaderComponent,
     CreatorStatsComponent,
     MyContentComponent,
@@ -43,75 +46,40 @@ import { RecentActivityComponent } from './components/recent-activity.component'
     ConnectedAccountsComponent,
     RecentActivityComponent,
   ],
+  styles: [`
+    :host { display: block; }
+    .grid { display: grid; gap: var(--space-lg); align-items: start; }
+    @media (min-width: 72rem) { .grid { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
+    .side { display: flex; flex-direction: column; gap: var(--space-lg); min-width: 0; }
+    .err { text-align: center; border-left: 4px solid var(--color-negative); }
+    .err p { margin: 0; }
+    .err p + p { margin-top: var(--space-2xs); color: var(--color-ink-2); font-size: var(--type-sm); }
+    .err .ui-btn { margin-top: var(--space-md); }
+    .toast { position: fixed; top: var(--space-md); right: var(--space-md); z-index: var(--z-toast); max-width: min(24rem, calc(100% - 2 * var(--space-md))); display: flex; align-items: flex-start; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-surface); border: 1px solid var(--color-rule); background: var(--app-card); box-shadow: 0 12px 32px -12px color-mix(in oklab, var(--color-ink) 35%, transparent); font-size: var(--type-sm); }
+    .toast p { margin: 0; padding-top: var(--space-2xs); }
+    .t-error { color: var(--color-negative); } .t-success { color: var(--color-positive); }
+  `],
   template: `
-  <div class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] antialiased min-h-[100dvh]">
-      <div class="aurora-bg" aria-hidden="true"></div>
-
-      <!-- App header -->
-      <header class="border-b border-[hsl(var(--border))] bg-[hsl(var(--background))]/90 backdrop-blur sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-2">
-          <a routerLink="/" class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></a>
-          <nav class="flex items-center gap-1 sm:gap-2 text-[13.5px]" aria-label="Creator sections">
-            <a routerLink="/dashboard" class="hidden sm:inline-flex rounded-full px-4 py-2 font-medium hover:bg-white/5 transition-colors">Dashboard</a>
-            <a routerLink="/projects" class="hidden sm:inline-flex rounded-full px-4 py-2 font-medium hover:bg-white/5 transition-colors">Projects</a>
-            <a routerLink="/shorts/history" class="hidden md:inline-flex rounded-full px-4 py-2 font-medium hover:bg-white/5 transition-colors">Shorts</a>
-            <a routerLink="/projects/new" class="btn-interactive inline-flex items-center gap-2 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] pl-4 pr-1.5 py-1.5 font-semibold">
-              New project
-              <span class="w-7 h-7 rounded-full bg-black/10 dark:bg-white/15 flex items-center justify-center">
-                <svg lucideIcon="plus" [size]="15"></svg>
-              </span>
-            </a>
-          </nav>
-        </div>
-      </header>
-
-      <main class="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
-        <div class="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p class="text-[11.5px] uppercase tracking-[0.08em] text-[hsl(var(--muted-foreground))]">Creator · Command Center</p>
-            <h1 class="mt-2 font-medium tracking-[-0.02em] leading-none text-[clamp(2rem,4.5vw,3.2rem)]">Profile.</h1>
-          </div>
-          <div class="flex items-center gap-2">
-            <a routerLink="settings" class="text-[13px] font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] underline underline-offset-4">Settings</a>
-            <button
-              type="button"
-              (click)="signOut()"
-              class="inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[13px] font-medium hover:bg-white/5"
-            >
-              <svg lucideIcon="log-out" [size]="14" aria-hidden="true"></svg>
-              Sign out
-            </button>
-          </div>
-        </div>
+    <div class="ui-app">
+      <app-navbar />
+      <main id="main" class="ui-app-main hm">
+        <app-account-nav title="Profile" lead="How you appear in the studio, and what you have made." />
 
         @if (loadError) {
-          <div class="mt-6 rounded-2xl border border-red-500/30 bg-red-500/5 p-6 text-center" role="alert">
-            <p class="font-medium text-[15px]">Couldn't load your content</p>
-            <p class="mt-1 text-[13.5px] text-[hsl(var(--muted-foreground))]">{{ loadError }}</p>
-            <button
-              type="button"
-              (click)="reload()"
-              class="btn-interactive mt-4 inline-flex items-center gap-2 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-5 py-2.5 text-[13.5px] font-semibold"
-            >
-              <svg lucideIcon="refresh-cw" [size]="15" aria-hidden="true"></svg>
+          <div class="ui-card err" role="alert">
+            <p><strong>Couldn't load your content</strong></p>
+            <p>{{ loadError }}</p>
+            <button type="button" (click)="reload()" class="ui-btn ui-btn--secondary">
+              <svg lucideIcon="refresh-cw" [size]="16" aria-hidden="true"></svg>
               Retry
             </button>
           </div>
         }
 
-        <div class="mt-6">
-          <app-profile-header
-            [profile]="profile"
-            [loading]="isLoading"
-            (profileChange)="onProfileChange($event)"
-          />
-        </div>
+        <app-profile-header [profile]="profile" [loading]="isLoading" (profileChange)="onProfileChange($event)" />
+        <app-creator-stats [stats]="stats" [loading]="isLoading" />
 
-        <div class="mt-4 md:mt-5">
-          <app-creator-stats [stats]="stats" [loading]="isLoading" />
-        </div>
-
-        <div class="mt-4 md:mt-5 grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-4 md:gap-5 items-start">
+        <div class="grid">
           <app-my-content
             [videos]="videos"
             [activeTab]="activeTab"
@@ -119,43 +87,20 @@ import { RecentActivityComponent } from './components/recent-activity.component'
             (tabChange)="activeTab = $event"
             (videoAction)="onVideoAction($event)"
           />
-
-          <div class="flex flex-col gap-4 md:gap-5">
-            <app-creator-dna
-              [dna]="dna"
-              [isDefault]="isDefaultDna"
-              (dnaChange)="onDnaChange($event)"
-              (useDna)="onUseDna()"
-            />
+          <div class="side">
+            <app-creator-dna [dna]="dna" [isDefault]="isDefaultDna" (dnaChange)="onDnaChange($event)" (useDna)="onUseDna()" />
             <app-connected-accounts [connections]="social" (toggle)="onToggleSocial($event)" />
             <app-recent-activity [items]="activity" [loading]="isLoading" />
           </div>
         </div>
-
-        <footer class="mt-10 pt-6 border-t border-[hsl(var(--border))] flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-[hsl(var(--muted-foreground))]">
-          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex gap-5">
-            <a routerLink="/" class="hover:text-[hsl(var(--foreground))]">Home</a>
-            <a routerLink="/dashboard" class="hover:text-[hsl(var(--foreground))]">Dashboard</a>
-            <a routerLink="/contact" class="hover:text-[hsl(var(--foreground))]">Contact</a>
-          </span>
-        </footer>
       </main>
 
-      <!-- Toast -->
       @if (toast) {
-        <div
-          class="toast-enter fixed top-4 right-4 z-[60] max-w-sm rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3 shadow-2xl flex items-start gap-3"
-          role="status"
-        >
-          <span
-            class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-            [class]="toast.kind === 'error' ? 'bg-red-500/15 text-red-400' : toast.kind === 'success' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))]'"
-            aria-hidden="true"
-          >
-            <svg lucideIcon="{{ toast.kind === 'error' ? 'x' : toast.kind === 'success' ? 'check' : 'info' }}" [size]="16"></svg>
+        <div class="toast hm" role="status" data-testid="toast">
+          <span class="ui-chip" [class.t-error]="toast.kind === 'error'" [class.t-success]="toast.kind === 'success'" aria-hidden="true">
+            <svg [lucideIcon]="toast.kind === 'error' ? 'x' : 'check'" [size]="16"></svg>
           </span>
-          <p class="text-[13.5px] leading-snug pt-1">{{ toast.message }}</p>
+          <p>{{ toast.message }}</p>
         </div>
       }
     </div>
@@ -169,7 +114,6 @@ export class ProfileComponent implements OnInit {
   private readonly shorts = inject(ShortsService);
   private readonly store = inject(ProfileService);
 
-  currentYear = new Date().getFullYear();
   isLoading = true;
   loadError = '';
 
@@ -244,11 +188,10 @@ export class ProfileComponent implements OnInit {
     this.dna = this.store.saveDNA(dna);
     this.isDefaultDna = this.store.isDefaultDNA(this.dna);
     this.activity = this.store.loadActivity();
-    this.notify('Creator DNA saved. It will be reused for future generations.', 'success');
+    this.notify('Creator DNA saved in this browser.', 'success');
   }
 
   onUseDna(): void {
-    this.notify('Creator DNA saved - it steers the prompts for future generations.', 'info');
     this.router.navigate(['/projects/new']);
   }
 
@@ -257,7 +200,7 @@ export class ProfileComponent implements OnInit {
     this.activity = this.store.loadActivity();
     const conn = this.social.find((c) => c.platform === platform);
     this.notify(
-      conn?.connected ? `${this.platformLabel(platform)} linked on this device.` : `${this.platformLabel(platform)} disconnected.`,
+      conn?.connected ? `${this.platformLabel(platform)} marked connected on this device.` : `${this.platformLabel(platform)} disconnected.`,
       conn?.connected ? 'success' : 'info',
     );
   }
@@ -470,7 +413,7 @@ export class ProfileComponent implements OnInit {
             : 'processing';
       list.push({
         id,
-        title: j.clipCount > 0 ? `Short ${j.jobId.slice(0, 8)} · ${j.clipCount} clips` : `Short ${j.jobId.slice(0, 8)}`,
+        title: `Short ${j.jobId.slice(0, 8)}`,
         kind: 'short',
         status,
         rawStatus: j.status,

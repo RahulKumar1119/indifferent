@@ -1,6 +1,7 @@
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { LucideDynamicIcon } from '@lucide/angular';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { AccountNavComponent } from '../account/account-nav.component';
 import { ThemeService } from '../../core/services/theme.service';
 import {
   NotificationPreference,
@@ -21,166 +22,121 @@ interface NotificationRow {
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [LucideDynamicIcon],
+  imports: [NavbarComponent, AccountNavComponent],
+  styles: [`
+    :host { display: block; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: var(--space-sm) 0; }
+    .rows { margin: var(--space-sm) 0 0; padding: 0; list-style: none; }
+    .rows li + li { border-top: 1px solid var(--color-rule); }
+    .row-title { margin: 0; font-weight: 500; }
+    .row-hint { margin: var(--space-3xs) 0 0; font-size: var(--type-sm); color: var(--color-muted); }
+    .ctl { display: flex; align-items: center; gap: var(--space-xs); flex: none; }
+    .state { width: 1.75rem; text-align: right; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .note { margin: var(--space-sm) 0 0; padding: var(--space-sm) var(--space-md); border-radius: var(--radius-control); background: var(--color-paper-3); font-size: var(--type-sm); color: var(--color-ink-2); }
+    .address { margin: var(--space-sm) 0 0; font-size: var(--type-sm); }
+    .address strong { overflow-wrap: anywhere; }
+    .status { margin: var(--space-sm) 0 0; min-height: 1.25rem; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .save-error { margin: var(--space-2xs) 0 0; font-size: var(--type-sm); font-weight: 500; color: var(--color-negative); }
+    .inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-sm); }
+    .inline p { margin: 0; font-size: var(--type-sm); }
+  `],
   template: `
-    <div class="mx-auto max-w-2xl p-6">
-      <h1 class="mb-6 text-2xl font-bold">Settings</h1>
+    <div class="ui-app">
+      <app-navbar />
+      <main id="main" class="ui-app-main hm">
+        <app-account-nav title="Settings" lead="How the app looks and when we email you. Changes save as soon as you make them." />
 
-      <div class="glass-card p-6 mb-6">
-        <h2 class="mb-4 text-lg font-semibold flex items-center gap-2">
-          <svg lucideIcon="sun" [size]="20" class="text-[hsl(var(--primary))]"></svg>
-          Appearance
-        </h2>
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="font-medium">Dark Mode</p>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">
-              Toggle between light and dark theme
-            </p>
-          </div>
-          <!-- Custom toggle switch -->
-          <button
-            class="relative w-12 h-6 rounded-full transition-colors cursor-pointer"
-            [class.bg-[hsl(var(--primary))]]="themeService.currentTheme() === 'dark'"
-            [class.bg-[hsl(var(--muted))]]="themeService.currentTheme() === 'light'"
-            (click)="themeService.toggleTheme()"
-            role="switch"
-            [attr.aria-checked]="themeService.currentTheme() === 'dark'"
-            aria-label="Toggle dark mode"
-          >
-            <span
-              class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform flex items-center justify-center"
-              [class.translate-x-6]="themeService.currentTheme() === 'dark'"
-            >
-              @if (themeService.currentTheme() === 'dark') {
-                <svg lucideIcon="moon" [size]="12" class="text-[hsl(var(--primary))]"></svg>
-              } @else {
-                <svg lucideIcon="sun" [size]="12" class="text-yellow-500"></svg>
-              }
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <section class="glass-card p-6" aria-labelledby="notifications-heading" data-testid="notifications">
-        <h2 id="notifications-heading" class="mb-1 text-lg font-semibold flex items-center gap-2">
-          <svg lucideIcon="settings" [size]="20" class="text-[hsl(var(--primary))]"></svg>
-          Notifications
-        </h2>
-        <p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
-          We email you when a video or Shorts job finishes or fails.
-        </p>
-
-        @switch (loadState()) {
-          @case ('loading') {
-            <p class="text-sm text-[hsl(var(--muted-foreground))]" role="status">Loading your settings…</p>
-          }
-          @case ('error') {
-            <div role="alert" class="flex flex-wrap items-center gap-3">
-              <p class="text-sm">We couldn't load your notification settings.</p>
-              <button
-                type="button"
-                (click)="fetch()"
-                class="min-h-[44px] rounded-full border border-[hsl(var(--border))] px-5 text-sm font-medium cursor-pointer"
-              >
-                Try again
-              </button>
+        <section class="ui-card" aria-labelledby="appearance-heading">
+          <h2 id="appearance-heading" class="ui-card-title">Appearance</h2>
+          <div class="row">
+            <div>
+              <p class="row-title" id="theme-label">Dark mode</p>
+              <p class="row-hint" id="theme-hint">Use the dark theme on this device.</p>
             </div>
-          }
-          @case ('ready') {
-            @if (settings(); as s) {
-              <p class="mb-4 text-sm" data-testid="address">
-                @if (s.email) {
-                  Emails go to <strong class="break-all font-semibold">{{ s.email }}</strong>.
-                } @else {
-                  There is no email address saved on your account.
-                }
-              </p>
+            <button
+              type="button"
+              class="ui-switch"
+              role="switch"
+              data-testid="theme-switch"
+              [attr.aria-checked]="themeService.currentTheme() === 'dark'"
+              aria-labelledby="theme-label"
+              aria-describedby="theme-hint"
+              (click)="themeService.toggleTheme()"
+            ><span></span></button>
+          </div>
+        </section>
 
-              @if (!s.emailVerified) {
-                <p
-                  class="mb-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))] p-3 text-sm"
-                  role="note"
-                  data-testid="unverified"
-                >
-                  Email notifications are not available for this account. We only send to addresses we have
-                  confirmed, and addresses from email and password sign-ups are not confirmed yet.
+        <section class="ui-card" aria-labelledby="notifications-heading" data-testid="notifications">
+          <h2 id="notifications-heading" class="ui-card-title">Email notifications</h2>
+          <p class="ui-card-sub">We email you when a video or Shorts job finishes or fails.</p>
+          @switch (loadState()) {
+            @case ('loading') {
+              <p class="status" role="status">Loading your settings</p>
+            }
+            @case ('error') {
+              <div role="alert" class="inline">
+                <p>We couldn't load your notification settings.</p>
+                <button type="button" (click)="fetch()" class="ui-btn ui-btn--secondary">Try again</button>
+              </div>
+            }
+            @case ('ready') {
+              @if (settings(); as s) {
+                <p class="address" data-testid="address">
+                  @if (s.email) {
+                    Emails go to <strong>{{ s.email }}</strong>.
+                  } @else {
+                    There is no email address saved on your account.
+                  }
                 </p>
-              }
-
-              <ul class="divide-y divide-[hsl(var(--border))]">
-                @for (row of rows; track row.preference) {
-                  <li class="flex items-center justify-between gap-4 py-3">
-                    <div class="min-w-0">
-                      <p [id]="row.id + '-label'" class="font-medium">{{ row.title }}</p>
-                      <p [id]="row.id + '-hint'" class="text-sm text-[hsl(var(--muted-foreground))]">
-                        {{ row.hint }}
-                      </p>
-                    </div>
-                    <div class="flex shrink-0 items-center gap-2">
-                      <span class="w-7 text-right text-sm" aria-hidden="true">
-                        {{ isOn(row.preference) ? 'On' : 'Off' }}
-                      </span>
-                      <!-- 44 px hit area; the visible track is smaller. -->
-                      <button
-                        type="button"
-                        role="switch"
-                        class="inline-flex h-11 w-[60px] items-center justify-center rounded-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                        [attr.data-testid]="row.id"
-                        [attr.aria-checked]="isOn(row.preference)"
-                        [attr.aria-labelledby]="row.id + '-label'"
-                        [attr.aria-describedby]="row.id + '-hint'"
-                        [attr.aria-busy]="savingPreference() === row.preference"
-                        [disabled]="!s.emailVerified"
-                        (click)="toggle(row.preference)"
-                      >
-                        <span
-                          class="relative block h-7 w-12 rounded-full border transition-colors motion-reduce:transition-none"
-                          [class.bg-[hsl(var(--primary))]]="isOn(row.preference)"
-                          [class.bg-[hsl(var(--muted))]]="!isOn(row.preference)"
-                          [style.border-color]="isOn(row.preference) ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))'"
-                        >
-                          <span
-                            class="absolute left-0.5 top-0.5 block h-5 w-5 rounded-full shadow-sm transition-transform motion-reduce:transition-none"
-                            [class.bg-white]="isOn(row.preference)"
-                            [class.bg-[hsl(var(--muted-foreground))]]="!isOn(row.preference)"
-                            [style.transform]="isOn(row.preference) ? 'translateX(20px)' : 'translateX(0)'"
-                          ></span>
-                        </span>
-                      </button>
-                    </div>
-                  </li>
+                @if (!s.emailVerified) {
+                  <p class="note" role="note" data-testid="unverified">
+                    Email notifications are not available for this account. We only send to addresses we have
+                    confirmed, and addresses from email and password sign-ups are not confirmed yet.
+                  </p>
                 }
-              </ul>
-
-              <p class="mt-3 min-h-[20px] text-sm text-[hsl(var(--muted-foreground))]" role="status" aria-live="polite" data-testid="save-status">
-                @switch (saveState()) {
-                  @case ('saving') { Saving… }
-                  @case ('saved') { Saved. }
-                }
-              </p>
-              @if (saveState() === 'error') {
-                <p class="save-error mt-1 text-sm font-medium" role="alert" data-testid="save-error">
-                  We couldn't save that change. Your setting was not changed. Try again.
+                <ul class="rows">
+                  @for (row of rows; track row.preference) {
+                    <li class="row">
+                      <div style="min-width: 0">
+                        <p [id]="row.id + '-label'" class="row-title">{{ row.title }}</p>
+                        <p [id]="row.id + '-hint'" class="row-hint">{{ row.hint }}</p>
+                      </div>
+                      <div class="ctl">
+                        <span class="state" aria-hidden="true">{{ isOn(row.preference) ? 'On' : 'Off' }}</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          class="ui-switch"
+                          [attr.data-testid]="row.id"
+                          [attr.aria-checked]="isOn(row.preference)"
+                          [attr.aria-labelledby]="row.id + '-label'"
+                          [attr.aria-describedby]="row.id + '-hint'"
+                          [attr.aria-busy]="savingPreference() === row.preference"
+                          [disabled]="!s.emailVerified"
+                          (click)="toggle(row.preference)"
+                        ><span></span></button>
+                      </div>
+                    </li>
+                  }
+                </ul>
+                <p class="status" role="status" aria-live="polite" data-testid="save-status">
+                  @switch (saveState()) {
+                    @case ('saving') { Saving }
+                    @case ('saved') { Saved. }
+                  }
                 </p>
+                @if (saveState() === 'error') {
+                  <p class="save-error" role="alert" data-testid="save-error">
+                    We couldn't save that change. Your setting was not changed. Try again.
+                  </p>
+                }
               }
             }
           }
-        }
-      </section>
+        </section>
+      </main>
     </div>
   `,
-  styles: [
-    `
-      /* The app's dark theme is a .dark class on <html>; Tailwind's dark: variant is not wired to it. */
-      .save-error {
-        color: #b91c1c;
-      }
-      :host-context(.dark) .save-error {
-        color: #f87171;
-      }
-    `,
-  ],
 })
 export class SettingsComponent implements OnInit {
   readonly themeService = inject(ThemeService);

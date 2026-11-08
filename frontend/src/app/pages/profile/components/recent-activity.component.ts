@@ -7,52 +7,45 @@ import { ActivityItem } from '../models/creator-stats.model';
   selector: 'app-recent-activity',
   standalone: true,
   imports: [LucideDynamicIcon],
+  styles: [`
+    :host { display: block; }
+    .group { margin: var(--space-md) 0 var(--space-2xs); font-size: var(--type-xs); font-weight: 600; color: var(--color-muted); }
+    ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-2xs); }
+    li { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-2xs) 0; }
+    .main { flex: 1; min-width: 0; }
+    .text { display: block; font-size: var(--type-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta { display: flex; flex-wrap: wrap; gap: 0 var(--space-sm); font-size: var(--type-xs); color: var(--color-muted); }
+    .empty { margin-top: var(--space-md); padding: var(--space-lg); text-align: center; border-radius: var(--radius-control); background: var(--color-paper-3); }
+    .empty p { margin: 0; } .empty p + p { margin-top: var(--space-2xs); font-size: var(--type-sm); color: var(--color-ink-2); }
+    .sk { height: 2.25rem; border-radius: var(--radius-control); background: var(--color-paper-3); margin-top: var(--space-sm); }
+  `],
   template: `
-    <section class="glass-card p-5 md:p-7" aria-label="Recent activity">
-      <h2 class="text-lg font-semibold flex items-center gap-2">
-        <svg lucideIcon="clock" [size]="19" class="text-[hsl(var(--primary))]" aria-hidden="true"></svg>
-        Recent Activity
-      </h2>
-
+    <section class="ui-card" aria-labelledby="activity-heading">
+      <h2 id="activity-heading" class="ui-card-title">Recent activity</h2>
       @if (loading()) {
-        <div class="mt-4 space-y-3">
-          @for (i of [1, 2, 3, 4]; track i) {
-            <div class="flex items-center gap-3">
-              <div class="skeleton w-9 h-9 rounded-full shrink-0"></div>
-              <div class="flex-1 space-y-2">
-                <div class="skeleton h-3.5 w-3/4"></div>
-                <div class="skeleton h-3 w-1/3"></div>
-              </div>
-            </div>
-          }
-        </div>
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="sk" aria-hidden="true"></div>
+        }
       } @else if (groups().length === 0) {
-        <div class="mt-4 rounded-2xl border border-dashed border-[hsl(var(--border))] px-6 py-8 text-center">
-          <p class="font-medium text-[14.5px]">No activity yet</p>
-          <p class="mt-1 text-[13px] text-[hsl(var(--muted-foreground))]">Your creations and publishes will show up here.</p>
+        <div class="empty">
+          <p><strong>No activity yet</strong></p>
+          <p>Your creations and publishes will show up here.</p>
         </div>
       } @else {
         @for (group of groups(); track group.label) {
-          <p class="mt-5 mb-2 first:mt-4 text-[11.5px] uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">
-            {{ group.label }}
-          </p>
-          <ul class="space-y-1">
+          <p class="group">{{ group.label }}</p>
+          <ul>
             @for (item of group.items; track item.id) {
-              <li class="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/[0.03] transition-colors">
-                <span
-                  class="w-9 h-9 rounded-full bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] flex items-center justify-center shrink-0"
-                  aria-hidden="true"
-                >
-                  <svg lucideIcon="{{ item.icon }}" [size]="16"></svg>
-                </span>
-                <span class="flex-1 min-w-0">
-                  <span class="block text-[13.5px] truncate">
-                    {{ item.text }}
+              <li>
+                <span class="ui-chip" aria-hidden="true"><svg [lucideIcon]="item.icon" [size]="16"></svg></span>
+                <span class="main">
+                  <span class="text">{{ item.text }}</span>
+                  <span class="meta">
                     @if (item.detail) {
-                      <span class="text-[hsl(var(--muted-foreground))]"> · {{ item.detail }}</span>
+                      <span>{{ item.detail }}</span>
                     }
+                    <span>{{ relativeTime(item.timestamp) }}</span>
                   </span>
-                  <span class="block text-[12px] text-[hsl(var(--muted-foreground))]">{{ relativeTime(item.timestamp) }}</span>
                 </span>
               </li>
             }
