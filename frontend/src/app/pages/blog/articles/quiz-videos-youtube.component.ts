@@ -1,170 +1,15 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
+import { ArticleShellComponent } from './article-shell.component';
 import { setArticleSeo } from './article-seo';
-import { articleByline, findArticle } from './registry';
+import { findArticle } from './registry';
 
 @Component({
   selector: 'app-quiz-videos-youtube',
   standalone: true,
-  imports: [RouterLink, SiteFooterComponent],
-  styles: [`
-    :host {
-      display: block;
-      background: #f8fafc;
-      min-height: 100vh;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-    .blog-nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 2rem;
-      background: rgba(255,255,255,0.95);
-      border-bottom: 1px solid #e2e8f0;
-      backdrop-filter: blur(12px);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .blog-logo { display: inline-flex; align-items: center; min-height: 44px; }
-    .blog-logo img { height: 2rem; }
-    .blog-signin {
-      background: #0f766e;
-      color: #fff;
-      display: inline-flex;
-      align-items: center;
-      min-height: 44px;
-      padding: 0 1.25rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      font-size: 0.875rem;
-      text-decoration: none;
-    }
-    .blog-signin:hover { background: #115e59; }
-    .blog-article {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 3rem 2rem;
-    }
-    .blog-article-header { margin-bottom: 2rem; }
-    .blog-back {
-      color: #0f766e;
-      font-size: 0.875rem;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      min-height: 44px;
-      margin-bottom: 1rem;
-    }
-    .blog-back:hover { text-decoration: underline; }
-    .blog-article-header h1 {
-      font-size: 2.25rem;
-      font-weight: 800;
-      color: #0f172a;
-      line-height: 1.3;
-      margin: 0 0 0.75rem;
-    }
-    .blog-meta {
-      color: #64748b;
-      font-size: 0.875rem;
-    }
-    .blog-content {
-      color: #334155;
-      font-size: 1.0625rem;
-      line-height: 1.8;
-    }
-    .blog-content h2 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 2.5rem 0 1rem;
-    }
-    .blog-content h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #0f172a;
-      margin: 2rem 0 0.75rem;
-    }
-    .blog-content p { margin: 0 0 1.25rem; }
-    .blog-content ul, .blog-content ol {
-      margin: 0 0 1.25rem;
-      padding-left: 1.5rem;
-    }
-    .blog-content li { margin-bottom: 0.5rem; }
-    .blog-content code {
-      background: #f1f5f9;
-      padding: 0.2rem 0.4rem;
-      border-radius: 0.25rem;
-      font-size: 0.875rem;
-    }
-    .blog-content pre {
-      background: #1e293b;
-      color: #e2e8f0;
-      padding: 1.25rem;
-      border-radius: 0.5rem;
-      overflow-x: auto;
-      margin: 0 0 1.25rem;
-      font-size: 0.875rem;
-      line-height: 1.6;
-    }
-    .blog-content strong { color: #0f172a; font-weight: 600; }
-    .blog-cta {
-      margin-top: 3rem;
-      padding: 2rem;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.75rem;
-      text-align: center;
-    }
-    .blog-cta h3 {
-      color: #0f172a;
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin: 0 0 0.5rem;
-    }
-    .blog-cta p { color: #64748b; margin: 0 0 1.25rem; }
-    .blog-cta-btn {
-      display: inline-block;
-      background: #0f766e;
-      color: #fff;
-      padding: 0.75rem 1.5rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .blog-cta-btn:hover { background: #115e59; }
-    .blog-footer {
-      text-align: center;
-      padding: 2rem;
-      border-top: 1px solid #e2e8f0;
-    }
-    .blog-footer a {
-      color: #64748b;
-      font-size: 0.8rem;
-      text-decoration: none;
-      margin: 0 0.5rem;
-    }
-    .blog-footer a:hover { color: #0f766e; }
-    .blog-footer p {
-      color: #5b6b80;
-      font-size: 0.7rem;
-      margin-top: 0.5rem;
-    }
-  `],
+  imports: [ArticleShellComponent],
   template: `
-    <nav class="blog-nav">
-      <a routerLink="/" class="blog-logo"><img src="logo.svg" alt="Indifferent" /></a>
-      <a routerLink="/login" class="blog-signin">Sign In</a>
-    </nav>
-    <article class="blog-article">
-      <header class="blog-article-header">
-        <a routerLink="/blog" class="blog-back">&larr; Back to Blog</a>
-        <h1>How to Create Quiz Videos for YouTube</h1>
-        <div class="blog-meta">{{ byline }}</div>
-      </header>
-      <div class="blog-content">
+    <app-article-shell [meta]="article">
         <p>Quiz videos have become one of the most popular content formats on YouTube, attracting viewers who love testing their knowledge on topics ranging from general trivia to specialized subjects. Whether you are a content creator looking to diversify your channel or an educator wanting to reach a broader audience, quiz videos offer a proven path to growing your viewership and building an engaged community.</p>
 
         <h2>Why Quiz Videos Dominate YouTube</h2>
@@ -206,20 +51,13 @@ import { articleByline, findArticle } from './registry';
         <p>Looking at successful quiz channels reveals common patterns worth emulating. The most popular creators maintain consistent upload schedules, typically publishing two to four quiz videos per week. They develop a recognizable visual brand through consistent design usage and intro sequences. Many diversify across multiple topics while maintaining a core focus area that defines their channel identity.</p>
         <p>Successful creators also engage with their communities by responding to comments, creating quizzes based on viewer suggestions, and building anticipation for upcoming content. This community engagement creates a loyal viewer base that returns for each new upload and actively promotes the channel to others.</p>
         <p>The quiz video format is accessible to creators at all levels because the content itself, interesting questions with satisfying answers, is what drives engagement, not expensive equipment or advanced editing skills. With tools like Indifferent handling the technical production, you can focus entirely on crafting great questions and building your audience.</p>
-      </div>
-      <div class="blog-cta">
-        <h3>Ready to create your first quiz video?</h3>
-        <p>Sign up free and convert your text quizzes into professional videos in minutes.</p>
-        <a routerLink="/login" class="blog-cta-btn">Get Started Free</a>
-      </div>
-    </article>
-    <app-site-footer />
+      
+    </app-article-shell>
   `,
 })
 export class QuizVideosYoutubeComponent implements OnInit {
   private readonly document = inject(DOCUMENT);
-  private readonly article = findArticle('quiz-videos-youtube')!;
-  readonly byline = articleByline(this.article);
+  protected readonly article = findArticle('quiz-videos-youtube')!;
 
   ngOnInit(): void {
     setArticleSeo(this.document, this.article);
