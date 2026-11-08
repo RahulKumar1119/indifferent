@@ -14,102 +14,85 @@ import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
   standalone: true,
   imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent],
   template: `
-    <app-navbar></app-navbar>
-    <app-toasts></app-toasts>
-    <div class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))] antialiased min-h-[100dvh]">
-      <main class="max-w-4xl mx-auto px-4 pt-10 pb-16">
-        <div class="flex items-center justify-between gap-4">
+    <div class="ui-app">
+      <app-navbar></app-navbar>
+      <app-toasts></app-toasts>
+      <main id="main" class="ui-app-main hm">
+        <div class="head">
           <div>
-            <p class="text-[11.5px] uppercase tracking-[0.1em] text-[hsl(var(--muted-foreground))]">Studio · Shorts</p>
-            <h1 class="mt-2 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(1.8rem,4vw,2.6rem)]">Your shorts.</h1>
+            <h1>Your shorts</h1>
+            <p class="lead">Every upload, newest first. Open one to see its clips or follow its progress.</p>
           </div>
-          <a routerLink="/shorts" class="btn-interactive shrink-0 px-4 py-2 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] text-[13.5px] font-medium">+ New</a>
+          <a routerLink="/shorts" class="ui-btn ui-btn--primary"><svg lucideIcon="plus" [size]="18" aria-hidden="true"></svg>New short</a>
         </div>
 
         @if (isLoading) {
-          <div class="mt-6 space-y-3" aria-label="Loading shorts">
-            @for (i of [1,2,3]; track i) {
-              <div class="skeleton h-[76px] rounded-[20px]"></div>
+          <div class="list" role="status" aria-label="Loading shorts">
+            @for (i of [1, 2, 3]; track i) {
+              <div class="ui-skeleton" style="height: 4.75rem"></div>
             }
           </div>
         } @else if (error) {
-          <div class="mt-8 rounded-[16px] border border-red-500/30 p-6 text-center">
-            <p class="text-sm text-red-400">{{ error }}</p>
-            <button
-              type="button"
-              (click)="reload()"
-              class="btn-interactive mt-4 inline-flex items-center gap-2 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-5 py-2.5 text-[13.5px] font-semibold"
-            >
-              Try again
-            </button>
+          <div class="ui-card err" role="alert">
+            <p>{{ error }}</p>
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="reload()">Try again</button>
           </div>
         } @else if (jobs.length === 0) {
-          <div class="mt-8 rounded-[20px] border border-[hsl(var(--border))] p-10 text-center">
-            <p class="text-[15px] font-medium">No shorts yet.</p>
-            <p class="mt-2 text-sm text-[hsl(var(--muted-foreground))]">Upload a video or audio file and AI will cut your first clips.</p>
-            <a routerLink="/shorts" class="btn-interactive mt-5 inline-block px-6 py-3 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] text-[14px] font-medium">Create your first short</a>
+          <div class="ui-card empty">
+            <span class="ui-chip" aria-hidden="true"><svg lucideIcon="scissors" [size]="18"></svg></span>
+            <p><strong>No shorts yet.</strong></p>
+            <p>Upload a video or audio file and AI will cut your first clips.</p>
+            <a routerLink="/shorts" class="ui-btn ui-btn--primary">Create your first short</a>
           </div>
         } @else {
-          <ul class="mt-6 divide-y divide-[hsl(var(--border))] rounded-[20px] border border-[hsl(var(--border))] px-2 md:px-4">
+          <ul class="ui-card rows" aria-label="Your shorts">
             @for (job of jobs; track job.jobId) {
-              <li class="flex flex-wrap items-center gap-1 px-1 md:px-2">
-                <!-- An uploaded job has no page to show yet: the progress page would read as transcribing. -->
-                <a
-                  [routerLink]="job.status === 'uploaded' ? null : job.status === 'completed' && job.clipCount > 0 ? ['/shorts', job.jobId, 'clips'] : ['/shorts', job.jobId, 'progress']"
-                  [class.row-hover]="job.status !== 'uploaded'"
-                  class="flex flex-1 items-center gap-4 px-2 md:px-3 py-4 rounded-xl min-w-0"
-                >
-                  <span class="w-9 h-9 rounded-full bg-[hsl(var(--foreground))]/[.06] flex items-center justify-center shrink-0 text-[12px] font-bold text-[hsl(var(--muted-foreground))]">
-                    {{ job.fileType.toUpperCase() }}
-                  </span>
-                  <span class="flex-1 min-w-0">
-                    <span class="block font-medium truncate text-[15px]">Short {{ job.jobId.slice(0, 8) }}</span>
-                    <span class="block text-[12.5px] text-[hsl(var(--muted-foreground))]">
-                      {{ formatDate(job.createdAt) }}
-                      @if (job.status === 'completed') {
-                        &middot; {{ job.clipCount }} {{ job.clipCount === 1 ? 'clip' : 'clips' }}
-                      } @else if (job.status === 'uploaded') {
-                        &middot; Uploaded. Not started.
-                      }
+              <li class="item" [attr.data-testid]="'job-' + job.jobId">
+                <div class="line">
+                  <!-- An uploaded job has no page to show yet: the progress page would read as transcribing. -->
+                  <a
+                    [routerLink]="job.status === 'uploaded' ? null : job.status === 'completed' && job.clipCount > 0 ? ['/shorts', job.jobId, 'clips'] : ['/shorts', job.jobId, 'progress']"
+                    class="open"
+                    [class.static]="job.status === 'uploaded'"
+                  >
+                    <span class="kind" aria-hidden="true">{{ job.fileType.toUpperCase() }}</span>
+                    <span class="main">
+                      <span class="title">Short {{ job.jobId.slice(0, 8) }}</span>
+                      <span class="meta">
+                        <span>{{ formatDate(job.createdAt) }}</span>
+                        @if (job.status === 'completed') {
+                          <span>{{ job.clipCount }} {{ job.clipCount === 1 ? 'clip' : 'clips' }}</span>
+                        } @else if (job.status === 'uploaded') {
+                          <span>Uploaded. Not started.</span>
+                        }
+                      </span>
                     </span>
-                  </span>
-                  @if (job.status !== 'uploaded') {
-                    <span class="hidden sm:inline-flex rounded-full border border-[hsl(var(--border))] px-3 py-1 text-[11.5px] font-medium">{{ statusLabel(job.status) }}</span>
+                    @if (job.status !== 'uploaded') {
+                      <span class="ui-pill" [class]="'ui-pill ' + tone(job.status)">{{ statusLabel(job.status) }}</span>
+                      <svg lucideIcon="chevron-right" [size]="16" class="arrow" aria-hidden="true"></svg>
+                    }
+                  </a>
+                  @if (job.status === 'uploaded' && draftJobId !== job.jobId) {
+                    <button type="button" class="ui-btn ui-btn--primary start" (click)="openDraft(job)" [attr.aria-label]="'Start render for short ' + job.jobId.slice(0, 8)">Start render</button>
                   }
-                </a>
-                @if (job.status === 'uploaded' && draftJobId !== job.jobId) {
-                  <!-- Full width on phones, on the row beside the delete button from sm up. -->
                   <button
                     type="button"
-                    (click)="openDraft(job)"
-                    class="btn-interactive order-last basis-full sm:order-none sm:basis-auto min-h-[44px] px-4 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] text-[13.5px] font-medium"
-                    [attr.aria-label]="'Start render for short ' + job.jobId.slice(0, 8)"
+                    class="ui-btn ui-btn--quiet del"
+                    (click)="askDelete(job)"
+                    [disabled]="deletingId === job.jobId"
+                    [attr.aria-label]="'Delete short ' + job.jobId.slice(0, 8)"
+                    title="Delete short"
                   >
-                    Start render
+                    @if (deletingId === job.jobId) {
+                      <svg lucideIcon="loader-2" [size]="16" class="spin" aria-hidden="true"></svg>
+                    } @else {
+                      <svg lucideIcon="trash-2" [size]="16" aria-hidden="true"></svg>
+                    }
                   </button>
-                }
-                <button
-                  type="button"
-                  (click)="askDelete(job)"
-                  [disabled]="deletingId === job.jobId"
-                  class="btn-interactive shrink-0 w-9 h-9 rounded-lg inline-flex items-center justify-center text-[hsl(var(--muted-foreground))] hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-                  [attr.aria-label]="'Delete short ' + job.jobId.slice(0, 8)"
-                  title="Delete short"
-                >
-                  @if (deletingId === job.jobId) {
-                    <svg lucideIcon="loader-2" [size]="16" class="animate-spin"></svg>
-                  } @else {
-                    <svg lucideIcon="trash-2" [size]="16"></svg>
-                  }
-                </button>
+                </div>
                 @if (draftJobId === job.jobId) {
-                  <div class="order-last basis-full pb-4">
-                    <app-shorts-effects-panel
-                      [jobId]="job.jobId"
-                      [draftMode]="true"
-                      (effectsSaved)="onDraftSaved()"
-                      (cancelled)="closeDraft()"
-                    ></app-shorts-effects-panel>
+                  <div class="draft">
+                    <app-shorts-effects-panel [jobId]="job.jobId" [draftMode]="true" (effectsSaved)="onDraftSaved()" (cancelled)="closeDraft()"></app-shorts-effects-panel>
                   </div>
                 }
               </li>
@@ -130,8 +113,34 @@ import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
     />
   `,
   styles: [`
-    .row-hover { transition: background-color var(--transition-fast); }
-    .row-hover:hover { background-color: hsl(var(--foreground) / 0.04); }
+    :host { display: block; }
+    .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-sm); }
+    h1 { margin: 0; font-size: var(--type-2xl); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; }
+    .lead { margin: var(--space-2xs) 0 0; color: var(--color-ink-2); }
+    .list { display: flex; flex-direction: column; gap: var(--space-xs); }
+    .err, .empty { display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); text-align: center; }
+    .err p, .empty p { margin: 0; }
+    .err p { color: var(--color-negative); font-weight: 500; }
+    .empty p + p { color: var(--color-ink-2); margin-bottom: var(--space-sm); }
+    .rows { margin: 0; padding: var(--space-2xs) var(--space-md); list-style: none; }
+    .item + .item { border-top: 1px solid var(--color-rule); }
+    .line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); padding: var(--space-xs) 0; }
+    .open { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; padding: var(--space-xs); margin-inline: calc(-1 * var(--space-xs)); border-radius: var(--radius-control); color: var(--color-ink); text-decoration: none; }
+    .open:not(.static):hover { background: var(--color-paper-3); }
+    .kind { width: 2.75rem; height: 2.75rem; flex: none; border-radius: var(--radius-control); display: inline-flex; align-items: center; justify-content: center; background: color-mix(in oklab, var(--color-accent) 12%, var(--app-card)); color: var(--color-accent-text); font-size: var(--type-xs); font-weight: 700; }
+    .main { flex: 1; min-width: 0; }
+    .title { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta { display: flex; flex-wrap: wrap; gap: 0 var(--space-sm); font-size: var(--type-xs); color: var(--color-muted); }
+    .arrow { flex: none; color: var(--color-muted); }
+    .del { width: 44px; padding: 0; color: var(--color-ink-2); }
+    .del:hover:not(:disabled) { color: var(--color-negative); }
+    .start { order: 9; flex-basis: 100%; }
+    @media (min-width: 40rem) { .start { order: 0; flex-basis: auto; } }
+    .draft { padding-bottom: var(--space-md); }
+    .t-ok { color: var(--color-positive); } .t-bad { color: var(--color-negative); } .t-wait { color: var(--color-caution); }
+    .spin { animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
   `],
 })
 export class ShortsHistoryComponent implements OnInit {
@@ -171,6 +180,11 @@ export class ShortsHistoryComponent implements OnInit {
 
   statusLabel(status: ShortsStatus): string {
     return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  /** Colour of the status pill: ready, failed, or still working. */
+  tone(status: ShortsStatus): string {
+    return status === 'completed' ? 't-ok' : status === 'failed' ? 't-bad' : 't-wait';
   }
 
   openDraft(job: ShortsJobSummary): void {
@@ -218,7 +232,7 @@ export class ShortsHistoryComponent implements OnInit {
     } else {
       bits.push(`status: ${this.statusLabel(job.status)}`);
     }
-    return `Permanently delete ${bits.join(' · ')} and all of its assets?`;
+    return `Permanently delete ${bits.join(', ')} and all of its assets?`;
   }
 
   deleteDetails(): string[] {

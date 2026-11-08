@@ -53,338 +53,252 @@ function blobObjectUrl(file: Blob): string {
   standalone: true,
   imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent, ToastsComponent, ShortsEffectsPanelComponent],
   styles: [`
-    .dropzone {
-      border-width: 2px;
-      border-style: dashed;
-      border-color: rgb(75 85 99); /* gray-600 */
-    }
-    /* Magnetism: the active drop area extends 20px beyond the visible border. */
-    .dropzone::before {
-      content: '';
-      position: absolute;
-      inset: -20px;
-      border-radius: 1rem;
-      pointer-events: none;
-    }
-    .dropzone-active {
-      border-style: solid;
-      border-color: rgb(99 102 241); /* indigo-500 */
-    }
+    :host { display: block; }
+    .page { flex: 1; display: flex; flex-direction: column; }
+    .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-sm); }
+    h1 { margin: 0; font-size: var(--type-2xl); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; }
+    .lead { margin: var(--space-2xs) 0 0; color: var(--color-ink-2); max-width: 60ch; }
+    .reqs { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); }
+    @media (min-width: 48rem) { .reqs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .req { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-control); border: 1px solid var(--color-rule); background: var(--app-card); }
+    .req b { display: block; font-size: var(--type-sm); font-weight: 600; }
+    .req span.t { display: block; font-size: var(--type-xs); color: var(--color-muted); }
+    .drop { position: relative; flex: 1; min-height: 22rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-sm); padding: var(--space-xl) var(--space-md); text-align: center; border: 2px dashed color-mix(in oklab, var(--color-ink) 25%, transparent); border-radius: var(--radius-surface); background: var(--app-card); cursor: pointer; transition: border-color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out); }
+    .drop::before { content: ''; position: absolute; inset: -20px; border-radius: 1rem; pointer-events: none; }
+    .drop:hover, .drop.over { border-color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 5%, var(--app-card)); }
+    .drop.over { border-style: solid; }
+    .drop.ok { border-style: solid; border-color: var(--color-positive); }
+    .drop:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+    .drop h2 { margin: 0; font-size: var(--type-xl); font-weight: 600; }
+    .big-icon { width: 4.5rem; height: 4.5rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in oklab, var(--color-accent) 12%, var(--app-card)); color: var(--color-accent-text); }
+    .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2xs); margin: 0; padding: 0; list-style: none; }
+    .chips li { padding: var(--space-3xs) var(--space-sm); border-radius: var(--radius-pill); background: var(--color-paper-3); font-size: var(--type-xs); font-weight: 500; color: var(--color-ink-2); }
+    .release { position: absolute; inset: var(--space-md); pointer-events: none; display: flex; align-items: center; justify-content: center; gap: var(--space-md); border-radius: var(--radius-control); background: color-mix(in oklab, var(--color-accent) 10%, var(--app-card)); color: var(--color-ink); }
+    .release video { height: 6rem; border-radius: var(--radius-control); opacity: 0.8; }
+    .release p { margin: 0; text-align: left; }
+    .file { width: 100%; max-width: 30rem; display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md); border-radius: var(--radius-control); border: 1px solid color-mix(in oklab, var(--color-positive) 45%, transparent); background: color-mix(in oklab, var(--color-positive) 7%, var(--app-card)); text-align: left; }
+    .file video, .file .ph { width: 3.5rem; height: 5rem; flex: none; border-radius: var(--radius-control); object-fit: cover; background: var(--color-ink); }
+    .file .ph { display: inline-flex; align-items: center; justify-content: center; background: var(--color-paper-3); color: var(--color-positive); }
+    .file .main { flex: 1; min-width: 0; }
+    .file .name { margin: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta { margin: 0; display: flex; flex-wrap: wrap; gap: 0 var(--space-sm); font-size: var(--type-xs); color: var(--color-muted); }
+    .tick { width: 2rem; height: 2rem; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--color-positive); color: var(--color-paper); }
+    .note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); font-size: var(--type-sm); }
+    .note p { margin: 0; }
+    .note .row { display: flex; align-items: flex-start; gap: var(--space-xs); margin-top: var(--space-xs); }
+    .note .row svg { flex: none; margin-top: 2px; color: var(--color-caution); }
+    .err { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); border-left: 4px solid var(--color-negative); }
+    .err p { margin: 0; display: flex; align-items: center; gap: var(--space-xs); color: var(--color-negative); font-weight: 500; font-size: var(--type-sm); }
+    .prog-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); font-size: var(--type-sm); }
+    .prog-head .pct { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .track { margin-top: var(--space-sm); height: 10px; border-radius: var(--radius-pill); background: var(--color-paper-3); overflow: hidden; }
+    .track div { height: 100%; border-radius: inherit; background: var(--color-accent); transition: width var(--dur-long) var(--ease-out); }
+    .small { margin: var(--space-xs) 0 0; font-size: var(--type-xs); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+    .go { display: flex; flex-direction: column; gap: var(--space-md); }
+    @media (min-width: 40rem) { .go { flex-direction: row; align-items: flex-end; justify-content: space-between; } }
+    .field { display: flex; flex-direction: column; gap: var(--space-2xs); max-width: 36rem; }
+    .field .ui-field { max-width: 18rem; }
+    .go .ui-btn { min-height: 52px; padding-inline: var(--space-lg); font-size: var(--type-md); white-space: nowrap; flex: none; }
+    .spin { animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spin { animation: none; } .drop, .track div { transition: none; } }
   `],
   template: `
-    <app-navbar></app-navbar>
-    <app-toasts></app-toasts>
-    <div
-      class="min-h-[100dvh] flex flex-col px-4 py-8 max-w-5xl mx-auto w-full"
-      (dragover)="onDragOver($event)"
-      (dragleave)="onDragLeave($event)"
-      (drop)="onDrop($event)"
-    >
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold">Create AI Shorts</h1>
-          <p class="text-[hsl(var(--muted-foreground))]">
-            Drop your footage anywhere. We find the best moments and cut vertical 9:16 clips.
-          </p>
+    <div class="ui-app" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+      <app-navbar></app-navbar>
+      <app-toasts></app-toasts>
+      <main id="main" class="ui-app-main hm page">
+        <div class="head">
+          <div>
+            <h1>Create AI Shorts</h1>
+            <p class="lead">Drop your footage anywhere. We find the best moments and cut vertical 9:16 clips.</p>
+          </div>
+          <a routerLink="/shorts/history" class="ui-btn ui-btn--secondary">My shorts</a>
         </div>
-        <a
-          routerLink="/shorts/history"
-          class="shrink-0 px-4 py-2 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors text-sm font-medium"
-        >
-          My shorts
-        </a>
-      </div>
 
-      <!-- Constraints, stated upfront -->
-      <div class="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3" aria-label="Upload requirements">
-        <div class="glass-card p-3 text-center">
-          <svg lucideIcon="video" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
-          <p class="mt-1.5 text-xs font-semibold">MP4 · MOV</p>
-          <p class="text-[11px] text-[hsl(var(--muted-foreground))]">video sources</p>
-        </div>
-        <div class="glass-card p-3 text-center">
-          <svg lucideIcon="mic" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
-          <p class="mt-1.5 text-xs font-semibold">MP3 · WAV</p>
-          <p class="text-[11px] text-[hsl(var(--muted-foreground))]">audio sources</p>
-        </div>
-        <div class="glass-card p-3 text-center">
-          <svg lucideIcon="clock" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
-          <p class="mt-1.5 text-xs font-semibold">Max {{ limits.maxDurationMinutes }} min</p>
-          <p class="text-[11px] text-[hsl(var(--muted-foreground))]">per upload</p>
-        </div>
-        <div class="glass-card p-3 text-center">
-          <svg lucideIcon="scissors" [size]="20" class="mx-auto text-[hsl(var(--primary))]"></svg>
-          <p class="mt-1.5 text-xs font-semibold">Up to 3 clips</p>
-          <p class="text-[11px] text-[hsl(var(--muted-foreground))]">1080×1920, captioned</p>
-        </div>
-      </div>
+        <ul class="reqs" aria-label="Upload requirements">
+          <li class="req"><span class="ui-chip" aria-hidden="true"><svg lucideIcon="video" [size]="18"></svg></span><span><b>MP4 or MOV</b><span class="t">video sources</span></span></li>
+          <li class="req"><span class="ui-chip" aria-hidden="true"><svg lucideIcon="mic" [size]="18"></svg></span><span><b>MP3 or WAV</b><span class="t">audio sources</span></span></li>
+          <li class="req"><span class="ui-chip" aria-hidden="true"><svg lucideIcon="clock" [size]="18"></svg></span><span><b>Max {{ limits.maxDurationMinutes }} min</b><span class="t">per upload</span></span></li>
+          <li class="req"><span class="ui-chip" aria-hidden="true"><svg lucideIcon="scissors" [size]="18"></svg></span><span><b>Up to 3 clips</b><span class="t">1080×1920, captioned</span></span></li>
+        </ul>
 
-      <!-- A saved upload from an earlier visit: the browser cannot reopen the file by itself -->
-      @if (pending && !selectedFile) {
-        <div class="mt-4 glass-card p-3 flex flex-wrap items-center justify-between gap-3" role="status">
-          <p class="text-sm">
-            Unfinished upload: <span class="font-medium">{{ pending.fingerprint.name }}</span>
-            ({{ formatFileSize(pending.fingerprint.size) }}). Choose the same file again to continue where it stopped.
-          </p>
-          <button
-            type="button"
-            (click)="discardPending()"
-            class="rounded-full border border-[hsl(var(--border))] px-3 py-1 text-[12.5px] font-medium hover:bg-white/5"
-          >
-            Discard
-          </button>
-        </div>
-      }
-
-      <!-- Full-viewport drop zone -->
-      <div
-        class="dropzone relative flex-1 mt-4 glass-card p-10 text-center transition-all cursor-pointer flex flex-col items-center justify-center min-h-[400px]"
-        [class.dropzone-active]="isDragOver"
-        [class.!border-green-500]="selectedFile && !error"
-        (click)="fileInput.click()"
-        (keydown.enter)="fileInput.click()"
-        tabindex="0"
-        role="button"
-        aria-label="Drop zone for media file upload. Accepts MP4, MOV, MP3, WAV up to {{ limits.maxDurationMinutes }} minutes and {{ limits.maxUploadMb }} MB."
-      >
-        <input
-          #fileInput
-          type="file"
-          accept=".mp4,.mov,.mp3,.wav"
-          class="hidden"
-          (change)="onFileSelected($event)"
-          aria-hidden="true"
-        />
-
-        @if (!selectedFile) {
-          <div class="space-y-3">
-            <div class="w-20 h-20 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto">
-              <svg lucideIcon="upload" [size]="36" class="text-[hsl(var(--primary))]" [class.animate-pulse]="isDragOver"></svg>
-            </div>
-            <p class="text-xl font-medium">{{ isDragOver ? 'Drop it. We take it from here' : 'Drag & drop anywhere on this page' }}</p>
-            <p class="text-sm font-medium text-[hsl(var(--foreground))]">MP4, MOV, MP3, WAV · Max {{ limits.maxDurationMinutes }} min · Max {{ limits.maxUploadMb }} MB</p>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">or</p>
-            <button
-              class="px-6 py-3 rounded-lg bg-[hsl(var(--primary))] text-white hover:opacity-90 transition-opacity text-sm font-semibold min-h-[48px] min-w-[200px]"
-              (click)="fileInput.click(); $event.stopPropagation()"
-            >
-              or click to browse
-            </button>
+        @if (pending && !selectedFile) {
+          <div class="ui-card note" role="status">
+            <p>
+              Unfinished upload: <strong>{{ pending.fingerprint.name }}</strong>
+              ({{ formatFileSize(pending.fingerprint.size) }}). Choose the same file again to continue where it stopped.
+            </p>
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="discardPending()">Discard</button>
           </div>
         }
 
-        @if (isDragOver && !selectedFile) {
-          <div class="pointer-events-none absolute inset-4 rounded-xl border-2 border-dashed border-indigo-400/60 bg-indigo-500/10 backdrop-blur-[1px] flex items-center justify-center gap-4 p-6">
-            @if (dragPreviewUrl) {
-              <video [src]="dragPreviewUrl" muted playsinline class="h-24 rounded-lg opacity-70"></video>
-            } @else {
-              <svg lucideIcon="file-text" [size]="40" class="text-indigo-300 opacity-70"></svg>
-            }
-            <div class="text-left">
-              <p class="text-lg font-medium text-indigo-200">Release to upload</p>
-              @if (dragFileName) {
-                <p class="text-sm text-indigo-200/70 truncate max-w-[240px]">{{ dragFileName }}</p>
+        <div
+          class="drop"
+          [class.over]="isDragOver"
+          [class.ok]="selectedFile && !error"
+          (click)="fileInput.click()"
+          (keydown.enter)="fileInput.click()"
+          tabindex="0"
+          role="button"
+          data-testid="dropzone"
+          aria-label="Drop zone for media file upload. Accepts MP4, MOV, MP3, WAV up to {{ limits.maxDurationMinutes }} minutes and {{ limits.maxUploadMb }} MB."
+        >
+          <input #fileInput type="file" accept=".mp4,.mov,.mp3,.wav" class="hidden" (change)="onFileSelected($event)" aria-hidden="true" />
+
+          @if (!selectedFile) {
+            <span class="big-icon" aria-hidden="true"><svg lucideIcon="upload" [size]="32"></svg></span>
+            <h2>{{ isDragOver ? 'Drop it. We take it from here' : 'Drag & drop anywhere on this page' }}</h2>
+            <ul class="chips">
+              <li>MP4, MOV, MP3, WAV</li>
+              <li>Max {{ limits.maxDurationMinutes }} min</li>
+              <li>Max {{ limits.maxUploadMb }} MB</li>
+            </ul>
+            <button type="button" class="ui-btn ui-btn--primary" (click)="fileInput.click(); $event.stopPropagation()">Choose a file</button>
+          }
+
+          @if (isDragOver && !selectedFile) {
+            <div class="release">
+              @if (dragPreviewUrl) {
+                <video [src]="dragPreviewUrl" muted playsinline></video>
+              } @else {
+                <svg lucideIcon="file-text" [size]="36" aria-hidden="true"></svg>
               }
-            </div>
-          </div>
-        }
-
-        @if (isProbing) {
-          <div class="space-y-3">
-            <div class="w-16 h-16 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto">
-              <svg lucideIcon="loader-2" [size]="32" class="text-[hsl(var(--primary))] animate-spin"></svg>
-            </div>
-            <p class="text-lg font-medium">Checking file…</p>
-          </div>
-        }
-
-        @if (selectedFile && !error && !isProbing) {
-          <div class="mx-auto w-full max-w-md rounded-xl border border-green-500/40 bg-green-500/5 p-4 flex items-center gap-4 text-left">
-            @if (previewUrl && !isAudioFile) {
-              <video [src]="previewUrl" muted playsinline preload="metadata" class="h-20 w-14 shrink-0 rounded-lg object-cover bg-black"></video>
-            } @else {
-              <div class="h-20 w-14 shrink-0 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <svg lucideIcon="file-text" [size]="28" class="text-green-400"></svg>
+              <div>
+                <p><strong>Release to upload</strong></p>
+                @if (dragFileName) {
+                  <p class="meta">{{ dragFileName }}</p>
+                }
               </div>
-            }
-            <div class="flex-1 min-w-0">
-              <p class="font-medium truncate">{{ selectedFile.name }}</p>
-              <p class="text-sm text-[hsl(var(--muted-foreground))]">
-                {{ formatFileSize(selectedFile.size) }} · {{ formatDuration(durationSeconds) }}
-              </p>
-              <button
-                class="mt-1 text-sm font-medium text-[hsl(var(--primary))] underline underline-offset-4"
-                (click)="replaceFile($event); fileInput.click()"
-              >
-                Replace
-              </button>
             </div>
-            <span class="shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center" aria-hidden="true">
-              <svg lucideIcon="check" [size]="18" class="text-white"></svg>
-            </span>
+          }
+
+          @if (isProbing) {
+            <span class="big-icon" aria-hidden="true"><svg lucideIcon="loader-2" [size]="30" class="spin"></svg></span>
+            <h2>Checking file</h2>
+          }
+
+          @if (selectedFile && !error && !isProbing) {
+            <div class="file">
+              @if (previewUrl && !isAudioFile) {
+                <video [src]="previewUrl" muted playsinline preload="metadata"></video>
+              } @else {
+                <span class="ph" aria-hidden="true"><svg lucideIcon="file-text" [size]="24"></svg></span>
+              }
+              <div class="main">
+                <p class="name">{{ selectedFile.name }}</p>
+                <p class="meta"><span>{{ formatFileSize(selectedFile.size) }}</span><span>{{ formatDuration(durationSeconds) }}</span></p>
+                <button type="button" class="ui-btn ui-btn--quiet" style="padding-inline: 0" (click)="replaceFile($event); fileInput.click()">Replace</button>
+              </div>
+              <span class="tick" aria-hidden="true"><svg lucideIcon="check" [size]="18"></svg></span>
+            </div>
+          }
+        </div>
+
+        @if (error) {
+          <div class="ui-card err" role="alert">
+            <p><svg lucideIcon="circle-x" [size]="16" aria-hidden="true"></svg>{{ error }}</p>
           </div>
         }
-      </div>
 
-      <!-- Validation Error -->
-      @if (error) {
-        <div class="mt-4 p-3 glass-card !border-red-500/30">
-          <p class="text-sm text-red-400 flex items-center gap-2">
-            <svg lucideIcon="circle-x" [size]="16"></svg>
-            {{ error }}
-          </p>
-        </div>
-      }
-
-      <!-- Size and time estimate, before the upload starts -->
-      @if (selectedFile && !error && !isProbing && !isUploading && !landedJobId) {
-        <div class="mt-4 glass-card p-4 text-left" role="status">
-          <p class="text-sm">
-            <span class="font-medium">{{ formatFileSize(selectedFile.size) }}</span> to upload.
-            Estimated time: <span class="font-medium">{{ estimateLabel }}</span>{{ ' ' }}
-            <span class="text-[hsl(var(--muted-foreground))]">({{ estimateBasis }}).</span>
-          </p>
-          @if (resumable) {
-            <p class="mt-2 text-sm">
-              An earlier upload of this file reached {{ resumablePercent }}%. Resume upload continues from there.
-              <button
-                type="button"
-                (click)="startOver()"
-                class="ml-1 font-medium text-[hsl(var(--primary))] underline underline-offset-4"
-              >
-                Start over
-              </button>
+        @if (selectedFile && !error && !isProbing && !isUploading && !landedJobId) {
+          <div class="ui-card note" role="status" style="display: block">
+            <p>
+              <strong>{{ formatFileSize(selectedFile.size) }}</strong> to upload.
+              Estimated time: <strong>{{ estimateLabel }}</strong>{{ ' ' }}
+              <span style="color: var(--color-muted)">({{ estimateBasis }}).</span>
             </p>
-          }
-          @if (isLargeUpload) {
-            <p class="mt-2 text-sm flex items-start gap-2">
-              <svg lucideIcon="clock" [size]="16" class="mt-0.5 shrink-0 text-amber-400"></svg>
-              <span>
-                Large file. The upload keeps running in the background while this tab stays open, and it
-                continues from where it stopped if your connection drops. If you close the tab, come back
-                to this page and choose the same file to continue.
+            @if (resumable) {
+              <p class="row">
+                <span>
+                  An earlier upload of this file reached {{ resumablePercent }}%. Resume upload continues from there.
+                  <button type="button" class="ui-btn ui-btn--quiet" (click)="startOver()">Start over</button>
+                </span>
+              </p>
+            }
+            @if (isLargeUpload) {
+              <p class="row">
+                <svg lucideIcon="clock" [size]="16" aria-hidden="true"></svg>
+                <span>
+                  Large file. The upload keeps running in the background while this tab stays open, and it
+                  continues from where it stopped if your connection drops. If you close the tab, come back
+                  to this page and choose the same file to continue.
+                </span>
+              </p>
+            }
+          </div>
+        }
+
+        @if (uploadProgress >= 0 && !landedJobId) {
+          <section class="ui-card" aria-label="Upload">
+            <div class="prog-head">
+              <span>{{ uploadLabel }}</span>
+              <span style="display: flex; align-items: center; gap: var(--space-sm)">
+                <span class="pct">{{ uploadProgress }}%</span>
+                <button type="button" class="ui-btn ui-btn--secondary" (click)="cancelUpload()">Cancel</button>
               </span>
-            </p>
-          }
-        </div>
-      }
-
-      <!-- Upload Progress -->
-      @if (uploadProgress >= 0 && !landedJobId) {
-        <div class="mt-6">
-          <div class="flex justify-between items-center text-sm text-[hsl(var(--muted-foreground))] mb-2">
-            <span>{{ uploadLabel }}</span>
-            <span class="flex items-center gap-3">
-              <span>{{ uploadProgress }}%</span>
-              <button
-                type="button"
-                (click)="cancelUpload()"
-                class="rounded-full border border-[hsl(var(--border))] px-3 py-1 text-[12.5px] font-medium hover:bg-white/5"
-              >
-                Cancel
-              </button>
-            </span>
-          </div>
-          <div
-            class="h-2 rounded-full bg-[hsl(var(--secondary))] overflow-hidden"
-            role="progressbar"
-            aria-label="Upload progress"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            [attr.aria-valuenow]="uploadProgress"
-          >
-              <div
-                class="h-full rounded-full bg-[hsl(var(--primary))] transition-all duration-300"
-                [style.width.%]="uploadProgress"
-              ></div>
-          </div>
-          @if (progress) {
-            <p class="mt-2 text-xs text-[hsl(var(--muted-foreground))]">{{ progressDetail }}</p>
-            @if (progressNote) {
-              <p class="mt-1 text-xs" aria-live="polite">{{ progressNote }}</p>
+            </div>
+            <div class="track" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="uploadProgress">
+              <div [style.width.%]="uploadProgress"></div>
+            </div>
+            @if (progress) {
+              <p class="small meta">
+                @for (bit of progressBits; track $index) {
+                  <span>{{ bit }}</span>
+                }
+              </p>
+              @if (progressNote) {
+                <p class="small" style="color: var(--color-ink)" aria-live="polite">{{ progressNote }}</p>
+              }
             }
-          }
-          @if (isLargeUpload) {
-            <p class="mt-2 text-xs text-[hsl(var(--muted-foreground))]">
-              Keep this tab open. The upload keeps running while you use other tabs.
-            </p>
-          }
-        </div>
-      }
-
-      <!-- Effects step: the file is uploaded, and processing starts only when the user does -->
-      @if (landedJobId) {
-        <div class="mt-6 text-left" aria-label="Effects before processing">
-          <h2 class="font-semibold text-[15px]">Upload complete</h2>
-          <p class="mt-1 text-[13px] text-[hsl(var(--muted-foreground))]">
-            Choose video effects, then start processing. Effects are off by default, so you can start right away.
-          </p>
-          <app-shorts-effects-panel
-            class="mt-4 block"
-            [jobId]="landedJobId"
-            [startStep]="true"
-            (effectsSaved)="onEffectsSaved()"
-          ></app-shorts-effects-panel>
-        </div>
-      }
-
-      @if (!landedJobId) {
-      <!-- Language + Submit -->
-      <div class="mt-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <label class="block text-left">
-          <span class="block text-sm font-medium">Transcript language</span>
-          <span class="block text-[12px] text-[hsl(var(--muted-foreground))]">
-            Auto-detect works for most files. Pick a language if the spoken audio is Hindi or English and detection guesses wrong.
-          </span>
-          <select
-            class="mt-2 w-full sm:w-64 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm min-h-[44px]"
-            [value]="language"
-            (change)="onLanguageChange($event)"
-            [disabled]="isUploading"
-            aria-label="Transcript language"
-          >
-            @for (lang of languages; track lang.code) {
-              <option [value]="lang.code">{{ lang.label }}</option>
+            @if (isLargeUpload) {
+              <p class="small">Keep this tab open. The upload keeps running while you use other tabs.</p>
             }
-          </select>
-        </label>
-        <button
-          class="glow-btn btn-interactive"
-          [disabled]="!selectedFile || !!error || isUploading || isProbing"
-          [class.opacity-50]="!selectedFile || !!error || isUploading || isProbing"
-          [class.pointer-events-none]="!selectedFile || !!error || isUploading || isProbing"
-          (click)="startProcessing()"
-        >
-          @if (isUploading) {
-            <svg lucideIcon="loader-2" [size]="18" class="animate-spin"></svg>
-            Uploading…
-          } @else {
-            <svg lucideIcon="play" [size]="18"></svg>
-            {{ resumable ? 'Resume upload' : 'Generate Shorts' }}
-          }
-        </button>
-      </div>
-      }
+          </section>
+        }
 
-      <!-- Upload Error -->
-      @if (uploadError) {
-        <div class="mt-4 p-3 glass-card !border-red-500/30">
-          <p class="text-sm text-red-400 flex items-center gap-2">
-            <svg lucideIcon="circle-x" [size]="16"></svg>
-            {{ uploadError }}
-          </p>
-          @if (!landedJobId) {
-            <button
-              type="button"
-              (click)="retryUpload()"
-              [disabled]="isUploading || isProbing"
-              class="mt-2 rounded-full border border-[hsl(var(--border))] px-4 py-2 text-[13px] font-medium hover:bg-white/5 disabled:opacity-50"
-            >
-              {{ resumable ? 'Resume upload' : 'Try again' }}
+        @if (landedJobId) {
+          <section aria-label="Effects before processing">
+            <h2 class="ui-card-title">Upload complete</h2>
+            <p class="ui-card-sub">Choose video effects, then start processing. Effects are off by default, so you can start right away.</p>
+            <app-shorts-effects-panel style="display: block; margin-top: var(--space-md)" [jobId]="landedJobId" [startStep]="true" (effectsSaved)="onEffectsSaved()"></app-shorts-effects-panel>
+          </section>
+        }
+
+        @if (!landedJobId) {
+          <div class="go">
+            <div class="field">
+              <label class="ui-label" for="shorts-lang">Transcript language</label>
+              <span class="ui-hint" id="shorts-lang-hint">Auto-detect works for most files. Pick a language if the spoken audio is Hindi or English and detection guesses wrong.</span>
+              <select id="shorts-lang" class="ui-field" [value]="language" (change)="onLanguageChange($event)" [disabled]="isUploading" aria-describedby="shorts-lang-hint">
+                @for (lang of languages; track lang.code) {
+                  <option [value]="lang.code">{{ lang.label }}</option>
+                }
+              </select>
+            </div>
+            <button type="button" class="ui-btn ui-btn--primary" data-testid="generate" [disabled]="!selectedFile || !!error || isUploading || isProbing" (click)="startProcessing()">
+              @if (isUploading) {
+                <svg lucideIcon="loader-2" [size]="18" class="spin" aria-hidden="true"></svg>
+                Uploading
+              } @else {
+                <svg lucideIcon="play" [size]="18" aria-hidden="true"></svg>
+                {{ resumable ? 'Resume upload' : 'Generate Shorts' }}
+              }
             </button>
-          }
-        </div>
-      }
+          </div>
+        }
+
+        @if (uploadError) {
+          <div class="ui-card err" role="alert">
+            <p><svg lucideIcon="circle-x" [size]="16" aria-hidden="true"></svg>{{ uploadError }}</p>
+            @if (!landedJobId) {
+              <button type="button" class="ui-btn ui-btn--secondary" (click)="retryUpload()" [disabled]="isUploading || isProbing">
+                {{ resumable ? 'Resume upload' : 'Try again' }}
+              </button>
+            }
+          </div>
+        }
+      </main>
     </div>
   `,
 })
@@ -519,6 +433,11 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     }
     if (p.partsTotal > 1) bits.push(`${p.partsDone} of ${p.partsTotal} parts uploaded`);
     return bits.join(' · ');
+  }
+
+  /** The same facts as progressDetail, one per item, so the page can show them without a joining dot. */
+  get progressBits(): string[] {
+    return this.progressDetail ? this.progressDetail.split(' · ') : [];
   }
 
   /** What went wrong right now, in words, for the retry and offline states. */
