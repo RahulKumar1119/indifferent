@@ -111,6 +111,14 @@ func lookupCopy(kind, outcome string, hasName bool) (copyFor, bool) {
 // Render builds the email for one job. name may be empty (Shorts jobs have no
 // title). baseURL is the site origin such as https://indifferent.fun.
 func Render(kind, outcome, name, id, baseURL string) (Content, error) {
+	return RenderWithReason(kind, outcome, name, id, baseURL, "")
+}
+
+// RenderWithReason is Render plus one sentence about what was wrong, put at the
+// front of a failure email's intro. reason must be one of the fixed sentences
+// of package projectfail, never raw pipeline output, which is why it is only
+// ever added to a failed quiz video.
+func RenderWithReason(kind, outcome, name, id, baseURL, reason string) (Content, error) {
 	cleaned := SanitizeName(name)
 	c, ok := lookupCopy(kind, outcome, cleaned != "")
 	if !ok {
@@ -128,6 +136,9 @@ func Render(kind, outcome, name, id, baseURL string) (Content, error) {
 	}
 	if cleaned != "" && strings.Contains(intro, "%s") {
 		intro = fmt.Sprintf(intro, quoted)
+	}
+	if reason != "" && kind == KindQuiz && outcome == OutcomeFailed {
+		intro = reason + " Each question needs numbered or bulleted text, lettered options and an answer, and the format guide shows how. Open the project to choose another file."
 	}
 
 	base := strings.TrimRight(baseURL, "/")

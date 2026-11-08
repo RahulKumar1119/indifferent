@@ -127,7 +127,12 @@ export interface PipelineProgress {
   percentage: number; // 0-100 during rendering
   slidesProcessed?: number;
   slidesTotal?: number;
+  /** Set only on a failed project whose problem is the uploaded file. */
+  failureCode?: FailureCode;
 }
+
+/** Why a quiz project failed, when the person can fix it by choosing another file. */
+export type FailureCode = 'NO_QUESTION_FORMAT' | 'NO_VALID_QUESTIONS';
 
 export interface CreateProjectRequest {
   name: string;

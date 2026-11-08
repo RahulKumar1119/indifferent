@@ -1,11 +1,12 @@
 import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { LucideDynamicIcon } from '@lucide/angular';
 import gsap from 'gsap';
 import { ProjectService } from '../../core';
 import { PipelineProgress, ProjectStatus } from '../../shared';
+import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH, failureMessage } from './failure-message';
 
 interface PipelineStep {
   label: string;
@@ -15,7 +16,7 @@ interface PipelineStep {
 @Component({
   selector: 'app-progress',
   standalone: true,
-  imports: [CommonModule, LucideDynamicIcon],
+  imports: [CommonModule, LucideDynamicIcon, RouterLink],
   template: `
     <div class="max-w-3xl mx-auto px-4 py-12">
       <h1 class="text-2xl font-bold text-center mb-2">Processing Your Video</h1>
@@ -110,15 +111,21 @@ interface PipelineStep {
 
       <!-- Error Message -->
       @if (progress?.stage === 'failed') {
-        <div class="text-center glass-card p-8 !border-red-500/30">
+        <div class="text-center glass-card p-8 !border-red-500/30" role="alert">
           <svg lucideIcon="circle-x" [size]="48" class="mx-auto mb-3 text-red-400"></svg>
-          <h2 class="text-lg font-semibold text-red-400">Processing Failed</h2>
+          <h2 class="text-lg font-semibold text-red-400">{{ failure.title }}</h2>
           <p class="text-sm text-[hsl(var(--muted-foreground))] mt-2">
-            Something went wrong while processing your video. Please try again.
+            {{ failure.text }}
           </p>
           <button class="glow-btn mt-4" (click)="goToProject()">
-            Retry upload
+            {{ failure.fileProblem ? 'Choose another file' : 'Retry upload' }}
           </button>
+          @if (failure.fileProblem) {
+            <p class="mt-4 text-sm flex flex-wrap justify-center gap-x-6 gap-y-1">
+              <a [routerLink]="formatGuidePath" class="inline-flex items-center min-h-[44px] underline underline-offset-4">Read the format guide</a>
+              <a [href]="sampleFilePath" download="quiz-sample.txt" class="inline-flex items-center min-h-[44px] underline underline-offset-4">Download a sample file</a>
+            </p>
+          }
         </div>
       }
     </div>
@@ -130,6 +137,12 @@ export class ProgressComponent implements OnInit, OnDestroy {
   private projectId = '';
 
   progress: PipelineProgress | null = null;
+  readonly formatGuidePath = FORMAT_GUIDE_PATH;
+  readonly sampleFilePath = SAMPLE_FILE_PATH;
+
+  get failure() {
+    return failureMessage(this.progress?.failureCode);
+  }
   currentStepIndex = 0;
 
   steps: PipelineStep[] = [

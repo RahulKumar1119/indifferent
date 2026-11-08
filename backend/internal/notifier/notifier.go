@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/rahul/indifferent/backend/internal/notifyprefs"
+	"github.com/rahul/indifferent/backend/internal/projectfail"
 	"github.com/rahul/indifferent/backend/internal/storymetrics"
 )
 
@@ -143,7 +144,12 @@ func (n *Notifier) Handle(ctx context.Context, in Input) (Result, error) {
 		}
 	}
 
-	content, err := Render(in.Kind, in.Outcome, stringAttr(job, "name"), linkID, n.BaseURL)
+	reason := ""
+	if in.Kind == KindQuiz && in.Outcome == OutcomeFailed {
+		// Only a fixed sentence for a file problem; the stored error stays private.
+		reason = projectfail.Classify(stringAttr(job, "error")).Explanation()
+	}
+	content, err := RenderWithReason(in.Kind, in.Outcome, stringAttr(job, "name"), linkID, n.BaseURL, reason)
 	if err != nil {
 		return Result{}, &SendFailed{Err: err}
 	}
