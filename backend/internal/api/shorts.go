@@ -362,7 +362,7 @@ func (h *APIHandler) verifyShortsUpload(ctx context.Context, job *models.ShortsJ
 	if !meta.Found {
 		return &uploadProblem{
 			code:    "UPLOAD_NOT_FOUND",
-			message: "Upload not found. Your file may not have finished uploading — please upload it again.",
+			message: "Upload not found. Your file may not have finished uploading. Please upload it again.",
 		}
 	}
 	if meta.Size == 0 {
@@ -1217,6 +1217,28 @@ type ShortsJobSummary struct {
 	ClipCount      int     `json:"clipCount"`
 	CreatedAt      string  `json:"createdAt"`
 	UpdatedAt      string  `json:"updatedAt"`
+	// SourceMissing marks an "uploaded" job whose source file is not in S3.
+	// The status is set when the upload URL is handed out, before the browser
+	// sends the file, so a dropped or abandoned upload still reads "uploaded"
+	// (issue #275). Only set on a confirmed 404; an S3 error leaves it false.
+	SourceMissing bool `json:"sourceMissing,omitempty"`
+}
+
+// maxSourceChecks caps the HeadObject calls one list request makes. Jobs only
+// sit in "uploaded" until the user starts them, so real lists hold a handful.
+const maxSourceChecks = 25
+
+// sourceMissing reports whether a job waiting for its upload has no source
+// file yet. Any S3 error counts as "not known to be missing".
+func (h *APIHandler) sourceMissing(ctx context.Context, job *models.ShortsJob) bool {
+	if job.Status != "uploaded" || job.SourceKey == "" {
+		return false
+	}
+	meta, err := h.S3.ObjectMeta(ctx, h.Bucket, job.SourceKey)
+	if err != nil {
+		return false
+	}
+	return !meta.Found
 }
 
 // handleListShortsJobs returns the caller's shorts jobs, newest first.
@@ -1235,9 +1257,16 @@ func (h *APIHandler) handleListShortsJobs(ctx context.Context, req events.APIGat
 	}
 
 	jobs := make([]ShortsJobSummary, 0, len(result.Items))
+	checks := 0
 	for _, item := range result.Items {
 		job := itemToShortsJob(item)
+		missing := false
+		if job.Status == "uploaded" && checks < maxSourceChecks {
+			checks++
+			missing = h.sourceMissing(ctx, &job)
+		}
 		jobs = append(jobs, ShortsJobSummary{
+			SourceMissing:  missing,
 			JobID:          job.JobID,
 			ProjectID:      job.ProjectID,
 			Status:         job.Status,
