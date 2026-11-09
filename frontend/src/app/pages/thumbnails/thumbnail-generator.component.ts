@@ -43,187 +43,152 @@ const POLL_ERROR_MS = 6000;
     ThumbnailProgressComponent,
     ThumbnailStyleSelectorComponent,
   ],
+  styles: [`
+    :host { display: block; }
+    .back { display: inline-flex; align-items: center; gap: var(--space-2xs); min-height: 44px; color: var(--color-ink-2); font-size: var(--type-sm); text-decoration: none; align-self: flex-start; }
+    .back:hover { color: var(--color-ink); text-decoration: underline; }
+    .title { display: flex; align-items: center; gap: var(--space-xs); }
+    .title svg { color: var(--color-accent-text); }
+    .grid { display: grid; gap: var(--space-lg); grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 40rem) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 64rem) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .tall { width: 100%; max-width: 18.75rem; margin-inline: auto; }
+    .sub { margin: var(--space-2xs) 0 var(--space-md); color: var(--color-ink-2); font-size: var(--type-sm); }
+    .bar { margin-top: var(--space-lg); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+    .ok { font-size: var(--type-sm); color: var(--color-positive); font-weight: 500; }
+    .fail p + p { margin: 0; color: var(--color-ink-2); font-size: var(--type-sm); font-weight: 400; }
+    .opts .ui-btn--primary { margin-top: var(--space-lg); }
+    .hint { margin: var(--space-sm) 0 0; font-size: var(--type-xs); color: var(--color-muted); }
+  `],
   template: `
-    <app-navbar></app-navbar>
-    <app-toasts></app-toasts>
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <a
-        [routerLink]="['/shorts', jobId, 'clips']"
-        class="mb-4 inline-flex items-center gap-1 text-sm text-[hsl(var(--muted-foreground))] hover:underline"
-      >
-        &larr; Back to your clips
-      </a>
-      <div class="mb-6">
-        <h1 class="mb-1 flex items-center gap-2 text-2xl font-bold">
-          <svg lucideIcon="sparkles" [size]="22" aria-hidden="true"></svg>
-          AI thumbnails
-        </h1>
-        <p class="text-[hsl(var(--muted-foreground))]">
-          We look through your video, pick its strongest moments and design thumbnail suggestions with the text already on them.
-        </p>
-      </div>
+    <div class="ui-app">
+      <app-navbar></app-navbar>
+      <app-toasts></app-toasts>
+      <main id="main" class="ui-app-main hm">
+        <a [routerLink]="['/shorts', jobId, 'clips']" class="back">
+          <svg lucideIcon="chevron-right" [size]="16" style="transform: rotate(180deg)" aria-hidden="true"></svg>
+          Back to your clips
+        </a>
+        <div>
+          <h1 class="ui-h1 title"><svg lucideIcon="sparkles" [size]="24" aria-hidden="true"></svg>AI thumbnails</h1>
+          <p class="ui-lead">We look through your video, pick its strongest moments and design thumbnail suggestions with the text already on them.</p>
+        </div>
 
-      @if (loading()) {
-        <div class="grid grid-cols-1 gap-5 sm:grid-cols-3" aria-label="Loading thumbnails">
-          @for (i of [1, 2, 3]; track i) {
-            <div class="skeleton aspect-video rounded-xl"></div>
-          }
-        </div>
-      } @else if (loadError()) {
-        <div class="glass-card p-5 !border-red-500/30" role="alert">
-          <p class="flex items-center gap-2 text-sm text-red-400">
-            <svg lucideIcon="circle-x" [size]="16" aria-hidden="true"></svg>
-            We couldn't load your thumbnails.
-          </p>
-          <button type="button" class="btn-interactive mt-3 rounded-full border px-4 py-2 text-sm font-medium" (click)="reload()">
-            Try again
-          </button>
-        </div>
-      } @else if (set(); as s) {
-        @if (!s.supported) {
-          <div class="glass-card p-6" role="status">
-            <h2 class="mb-1 text-lg font-semibold">No video to work from</h2>
-            <p class="text-sm text-[hsl(var(--muted-foreground))]">
-              This job was made from an audio file, so there is no picture to take thumbnails from. Upload a video to get thumbnails.
-            </p>
+        @if (loading()) {
+          <div class="grid" role="status" aria-label="Loading thumbnails">
+            @for (i of [1, 2, 3]; track i) {
+              <div class="ui-skeleton" style="aspect-ratio: 16 / 9"></div>
+            }
           </div>
-        } @else if (inFlight()) {
-          <section class="glass-card p-6" aria-labelledby="making-title">
-            <h2 id="making-title" class="mb-1 text-lg font-semibold">Making your thumbnails</h2>
-            <p class="mb-5 text-sm text-[hsl(var(--muted-foreground))]">
-              This usually takes a minute or two. You can leave this page and come back; it keeps going.
-            </p>
-            <app-thumbnail-progress [stage]="s.stage"></app-thumbnail-progress>
-          </section>
-        } @else {
-          @if (s.status === 'failed') {
-            <div class="glass-card mb-6 p-5 !border-red-500/30" role="alert">
-              <p class="flex items-center gap-2 font-medium text-red-400">
-                <svg lucideIcon="circle-x" [size]="18" aria-hidden="true"></svg>
-                Thumbnail generation didn't finish
-              </p>
-              <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{{ errorHelp() }}</p>
-              @if (canRetry() && s.thumbnails.length > 0) {
-                <button
-                  type="button"
-                  class="btn-interactive mt-3 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
-                  [disabled]="starting()"
-                  (click)="generate()"
-                >
-                  @if (starting()) {
-                    <svg lucideIcon="loader-2" [size]="15" class="animate-spin" aria-hidden="true"></svg>
-                  } @else {
-                    <svg lucideIcon="refresh-cw" [size]="15" aria-hidden="true"></svg>
-                  }
-                  Retry
-                </button>
-              }
+        } @else if (loadError()) {
+          <div class="ui-card ui-error-card" role="alert">
+            <p><svg lucideIcon="circle-x" [size]="16" aria-hidden="true"></svg>We couldn't load your thumbnails.</p>
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="reload()">Try again</button>
+          </div>
+        } @else if (set(); as s) {
+          @if (!s.supported) {
+            <div class="ui-card" role="status">
+              <h2 class="ui-card-title">No video to work from</h2>
+              <p class="ui-card-sub">This job was made from an audio file, so there is no picture to take thumbnails from. Upload a video to get thumbnails.</p>
             </div>
-          }
-
-          @if (s.thumbnails.length > 0) {
-            <section aria-labelledby="results-title">
-              <h2 id="results-title" class="mb-1 text-lg font-semibold">
-                We analyzed your video and created {{ s.thumbnails.length }} thumbnail suggestions
-              </h2>
-              <p class="mb-5 text-sm text-[hsl(var(--muted-foreground))]">
-                {{ summary() }}
-              </p>
-              <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
-                @for (t of s.thumbnails; track t.id; let i = $index) {
-                  <div class="w-full" [class.mx-auto]="isPortrait()" [class.max-w-[300px]]="isPortrait()">
-                    <app-thumbnail-card
-                      [thumb]="t"
-                      [number]="i + 1"
-                      [chosen]="chosenId() === t.id"
-                      [saved]="t.selected"
-                      [downloading]="downloadingId() === t.id"
-                      (choose)="choose(t.id)"
-                      (download)="download(t)"
-                      (preview)="previewId.set(t.id)"
-                    ></app-thumbnail-card>
-                  </div>
-                }
-              </div>
-
-              <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
-                <button
-                  type="button"
-                  class="btn-interactive inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
-                  [attr.aria-expanded]="showOptions()"
-                  aria-controls="regen-panel"
-                  (click)="showOptions.set(!showOptions())"
-                >
-                  <svg lucideIcon="refresh-cw" [size]="15" aria-hidden="true"></svg>
-                  Regenerate
-                </button>
-                <div class="flex items-center gap-3">
-                  @if (savedThumb()) {
-                    <span class="text-sm text-green-400" role="status">Saved as the thumbnail for this video</span>
-                  }
-                  <button
-                    type="button"
-                    class="btn-interactive inline-flex items-center gap-2 rounded-full bg-[hsl(var(--primary))] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                    [disabled]="!canSave() || saving()"
-                    (click)="useSelected()"
-                  >
-                    @if (saving()) {
-                      <svg lucideIcon="loader-2" [size]="15" class="animate-spin" aria-hidden="true"></svg>
+          } @else if (inFlight()) {
+            <section class="ui-card" aria-labelledby="making-title">
+              <h2 id="making-title" class="ui-card-title">Making your thumbnails</h2>
+              <p class="sub">This usually takes a minute or two. You can leave this page and come back; it keeps going.</p>
+              <app-thumbnail-progress [stage]="s.stage"></app-thumbnail-progress>
+            </section>
+          } @else {
+            @if (s.status === 'failed') {
+              <div class="ui-card ui-error-card fail" role="alert">
+                <p><svg lucideIcon="circle-x" [size]="18" aria-hidden="true"></svg>Thumbnail generation didn't finish</p>
+                <p>{{ errorHelp() }}</p>
+                @if (canRetry() && s.thumbnails.length > 0) {
+                  <button type="button" class="ui-btn ui-btn--secondary" [disabled]="starting()" (click)="generate()">
+                    @if (starting()) {
+                      <svg lucideIcon="loader-2" [size]="16" class="ui-spin" aria-hidden="true"></svg>
+                    } @else {
+                      <svg lucideIcon="refresh-cw" [size]="16" aria-hidden="true"></svg>
                     }
-                    Use selected thumbnail
+                    Retry
                   </button>
-                </div>
-              </div>
-            </section>
-          } @else if (s.status !== 'failed') {
-            <section class="glass-card p-6" aria-labelledby="start-title">
-              <h2 id="start-title" class="mb-1 text-lg font-semibold">Create thumbnails for this video</h2>
-              @if (waitingForAutoStart()) {
-                <p class="text-sm text-[hsl(var(--muted-foreground))]" role="status">
-                  Your video is still being transcribed. Thumbnails start by themselves once that is done, so you can wait here or come back later.
-                </p>
-              } @else {
-                <p class="text-sm text-[hsl(var(--muted-foreground))]">
-                  Choose a style or leave it on Auto, and we'll make three different designs.
-                </p>
-              }
-            </section>
-          }
-
-          @if ((showOptions() || s.thumbnails.length === 0) && !waitingForAutoStart() && canRetry()) {
-            <section id="regen-panel" class="glass-card mt-6 p-6" aria-label="Thumbnail options">
-              <app-thumbnail-style-selector [(style)]="style" [(format)]="format"></app-thumbnail-style-selector>
-              <button
-                type="button"
-                class="btn-interactive mt-6 inline-flex items-center gap-2 rounded-full bg-[hsl(var(--primary))] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                [disabled]="starting()"
-                (click)="generate()"
-              >
-                @if (starting()) {
-                  <svg lucideIcon="loader-2" [size]="15" class="animate-spin" aria-hidden="true"></svg>
-                } @else {
-                  <svg lucideIcon="sparkles" [size]="15" aria-hidden="true"></svg>
                 }
-                {{ s.thumbnails.length > 0 ? 'Regenerate thumbnails' : 'Generate thumbnails' }}
-              </button>
-              @if (s.thumbnails.length > 0) {
-                <p class="mt-3 text-xs text-[hsl(var(--muted-foreground))]">
-                  Regenerating makes a fresh set and replaces these suggestions.
-                </p>
-              }
-            </section>
+              </div>
+            }
+            @if (s.thumbnails.length > 0) {
+              <section aria-labelledby="results-title">
+                <h2 id="results-title" class="ui-card-title">We analyzed your video and created {{ s.thumbnails.length }} thumbnail suggestions</h2>
+                <p class="sub">{{ summary() }}</p>
+                <div class="grid">
+                  @for (t of s.thumbnails; track t.id; let i = $index) {
+                    <div [class.tall]="isPortrait()">
+                      <app-thumbnail-card
+                        [thumb]="t"
+                        [number]="i + 1"
+                        [chosen]="chosenId() === t.id"
+                        [saved]="t.selected"
+                        [downloading]="downloadingId() === t.id"
+                        (choose)="choose(t.id)"
+                        (download)="download(t)"
+                        (preview)="previewId.set(t.id)"
+                      ></app-thumbnail-card>
+                    </div>
+                  }
+                </div>
+                <div class="bar">
+                  <button type="button" class="ui-btn ui-btn--secondary" [attr.aria-expanded]="showOptions()" aria-controls="regen-panel" (click)="showOptions.set(!showOptions())">
+                    <svg lucideIcon="refresh-cw" [size]="16" aria-hidden="true"></svg>
+                    Regenerate
+                  </button>
+                  <div class="ui-row">
+                    @if (savedThumb()) {
+                      <span class="ok" role="status">Saved as the thumbnail for this video</span>
+                    }
+                    <button type="button" class="ui-btn ui-btn--primary" data-testid="use-selected" [disabled]="!canSave() || saving()" (click)="useSelected()">
+                      @if (saving()) {
+                        <svg lucideIcon="loader-2" [size]="16" class="ui-spin" aria-hidden="true"></svg>
+                      }
+                      Use selected thumbnail
+                    </button>
+                  </div>
+                </div>
+              </section>
+            } @else if (s.status !== 'failed') {
+              <section class="ui-card" aria-labelledby="start-title">
+                <h2 id="start-title" class="ui-card-title">Create thumbnails for this video</h2>
+                @if (waitingForAutoStart()) {
+                  <p class="ui-card-sub" role="status">Your video is still being transcribed. Thumbnails start by themselves once that is done, so you can wait here or come back later.</p>
+                } @else {
+                  <p class="ui-card-sub">Choose a style or leave it on Auto, and we'll make three different designs.</p>
+                }
+              </section>
+            }
+            @if ((showOptions() || s.thumbnails.length === 0) && !waitingForAutoStart() && canRetry()) {
+              <section id="regen-panel" class="ui-card opts" aria-label="Thumbnail options">
+                <app-thumbnail-style-selector [(style)]="style" [(format)]="format"></app-thumbnail-style-selector>
+                <button type="button" class="ui-btn ui-btn--primary" data-testid="generate" [disabled]="starting()" (click)="generate()">
+                  @if (starting()) {
+                    <svg lucideIcon="loader-2" [size]="16" class="ui-spin" aria-hidden="true"></svg>
+                  } @else {
+                    <svg lucideIcon="sparkles" [size]="16" aria-hidden="true"></svg>
+                  }
+                  {{ s.thumbnails.length > 0 ? 'Regenerate thumbnails' : 'Generate thumbnails' }}
+                </button>
+                @if (s.thumbnails.length > 0) {
+                  <p class="hint">Regenerating makes a fresh set and replaces these suggestions.</p>
+                }
+              </section>
+            }
           }
         }
-      }
-
-      <app-thumbnail-preview
-        [thumb]="previewThumb()"
-        [number]="previewNumber()"
-        (closed)="previewId.set(null)"
-        (choose)="previewChoose()"
-        (download)="previewDownload()"
-      ></app-thumbnail-preview>
-    </main>
+        <app-thumbnail-preview
+          [thumb]="previewThumb()"
+          [number]="previewNumber()"
+          (closed)="previewId.set(null)"
+          (choose)="previewChoose()"
+          (download)="previewDownload()"
+        ></app-thumbnail-preview>
+      </main>
+    </div>
   `,
 })
 export class ThumbnailGeneratorComponent implements OnInit, OnDestroy {
