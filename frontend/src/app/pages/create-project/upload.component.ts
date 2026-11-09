@@ -36,6 +36,9 @@ Answer: B</code></pre>
           or
           <a href="/samples/quiz-sample.txt" download="quiz-sample.txt" class="underline underline-offset-4">download a sample file</a>.
         </p>
+        <p class="mt-2 text-sm text-[hsl(var(--muted-foreground))]" data-testid="story-alt">
+          Have a story or a script instead? <a routerLink="/story" class="underline underline-offset-4">Use Story video</a>.
+        </p>
       </section>
       <!-- Drop Zone -->
       <div

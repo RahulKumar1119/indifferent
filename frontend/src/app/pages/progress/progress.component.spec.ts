@@ -35,6 +35,8 @@ describe('ProgressComponent: a failed project', () => {
     expect(alert.querySelector('a[href="/blog/quiz-file-format-guide"]')).not.toBeNull();
     const sample = alert.querySelector('a[href="/samples/quiz-sample.txt"]')!;
     expect(sample.hasAttribute('download')).toBeTrue();
+    // A file with no questions may be a story: point to Story video (#274).
+    expect(alert.querySelector('[data-testid="story-hint"] a[href="/story"]')!.textContent).toContain('Story video');
   });
 
   it('keeps the generic message and Retry upload for a failure the file did not cause', () => {

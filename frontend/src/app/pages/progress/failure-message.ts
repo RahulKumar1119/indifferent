@@ -5,7 +5,12 @@ export interface FailureMessage {
   text: string;
   /** True when the fix is a different file, so the screen offers the format help. */
   fileProblem: boolean;
+  /** True when the file may be a story rather than questions, so the screen points to Story video. */
+  storyHint?: boolean;
 }
+
+/** Where a story or script turns into a video. */
+export const STORY_PATH = '/story';
 
 /** Where the format is explained, and the file that is known to work. */
 export const FORMAT_GUIDE_PATH = '/blog/quiz-file-format-guide';
@@ -29,6 +34,7 @@ export function failureMessage(code: FailureCode | string | undefined): FailureM
         title: 'We could not find any questions in your file',
         text: 'Each question needs a number or bullet, lettered options (A, B, C, D) and an answer line. The format guide shows how, and the sample file is a quick way to see one that works.',
         fileProblem: true,
+        storyHint: true,
       };
     case 'NO_VALID_QUESTIONS':
       return {

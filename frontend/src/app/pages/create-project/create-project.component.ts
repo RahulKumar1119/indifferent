@@ -28,6 +28,7 @@ function blobObjectUrl(file: Blob): string {
   return url;
 }
 
+import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH } from '../progress/failure-message';
 @Component({
   selector: 'app-create-project',
   standalone: true,
@@ -49,6 +50,13 @@ function blobObjectUrl(file: Blob): string {
     @media (prefers-reduced-motion: reduce) {
       .btn-primary, .pick { transition: none; }
     }
+    .need { margin-top: var(--space-md); padding: var(--space-md) var(--space-lg); border-radius: var(--radius-control); border: 1px solid color-mix(in oklab, var(--color-accent) 35%, transparent); background: color-mix(in oklab, var(--color-accent) 7%, var(--color-paper)); color: var(--color-ink); font-family: var(--font-body); }
+    .need h2 { margin: 0; font-size: var(--type-md); font-weight: 600; }
+    .need p { margin: var(--space-2xs) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); line-height: 1.5; }
+    .need-links { display: flex; flex-wrap: wrap; gap: 0 var(--space-lg); }
+    .need-links a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+    .need-alt a { font-weight: 600; }
+    .need-alt { padding-top: var(--space-2xs); border-top: 1px solid var(--color-rule); }
   `],
   template: `
     <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
@@ -72,6 +80,20 @@ function blobObjectUrl(file: Blob): string {
         <div class="mt-8 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
           <mat-stepper linear #stepper class="bg-transparent">
             <mat-step [stepControl]="projectForm" label="Configure">
+              <!-- Say what the next step needs before the form, so nobody gets to the upload without a file. -->
+              <section class="need hm hm-on-light" aria-labelledby="need-title" data-testid="file-needed">
+                <h2 id="need-title">You'll need a TXT file of questions</h2>
+                <p>
+                  Next you upload a plain text file. Number each question, list lettered options (A, B, C, D) and add an Answer line.
+                </p>
+                <p class="need-links">
+                  <a [href]="sampleFilePath" download="quiz-sample.txt" class="ui-link">Download a sample file</a>
+                  <a [routerLink]="formatGuidePath" class="ui-link">Read the format guide</a>
+                </p>
+                <p class="need-alt">
+                  Have a story or a script instead of questions? <a routerLink="/story" class="ui-link">Use Story video</a>
+                </p>
+              </section>
               <form [formGroup]="projectForm" class="mt-6 space-y-7">
                 <!-- Project Name -->
                 <div>
@@ -294,7 +316,7 @@ function blobObjectUrl(file: Blob): string {
                     @if (isSubmitting) {
                       <svg lucideIcon="loader-2" [size]="18" class="animate-spin"></svg>
                     }
-                    Create project
+                    Create and add questions
                     <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">
                       <svg lucideIcon="arrow-right" [size]="16"></svg>
                     </span>
@@ -309,7 +331,7 @@ function blobObjectUrl(file: Blob): string {
 
             <mat-step label="Upload">
               <p class="mt-4 text-[#6B6560]">
-                Complete the configuration step first. Your unified project page will guide uploads for each tool.
+                After you create the project, you upload your TXT file of questions here and we check it before anything renders.
               </p>
             </mat-step>
           </mat-stepper>
@@ -474,6 +496,9 @@ export class CreateProjectComponent implements OnInit {
     media.src = objectUrl;
   }
 
+  readonly sampleFilePath = SAMPLE_FILE_PATH;
+  readonly formatGuidePath = FORMAT_GUIDE_PATH;
+
   createProject(): void {
     if (this.projectForm.invalid) return;
 
@@ -512,7 +537,8 @@ export class CreateProjectComponent implements OnInit {
           this.uploadShortsFile(project.shorts.uploadUrl, project.id, project.shorts.jobId);
         } else {
           this.isSubmitting = false;
-          this.router.navigate(['/projects', project.id]);
+          // Straight to the upload: the file is the step people need next.
+          this.router.navigate(['/projects', project.id, 'upload']);
         }
       },
       error: (err) => {
@@ -530,7 +556,7 @@ export class CreateProjectComponent implements OnInit {
         this.api.post<unknown>(`/shorts/${jobId}/start`).subscribe({
           next: () => {
             this.isSubmitting = false;
-            this.router.navigate(['/projects', projectId]);
+            this.router.navigate(['/projects', projectId, 'upload']);
           },
           error: () => {
             this.isSubmitting = false;

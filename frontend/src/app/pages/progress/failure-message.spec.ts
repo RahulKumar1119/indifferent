@@ -1,4 +1,4 @@
-import { failureMessage, FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH } from './failure-message';
+import { failureMessage, FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH, STORY_PATH } from './failure-message';
 
 describe('failureMessage', () => {
   it('says the file had no questions, and what a question needs, for NO_QUESTION_FORMAT', () => {
@@ -34,5 +34,11 @@ describe('failureMessage', () => {
   it('points at the format guide and a sample that the site actually serves', () => {
     expect(FORMAT_GUIDE_PATH).toBe('/blog/quiz-file-format-guide');
     expect(SAMPLE_FILE_PATH).toBe('/samples/quiz-sample.txt');
+  });
+  it('points a file with no questions to Story video, but not other failures (#274)', () => {
+    expect(failureMessage('NO_QUESTION_FORMAT').storyHint).toBeTrue();
+    expect(failureMessage('NO_VALID_QUESTIONS').storyHint).toBeFalsy();
+    expect(failureMessage(undefined).storyHint).toBeFalsy();
+    expect(STORY_PATH).toBe('/story');
   });
 });

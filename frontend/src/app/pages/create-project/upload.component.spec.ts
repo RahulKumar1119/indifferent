@@ -42,4 +42,8 @@ describe('UploadComponent: the format hint', () => {
   it('lets a keyboard user scroll the example', () => {
     expect(open().querySelector('section pre')!.getAttribute('tabindex')).toBe('0');
   });
+  it('points people with a story to Story video (#274)', () => {
+    const el = open();
+    expect(el.querySelector('[data-testid="story-alt"] a[href="/story"]')!.textContent).toContain('Use Story video');
+  });
 });
