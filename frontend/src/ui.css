@@ -231,6 +231,7 @@
 .ui-swatch { width: 44px; height: 44px; padding: 3px; border-radius: var(--radius-control); border: 1px solid var(--color-rule); background: transparent; cursor: pointer; }
 .ui-seg { text-transform: capitalize; }
 .ui-seg[aria-pressed='true'] { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-paper); }
+.ui-seg[aria-pressed='true']:hover:not(:disabled):not([aria-disabled='true']) { background: var(--color-ink-2); border-color: var(--color-ink-2); color: var(--color-paper); }
 .ui-spacer { flex: 1; }
 .ui-spin { animation: ui-spin 0.9s linear infinite; }
 @keyframes ui-spin { to { transform: rotate(360deg); } }
