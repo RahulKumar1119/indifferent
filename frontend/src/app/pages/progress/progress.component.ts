@@ -6,7 +6,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import gsap from 'gsap';
 import { ProjectService } from '../../core';
 import { PipelineProgress, ProjectStatus } from '../../shared';
-import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH, failureMessage } from './failure-message';
+import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH, STORY_PATH, failureMessage } from './failure-message';
 
 interface PipelineStep {
   label: string;
@@ -126,6 +126,12 @@ interface PipelineStep {
               <a [href]="sampleFilePath" download="quiz-sample.txt" class="inline-flex items-center min-h-[44px] underline underline-offset-4">Download a sample file</a>
             </p>
           }
+          @if (failure.storyHint) {
+            <p class="mt-2 text-sm" data-testid="story-hint">
+              Is your file a story or a script rather than questions?
+              <a [routerLink]="storyPath" class="inline-flex items-center min-h-[44px] underline underline-offset-4">Turn it into a Story video</a>
+            </p>
+          }
         </div>
       }
     </div>
@@ -139,6 +145,7 @@ export class ProgressComponent implements OnInit, OnDestroy {
   progress: PipelineProgress | null = null;
   readonly formatGuidePath = FORMAT_GUIDE_PATH;
   readonly sampleFilePath = SAMPLE_FILE_PATH;
+  readonly storyPath = STORY_PATH;
 
   get failure() {
     return failureMessage(this.progress?.failureCode);

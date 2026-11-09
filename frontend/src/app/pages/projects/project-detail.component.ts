@@ -56,6 +56,13 @@ import { ShortsJob, ShortsService } from '../shorts/shorts.service';
               <div><dt class="text-[#6B6560]">Design</dt><dd class="font-medium capitalize">{{ project.template }}</dd></div>
               <div><dt class="text-[#6B6560]">Voice</dt><dd class="font-medium">{{ project.voice }}</dd></div>
             </dl>
+            @if (project.status === 'created') {
+              <!-- Nothing uploaded yet: the upload is the one thing left to do. -->
+              <div class="next hm hm-on-light" data-testid="next-upload">
+                <p><strong>Next: upload your questions.</strong> Nothing renders until the project has its TXT file.</p>
+                <a [routerLink]="['/projects', project.id, 'upload']" class="ui-btn ui-btn--primary">Upload questions</a>
+              </div>
+            }
             <div class="mt-4 flex flex-wrap gap-2">
               <a [routerLink]="['/projects', project.id, 'upload']" class="px-4 py-2 rounded-full border border-black/15 hover:bg-black/5 transition-colors text-[13.5px] font-medium">Upload TXT</a>
               <a [routerLink]="['/projects', project.id, 'progress']" class="px-4 py-2 rounded-full border border-black/15 hover:bg-black/5 transition-colors text-[13.5px] font-medium">Track progress</a>
@@ -150,6 +157,8 @@ import { ShortsJob, ShortsService } from '../shorts/shorts.service';
     </div>
   `,
   styles: [`
+    .next { margin-top: var(--space-md); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-control); background: color-mix(in oklab, var(--color-accent) 7%, var(--color-paper)); border: 1px solid color-mix(in oklab, var(--color-accent) 35%, transparent); color: var(--color-ink); font-family: var(--font-body); }
+    .next p { margin: 0; font-size: var(--type-sm); }
     .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
   `],
 })
