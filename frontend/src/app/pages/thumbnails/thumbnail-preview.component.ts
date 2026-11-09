@@ -12,38 +12,24 @@ import { CONCEPT_LABELS, Thumbnail } from './thumbnail.service';
   standalone: true,
   imports: [LucideDynamicIcon],
   template: `
-    <dialog
-      #dialog
-      class="preview"
-      aria-labelledby="thumb-preview-title"
-      (close)="closed.emit()"
-      (click)="onBackdropClick($event)"
-    >
+    <dialog #dialog class="preview hm" aria-labelledby="thumb-preview-title" (close)="closed.emit()" (click)="onBackdropClick($event)">
       @if (thumb(); as t) {
-        <div class="p-4 sm:p-5">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <h2 id="thumb-preview-title" class="text-base font-semibold">
-              Thumbnail {{ number() }} <span class="font-normal text-[hsl(var(--muted-foreground))]">· {{ label() }}</span>
-            </h2>
-            <button type="button" class="icon-btn" (click)="close()" aria-label="Close preview">
+        <div class="body">
+          <div class="head">
+            <h2 id="thumb-preview-title">Thumbnail {{ number() }} <span class="kind">{{ label() }}</span></h2>
+            <button type="button" class="ui-btn ui-btn--quiet close" (click)="close()" aria-label="Close preview">
               <svg lucideIcon="x" [size]="18" aria-hidden="true"></svg>
             </button>
           </div>
           @if (t.url) {
-            <img
-              [src]="t.url"
-              [alt]="'Thumbnail ' + number() + '. Text on the image: ' + t.headline"
-              [attr.width]="t.width"
-              [attr.height]="t.height"
-              class="mx-auto block h-auto max-h-[68vh] w-auto max-w-full rounded-lg"
-            />
+            <img [src]="t.url" [alt]="'Thumbnail ' + number() + '. Text on the image: ' + t.headline" [attr.width]="t.width" [attr.height]="t.height" />
           }
-          <div class="mt-4 flex flex-wrap items-center justify-end gap-2">
-            <button type="button" class="act" (click)="download.emit()">
-              <svg lucideIcon="download" [size]="15" aria-hidden="true"></svg> Download
+          <div class="acts">
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="download.emit()">
+              <svg lucideIcon="download" [size]="16" aria-hidden="true"></svg>Download
             </button>
-            <button type="button" class="act primary" (click)="choose.emit(); close()">
-              <svg lucideIcon="check" [size]="15" aria-hidden="true"></svg> Select this one
+            <button type="button" class="ui-btn ui-btn--primary" (click)="choose.emit(); close()">
+              <svg lucideIcon="check" [size]="16" aria-hidden="true"></svg>Select this one
             </button>
           </div>
         </div>
@@ -51,23 +37,18 @@ import { CONCEPT_LABELS, Thumbnail } from './thumbnail.service';
     </dialog>
   `,
   styles: [`
-    dialog.preview {
-      width: min(960px, calc(100vw - 24px));
-      max-height: calc(100dvh - 24px);
-      padding: 0; border: 1px solid hsl(var(--border)); border-radius: 12px;
-      background: hsl(var(--background)); color: hsl(var(--foreground));
-      overflow: auto;
-    }
-    dialog.preview::backdrop { background: rgba(0, 0, 0, 0.7); }
-    .icon-btn { display: inline-flex; padding: 6px; border-radius: 8px; }
-    .icon-btn:hover { background: hsl(var(--muted)); }
-    .act {
-      display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
-      border: 1px solid hsl(var(--border)); border-radius: 8px; font-size: 14px; font-weight: 500;
-    }
-    .act:hover { background: hsl(var(--muted)); }
-    .act.primary { background: hsl(var(--primary)); border-color: hsl(var(--primary)); color: #fff; }
-    .act.primary:hover { filter: brightness(1.08); }
+    /* margin: auto puts the modal back in the centre; the global reset zeroes it. */
+    dialog.preview { margin: auto; width: min(960px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 1px solid var(--color-rule); border-radius: var(--radius-surface); background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); overflow: auto; }
+    /* Same scrim as the shared confirm dialog: dark in both themes. */
+    dialog.preview::backdrop { background: color-mix(in oklab, var(--color-paper) 55%, black); opacity: 0.8; }
+    .body { padding: var(--space-md); }
+    @media (min-width: 40rem) { .body { padding: var(--space-lg); } }
+    .head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+    h2 { margin: 0; font-size: var(--type-md); font-weight: 600; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-xs); }
+    .kind { font-weight: 400; font-size: var(--type-sm); color: var(--color-muted); }
+    .close { width: 44px; padding: 0; }
+    img { display: block; margin-inline: auto; height: auto; width: auto; max-width: 100%; max-height: 68vh; border-radius: var(--radius-control); }
+    .acts { margin-top: var(--space-md); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-xs); }
   `],
 })
 export class ThumbnailPreviewComponent {

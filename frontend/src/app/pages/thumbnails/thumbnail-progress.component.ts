@@ -13,21 +13,21 @@ type StepState = 'done' | 'active' | 'pending';
   standalone: true,
   imports: [LucideDynamicIcon],
   template: `
-    <ol class="m-0 list-none space-y-3 p-0" role="status" aria-live="polite" aria-label="Thumbnail progress">
-      <li class="flex items-center gap-3">
-        <span class="dot dot-done"><svg lucideIcon="check" [size]="14" aria-hidden="true"></svg></span>
-        <span class="text-sm">Video uploaded<span class="sr-only"> (done)</span></span>
+    <ol class="steps" role="status" aria-live="polite" aria-label="Thumbnail progress">
+      <li>
+        <span class="dot done"><svg lucideIcon="check" [size]="14" aria-hidden="true"></svg></span>
+        <span class="lbl">Video uploaded<span class="sr-only"> (done)</span></span>
       </li>
       @for (s of steps(); track s.key) {
-        <li class="flex items-center gap-3" [attr.aria-current]="s.state === 'active' ? 'step' : null">
-          <span class="dot" [class.dot-done]="s.state === 'done'" [class.dot-active]="s.state === 'active'">
+        <li [attr.aria-current]="s.state === 'active' ? 'step' : null" [attr.data-state]="s.state">
+          <span class="dot" [class.done]="s.state === 'done'" [class.active]="s.state === 'active'">
             @if (s.state === 'done') {
               <svg lucideIcon="check" [size]="14" aria-hidden="true"></svg>
             } @else if (s.state === 'active') {
-              <svg lucideIcon="loader-2" [size]="14" class="spin" aria-hidden="true"></svg>
+              <svg lucideIcon="loader-2" [size]="14" class="ui-spin" aria-hidden="true"></svg>
             }
           </span>
-          <span class="text-sm" [class.text-muted]="s.state === 'pending'" [class.font-medium]="s.state === 'active'">
+          <span class="lbl" [class.wait]="s.state === 'pending'" [class.now]="s.state === 'active'">
             {{ s.label }}
             <span class="sr-only">{{ s.state === 'done' ? ' (done)' : s.state === 'active' ? ' (in progress)' : ' (waiting)' }}</span>
           </span>
@@ -36,17 +36,14 @@ type StepState = 'done' | 'active' | 'pending';
     </ol>
   `,
   styles: [`
-    .dot {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 22px; height: 22px; border-radius: 9999px; flex-shrink: 0;
-      border: 2px solid hsl(var(--border));
-    }
-    .dot-done { background: #16a34a; border-color: #16a34a; color: #fff; }
-    .dot-active { border-color: hsl(var(--primary)); color: hsl(var(--primary)); }
-    .text-muted { color: hsl(var(--muted-foreground)); }
-    .spin { animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+    .steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-sm); }
+    li { display: flex; align-items: center; gap: var(--space-sm); }
+    .dot { width: 1.75rem; height: 1.75rem; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--color-rule); }
+    .dot.done { background: var(--color-positive); border-color: var(--color-positive); color: var(--color-paper); }
+    .dot.active { border-color: var(--color-accent); color: var(--color-accent-text); }
+    .lbl { font-size: var(--type-sm); color: var(--color-ink); }
+    .lbl.wait { color: var(--color-muted); }
+    .lbl.now { font-weight: 600; }
   `],
 })
 export class ThumbnailProgressComponent {
