@@ -62,6 +62,8 @@ import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
                         <span>{{ formatDate(job.createdAt) }}</span>
                         @if (job.status === 'completed') {
                           <span>{{ job.clipCount }} {{ job.clipCount === 1 ? 'clip' : 'clips' }}</span>
+                        } @else if (job.status === 'uploaded' && job.sourceMissing) {
+                          <span class="lost" data-testid="upload-missing">Upload didn't finish. The file never arrived.</span>
                         } @else if (job.status === 'uploaded') {
                           <span>Uploaded. Not started.</span>
                         }
@@ -72,7 +74,10 @@ import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
                       <svg lucideIcon="chevron-right" [size]="16" class="arrow" aria-hidden="true"></svg>
                     }
                   </a>
-                  @if (job.status === 'uploaded' && draftJobId !== job.jobId) {
+                  @if (job.status === 'uploaded' && job.sourceMissing) {
+                    <!-- Nothing to render: the file never arrived, so starting would only fail (#275). -->
+                    <a routerLink="/shorts" class="ui-btn ui-btn--secondary start" [attr.aria-label]="'Upload the file for short ' + job.jobId.slice(0, 8) + ' again'">Upload again</a>
+                  } @else if (job.status === 'uploaded' && draftJobId !== job.jobId) {
                     <button type="button" class="ui-btn ui-btn--primary start" (click)="openDraft(job)" [attr.aria-label]="'Start render for short ' + job.jobId.slice(0, 8)">Start render</button>
                   }
                   <button
@@ -137,6 +142,7 @@ import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
     .start { order: 9; flex-basis: 100%; }
     @media (min-width: 40rem) { .start { order: 0; flex-basis: auto; } }
     .draft { padding-bottom: var(--space-md); }
+    .lost { color: var(--color-negative); font-weight: 500; }
     .t-ok { color: var(--color-positive); } .t-bad { color: var(--color-negative); } .t-wait { color: var(--color-caution); }
     .spin { animation: spin 0.9s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }

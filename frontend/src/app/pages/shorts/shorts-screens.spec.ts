@@ -154,6 +154,18 @@ describe('ShortsHistoryComponent', () => {
     expect(el.querySelectorAll('li.item').length).toBe(0);
   });
 
+  it('says when an upload never arrived and offers Upload again instead of Start render (#275)', () => {
+    const { el } = setup([job({ jobId: 'lost000001', status: 'uploaded', clipCount: 0, sourceMissing: true }), job({ jobId: 'ready00001', status: 'uploaded', clipCount: 0 })]);
+    const lost = el.querySelector('[data-testid="job-lost000001"]')!;
+    expect(lost.querySelector('[data-testid="upload-missing"]')!.textContent).toContain("Upload didn't finish");
+    expect(lost.querySelector('button[aria-label^="Start render"]')).toBeNull();
+    expect(lost.querySelector('a[aria-label$="again"]')!.getAttribute('href')).toBe('/shorts');
+    expect(lost.querySelector('button[aria-label^="Delete short"]')).toBeTruthy();
+    const ready = el.querySelector('[data-testid="job-ready00001"]')!;
+    expect(ready.textContent).toContain('Uploaded. Not started.');
+    expect(ready.querySelector('button[aria-label^="Start render"]')).toBeTruthy();
+  });
+
   it('shows the empty state and the error state', () => {
     expect(setup([]).el.textContent).toContain('No shorts yet.');
     TestBed.resetTestingModule();

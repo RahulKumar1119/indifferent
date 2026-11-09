@@ -282,6 +282,8 @@ export interface ShortsJobSummary {
   clipCount: number;
   createdAt: string;
   updatedAt: string;
+  /** An "uploaded" job whose file never reached storage (the upload dropped or was abandoned). */
+  sourceMissing?: boolean;
 }
 
 /** Response from POST /shorts (matches backend CreateShortsResponse). */

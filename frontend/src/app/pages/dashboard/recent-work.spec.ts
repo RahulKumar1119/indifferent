@@ -114,4 +114,18 @@ describe('buildRecentWork', () => {
     });
     expect(r.items.map((i) => i.id)).toEqual(['quiz:y', 'quiz:x']);
   });
+  it('treats a short waiting to start as a draft, and says when its file never arrived (#275)', () => {
+    const short = (jobId: string, status: string, sourceMissing?: boolean) =>
+      ({ jobId, status, fileType: 'mp4', clipCount: 0, sourceDuration: 36, createdAt: '2026-11-08T00:00:00Z', updatedAt: '2026-11-08T00:00:00Z', sourceMissing }) as never;
+    const r = buildRecentWork({ ...none, shorts: [short('lost', 'uploaded', true), short('ready', 'uploaded'), short('run', 'rendering')] });
+    const by = Object.fromEntries(r.items.map((i) => [i.id, i]));
+    expect(by['short:lost'].state).toBe('draft');
+    expect(by['short:lost'].detail).toBe("Upload didn't finish");
+    expect(by['short:lost'].link).toEqual(['/shorts', 'history']);
+    expect(by['short:ready'].state).toBe('draft');
+    expect(by['short:ready'].detail).toBe('Not started');
+    // Only a short that is really being made counts as working (the dashboard's "Rendering now").
+    expect(by['short:run'].state).toBe('working');
+    expect(by['short:run'].link).toEqual(['/shorts', 'run', 'progress']);
+  });
 });

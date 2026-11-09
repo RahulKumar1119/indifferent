@@ -72,14 +72,21 @@ export function fromProject(p: Project): WorkItem {
 }
 
 export function fromShort(j: ShortsJobSummary): WorkItem {
-  const state: WorkState = j.status === 'completed' ? 'done' : j.status === 'failed' ? 'failed' : 'working';
+  // "uploaded" means waiting for the user to start it, or (sourceMissing) a
+  // file that never arrived. Neither is rendering, so neither is "working" (#275).
+  const waiting = j.status === 'uploaded';
+  const state: WorkState =
+    j.status === 'completed' ? 'done' : j.status === 'failed' ? 'failed' : waiting ? 'draft' : 'working';
+  const detail =
+    state === 'done' ? plural(j.clipCount, 'clip', 'clips') : waiting ? (j.sourceMissing ? "Upload didn't finish" : 'Not started') : '';
   return {
     id: `short:${j.jobId}`,
     kind: 'short',
     title: j.fileType === 'mp3' ? 'Shorts from audio' : 'Shorts from video',
     state,
-    detail: state === 'done' ? plural(j.clipCount, 'clip', 'clips') : '',
-    link: ['/shorts', j.jobId, state === 'done' && j.clipCount > 0 ? 'clips' : 'progress'],
+    detail,
+    // Start, upload again and delete live on the history page; it has no progress to show yet.
+    link: waiting ? ['/shorts', 'history'] : ['/shorts', j.jobId, state === 'done' && j.clipCount > 0 ? 'clips' : 'progress'],
     date: j.updatedAt || j.createdAt,
   };
 }
