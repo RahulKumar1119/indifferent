@@ -3,11 +3,10 @@
  * axes: light/roman-serif/chromatic-terracotta · posture: kept · contrast: pass · fold: n/a · v2.0.0 */
 /* Hallmark · pre-emit critique: P3 H3 E4 S4 R4 V3 · weakest: V, pages still carry their own copies of these controls until their own issues land */
 /* Hallmark · dropped /#who · the journal's page-local header linked the landing page's "Where a quiz video fits" section; the shared public header's menus do not */
+/* Hallmark · note · rule 58 (words per screen) is a Floor gate and cannot be waived; under redesign: full it reports as a note. The long-form pages (privacy, terms, help, the story editor) were reviewed with the owner on #247, #253 and #255. */
 /* Hallmark · waive 63 · the journal index keeps "Oct 25, 2026 · 7 min read" because an existing test pins that exact pattern */
 /* Hallmark · dropped /#process, /shorts-maker, #faq · the page-local headers on about, contact and shorts-maker carried these shortcuts; the shared public header replaced them (owner approved one header on #247) and its menus do not link them */
 /* Hallmark · waive 63 · the Shorts page keeps "MP4, MOV, MP3 or WAV · 1 hour max · 2 GB max" because an existing test pins that exact string */
-/* Hallmark · waive 58 · privacy and terms are documents, not marketing pages (owner approved on #247) */
-/* Hallmark · waive 58 · story editor (/story/:id) only: a working tool whose screens hold real scene editing, narration, picture choice, render progress and video controls, plus required licence and limit notices (owner approved on #255). Not a waiver for /story or any other page. */
 
 /*
  * Shared UI for the redesign (#245). Everything is opt-in, so a page that has
@@ -131,7 +130,7 @@
   flex-shrink: 0;
   width: 8px;
   height: 8px;
-  margin-right: 4px;
+  margin-right: var(--space-2xs);
   border-right: 2px solid var(--color-muted);
   border-bottom: 2px solid var(--color-muted);
   transform: rotate(45deg);
@@ -167,34 +166,34 @@
 
 /* ---- Article body (the journal): one reading style for all 11 articles ---- */
 .ui-article { font-size: 1.0625rem; line-height: 1.8; color: var(--color-ink-2); }
-.ui-article h2 { margin: 2.75rem 0 1rem; font-family: var(--font-display); font-weight: 500; font-size: var(--type-2xl); line-height: 1.15; letter-spacing: var(--tracking-display); color: var(--color-ink); scroll-margin-top: 6rem; text-wrap: balance; }
-.ui-article h3 { margin: 2rem 0 0.75rem; font-size: var(--type-lg); font-weight: 600; line-height: 1.3; color: var(--color-ink); }
-.ui-article p { margin: 0 0 1.25rem; }
-.ui-article ul, .ui-article ol { margin: 0 0 1.25rem; padding-left: 1.5rem; }
+.ui-article h2 { margin: calc(var(--space-xl) + var(--space-2xs)) 0 var(--space-md); font-family: var(--font-display); font-weight: 500; font-size: var(--type-2xl); line-height: 1.15; letter-spacing: var(--tracking-display); color: var(--color-ink); scroll-margin-top: 6rem; text-wrap: balance; }
+.ui-article h3 { margin: calc(var(--space-lg) + var(--space-xs)) 0 var(--space-sm); font-size: var(--type-lg); font-weight: 600; line-height: 1.3; color: var(--color-ink); }
+.ui-article p { margin: 0 0 calc(var(--space-md) + var(--space-2xs)); }
+.ui-article ul, .ui-article ol { margin: 0 0 calc(var(--space-md) + var(--space-2xs)); padding-left: var(--space-lg); }
 .ui-article ul { list-style: disc; }
 .ui-article ol { list-style: decimal; }
-.ui-article li { margin-bottom: 0.5rem; }
+.ui-article li { margin-bottom: var(--space-xs); }
 .ui-article li::marker { color: var(--color-muted); }
 .ui-article strong { color: var(--color-ink); font-weight: 600; }
 .ui-article a { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; }
 .ui-article a:hover { color: var(--color-ink); }
 .ui-article a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
 .ui-article code { background: color-mix(in oklab, var(--color-ink) 7%, transparent); padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.875rem; overflow-wrap: anywhere; }
-.ui-article pre { margin: 0 0 1.25rem; padding: 1.25rem; overflow-x: auto; background: var(--color-ink); color: var(--color-paper); border-radius: var(--radius-surface); font-size: 0.875rem; line-height: 1.6; }
+.ui-article pre { margin: 0 0 calc(var(--space-md) + var(--space-2xs)); padding: calc(var(--space-md) + var(--space-2xs)); overflow-x: auto; background: var(--color-ink); color: var(--color-paper); border-radius: var(--radius-surface); font-size: 0.875rem; line-height: 1.6; }
 .ui-article pre code { background: none; padding: 0; overflow-wrap: normal; }
-.ui-article table { width: 100%; margin: 0 0 1.25rem; border-collapse: collapse; font-size: 0.9375rem; }
-.ui-article th, .ui-article td { padding: 0.6rem 0.75rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--color-rule); }
+.ui-article table { width: 100%; margin: 0 0 calc(var(--space-md) + var(--space-2xs)); border-collapse: collapse; font-size: 0.9375rem; }
+.ui-article th, .ui-article td { padding: var(--space-xs) var(--space-sm); text-align: left; vertical-align: top; border-bottom: 1px solid var(--color-rule); }
 .ui-article th { font-weight: 600; color: var(--color-ink); }
-.ui-article .table-wrap { margin: 0 0 1.25rem; overflow-x: auto; }
+.ui-article .table-wrap { margin: 0 0 calc(var(--space-md) + var(--space-2xs)); overflow-x: auto; }
 .ui-article .table-wrap:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.ui-article figure { margin: 0 0 1.5rem; }
+.ui-article figure { margin: 0 0 var(--space-lg); }
 .ui-article figure img { display: block; width: 100%; height: auto; border: 1px solid var(--color-rule); border-radius: var(--radius-surface); background: var(--color-paper-2); }
-.ui-article figcaption { padding-top: 0.5rem; font-size: var(--type-sm); line-height: 1.5; color: var(--color-muted); }
-.ui-article .ui-note { margin: 0 0 1.25rem; padding: 1rem 1.25rem; border: 1px solid color-mix(in oklab, var(--color-accent) 35%, transparent); border-radius: var(--radius-surface); background: color-mix(in oklab, var(--color-accent) 7%, var(--color-paper)); font-size: 0.9375rem; line-height: 1.6; color: var(--color-ink-2); }
+.ui-article figcaption { padding-top: var(--space-xs); font-size: var(--type-sm); line-height: 1.5; color: var(--color-muted); }
+.ui-article .ui-note { margin: 0 0 calc(var(--space-md) + var(--space-2xs)); padding: var(--space-md) calc(var(--space-md) + var(--space-2xs)); border: 1px solid color-mix(in oklab, var(--color-accent) 35%, transparent); border-radius: var(--radius-surface); background: color-mix(in oklab, var(--color-accent) 7%, var(--color-paper)); font-size: 0.9375rem; line-height: 1.6; color: var(--color-ink-2); }
 .ui-article .ui-note p { margin: 0; }
-.ui-article .ui-note p + p { margin-top: 0.25rem; }
+.ui-article .ui-note p + p { margin-top: var(--space-2xs); }
 .ui-article .ui-note .note-title { font-weight: 600; color: var(--color-ink); }
-.ui-article .code-label { margin: 0 0 0.25rem; font-size: var(--type-sm); color: var(--color-muted); }
+.ui-article .code-label { margin: 0 0 var(--space-2xs); font-size: var(--type-sm); color: var(--color-muted); }
 @media (prefers-reduced-motion: reduce) { .ui-article a { transition: none; } }
 /* ---- App screens (#267 and on): a warm page with paper cards. Light pages sit on paper-2 with paper cards; dark flips them. ---- */
 .ui-app { --app-page: var(--color-paper-2); --app-card: var(--color-paper); background: var(--app-page); color: var(--color-ink); font-family: var(--font-body); min-height: 100dvh; -webkit-font-smoothing: antialiased; }

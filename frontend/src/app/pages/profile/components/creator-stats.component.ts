@@ -44,13 +44,13 @@ export class CreatorStatsComponent {
   readonly stats = input.required<CreatorStats>();
   readonly loading = input(false);
 
-  cards(): { label: string; value: string; hint: string; icon: string; color: string; tint: string }[] {
+  cards(): { label: string; value: string; hint: string; icon: string }[] {
     const s = this.stats();
     return [
-      { label: 'Videos', value: String(s.videosCreated), hint: 'Quiz films created', icon: 'clapperboard', color: '', tint: 'hsl(var(--primary) / 0.1)' },
-      { label: 'Shorts', value: String(s.shortsGenerated), hint: 'AI clips generated', icon: 'scissors', color: '', tint: 'hsl(var(--primary) / 0.1)' },
-      { label: 'Published', value: String(s.published), hint: 'Marked published', icon: 'circle-check', color: '', tint: 'hsl(var(--primary) / 0.1)' },
-      { label: 'Favorites', value: String(s.favorites), hint: 'Saved to favorites', icon: 'star', color: '', tint: 'hsl(var(--primary) / 0.1)' },
+      { label: 'Videos', value: String(s.videosCreated), hint: 'Quiz films created', icon: 'clapperboard' },
+      { label: 'Shorts', value: String(s.shortsGenerated), hint: 'AI clips generated', icon: 'scissors' },
+      { label: 'Published', value: String(s.published), hint: 'Marked published', icon: 'circle-check' },
+      { label: 'Favorites', value: String(s.favorites), hint: 'Saved to favorites', icon: 'star' },
     ];
   }
 }
