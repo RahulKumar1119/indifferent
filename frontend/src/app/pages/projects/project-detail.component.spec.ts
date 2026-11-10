@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideLucideIcons, LucideSun, LucideMoon, LucideUser, LucideTriangleAlert, LucidePlay, LucideUpload } from '@lucide/angular';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { ProjectDetailComponent } from './project-detail.component';
@@ -11,6 +12,7 @@ describe('ProjectDetailComponent: the next step (#274)', () => {
       imports: [ProjectDetailComponent],
       providers: [
         provideRouter([]),
+        provideLucideIcons(LucideSun, LucideMoon, LucideUser, LucideTriangleAlert, LucidePlay, LucideUpload),
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'p1' }) } } },
         { provide: ProjectService, useValue: { getProject: () => of({ id: 'p1', name: 'Capitals', status, template: 'classic', voice: 'Joanna', createdAt: '2026-11-09T00:00:00Z' }), logoUrl: () => of({}) } },
         { provide: ShortsService, useValue: { getStatus: () => of({}), listJobs: () => of([]) } },

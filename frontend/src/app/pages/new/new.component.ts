@@ -1,169 +1,96 @@
-import { AfterViewInit, Component, ElementRef, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
-import gsap from 'gsap';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH } from '../progress/failure-message';
 
-const HERO_GIF = '/screenshots/shorts-hero.gif';
-const HERO_STILL = '/screenshots/shorts-hero-still.png';
-
+/** Where people land after signing in: pick one of the four tools. */
 @Component({
   selector: 'app-new',
   standalone: true,
-  imports: [CommonModule, RouterLink, LucideDynamicIcon],
+  imports: [RouterLink, LucideDynamicIcon, NavbarComponent],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <main class="max-w-6xl mx-auto px-4 pt-20 pb-16">
-        <p class="text-center text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">What do you want to create?</p>
-        <h1 class="mt-3 text-center font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(2.2rem,5vw,3.6rem)]">
-          Turn your content <span class="font-light italic">into anything.</span>
-        </h1>
-        <p class="mt-4 text-center text-[15.5px] text-[#6B6560] max-w-[60ch] mx-auto leading-relaxed">
-          One studio, four tools. Upload once and let AI do the tedious parts, or finish in your browser, free.
-        </p>
-
-        <div class="mt-10 grid grid-cols-1 md:grid-cols-4 gap-5">
-          <!-- Hero: Shorts (2×1) -->
-          <a routerLink="/shorts"
-            class="picker-card card-lift rounded-[20px] border border-black/10 bg-[#0F0E0B] text-[#F4EFE6] p-0 overflow-hidden md:col-span-2 flex flex-col sm:flex-row hover:border-black/30 transition-colors"
-            (mouseenter)="heroHover = canHover"
-            (mouseleave)="heroHover = false">
-            <img
-              [src]="heroHover ? heroGif : heroStill"
-              alt="Screen recording of the AI Shorts upload page scrolling"
-              class="w-full sm:w-[46%] h-56 sm:h-auto object-cover object-top"
-              loading="eager"
-            />
-            <div class="p-6 md:p-7 flex flex-col flex-1">
-              <span class="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.06em] text-white/50">
-                <svg lucideIcon="scissors" [size]="14" class="picker-icon"></svg>
-                Vertical clips
-              </span>
-              <h2 class="mt-1 font-semibold text-[22px]">AI Shorts Generator</h2>
-              <p class="mt-2 text-[14.5px] leading-relaxed text-white/65 flex-1">Upload once → get ranked 9:16 clips.</p>
-              <span class="cta-pulse mt-4 inline-flex items-center justify-center gap-1.5 h-14 md:h-auto w-full sm:w-auto px-6 md:py-2.5 rounded-full bg-[#BC5227] text-white text-[14.5px] font-semibold">
-                Make shorts
-              </span>
-            </div>
-          </a>
-
-          <!-- Quiz (1×1) -->
-          <a routerLink="/projects/new"
-            class="picker-card card-lift rounded-[20px] border border-black/10 bg-white p-0 overflow-hidden flex flex-col hover:border-black/25 transition-colors">
-            <img
-              src="/screenshots/quiz-create.png"
-              alt="Quiz project creation form with design picker"
-              class="w-full h-44 object-cover object-top"
-              loading="lazy"
-            />
-            <div class="p-6 flex flex-col flex-1">
-              <span class="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">
-                <svg lucideIcon="file-text" [size]="14" class="picker-icon"></svg>
-                Quiz films
-              </span>
-              <h2 class="mt-1 font-semibold text-[18px]">TXT to Quiz Video</h2>
-              <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560] flex-1">Paste a text file → get a video.</p>
-              <span class="mt-4 inline-flex items-center justify-center gap-1.5 h-14 md:h-auto w-full sm:w-auto px-6 md:py-2.5 rounded-full bg-[#1A1714] text-white text-[14px] font-semibold">
-                Create video
-              </span>
-            </div>
-          </a>
-
-          <!-- Story (1×1) -->
-          <a routerLink="/story"
-            class="picker-card card-lift rounded-[20px] border border-black/10 bg-white p-0 overflow-hidden flex flex-col hover:border-black/25 transition-colors">
-            <div class="w-full h-44 flex items-center justify-center bg-[#3A2A1E] text-[#EDE4DB]">
-              <svg lucideIcon="book-open" [size]="48" class="opacity-80" aria-hidden="true"></svg>
-            </div>
-            <div class="p-6 flex flex-col flex-1">
-              <span class="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">
-                <svg lucideIcon="book-open" [size]="14" class="picker-icon"></svg>
-                Story films
-              </span>
-              <h2 class="mt-1 font-semibold text-[18px]">Story to Video</h2>
-              <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560] flex-1">Paste a story → get a narrated video.</p>
-              <span class="mt-4 inline-flex items-center justify-center gap-1.5 h-14 md:h-auto w-full sm:w-auto px-6 md:py-2.5 rounded-full bg-[#1A1714] text-white text-[14px] font-semibold">
-                Make a story video
-              </span>
-            </div>
-          </a>
-
-          <!-- Watermark (1×1) -->
-          <a routerLink="/tools/add-watermark"
-            class="picker-card card-lift rounded-[20px] border border-black/10 bg-white p-0 overflow-hidden flex flex-col hover:border-black/25 transition-colors">
-            <img
-              src="/screenshots/watermark-tool.png"
-              alt="Watermark tool drop zone"
-              class="w-full h-44 object-cover object-top"
-              loading="lazy"
-            />
-            <div class="p-6 flex flex-col flex-1">
-              <span class="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.06em] text-[#6B6560]">
-                <svg lucideIcon="stamp" [size]="14" class="picker-icon"></svg>
-                Free tool
-              </span>
-              <h2 class="mt-1 font-semibold text-[18px]">Watermark Tool</h2>
-              <p class="mt-2 text-[14px] leading-relaxed text-[#6B6560] flex-1">Drag, position, download. No signup.</p>
-              <span class="mt-4 inline-flex items-center justify-center gap-1.5 h-14 md:h-auto w-full sm:w-auto px-6 md:py-2.5 rounded-full bg-[#1A1714] text-white text-[14px] font-semibold">
-                Open tool
-              </span>
-            </div>
-          </a>
+    <div class="ui-app">
+      <app-navbar />
+      <main id="main" class="ui-app-main hm">
+        <div>
+          <h1 class="ui-h1">What do you want to make?</h1>
+          <p class="ui-lead">Pick a tool, or <a routerLink="/dashboard" class="ui-link">go to your dashboard</a>.</p>
         </div>
 
-        <p class="mt-8 text-center text-[13.5px] text-[#6B6560]">
-          Not sure? <a routerLink="/dashboard" class="font-semibold text-[#1A1714] underline underline-offset-4">Go to your dashboard</a>
-        </p>
+        <div class="tools">
+          <section class="ui-card tool" aria-labelledby="t-shorts" data-testid="tool-shorts">
+            <img src="/screenshots/shorts-hero-still.png" alt="" width="640" height="400" loading="eager" />
+            <div class="body">
+              <p class="kind"><svg lucideIcon="scissors" [size]="16" aria-hidden="true"></svg>Vertical clips</p>
+              <h2 id="t-shorts" class="ui-card-title">AI Shorts</h2>
+              <p class="ui-card-sub">Get ranked 9:16 clips from a long video.</p>
+              <a routerLink="/shorts" class="ui-btn ui-btn--primary cta">Make shorts</a>
+            </div>
+          </section>
+
+          <section class="ui-card tool" aria-labelledby="t-quiz" data-testid="tool-quiz">
+            <img src="/screenshots/quiz-create.png" alt="" width="640" height="400" loading="eager" />
+            <div class="body">
+              <p class="kind"><svg lucideIcon="file-text" [size]="16" aria-hidden="true"></svg>Quiz videos</p>
+              <h2 id="t-quiz" class="ui-card-title">TXT to quiz video</h2>
+              <p class="ui-card-sub">A narrated video from your questions.</p>
+              <div class="need" data-testid="quiz-needs">
+                <p><strong>You'll need a TXT file of questions.</strong></p>
+                <p class="links">
+                  <a [href]="sampleFilePath" download="quiz-sample.txt" class="ui-link">Download a sample file</a>
+                  <a [routerLink]="formatGuidePath" class="ui-link">Read the format guide</a>
+                </p>
+              </div>
+              <a routerLink="/projects/new" class="ui-btn ui-btn--primary cta">Make a quiz video</a>
+            </div>
+          </section>
+
+          <section class="ui-card tool" aria-labelledby="t-story" data-testid="tool-story">
+            <div class="art" aria-hidden="true"><svg lucideIcon="clapperboard" [size]="44"></svg></div>
+            <div class="body">
+              <p class="kind"><svg lucideIcon="film" [size]="16" aria-hidden="true"></svg>Story videos</p>
+              <h2 id="t-story" class="ui-card-title">Story to video</h2>
+              <p class="ui-card-sub">Have a story, a script or notes instead of quiz questions? Turn it into a video.</p>
+              <a routerLink="/story" class="ui-btn ui-btn--primary cta">Use Story video</a>
+            </div>
+          </section>
+
+          <section class="ui-card tool" aria-labelledby="t-wm" data-testid="tool-watermark">
+            <img src="/screenshots/watermark-tool.png" alt="" width="640" height="400" loading="lazy" />
+            <div class="body">
+              <p class="kind"><svg lucideIcon="stamp" [size]="16" aria-hidden="true"></svg>Free tool</p>
+              <h2 id="t-wm" class="ui-card-title">Watermark tool</h2>
+              <p class="ui-card-sub">Mark an image or video in your browser.</p>
+              <a routerLink="/tools/add-watermark" class="ui-btn ui-btn--secondary cta">Open the watermark tool</a>
+            </div>
+          </section>
+        </div>
       </main>
     </div>
   `,
   styles: [`
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-      .card-lift { transition: transform .35s cubic-bezier(0.23,1,0.32,1), box-shadow .35s; }
-    /* Hover physics only where hover truly exists: no tap-hover on mobile. */
-    @media (hover: hover) {
-      .card-lift:hover {
-        transform: scale(1.02);
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-      }
-      .picker-card:hover .picker-icon {
-        transform: rotate(15deg);
-      }
-    }
-    .picker-icon {
-      display: inline-flex;
-      transition: transform .2s ease;
-    }
-    /* Primary CTA: subtle 1.5s indigo glow pulse. */
-    @keyframes cta-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
-      50% { box-shadow: 0 0 18px 2px rgba(99,102,241,0.55); }
-    }
-    .cta-pulse { animation: cta-pulse 1.5s ease-in-out infinite; }
-    @media (prefers-reduced-motion: reduce) {
-      .cta-pulse { animation: none; }
-    }
+    :host { display: block; }
+    .tools { display: grid; gap: var(--space-md); grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 44rem) { .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .tool { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+    .tool img, .art { display: block; width: 100%; height: 10rem; object-fit: cover; object-position: top; border-bottom: 1px solid var(--color-rule); background: var(--color-paper-3); }
+    .art { display: flex; align-items: center; justify-content: center; color: var(--color-accent-text); }
+    .body { flex: 1; display: flex; flex-direction: column; gap: var(--space-2xs); padding: var(--space-lg); }
+    @media (max-width: 39.99rem) { .body { padding: var(--space-md); } .tool img, .art { height: 8rem; } }
+    .kind { margin: 0; display: inline-flex; align-items: center; gap: var(--space-2xs); font-size: var(--type-xs); font-weight: 600; color: var(--color-accent-text); }
+    .need { margin-top: var(--space-xs); padding: var(--space-xs) var(--space-sm); border-left: 3px solid var(--color-accent); background: var(--app-page); border-radius: 0 var(--radius-control) var(--radius-control) 0; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .need p { margin: 0; }
+    .need strong { color: var(--color-ink); }
+    .links { display: flex; flex-wrap: wrap; gap: 0 var(--space-md); }
+    .links a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+    .cta { margin-top: auto; align-self: flex-start; }
+    .body > .cta { margin-top: var(--space-sm); }
+    .body > .ui-card-sub { flex: 1; }
+    @media (max-width: 39.99rem) { .cta { align-self: stretch; } }
   `],
 })
-export class NewComponent implements AfterViewInit {
-  private readonly host = inject(ElementRef);
-
-  readonly heroGif = HERO_GIF;
-  readonly heroStill = HERO_STILL;
-  heroHover = false;
-  readonly canHover =
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(hover: hover)').matches &&
-    !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  ngAfterViewInit(): void {
-    if (typeof window === 'undefined') return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const cards: HTMLElement[] = Array.from(
-      this.host.nativeElement.querySelectorAll('.picker-card'),
-    );
-    if (cards.length === 0) return;
-    gsap.from(cards, { y: 40, opacity: 0, stagger: 0.1, duration: 0.5, ease: 'power2.out', clearProps: 'all' });
-  }
+export class NewComponent {
+  readonly sampleFilePath = SAMPLE_FILE_PATH;
+  readonly formatGuidePath = FORMAT_GUIDE_PATH;
 }

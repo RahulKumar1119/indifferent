@@ -237,7 +237,7 @@
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .ui-spin { animation: none; } }
 .ui-page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-sm); }
-.ui-h1 { margin: 0; font-size: var(--type-2xl); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; }
+.ui-h1 { margin: 0; font-size: var(--type-2xl); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; text-wrap: balance; }
 .ui-lead { margin: var(--space-2xs) 0 0; color: var(--color-ink-2); }
 .ui-error-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); border-left: 4px solid var(--color-negative); }
 .ui-error-card > p { margin: 0; display: flex; align-items: center; gap: var(--space-xs); color: var(--color-negative); font-weight: 500; }

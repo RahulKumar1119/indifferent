@@ -3,94 +3,96 @@ import { Subject, takeUntil } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { LucideDynamicIcon } from '@lucide/angular';
 import { ProjectService } from '../../core/services/project.service';
 import { Project } from '../../shared/models/project.model';
 import { ShortsJob, ShortsService } from '../shorts/shorts.service';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { projectStatusLabel, projectStatusTone } from './project-status';
 
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, LucideDynamicIcon, NavbarComponent],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <main class="max-w-4xl mx-auto px-4 pt-16 pb-16">
-        <a routerLink="/projects" class="text-[13px] text-[#6B6560] hover:text-[#1A1714]">← All projects</a>
+    <div class="ui-app">
+      <app-navbar />
+      <main id="main" class="ui-app-main narrow hm">
+        <a routerLink="/projects" class="ui-link back">All projects</a>
 
         @if (isLoading) {
-          <p class="mt-8 text-center text-sm text-[#6B6560]">Loading project…</p>
+          <div class="stack" role="status" aria-label="Loading project">
+            <div class="ui-skeleton" style="height: 2.5rem; width: 60%"></div>
+            <div class="ui-skeleton" style="height: 10rem"></div>
+          </div>
         } @else if (error) {
-          <div class="mt-8 rounded-[16px] border border-red-500/30 bg-white p-6 text-center">
-            <p class="text-sm text-red-600">{{ error }}</p>
+          <div class="ui-card ui-error-card" role="alert">
+            <p><svg lucideIcon="triangle-alert" [size]="18" aria-hidden="true"></svg>{{ error }}</p>
+            <a routerLink="/projects" class="ui-btn ui-btn--secondary">Back to your projects</a>
           </div>
         } @else if (project) {
-          <p class="mt-4 text-[11.5px] uppercase tracking-[0.1em] text-[#6B6560]">Project · {{ project.status }}</p>
-          <h1 class="mt-2 font-medium tracking-[-0.02em] leading-[1.02] text-[clamp(1.8rem,4vw,2.8rem)]">{{ project.name }}</h1>
+          <div class="ui-page-head">
+            <h1 class="ui-h1 name">{{ project.name }}</h1>
+            <span [class]="'ui-pill ' + tone(project.status)" data-testid="status">{{ statusLabel(project.status) }}</span>
+          </div>
 
           <!-- Parse warnings: things that did not stop the render but did affect the result -->
           @if (project.warnings && project.warnings.length > 0) {
-            <section class="mt-5 rounded-[20px] border border-amber-500/40 bg-amber-500/[0.07] p-5" role="alert" aria-labelledby="project-warnings-heading">
-              <h2 id="project-warnings-heading" class="font-semibold text-[15px] text-amber-900">
+            <section class="ui-alert ui-alert--warn warn" role="alert" aria-labelledby="project-warnings-heading">
+              <h2 id="project-warnings-heading">
                 {{ project.warnings!.length === 1 ? 'One issue' : project.warnings!.length + ' issues' }} with your file
               </h2>
-              <ul class="mt-2 space-y-1.5 text-[13.5px] text-amber-900/90">
+              <ul>
                 @for (w of project.warnings; track w.line + '-' + w.reason) {
-                  <li class="flex gap-2">
-                    <span class="shrink-0 font-medium">Question {{ w.line }}:</span>
-                    <span>{{ w.reason }}.</span>
-                  </li>
+                  <li><strong>Question {{ w.line }}:</strong> {{ w.reason }}.</li>
                 }
               </ul>
-              <a routerLink="/blog/quiz-file-format-guide" class="mt-3 inline-block text-[13px] font-semibold text-amber-900 underline underline-offset-4 hover:decoration-amber-900">
-                How to mark the answer
-              </a>
+              <a routerLink="/blog/quiz-file-format-guide" class="ui-link">How to mark the answer</a>
             </section>
           }
 
-          <!-- Quiz film -->
-          <section class="mt-8 rounded-[20px] border border-black/10 bg-white p-6">
-            <div class="flex items-center justify-between">
-              <h2 class="font-semibold text-[16.5px]">Quiz film</h2>
-              <span class="text-[12px] uppercase tracking-[0.14em] text-[#6B6560]">{{ project.status }}</span>
-            </div>
-            <dl class="mt-3 grid grid-cols-2 gap-2 text-[13.5px]">
-              <div><dt class="text-[#6B6560]">Design</dt><dd class="font-medium capitalize">{{ project.template }}</dd></div>
-              <div><dt class="text-[#6B6560]">Voice</dt><dd class="font-medium">{{ project.voice }}</dd></div>
+          <section class="ui-card" aria-labelledby="film-title">
+            <h2 id="film-title" class="ui-card-title">Quiz video</h2>
+            <dl>
+              <div><dt>Design</dt><dd class="cap">{{ project.template }}</dd></div>
+              <div><dt>Voice</dt><dd>{{ project.voice }}</dd></div>
             </dl>
             @if (project.status === 'created') {
               <!-- Nothing uploaded yet: the upload is the one thing left to do. -->
-              <div class="next hm hm-on-light" data-testid="next-upload">
+              <div class="next" data-testid="next-upload">
                 <p><strong>Next: upload your questions.</strong> Nothing renders until the project has its TXT file.</p>
                 <a [routerLink]="['/projects', project.id, 'upload']" class="ui-btn ui-btn--primary">Upload questions</a>
               </div>
+            } @else {
+              <div class="ui-row actions">
+                @if (project.status === 'completed') {
+                  <a [routerLink]="['/projects', project.id, 'preview']" class="ui-btn ui-btn--primary"><svg lucideIcon="play" [size]="18" aria-hidden="true"></svg>Watch and download</a>
+                }
+                <a [routerLink]="['/projects', project.id, 'progress']" class="ui-btn ui-btn--secondary">Track progress</a>
+                <a [routerLink]="['/projects', project.id, 'upload']" class="ui-btn ui-btn--quiet">Upload a new file</a>
+              </div>
             }
-            <div class="mt-4 flex flex-wrap gap-2">
-              <a [routerLink]="['/projects', project.id, 'upload']" class="px-4 py-2 rounded-full border border-black/15 hover:bg-black/5 transition-colors text-[13.5px] font-medium">Upload TXT</a>
-              <a [routerLink]="['/projects', project.id, 'progress']" class="px-4 py-2 rounded-full border border-black/15 hover:bg-black/5 transition-colors text-[13.5px] font-medium">Track progress</a>
-              @if (project.status === 'completed') {
-                <a [routerLink]="['/projects', project.id, 'preview']" class="px-4 py-2 rounded-full bg-[#1A1714] text-white hover:bg-[#2A2620] transition-colors text-[13.5px] font-medium">Watch & download</a>
-              }
-            </div>
           </section>
 
-          <!-- Shorts -->
-          <section class="mt-5 rounded-[20px] border border-black/10 bg-white p-6">
-            <div class="flex items-center justify-between">
-              <h2 class="font-semibold text-[16.5px]">Shorts</h2>
+          <section class="ui-card" aria-labelledby="shorts-title">
+            <div class="ui-row">
+              <h2 id="shorts-title" class="ui-card-title">Shorts</h2>
+              <span class="ui-spacer"></span>
               @if (shortsJobs.length > 0) {
-                <span class="text-[12px] uppercase tracking-[0.14em] text-[#6B6560]">{{ shortsJobs.length }} linked</span>
+                <span class="ui-card-sub" style="margin: 0">{{ shortsJobs.length }} linked</span>
               }
             </div>
             @if (shortsJobs.length === 0) {
-              <p class="mt-2 text-[13.5px] text-[#6B6560]">No shorts linked to this project yet.</p>
+              <p class="ui-card-sub">No shorts linked to this project yet.</p>
             } @else {
-              <ul class="mt-3 space-y-2">
+              <ul class="jobs">
                 @for (job of shortsJobs; track job.jobId) {
-                  <li class="flex items-center justify-between gap-3 rounded-[12px] border border-black/10 px-4 py-2.5 text-[13.5px]">
-                    <span class="font-medium">{{ job.jobId.slice(0, 8) }}… · {{ job.status }}</span>
-                    <span class="flex gap-2">
-                      <a [routerLink]="['/shorts', job.jobId, 'progress']" class="underline underline-offset-4">Progress</a>
+                  <li>
+                    <span class="job">Short {{ job.jobId.slice(0, 8) }} <span class="ui-card-sub">{{ job.status }}</span></span>
+                    <span class="ui-row">
+                      <a [routerLink]="['/shorts', job.jobId, 'progress']" class="ui-btn ui-btn--quiet" [attr.aria-label]="'Progress of short ' + job.jobId.slice(0, 8)">Progress</a>
                       @if (job.status === 'completed') {
-                        <a [routerLink]="['/shorts', job.jobId, 'clips']" class="underline underline-offset-4">Clips</a>
+                        <a [routerLink]="['/shorts', job.jobId, 'clips']" class="ui-btn ui-btn--secondary" [attr.aria-label]="'Clips of short ' + job.jobId.slice(0, 8)">Clips</a>
                       }
                     </span>
                   </li>
@@ -99,67 +101,99 @@ import { ShortsJob, ShortsService } from '../shorts/shorts.service';
             }
           </section>
 
-          <!-- Branding -->
-          <section class="mt-5 rounded-[20px] border border-black/10 bg-white p-6">
-            <h2 class="font-semibold text-[16.5px]">Branding</h2>
-            <p class="mt-1 text-[13px] text-[#6B6560]">Logo overlays top-right on quiz videos and shorts.</p>
-            <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-4">
-              <div class="w-20 h-20 rounded-[12px] border border-black/10 bg-[#1A1714]/[.03] flex items-center justify-center overflow-hidden shrink-0">
+          <section class="ui-card" aria-labelledby="brand-title">
+            <h2 id="brand-title" class="ui-card-title">Branding</h2>
+            <p class="ui-card-sub">Your logo sits top right on quiz videos and shorts.</p>
+            <div class="brand">
+              <div class="logo">
                 @if (logoPreviewUrl) {
-                  <img [src]="logoPreviewUrl" alt="Brand logo" class="max-w-full max-h-full object-contain" />
+                  <img [src]="logoPreviewUrl" alt="Brand logo" />
                 } @else {
-                  <span class="text-[11px] text-[#6B6560] px-2 text-center">No logo</span>
+                  <span class="ui-hint">No logo</span>
                 }
               </div>
-              <div class="flex-1 space-y-2">
-                <div class="flex flex-wrap items-center gap-2">
-                  <input [(ngModel)]="channelName" placeholder="@yourchannel" maxlength="60"
-                    class="h-10 px-3 rounded-[10px] bg-[#1A1714]/[.03] border border-black/15 text-[13.5px] focus:outline-none focus:border-[#BC5227] w-52" />
-                  <button (click)="saveChannel()" [disabled]="savingChannel"
-                    class="px-4 h-10 rounded-full bg-[#1A1714] text-white hover:bg-[#2A2620] transition-colors text-[13px] font-medium disabled:opacity-60">
-                    {{ savingChannel ? 'Saving…' : 'Save handle' }}
-                  </button>
+              <div class="brand-fields">
+                <div class="ui-f">
+                  <label for="channel-handle" class="ui-flabel">Channel handle</label>
+                  <div class="ui-row">
+                    <input id="channel-handle" [(ngModel)]="channelName" placeholder="@yourchannel" maxlength="60" class="ui-field handle" />
+                    <button type="button" (click)="saveChannel()" [disabled]="savingChannel" [attr.aria-busy]="savingChannel" class="ui-btn ui-btn--secondary">
+                      {{ savingChannel ? 'Saving…' : 'Save handle' }}
+                    </button>
+                  </div>
                 </div>
-                <label class="inline-flex items-center gap-2 text-[13px] font-medium text-[#BC5227] underline underline-offset-4 cursor-pointer">
-                  <input type="file" accept=".png,.jpg,.jpeg,.webp" class="hidden" (change)="onLogoSelected($event)" />
-                  {{ uploadingLogo ? 'Uploading…' : (project.branding?.logoKey ? 'Replace logo' : 'Upload logo (PNG)') }}
+                <label class="ui-btn ui-btn--secondary file-btn">
+                  <input type="file" accept=".png,.jpg,.jpeg,.webp" class="sr" (change)="onLogoSelected($event)" />
+                  <svg lucideIcon="upload" [size]="18" aria-hidden="true"></svg>
+                  {{ uploadingLogo ? 'Uploading…' : (project.branding?.logoKey ? 'Replace logo' : 'Upload logo') }}
                 </label>
                 @if (brandingError) {
-                  <p class="text-[13px] text-[#B3372F]">{{ brandingError }}</p>
+                  <p class="ui-alert ui-alert--bad" role="alert">{{ brandingError }}</p>
                 }
                 @if (brandingNotice) {
-                  <p class="text-[13px] text-[#1E3A2A]">{{ brandingNotice }}</p>
+                  <p class="ok" role="status">{{ brandingNotice }}</p>
                 }
               </div>
             </div>
           </section>
 
-          <!-- Watermark -->
-          <section class="mt-5 rounded-[20px] border border-black/10 bg-white p-6">
-            <h2 class="font-semibold text-[16.5px]">Watermark</h2>
+          <section class="ui-card" aria-labelledby="wm-title">
+            <h2 id="wm-title" class="ui-card-title">Watermark</h2>
             @if (project.watermark?.text) {
-              <dl class="mt-3 grid grid-cols-2 gap-2 text-[13.5px]">
-                <div><dt class="text-[#6B6560]">Text</dt><dd class="font-medium">“{{ project.watermark!.text }}”</dd></div>
+              <dl>
+                <div><dt>Text</dt><dd>“{{ project.watermark!.text }}”</dd></div>
                 @if (project.watermark!.color) {
-                  <div><dt class="text-[#6B6560]">Color</dt><dd class="font-medium">{{ project.watermark!.color }}</dd></div>
+                  <div><dt>Colour</dt><dd>{{ project.watermark!.color }}</dd></div>
                 }
                 @if (project.watermark!.opacity != null) {
-                  <div><dt class="text-[#6B6560]">Opacity</dt><dd class="font-medium">{{ project.watermark!.opacity }}</dd></div>
+                  <div><dt>Opacity</dt><dd>{{ project.watermark!.opacity }}</dd></div>
                 }
               </dl>
             } @else {
-              <p class="mt-2 text-[13.5px] text-[#6B6560]">No watermark saved for this project.</p>
+              <p class="ui-card-sub">No watermark saved for this project.</p>
             }
-            <a routerLink="/tools/add-watermark" class="mt-4 inline-block px-4 py-2 rounded-full border border-black/15 hover:bg-black/5 transition-colors text-[13.5px] font-medium">Open watermark tool</a>
+            <div class="actions">
+              <a routerLink="/tools/add-watermark" class="ui-btn ui-btn--secondary">Open watermark tool</a>
+            </div>
           </section>
         }
       </main>
     </div>
   `,
   styles: [`
-    .next { margin-top: var(--space-md); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-control); background: color-mix(in oklab, var(--color-accent) 7%, var(--color-paper)); border: 1px solid color-mix(in oklab, var(--color-accent) 35%, transparent); color: var(--color-ink); font-family: var(--font-body); }
+    :host { display: block; }
+    .narrow { width: min(52rem, 100%); }
+    .back { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--type-sm); align-self: flex-start; }
+    .stack { display: flex; flex-direction: column; gap: var(--space-md); }
+    .name { overflow-wrap: anywhere; }
+    .t-ok { color: var(--color-positive); } .t-bad { color: var(--color-negative); } .t-wait { color: var(--color-caution); } .t-new { color: var(--color-ink-2); }
+    .warn { margin: 0; }
+    .warn h2 { margin: 0; font-size: var(--type-md); font-weight: 600; }
+    .warn ul { margin: var(--space-xs) 0; padding-left: var(--space-lg); list-style: disc; }
+    .warn li + li { margin-top: var(--space-3xs); }
+    .warn a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+    dl { margin: var(--space-md) 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-sm); }
+    dt { font-size: var(--type-xs); color: var(--color-muted); }
+    dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+    .cap { text-transform: capitalize; }
+    .actions { margin-top: var(--space-md); }
+    .next { margin-top: var(--space-md); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-control); background: color-mix(in oklab, var(--color-accent) 8%, var(--app-card)); border: 1px solid color-mix(in oklab, var(--color-accent) 40%, transparent); }
     .next p { margin: 0; font-size: var(--type-sm); }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
+    .jobs { margin: var(--space-sm) 0 0; padding: 0; list-style: none; }
+    .jobs li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); padding: var(--space-2xs) 0; }
+    .jobs li + li { border-top: 1px solid var(--color-rule); }
+    .job { font-weight: 500; }
+    .brand { margin-top: var(--space-md); display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: flex-start; }
+    .logo { width: 5rem; height: 5rem; flex: none; border: 1px solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper-2); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .brand-fields { flex: 1 1 16rem; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
+    .brand-fields .ui-f { align-self: stretch; }
+    .handle { flex: 1 1 12rem; width: auto; min-width: 0; }
+    .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .file-btn { position: relative; }
+    .file-btn:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    .ok { margin: 0; font-size: var(--type-sm); color: var(--color-positive); font-weight: 500; }
+    .brand-fields .ui-alert { margin: 0; }
   `],
 })
 export class ProjectDetailComponent implements OnInit, OnDestroy {
@@ -168,6 +202,8 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   private readonly projects = inject(ProjectService);
   private readonly shorts = inject(ShortsService);
   private readonly destroy$ = new Subject<void>();
+  readonly statusLabel = projectStatusLabel;
+  readonly tone = projectStatusTone;
 
   project: Project | null = null;
   shortsJobs: ShortsJob[] = [];

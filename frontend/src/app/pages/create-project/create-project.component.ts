@@ -2,10 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { MatStepperModule } from '@angular/material/stepper';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ApiService } from '../../core';
-import { Project, CreateProjectRequest, CreateProjectResponse, TEMPLATE_OPTIONS, DESIGN_ACCENTS, AccentOption, Template, Voice } from '../../shared';
+import { CreateProjectRequest, CreateProjectResponse, TEMPLATE_OPTIONS, DESIGN_ACCENTS, AccentOption, Template, Voice } from '../../shared';
 import {
   DEFAULT_SHORTS_LANGUAGES,
   DEFAULT_SHORTS_LIMITS,
@@ -16,329 +15,272 @@ import {
 
 import { probeMediaDuration } from '../../shared/media-probe';
 import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH } from '../progress/failure-message';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { StepIndicatorComponent } from '../../shared/components/step-indicator/step-indicator.component';
+
+/** The two steps of making a quiz video, shared with the upload page. */
+export const QUIZ_STEPS = ['Details', 'Questions'] as const;
+
 @Component({
   selector: 'app-create-project',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    RouterLink,
-    MatStepperModule,
-    LucideDynamicIcon,
-  ],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, LucideDynamicIcon, NavbarComponent, StepIndicatorComponent],
   styles: [`
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(1px) scale(.98); }
-    .pick { transition: border-color .2s, background-color .2s, transform .2s; }
-    .pick:hover { transform: translateY(-1px); }
-    @media (prefers-reduced-motion: reduce) {
-      .btn-primary, .pick { transition: none; }
-    }
-    .need { margin-top: var(--space-md); padding: var(--space-md) var(--space-lg); border-radius: var(--radius-control); border: 1px solid color-mix(in oklab, var(--color-accent) 35%, transparent); background: color-mix(in oklab, var(--color-accent) 7%, var(--color-paper)); color: var(--color-ink); font-family: var(--font-body); }
+    :host { display: block; }
+    .narrow { width: min(48rem, 100%); }
+    .back { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--type-sm); }
+    .need { padding: var(--space-md) var(--space-lg); border-radius: var(--radius-surface); border: 1px solid color-mix(in oklab, var(--color-accent) 40%, transparent); background: color-mix(in oklab, var(--color-accent) 8%, var(--app-card)); }
     .need h2 { margin: 0; font-size: var(--type-md); font-weight: 600; }
     .need p { margin: var(--space-2xs) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); line-height: 1.5; }
     .need-links { display: flex; flex-wrap: wrap; gap: 0 var(--space-lg); }
-    .need-links a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
-    .need-alt a { font-weight: 600; }
-    .need-alt { padding-top: var(--space-2xs); border-top: 1px solid var(--color-rule); }
+    .need-links a, .need-alt a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+    .need-alt { border-top: 1px solid var(--color-rule); padding-top: var(--space-2xs); }
+    form { display: flex; flex-direction: column; gap: var(--space-xl); }
+    fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+    legend, .lbl { padding: 0; font-size: var(--type-sm); font-weight: 600; color: var(--color-ink); }
+    .help { margin: var(--space-3xs) 0 var(--space-sm); font-size: var(--type-xs); color: var(--color-muted); }
+    .count { display: flex; justify-content: space-between; gap: var(--space-sm); margin-top: var(--space-2xs); font-size: var(--type-xs); color: var(--color-muted); }
+    .bad { color: var(--color-negative); font-weight: 500; }
+    .grid { display: grid; gap: var(--space-sm); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (min-width: 40rem) { .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .opt { position: relative; display: block; cursor: pointer; min-width: 0; }
+    .tile { display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 44px; border: 1px solid var(--color-muted); border-radius: var(--radius-control); background: var(--app-card); color: var(--color-ink); overflow: hidden; transition: border-color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out); }
+    .opt:hover .tile { border-color: var(--color-ink-2); }
+    .opt input:checked + .tile { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); background: color-mix(in oklab, var(--color-accent) 8%, var(--app-card)); }
+    .opt:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
+    .tpl .tile { justify-content: flex-start; }
+    .tpl img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--color-rule); }
+    .tname { padding: var(--space-xs) var(--space-sm); font-size: var(--type-sm); font-weight: 600; }
+    .tname { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2xs); }
+    .chosen { display: inline-flex; align-items: center; gap: var(--space-3xs); padding: 2px var(--space-xs); border-radius: var(--radius-pill); background: var(--color-accent); color: var(--color-accent-ink); font-size: var(--type-xs); font-weight: 600; }
+    .small .tile { flex-direction: row; align-items: center; gap: var(--space-xs); padding: var(--space-2xs) var(--space-sm); font-size: var(--type-sm); font-weight: 500; }
+    .small .tile.center { justify-content: center; text-align: center; flex-direction: column; gap: 0; }
+    .small .sub { font-size: var(--type-xs); color: var(--color-muted); font-weight: 400; }
+    .dot { width: 1rem; height: 1rem; flex: none; border-radius: 50%; border: 1px solid var(--color-rule); }
+    .ic { flex: none; color: var(--color-accent-text); }
+    .more > summary { min-height: 64px; }
+    .more-sum { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .more-sum .state { font-size: var(--type-xs); font-weight: 400; color: var(--color-ink-2); }
+    .more-body { display: flex; flex-direction: column; gap: var(--space-lg); color: var(--color-ink); }
+    .group { display: flex; flex-direction: column; gap: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--color-rule); }
+    .group h3 { margin: 0; font-size: var(--type-md); font-weight: 600; }
+    .group h3 + p { margin: calc(-1 * var(--space-sm)) 0 0; font-size: var(--type-xs); color: var(--color-muted); }
+    .check { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; cursor: pointer; font-size: var(--type-sm); font-weight: 500; }
+    .check input { width: 1.25rem; height: 1.25rem; accent-color: var(--color-accent); flex: none; }
+    .drop { display: flex; flex-direction: column; align-items: center; gap: var(--space-3xs); padding: var(--space-lg) var(--space-md); border: 1px dashed var(--color-muted); border-radius: var(--radius-control); text-align: center; cursor: pointer; }
+    .drop:hover { border-color: var(--color-ink-2); }
+    .drop:focus-within { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    .file { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); font-size: var(--type-sm); }
+    .file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+    .actions { display: flex; justify-content: flex-end; }
+    @media (max-width: 39.99rem) { .actions .ui-btn { width: 100%; } }
+    @media (prefers-reduced-motion: reduce) { .tile { transition: none; } }
   `],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <!-- App header -->
-      <header class="border-b border-black/[0.07] bg-[#FAF7F2]/90 backdrop-blur sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
-          <a routerLink="/" class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></a>
-          <div class="flex items-center gap-2 sm:gap-3">
-            <a routerLink="/" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Home</a>
-            <a routerLink="/dashboard" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Dashboard</a>
-            <a routerLink="/projects" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Projects</a>
-          </div>
+    <div class="ui-app">
+      <app-navbar />
+      <main id="main" class="ui-app-main narrow hm">
+        <div>
+          <a routerLink="/projects" class="ui-link back">All projects</a>
+          <h1 class="ui-h1">New quiz video</h1>
+          <p class="ui-lead">Name it, pick a design and a voice. Then you add your questions.</p>
         </div>
-      </header>
+        <app-step-indicator [steps]="steps" [current]="0" label="Quiz video steps" />
 
-      <main class="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14">
-        <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Studio · Configure</p>
-        <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">New project.</h1>
-        <p class="mt-3 text-[15px] text-[#6B6560]">Name it, pick a design and a voice. Optionally attach a watermark and a shorts source in the same project.</p>
+        <!-- Say what the next step needs before the form, so nobody gets to the upload without a file. -->
+        <section class="need" aria-labelledby="need-title" data-testid="file-needed">
+          <h2 id="need-title">You'll need a TXT file of questions</h2>
+          <p>Next you upload a plain text file. Number each question, list lettered options (A, B, C, D) and add an Answer line.</p>
+          <p class="need-links">
+            <a [href]="sampleFilePath" download="quiz-sample.txt" class="ui-link">Download a sample file</a>
+            <a [routerLink]="formatGuidePath" class="ui-link">Read the format guide</a>
+          </p>
+          <p class="need-alt">Have a story or a script instead of questions? <a routerLink="/story" class="ui-link">Use Story video</a></p>
+        </section>
 
-        <div class="mt-8 rounded-[20px] bg-white border border-black/[0.07] p-5 md:p-8">
-          <mat-stepper linear #stepper class="bg-transparent">
-            <mat-step [stepControl]="projectForm" label="Configure">
-              <!-- Say what the next step needs before the form, so nobody gets to the upload without a file. -->
-              <section class="need hm hm-on-light" aria-labelledby="need-title" data-testid="file-needed">
-                <h2 id="need-title">You'll need a TXT file of questions</h2>
-                <p>
-                  Next you upload a plain text file. Number each question, list lettered options (A, B, C, D) and add an Answer line.
-                </p>
-                <p class="need-links">
-                  <a [href]="sampleFilePath" download="quiz-sample.txt" class="ui-link">Download a sample file</a>
-                  <a [routerLink]="formatGuidePath" class="ui-link">Read the format guide</a>
-                </p>
-                <p class="need-alt">
-                  Have a story or a script instead of questions? <a routerLink="/story" class="ui-link">Use Story video</a>
-                </p>
-              </section>
-              <form [formGroup]="projectForm" class="mt-6 space-y-7">
-                <!-- Project Name -->
-                <div>
-                  <label class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-2">Project name</label>
-                  <input
-                    type="text"
-                    formControlName="name"
-                    placeholder="My Quiz Video"
-                    maxlength="100"
-                    class="w-full px-4 h-12 rounded-[12px] bg-[#1A1714]/[.03] border border-black/15 focus:outline-none focus:border-[#BC5227] focus:ring-2 focus:ring-[#BC5227]/20 transition-all text-[#1A1714] placeholder-[#6B6560]/70"
-                  />
-                  <div class="flex justify-between mt-1.5">
-                    @if (projectForm.get('name')?.hasError('required') && projectForm.get('name')?.touched) {
-                      <span class="text-[#B3372F] text-xs">Project name is required</span>
-                    } @else {
-                      <span></span>
-                    }
-                    <span class="text-xs text-[#6B6560]">{{ projectForm.get('name')?.value?.length || 0 }}/100</span>
-                  </div>
-                </div>
+        <form [formGroup]="projectForm" class="ui-card" (ngSubmit)="createProject()" novalidate>
+          <div>
+            <label for="project-name" class="lbl">Project name</label>
+            <input
+              id="project-name"
+              type="text"
+              formControlName="name"
+              placeholder="My quiz video"
+              maxlength="100"
+              class="ui-field"
+              style="margin-top: var(--space-2xs)"
+              aria-describedby="name-count"
+              [attr.aria-invalid]="nameMissing ? 'true' : null"
+            />
+            <div class="count">
+              @if (nameMissing) {
+                <span class="bad" role="alert">Project name is required</span>
+              } @else {
+                <span></span>
+              }
+              <span id="name-count">{{ projectForm.get('name')?.value?.length || 0 }}/100</span>
+            </div>
+          </div>
 
-                <!-- Design Selector -->
-                <fieldset aria-describedby="design-help">
-                  <legend class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1">Design</legend>
-                  <p id="design-help" class="mb-3 text-[12.5px] text-[#6B6560]">Each image is a real question slide drawn by the renderer. Every design combines colours, a type scale and a layout in its own way.</p>
-                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    @for (tpl of templates; track tpl.value) {
-                      <label class="pick relative block cursor-pointer min-h-[44px]">
-                        <input
-                          type="radio"
-                          name="template"
-                          formControlName="template"
-                          [value]="tpl.value"
-                          [attr.value]="tpl.value"
-                          class="peer sr-only"
-                        />
-                        <span class="block overflow-hidden rounded-[12px] border-2 !border-black/10 bg-white peer-checked:!border-[#BC5227] peer-checked:bg-[#BC5227]/[.06] peer-focus-visible:ring-2 peer-focus-visible:ring-[#BC5227]/50 peer-focus-visible:ring-offset-2">
-                          <img
-                            [src]="'/templates/' + tpl.value + '.webp'"
-                            [alt]="tpl.label + ' design preview: ' + tpl.look"
-                            width="480"
-                            height="270"
-                            loading="lazy"
-                            class="block w-full h-auto border-b !border-black/10"
-                          />
-                          <span class="block px-3 pt-2 text-sm font-medium">{{ tpl.label }}</span>
-                          <span class="block px-3 pb-2 text-[11.5px] leading-snug text-[#6B6560]">{{ tpl.look }}</span>
-                          @if (projectForm.get('template')?.value === tpl.value) {
-                            <span class="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-[#BC5227] px-2 py-1 text-[10px] font-semibold text-white">
-                              <svg lucideIcon="check" [size]="11" aria-hidden="true"></svg>
-                              Selected
-                            </span>
-                          }
-                        </span>
+          <fieldset aria-describedby="design-help">
+            <legend>Design</legend>
+            <p id="design-help" class="help">Each image is a real slide from the renderer.</p>
+            <div class="grid three">
+              @for (tpl of templates; track tpl.value) {
+                <label class="opt tpl">
+                  <input type="radio" name="template" formControlName="template" [value]="tpl.value" [attr.value]="tpl.value" class="sr" />
+                  <span class="tile">
+                    <img [src]="'/templates/' + tpl.value + '.webp'" [alt]="tpl.label + ' design preview: ' + tpl.look" width="480" height="270" loading="lazy" />
+                    <span class="tname">{{ tpl.label }}@if (projectForm.get('template')?.value === tpl.value) {<span class="chosen" aria-hidden="true"><svg lucideIcon="check" [size]="12"></svg>Selected</span>}</span>
+                  </span>
+                </label>
+              }
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Narration voice</legend>
+            <div class="grid three small" style="margin-top: var(--space-sm)">
+              @for (v of voices; track v) {
+                <label class="opt">
+                  <input type="radio" name="voice" formControlName="voice" [value]="v" [attr.value]="v" class="sr" />
+                  <span class="tile"><svg lucideIcon="mic" [size]="16" class="ic" aria-hidden="true"></svg>{{ v }}</span>
+                </label>
+              }
+            </div>
+          </fieldset>
+
+          <!-- Optional settings stay in the DOM while closed, so nothing chosen here is lost. -->
+          <details class="ui-disclosure more" [open]="moreOpen" (toggle)="onMoreToggle($event)" data-testid="more-options">
+            <summary>
+              <span class="more-sum">
+                <span>More options</span>
+                <span class="state" data-testid="more-state">{{ moreState }}</span>
+              </span>
+            </summary>
+            <div class="more-body">
+              <p class="help" style="margin: 0">All optional. The defaults work for most quizzes.</p>
+
+              <div class="group" formGroupName="designOptions">
+                <h3>Design options</h3>
+                <p>Applied to every question, answer, countdown and outro slide.</p>
+                <fieldset>
+                  <legend>Text size</legend>
+                  <div class="grid three small" style="margin-top: var(--space-xs)">
+                    @for (size of textSizes; track size.value) {
+                      <label class="opt">
+                        <input type="radio" name="textSize" formControlName="textSize" [value]="size.value" [attr.value]="size.value" class="sr" />
+                        <span class="tile center"><span>{{ size.label }}</span><span class="sub">{{ size.hint }}</span></span>
                       </label>
                     }
                   </div>
                 </fieldset>
+                <fieldset>
+                  <legend>Accent colour</legend>
+                  <div class="grid small" style="margin-top: var(--space-xs)">
+                    @for (accent of accentOptions; track accent.value) {
+                      <label class="opt">
+                        <input type="radio" name="accent" formControlName="accent" [value]="accent.value" [attr.value]="accent.value" class="sr" />
+                        <span class="tile"><span class="dot" [style.background-color]="accent.value" aria-hidden="true"></span>{{ accent.label }}</span>
+                      </label>
+                    }
+                  </div>
+                </fieldset>
+                <fieldset>
+                  <legend>Answer labels</legend>
+                  <div class="grid small" style="margin-top: var(--space-xs)">
+                    @for (style of labelStyles; track style.value) {
+                      <label class="opt">
+                        <input type="radio" name="answerLabels" formControlName="answerLabels" [value]="style.value" [attr.value]="style.value" class="sr" />
+                        <span class="tile center">{{ style.label }}</span>
+                      </label>
+                    }
+                  </div>
+                </fieldset>
+                <label class="check"><input type="checkbox" formControlName="showQuestionNumber" />Show question number</label>
+              </div>
 
-                <!-- Design options -->
-                <fieldset aria-describedby="design-options-help">
-                  <legend class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-1">Design options</legend>
-                  <p id="design-options-help" class="mb-3 text-[12.5px] text-[#6B6560]">Applied to every question, answer, countdown and outro slide in this project.</p>
-                  <div formGroupName="designOptions" class="space-y-5 rounded-[12px] border border-black/10 bg-[#1A1714]/[.02] p-4">
-                    <div>
-                      <span class="block text-[12px] font-semibold text-[#3E3A33] mb-2">Text size</span>
-                      <div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Text size">
-                        @for (size of textSizes; track size.value) {
-                          <label class="relative block cursor-pointer min-h-[44px]">
-                            <input type="radio" name="textSize" formControlName="textSize" [value]="size.value" [attr.value]="size.value" class="peer sr-only" />
-                            <span class="flex min-h-[44px] flex-col items-center justify-center rounded-[10px] border-2 border-black/10 bg-white px-2 text-center peer-checked:border-[#BC5227] peer-checked:bg-[#BC5227]/[.06] peer-focus-visible:ring-2 peer-focus-visible:ring-[#BC5227]/50 peer-focus-visible:ring-offset-2">
-                              <span class="text-sm font-semibold">{{ size.label }}</span>
-                              <span class="text-[10.5px] text-[#6B6560]">{{ size.hint }}</span>
-                            </span>
-                          </label>
-                        }
-                      </div>
-                    </div>
+              <div class="group">
+                <h3>Watermark</h3>
+                <p>Text shown on every slide of the video.</p>
+                <div class="ui-f">
+                  <label for="wm-text" class="ui-flabel">Watermark text</label>
+                  <input id="wm-text" type="text" formControlName="watermarkText" placeholder="Your name" maxlength="100" class="ui-field" />
+                </div>
+                <div class="ui-f">
+                  <label for="wm-opacity" class="ui-flabel">Opacity <span class="ui-val">{{ opacityPercent }}%</span></label>
+                  <input id="wm-opacity" type="range" min="0.1" max="1" step="0.05" formControlName="watermarkOpacity" class="ui-range" />
+                </div>
+              </div>
 
-                    <div>
-                      <span class="block text-[12px] font-semibold text-[#3E3A33] mb-2">Accent</span>
-                      <div class="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Accent colour">
-                        @for (accent of accentOptions; track accent.value) {
-                          <label class="relative block cursor-pointer min-h-[44px]">
-                            <input type="radio" name="accent" formControlName="accent" [value]="accent.value" [attr.value]="accent.value" class="peer sr-only" />
-                            <span class="flex min-h-[44px] items-center gap-2 rounded-[10px] border-2 border-black/10 bg-white px-3 text-sm peer-checked:border-[#BC5227] peer-checked:bg-[#BC5227]/[.06] peer-focus-visible:ring-2 peer-focus-visible:ring-[#BC5227]/50 peer-focus-visible:ring-offset-2">
-                              <span class="h-4 w-4 shrink-0 rounded-full border border-black/15" [style.background-color]="accent.value" aria-hidden="true"></span>
-                              <span class="font-medium">{{ accent.label }}</span>
-                              @if (projectForm.get('designOptions.accent')?.value === accent.value) {
-                                <svg lucideIcon="check" [size]="13" class="ml-auto shrink-0 text-[#BC5227]" aria-hidden="true"></svg>
-                              }
-                            </span>
-                          </label>
-                        }
-                      </div>
-                    </div>
+              <div class="group">
+                <h3>Channel branding</h3>
+                <p>Your handle, burned into renders with your logo. Add the logo from the project page.</p>
+                <div class="ui-f">
+                  <label for="channel" class="ui-flabel">Channel handle</label>
+                  <input id="channel" type="text" formControlName="channelName" placeholder="@yourchannel" maxlength="60" class="ui-field" />
+                </div>
+              </div>
 
-                    <div>
-                      <span class="block text-[12px] font-semibold text-[#3E3A33] mb-2">Answer labels</span>
-                      <div class="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Answer labels">
-                        @for (style of labelStyles; track style.value) {
-                          <label class="relative block cursor-pointer min-h-[44px]">
-                            <input type="radio" name="answerLabels" formControlName="answerLabels" [value]="style.value" [attr.value]="style.value" class="peer sr-only" />
-                            <span class="flex min-h-[44px] items-center justify-center rounded-[10px] border-2 border-black/10 bg-white px-3 text-sm font-medium peer-checked:border-[#BC5227] peer-checked:bg-[#BC5227]/[.06] peer-focus-visible:ring-2 peer-focus-visible:ring-[#BC5227]/50 peer-focus-visible:ring-offset-2">{{ style.label }}</span>
-                          </label>
-                        }
-                      </div>
-                    </div>
-
-                    <label class="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-[10px] border border-black/10 bg-white px-3">
-                      <input type="checkbox" formControlName="showQuestionNumber" class="h-5 w-5 rounded border-black/30 accent-[#BC5227]" />
-                      <span class="text-sm font-medium">Show question number</span>
+              <div class="group">
+                <h3>AI Shorts</h3>
+                <p>Cut vertical clips from a video or audio file in the same project.</p>
+                <label class="check"><input type="checkbox" formControlName="includeShorts" data-testid="include-shorts" />Also create AI Shorts</label>
+                @if (projectForm.get('includeShorts')?.value) {
+                  @if (!shortsFile) {
+                    <label class="drop">
+                      <input type="file" accept=".mp4,.mov,.mp3,.wav" class="sr" (change)="onShortsFileSelected($event)" />
+                      <span style="font-weight: 600">Choose video or audio</span>
+                      <span class="ui-hint">MP4, MOV, MP3 or WAV, up to {{ shortsLimits.maxDurationMinutes }} minutes</span>
                     </label>
-                  </div>
-                </fieldset>
-
-                <!-- Voice Selector -->
-                <div>
-                  <label class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-3">Narration voice</label>
-                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    @for (v of voices; track v) {
-                      <div
-                        class="pick rounded-[12px] p-3 cursor-pointer border-2 text-center text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BC5227]/50 focus-visible:ring-offset-2"
-                        [class.border-[#BC5227]]="projectForm.get('voice')?.value === v"
-                        [class.bg-[#BC5227]/[.06]]="projectForm.get('voice')?.value === v"
-                        [class.border-black/10]="projectForm.get('voice')?.value !== v"
-                        (click)="selectVoice(v)"
-                        (keydown.enter)="selectVoice(v)"
-                        tabindex="0"
-                        role="radio"
-                        [attr.aria-checked]="projectForm.get('voice')?.value === v"
-                      >
-                        <svg lucideIcon="mic" [size]="16" class="mx-auto mb-1" [class.text-[#BC5227]]="projectForm.get('voice')?.value === v"></svg>
-                        {{ v }}
-                      </div>
-                    }
-                  </div>
-                </div>
-
-                <!-- Watermark (optional) -->
-                <div>
-                  <label class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-2">Watermark <span class="normal-case font-normal">(optional)</span></label>
-                  <input
-                    type="text"
-                    formControlName="watermarkText"
-                    placeholder="© Your name"
-                    maxlength="100"
-                    class="w-full px-4 h-12 rounded-[12px] bg-[#1A1714]/[.03] border border-black/15 focus:outline-none focus:border-[#BC5227] focus:ring-2 focus:ring-[#BC5227]/20 transition-all text-[#1A1714] placeholder-[#6B6560]/70"
-                  />
-                  <div class="mt-3 flex items-center gap-3">
-                    <span class="text-[12.5px] text-[#6B6560]">Opacity</span>
-                    <input type="range" min="0.1" max="1" step="0.05" formControlName="watermarkOpacity" class="flex-1 accent-[#BC5227]" />
-                  </div>
-                </div>
-
-                <!-- Branding (optional) -->
-                <div>
-                  <label class="block text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560] mb-2">Channel branding <span class="normal-case font-normal">(optional)</span></label>
-                  <input
-                    type="text"
-                    formControlName="channelName"
-                    placeholder="@yourchannel"
-                    maxlength="60"
-                    class="w-full px-4 h-12 rounded-[12px] bg-[#1A1714]/[.03] border border-black/15 focus:outline-none focus:border-[#BC5227] focus:ring-2 focus:ring-[#BC5227]/20 transition-all text-[#1A1714] placeholder-[#6B6560]/70"
-                  />
-                  <p class="mt-1.5 text-[12px] text-[#6B6560]">Burned into renders with your uploaded logo. Add the logo from the project page.</p>
-                </div>
-
-                <!-- Shorts (optional) -->
-                <div>
-                  <label class="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input type="checkbox" formControlName="includeShorts" class="w-4 h-4 accent-[#BC5227]" />
-                    <span class="text-[11.5px] font-semibold uppercase tracking-[0.14em] text-[#6B6560]">Also create AI Shorts <span class="normal-case font-normal">(optional)</span></span>
-                  </label>
-                  @if (projectForm.get('includeShorts')?.value) {
-                    <div class="mt-3 rounded-[12px] border border-black/10 p-4">
-                      @if (!shortsFile) {
-                        <label class="block cursor-pointer rounded-[12px] border-2 border-dashed border-black/15 px-4 py-6 text-center hover:border-black/30 transition-colors">
-                          <input type="file" accept=".mp4,.mov,.mp3,.wav" class="hidden" (change)="onShortsFileSelected($event)" />
-                          <span class="text-[14px] font-medium">Choose video or audio</span>
-                          <span class="block mt-1 text-[12px] text-[#6B6560]">MP4, MOV, MP3, WAV: max {{ shortsLimits.maxDurationMinutes }} min</span>
-                        </label>
-                      } @else {
-                        <div class="flex items-center justify-between gap-3 text-[14px]">
-                          <span class="truncate font-medium">{{ shortsFile.name }}</span>
-                          <button type="button" (click)="removeShortsFile()" class="text-[13px] text-[#B3372F] underline underline-offset-4 shrink-0">Remove</button>
-                        </div>
-                      }
-                      @if (shortsProbing) {
-                        <p class="mt-2 text-[12.5px] text-[#6B6560]">Reading duration…</p>
-                      }
-                      @if (shortsError) {
-                        <p class="mt-2 text-[13px] text-[#B3372F]">{{ shortsError }}</p>
-                      }
-                      <label class="mt-4 block">
-                        <span class="block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#6B6560]">Transcript language</span>
-                        <select
-                          class="mt-1.5 w-full rounded-[10px] border border-black/15 bg-transparent px-3 py-2 text-[14px] min-h-[44px]"
-                          [value]="shortsLanguage"
-                          (change)="onShortsLanguageChange($event)"
-                          aria-label="Transcript language"
-                        >
-                          @for (lang of shortsLanguages; track lang.code) {
-                            <option [value]="lang.code">{{ lang.label }}</option>
-                          }
-                        </select>
-                      </label>
+                  } @else {
+                    <div class="file">
+                      <span>{{ shortsFile.name }}</span>
+                      <button type="button" class="ui-btn ui-btn--quiet" (click)="removeShortsFile()">Remove</button>
                     </div>
                   }
-                </div>
-
-                <!-- Submit Button -->
-                <div class="flex justify-end pt-2">
-                  <button
-                    class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white pl-7 pr-2.5 py-2.5 font-semibold text-[14.5px] disabled:opacity-40"
-                    [disabled]="projectForm.invalid || isSubmitting"
-                    [class.pointer-events-none]="projectForm.invalid || isSubmitting"
-                    (click)="createProject()"
-                  >
-                    @if (isSubmitting) {
-                      <svg lucideIcon="loader-2" [size]="18" class="animate-spin"></svg>
-                    }
-                    Create and add questions
-                    <span class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">
-                      <svg lucideIcon="arrow-right" [size]="16"></svg>
-                    </span>
-                  </button>
-                </div>
-
-                @if (errorMessage) {
-                  <p class="text-[#B3372F] text-sm mt-2">{{ errorMessage }}</p>
+                  @if (shortsProbing) {
+                    <p class="ui-hint" role="status" style="margin: 0">Reading duration…</p>
+                  }
+                  @if (shortsError) {
+                    <p class="ui-alert ui-alert--bad" role="alert" style="margin: 0">{{ shortsError }}</p>
+                  }
+                  <div class="ui-f">
+                    <label for="shorts-lang" class="ui-flabel">Transcript language</label>
+                    <select id="shorts-lang" class="ui-field" [value]="shortsLanguage" (change)="onShortsLanguageChange($event)">
+                      @for (lang of shortsLanguages; track lang.code) {
+                        <option [value]="lang.code">{{ lang.label }}</option>
+                      }
+                    </select>
+                  </div>
                 }
-              </form>
-            </mat-step>
+              </div>
+            </div>
+          </details>
 
-            <mat-step label="Upload">
-              <p class="mt-4 text-[#6B6560]">
-                After you create the project, you upload your TXT file of questions here and we check it before anything renders.
-              </p>
-            </mat-step>
-          </mat-stepper>
-        </div>
-
-        <footer class="mt-10 pt-6 border-t border-black/[0.07] flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-[#6B6560]">
-          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex gap-5">
-            <a routerLink="/" class="hover:text-[#1A1714]">Home</a>
-            <a routerLink="/projects" class="hover:text-[#1A1714]">Projects</a>
-            <a routerLink="/contact" class="hover:text-[#1A1714]">Contact</a>
-          </span>
-        </footer>
+          @if (errorMessage) {
+            <p class="ui-alert ui-alert--bad" role="alert" style="margin: 0">{{ errorMessage }}</p>
+          }
+          <div class="actions">
+            <button type="submit" class="ui-btn ui-btn--primary" [disabled]="projectForm.invalid || isSubmitting" [attr.aria-busy]="isSubmitting">
+              @if (isSubmitting) {
+                <svg lucideIcon="loader-2" [size]="18" class="ui-spin" aria-hidden="true"></svg>
+              }
+              Create and add questions
+              <svg lucideIcon="arrow-right" [size]="18" aria-hidden="true"></svg>
+            </button>
+          </div>
+        </form>
       </main>
     </div>
   `,
 })
 export class CreateProjectComponent implements OnInit {
-  currentYear = new Date().getFullYear();
+  readonly steps = QUIZ_STEPS;
   projectForm: FormGroup;
+  /** Whether "More options" is open. It starts closed; closing it keeps every choice. */
+  moreOpen = false;
   isSubmitting = false;
   errorMessage = '';
 
@@ -396,6 +338,39 @@ export class CreateProjectComponent implements OnInit {
     return DESIGN_ACCENTS[this.projectForm.get('template')?.value as Template] ?? [];
   }
 
+  get nameMissing(): boolean {
+    const name = this.projectForm.get('name');
+    return !!name?.hasError('required') && !!name?.touched;
+  }
+
+  get opacityPercent(): number {
+    return Math.round((Number(this.projectForm.value.watermarkOpacity) || 0) * 100);
+  }
+
+  /** The optional groups that differ from the defaults, so a closed panel still says what it holds. */
+  get changedOptions(): string[] {
+    const v = this.projectForm.value;
+    const d = v.designOptions ?? {};
+    const defaultAccent = DESIGN_ACCENTS[v.template as Template]?.[0]?.value ?? '';
+    const changed: string[] = [];
+    if (d.textSize !== 'm' || d.showQuestionNumber !== true || d.answerLabels !== 'letters' || d.accent !== defaultAccent) {
+      changed.push('Design options');
+    }
+    if ((v.watermarkText || '').trim()) changed.push('Watermark');
+    if ((v.channelName || '').trim()) changed.push('Branding');
+    if (v.includeShorts) changed.push('AI Shorts');
+    return changed;
+  }
+
+  get moreState(): string {
+    const changed = this.changedOptions;
+    return changed.length ? `Changed: ${changed.join(', ')}` : 'Using the defaults';
+  }
+
+  onMoreToggle(event: Event): void {
+    this.moreOpen = (event.target as HTMLDetailsElement).open;
+  }
+
   ngOnInit(): void {
     // The enforced limits come from the API so the copy and the validation
     // can never drift from what the backend applies.
@@ -411,10 +386,6 @@ export class CreateProjectComponent implements OnInit {
       },
       error: () => {},
     });
-  }
-
-  selectVoice(voice: Voice): void {
-    this.projectForm.patchValue({ voice });
   }
 
   get shortsLanguages(): LanguageOption[] {
@@ -483,7 +454,14 @@ export class CreateProjectComponent implements OnInit {
     if (this.projectForm.invalid) return;
 
     const includeShorts = this.projectForm.value.includeShorts === true;
-    if (includeShorts && (!this.shortsFile || this.shortsError || this.shortsProbing)) return;
+    if (includeShorts && (!this.shortsFile || this.shortsError || this.shortsProbing)) {
+      // The Shorts file lives in "More options": open it so the reason is in view.
+      this.moreOpen = true;
+      if (!this.shortsFile && !this.shortsError && !this.shortsProbing) {
+        this.shortsError = 'Choose a video or audio file for AI Shorts, or turn AI Shorts off.';
+      }
+      return;
+    }
 
     this.isSubmitting = true;
     this.errorMessage = '';
