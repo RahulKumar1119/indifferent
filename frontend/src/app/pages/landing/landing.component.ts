@@ -91,7 +91,8 @@ import { FREE_BETA_FAQ } from '../../core/config/free-beta';
     /* Closing block */
     .closing { background: var(--color-paper); color: var(--color-ink); padding: var(--space-3xl) 0 var(--space-xl); }
     .closing a { color: inherit; }
-    .closing .ui-btn--primary { color: var(--color-accent-ink); }
+    .foot-mail { display: inline-flex; align-items: center; min-height: 44px; text-underline-offset: 0.2em; }
+    .closing .ui-btn--primary { color: var(--color-accent-ink); white-space: nowrap; }
     .pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); }
     @media (min-width: 64rem) { .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .wordmark { margin: var(--space-3xl) 0 0; text-align: center; font-family: var(--font-display); font-weight: 500; line-height: 1; letter-spacing: -0.03em; font-size: clamp(2.5rem, 12vw, 9rem); color: var(--color-ink-2); user-select: none; overflow-wrap: anywhere; }
@@ -355,7 +356,7 @@ Answer: C</code></pre>
                 If something breaks, you can reach the person who wrote it.
               </p>
               <p class="body">
-                <a href="mailto:support@indifferent.fun" style="text-underline-offset:0.2em">support&#64;indifferent.fun</a>
+                <a href="mailto:support@indifferent.fun" class="foot-mail">support&#64;indifferent.fun</a>
               </p>
             </div>
           </div>
@@ -397,7 +398,7 @@ Answer: C</code></pre>
             </div>
             <div class="legal">
               <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-              <a href="mailto:support@indifferent.fun" style="text-underline-offset:0.2em">support&#64;indifferent.fun</a>
+              <a href="mailto:support@indifferent.fun" class="foot-mail">support&#64;indifferent.fun</a>
             </div>
           </footer>
         </div>

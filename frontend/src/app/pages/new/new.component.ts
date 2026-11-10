@@ -20,7 +20,7 @@ import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH } from '../progress/failure-message
 
         <div class="tools">
           <section class="ui-card tool" aria-labelledby="t-shorts" data-testid="tool-shorts">
-            <img src="/screenshots/shorts-hero-still.png" alt="" width="640" height="400" loading="eager" />
+            <img src="/screenshots/tools-shorts.webp" alt="" width="1280" height="800" loading="eager" />
             <div class="body">
               <p class="kind"><svg lucideIcon="scissors" [size]="16" aria-hidden="true"></svg>Vertical clips</p>
               <h2 id="t-shorts" class="ui-card-title">AI Shorts</h2>
@@ -30,7 +30,7 @@ import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH } from '../progress/failure-message
           </section>
 
           <section class="ui-card tool" aria-labelledby="t-quiz" data-testid="tool-quiz">
-            <img src="/screenshots/quiz-create.png" alt="" width="640" height="400" loading="eager" />
+            <img src="/screenshots/tools-quiz.webp" alt="" width="1280" height="800" loading="eager" />
             <div class="body">
               <p class="kind"><svg lucideIcon="file-text" [size]="16" aria-hidden="true"></svg>Quiz videos</p>
               <h2 id="t-quiz" class="ui-card-title">TXT to quiz video</h2>
@@ -57,7 +57,7 @@ import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH } from '../progress/failure-message
           </section>
 
           <section class="ui-card tool" aria-labelledby="t-wm" data-testid="tool-watermark">
-            <img src="/screenshots/watermark-tool.png" alt="" width="640" height="400" loading="lazy" />
+            <img src="/screenshots/tools-watermark.webp" alt="" width="1280" height="800" loading="lazy" />
             <div class="body">
               <p class="kind"><svg lucideIcon="stamp" [size]="16" aria-hidden="true"></svg>Free tool</p>
               <h2 id="t-wm" class="ui-card-title">Watermark tool</h2>

@@ -150,7 +150,7 @@ export class ToolsComponent implements OnInit {
       title: 'Quiz videos',
       text: 'Plain-text questions in, narrated quiz MP4 out. Five voices to choose from.',
       points: ['Question and answer slides', 'AI narration in five voices', '1080p MP4 download'],
-      image: { src: '/screenshots/tools-quiz.webp', alt: 'The new quiz video page, where you upload a TXT file and pick a template and a voice', w: 1280, h: 800 },
+      image: { src: '/screenshots/tools-quiz.webp', alt: 'The new quiz video page: what the TXT file of questions needs, then the project name and the design picker', w: 1280, h: 800 },
       free: false,
       infoLink: '/features/txt-to-video-quiz',
       ctaLink: '/projects/new',

@@ -60,6 +60,7 @@ customHeaders:
           https://pagead2.googlesyndication.com https://www.googletagmanager.com
           https://*.google-analytics.com https://*.analytics.google.com
           https://*.doubleclick.net https://www.google.com https://*.adtrafficquality.google
+          https://www.googleadservices.com
           https://cognito-identity.ap-south-1.amazonaws.com;
           frame-src https://www.google.com https://*.adtrafficquality.google https://googleads.g.doubleclick.net https://tpc.googlesyndication.com
           https://*.safeframe.googlesyndication.com;

@@ -34,8 +34,8 @@ import { ThemeService } from '../../../core/services/theme.service';
     <header class="bar">
       <div class="row">
         <a routerLink="/" class="brand">Indifferent<span class="dot">.</span></a>
-        <nav aria-label="Shorts sections">
-          <a routerLink="/shorts" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="link">New</a>
+        <nav aria-label="App sections">
+          <a routerLink="/new" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="link">New</a>
           <a routerLink="/story" routerLinkActive="active" class="link">Story</a>
           <a routerLink="/shorts/history" routerLinkActive="active" class="link wide">History</a>
           <a routerLink="/dashboard" routerLinkActive="active" class="link wide">Dashboard</a>

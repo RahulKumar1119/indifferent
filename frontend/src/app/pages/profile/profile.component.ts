@@ -48,7 +48,7 @@ import { AccountNavComponent } from '../account/account-nav.component';
   ],
   styles: [`
     :host { display: block; }
-    .grid { display: grid; gap: var(--space-lg); align-items: start; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); align-items: start; }
     @media (min-width: 72rem) { .grid { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
     .side { display: flex; flex-direction: column; gap: var(--space-lg); min-width: 0; }
     .err { text-align: center; border-left: 4px solid var(--color-negative); }

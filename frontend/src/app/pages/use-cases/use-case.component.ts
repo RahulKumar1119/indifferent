@@ -161,7 +161,7 @@ export const USE_CASE_DATA: Record<string, UseCaseData> = {
             <p class="others-title">Other use cases</p>
             <div class="others">
               @for (u of others; track u.slug) {
-                <a [routerLink]="['/use-cases', u.slug]" class="ui-btn ui-btn--secondary">{{ u.title }}</a>
+                <a [routerLink]="['/use-cases', u.slug]" class="ui-btn ui-btn--secondary">{{ audience(u) }}</a>
               }
             </div>
           </div>
@@ -177,6 +177,12 @@ export class UseCaseComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   data: UseCaseData = USE_CASE_DATA['content-creators'];
   others: UseCaseData[] = [];
+
+  /** "Media companies" from "AI Shorts Maker for Media Companies": the heading already says what these are (#256). */
+  audience(u: UseCaseData): string {
+    const who = u.title.replace(/^AI Shorts Maker for\s+/i, '');
+    return who.charAt(0).toUpperCase() + who.slice(1).toLowerCase();
+  }
   currentYear = new Date().getFullYear();
   ngOnInit(): void {
     // The router reuses this component when only :slug changes, as it does for the

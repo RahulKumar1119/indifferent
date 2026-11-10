@@ -15,8 +15,10 @@ function render(): HTMLElement {
 
 describe('NavbarComponent', () => {
   it('links to every signed-in section, including the Story tool', () => {
-    const hrefs = Array.from(render().querySelectorAll('nav a')).map((a) => a.getAttribute('href'));
-    expect(hrefs).toContain('/shorts');
+    const links = Array.from(render().querySelectorAll('nav a'));
+    const hrefs = links.map((a) => a.getAttribute('href'));
+    // New opens the tool picker (#256); Shorts is one of the tools on it.
+    expect(links.find((a) => a.textContent!.trim() === 'New')!.getAttribute('href')).toBe('/new');
     expect(hrefs).toContain('/story');
     expect(hrefs).toContain('/shorts/history');
     expect(hrefs).toContain('/dashboard');

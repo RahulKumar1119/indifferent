@@ -55,6 +55,11 @@ const full = (): Data => ({
   thumbnails: of({ thumbnails: [{ jobId: 't1', status: 'completed', thumbnailCount: 3, selected: false, createdAt: '2026-01-05T00:00:00Z', updatedAt: '2026-01-05T00:00:00Z' }], hasMore: false }),
 });
 
+/** Pretends the screen is at least 64rem wide (sidebar) or narrower (top navbar). */
+function screen(wide: boolean) {
+  spyOn(window, 'matchMedia').and.returnValue({ matches: wide, addEventListener: () => undefined, removeEventListener: () => undefined } as unknown as MediaQueryList);
+}
+
 function setup(data: Data) {
   TestBed.configureTestingModule({
     imports: [DashboardComponent],
@@ -164,6 +169,7 @@ describe('DashboardComponent', () => {
     expect(text('total')).toBe('16');
   });
   it('uses the shared app navbar and exactly one h1', () => {
+    screen(false);
     const { el } = setup(full());
     expect(el.querySelector('app-navbar')).toBeTruthy();
     expect(el.querySelectorAll('h1').length).toBe(1);
@@ -239,7 +245,19 @@ describe('DashboardComponent', () => {
     TestBed.resetTestingModule();
     expect(setup(none).el.querySelector('[data-testid="rendering"]')).toBeNull();
   });
+  it('renders one navigation for the screen: the top navbar when narrow, the sidebar from 64rem (#256)', () => {
+    screen(false);
+    let { el } = setup(full());
+    expect(el.querySelector('app-navbar')).toBeTruthy();
+    expect(el.querySelector('app-dashboard-sidebar')).toBeNull();
+    TestBed.resetTestingModule();
+    (window.matchMedia as jasmine.Spy).and.returnValue({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined } as unknown as MediaQueryList);
+    ({ el } = setup(full()));
+    expect(el.querySelector('app-dashboard-sidebar')).toBeTruthy();
+    expect(el.querySelector('app-navbar')).toBeNull();
+  });
   it('has desktop sidebar links to existing pages', () => {
+    screen(true);
     const { el } = setup(full());
     const hrefs = Array.from(el.querySelectorAll('app-dashboard-sidebar nav a')).map((a) => a.getAttribute('href'));
     expect(hrefs).toEqual(['/dashboard', '/projects', '/shorts', '/story', '/shorts/history', '/tools/add-watermark', '/profile']);

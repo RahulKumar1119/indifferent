@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { HttpContext } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -107,9 +107,14 @@ const RECENT_LIMIT = 10;
     @media (prefers-reduced-motion: reduce) { .tool { transition: none; } .tool:hover { transform: none; } }
   `],
   template: `
-    <app-navbar class="top" />
+    <!-- One navigation for the screen: the sidebar from 64rem, the shared top navbar below (#256). -->
+    @if (!wide()) {
+      <app-navbar class="top" />
+    }
     <div class="shell">
-      <app-dashboard-sidebar class="side" />
+      @if (wide()) {
+        <app-dashboard-sidebar class="side" />
+      }
       <main id="main" class="hm">
         <app-email-confirm-banner />
         <div class="head">
@@ -266,6 +271,9 @@ export class DashboardComponent implements OnInit {
   private readonly storyVideos = inject(StoryVideoService);
   private readonly thumbnails = inject(ThumbnailService);
   private readonly api = inject(ApiService);
+  private readonly destroyRef = inject(DestroyRef);
+  /** True from 64rem, where the sidebar replaces the top navbar. */
+  readonly wide = signal(false);
 
   greeting = greetingFor(new Date(), null);
   readonly today = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -322,6 +330,13 @@ export class DashboardComponent implements OnInit {
   ];
 
   ngOnInit(): void {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      const query = window.matchMedia('(min-width: 64rem)');
+      const onChange = (e: MediaQueryListEvent) => this.wide.set(e.matches);
+      this.wide.set(query.matches);
+      query.addEventListener('change', onChange);
+      this.destroyRef.onDestroy(() => query.removeEventListener('change', onChange));
+    }
     this.reload();
     // The greeting only needs the name; without it the page still works.
     this.api

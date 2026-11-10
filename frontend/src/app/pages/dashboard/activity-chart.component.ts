@@ -36,11 +36,12 @@ import { DayBucket } from './activity';
         <span>{{ label(days()[0]) }}</span>
         <span>Today</span>
       </div>
+      <!-- Each cell's text is hidden too, so the cells collapse and no hidden text sits under the card (#256). -->
       <table class="sr-only">
         <caption>Work per day, last 14 days</caption>
-        <tr><th scope="col">Day</th><th scope="col">Pieces of work</th></tr>
+        <tr><th scope="col"><span class="sr-only">Day</span></th><th scope="col"><span class="sr-only">Pieces of work</span></th></tr>
         @for (d of days(); track d.key) {
-          <tr><td>{{ label(d) }}</td><td>{{ d.count }}</td></tr>
+          <tr><td><span class="sr-only">{{ label(d) }}</span></td><td><span class="sr-only">{{ d.count }}</span></td></tr>
         }
       </table>
     }
