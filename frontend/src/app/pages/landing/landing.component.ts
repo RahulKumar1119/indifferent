@@ -7,6 +7,7 @@ import { setJsonLd, setPageSeo } from '../../shared/seo';
 import { FlipbookComponent } from './flipbook.component';
 import { HeroSceneComponent } from './hero-scene.component';
 
+import { FREE_BETA_FAQ } from '../../core/config/free-beta';
 @Component({
   selector: 'app-landing',
   standalone: true,
@@ -84,6 +85,8 @@ import { HeroSceneComponent } from './hero-scene.component';
     details.faq .faq-chevron { flex-shrink: 0; color: var(--color-muted); transition: transform var(--dur-short) var(--ease-out); }
     details.faq[open] .faq-chevron { transform: rotate(180deg); }
     details.faq p { padding: 0 0 var(--space-lg); color: var(--color-ink-2); }
+    details.faq p:has(+ .faq-more) { padding-bottom: var(--space-2xs); }
+    details.faq .faq-more .text-link { margin-top: 0; }
 
     /* Closing block */
     .closing { background: var(--color-paper); color: var(--color-ink); padding: var(--space-3xl) 0 var(--space-xl); }
@@ -321,6 +324,9 @@ Answer: C</code></pre>
                   <svg class="faq-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </summary>
                 <p>{{ f.a }}</p>
+                @if (f.link) {
+                  <p class="faq-more"><a [routerLink]="f.link.path" class="text-link">{{ f.link.label }}</a></p>
+                }
               </details>
             }
           </div>
@@ -405,12 +411,12 @@ export class LandingComponent implements OnInit {
 
   currentYear = new Date().getFullYear();
 
-  faqs: { q: string; a: string }[] = [
+  faqs: { q: string; a: string; link?: { label: string; path: string } }[] = [
     { q: 'What file do I need?', a: 'A plain text (.txt) file containing your multiple-choice questions. Number each question, list the options, and mark the answer. Numbered, bulleted and tab-indented formats are all detected, so you do not have to clean up your formatting first.' },
     { q: 'How large can the file be?', a: 'Up to 5 MB, which is enough for several hundred questions. The video length follows from how many questions you write.' },
     { q: 'Which voices can I use?', a: 'Five, all real Amazon Polly voices: Joanna (US English, clear and professional), Matthew (US English, warm and authoritative), Amy (British English, polished), Brian (British English, natural) and Aditi (Indian English, approachable).' },
     { q: 'How long does rendering take?', a: 'A short quiz usually renders in a few minutes, and a longer one takes longer. The project page shows the live stage, so you can leave it open and come back.' },
-    { q: 'Is it free?', a: 'Yes, during the beta. No credit card, no quota to track, no paid tier to upgrade to yet. The beta terms say what that means.' },
+    FREE_BETA_FAQ,
     { q: 'Is my question file uploaded?', a: 'Yes, the text file has to reach the server to be parsed and narrated, and it is stored with your project so you can re-render it. The privacy page explains exactly what is kept and for how long. The watermark tool is the opposite: it never uploads anything.' },
     { q: 'Can I use the video commercially?', a: 'You keep ownership of the videos you generate. You are responsible for having the rights to the questions you upload, and the narration is produced by Amazon Polly, so the AWS terms apply to it too. The terms page covers the details.' },
     { q: 'What happens to my file afterwards?', a: 'Your project and its text file stay in your account so you can re-render with a different voice or design, and you can delete them at any time from the project page.' },

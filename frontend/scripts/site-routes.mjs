@@ -31,6 +31,7 @@ export const INDEXED_ROUTES = [
   '/about',
   '/contact',
   '/help',
+  '/pricing',
   '/privacy',
   '/terms',
   '/tools',

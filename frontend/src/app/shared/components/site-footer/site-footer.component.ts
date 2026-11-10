@@ -76,6 +76,7 @@ export class SiteFooterComponent {
   readonly company: FooterLink[] = [
     { label: 'Home', path: '/' },
     { label: 'About', path: '/about' },
+    { label: 'Pricing', path: '/pricing' },
     { label: 'Contact', path: '/contact' },
     { label: 'Privacy', path: '/privacy' },
     { label: 'Terms', path: '/terms' },

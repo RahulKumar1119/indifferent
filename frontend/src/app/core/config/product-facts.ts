@@ -64,6 +64,26 @@ export const PRODUCT_FACTS = {
     videoWarnMb: 500,
   },
   pricing: 'Free during beta',
+  /**
+   * Per-account usage limits during the beta, as the API enforces them.
+   * scripts/check-facts.mjs compares every number here with the Go source.
+   */
+  limits: {
+    /** backend/internal/api/quota.go: daily counters, reset at midnight UTC. */
+    quizProjectsPerDay: 40,
+    /** Question files and logos share one counter (handleUpload, handleLogoUpload). */
+    fileUploadsPerDay: 120,
+    shortsUploadsPerDay: 30,
+    shortsRetriesPerDay: 15,
+    thumbnailSetsPerDay: 30,
+    /** backend/internal/api/storyplan.go: any rolling hour. */
+    storyPlansPerHour: 20,
+    /** backend/internal/api/stockmedia.go. */
+    stockSearchesPerHour: 120,
+    /** Story videos use story.perDay (any rolling 24 hours) and story.maxActive. */
+  },
+  /** Promise on /pricing: how far ahead registered users hear about paid plans or lower free limits. */
+  changeNoticeDays: 30,
 } as const;
 
 /** "MP4, MOV, MP3 or WAV" */

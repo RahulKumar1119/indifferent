@@ -1,4 +1,5 @@
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { FREE_BETA_FAQ } from '../../core/config/free-beta';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { PRODUCT_FACTS, durationLabel } from '../../core/config/product-facts';
@@ -168,6 +169,21 @@ describe('LandingComponent', () => {
     expect(page.querySelectorAll('h1').length).toBe(1);
     expect(page.textContent).not.toMatch(/lorem ipsum|TODO|placeholder|your text here/i);
     expect(page.innerHTML).not.toContain('picsum.photos');
+  });
+  describe('is it free (#255)', () => {
+    it('gives the same answer as Help, with a link to the limits, and no claim that there are no limits', () => {
+      const page = render();
+      const item = Array.from(page.querySelectorAll<HTMLElement>('details.faq')).find((d) => d.querySelector('summary')!.textContent!.includes(FREE_BETA_FAQ.q))!;
+      expect(item).withContext('free FAQ present').toBeTruthy();
+      expect(item.textContent).toContain(FREE_BETA_FAQ.a);
+      expect(item.querySelector('a[href="/pricing"]')!.textContent).toContain('See the current limits');
+      expect(page.textContent).not.toContain('no quota to track');
+    });
+    it('puts the same answer in the FAQPage data search engines read', () => {
+      render();
+      const blocks = Array.from(document.head.querySelectorAll('script[type="application/ld+json"]')).map((s) => s.textContent ?? '');
+      expect(blocks.some((b) => b.includes('FAQPage') && b.includes(FREE_BETA_FAQ.a))).toBeTrue();
+    });
   });
 });
 

@@ -131,6 +131,10 @@ export const routes: Routes = [
       import('./pages/contact/contact.component').then((m) => m.ContactComponent),
   },
   {
+    path: 'pricing',
+    loadComponent: () => import('./pages/pricing/pricing.component').then((m) => m.PricingComponent),
+  },
+  {
     path: 'help',
     loadComponent: () =>
       import('./pages/help/help.component').then((m) => m.HelpComponent),

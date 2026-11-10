@@ -11,7 +11,8 @@
     "verify:story-video": "node e2e/story-video-verification.mjs",
     "verify:story-licensing": "node e2e/story-licensing-verification.mjs",
     "seo:generate": "node scripts/seo-files.mjs",
-    "verify:seo": "node scripts/seo-files.mjs --check"
+    "verify:seo": "node scripts/seo-files.mjs --check",
+    "verify:facts": "node scripts/check-facts.mjs"
   },
   "prettier": {
     "printWidth": 100,
