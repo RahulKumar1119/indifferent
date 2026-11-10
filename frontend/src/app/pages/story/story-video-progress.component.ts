@@ -17,63 +17,51 @@ import { STAGES, VideoStatus, stageIndex } from './story-video.models';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [LucideDynamicIcon],
-  styles: [
-    `
-      progress {
-        appearance: none;
-        height: 0.5rem;
-        border-radius: 9999px;
-        overflow: hidden;
-        background: hsl(var(--muted));
-      }
-      progress::-webkit-progress-bar {
-        background: hsl(var(--muted));
-      }
-      progress::-webkit-progress-value {
-        background: hsl(var(--foreground));
-        transition: width 0.6s ease;
-      }
-      progress::-moz-progress-bar {
-        background: hsl(var(--foreground));
-      }
-      @media (prefers-reduced-motion: reduce) {
-        progress::-webkit-progress-value {
-          transition: none;
-        }
-      }
-    `,
-  ],
+  styles: [`
+    :host { display: block; font-family: var(--font-body); }
+    progress { display: block; width: 100%; appearance: none; height: 0.5rem; border: 0; border-radius: var(--radius-pill); overflow: hidden; background: var(--color-paper-3); }
+    progress::-webkit-progress-bar { background: var(--color-paper-3); }
+    progress::-webkit-progress-value { background: var(--color-accent); transition: width 0.6s var(--ease-out); }
+    progress::-moz-progress-bar { background: var(--color-accent); }
+    @media (prefers-reduced-motion: reduce) { progress::-webkit-progress-value { transition: none; } }
+    .under { margin: var(--space-xs) 0 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--space-md); font-size: var(--type-sm); }
+    .pct { font-variant-numeric: tabular-nums; color: var(--color-ink-2); }
+    ol { margin: var(--space-md) 0 0; padding: 0; list-style: none; display: grid; gap: var(--space-xs); }
+    @media (min-width: 40rem) { ol { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    li { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--color-rule); border-radius: var(--radius-control); }
+    li.accent { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
+    .mk { width: 1.5rem; height: 1.5rem; flex: none; display: flex; align-items: center; justify-content: center; }
+    .done .mk { color: var(--color-positive); }
+    .dot { width: 0.625rem; height: 0.625rem; border-radius: 50%; border: 2px solid var(--color-muted); }
+    .accent .dot { border-color: var(--color-accent); background: var(--color-accent); }
+    .lbl { display: block; font-weight: 600; }
+    .waiting .lbl { font-weight: 500; color: var(--color-ink-2); }
+    .word { display: block; font-size: var(--type-sm); color: var(--color-ink-2); }
+  `],
   template: `
-    <progress
-      class="block w-full"
-      max="100"
-      [value]="percent()"
-      aria-label="Video progress"
-      [attr.aria-valuetext]="percent() + ' percent'"
-    ></progress>
-    <p class="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 text-sm">
+    <progress max="100" [value]="percent()" aria-label="Video progress" [attr.aria-valuetext]="percent() + ' percent'"></progress>
+    <p class="under">
       <span role="status" data-testid="doing">{{ doing() }}</span>
-      <span class="tabular-nums text-[hsl(var(--muted-foreground))]" data-testid="percent">{{ percent() }}%</span>
+      <span class="pct" data-testid="percent">{{ percent() }}%</span>
     </p>
 
-    <ol class="mt-5 grid gap-2 sm:grid-cols-3" aria-label="Steps">
+    <ol aria-label="Steps">
       @for (s of stages; track s.status; let i = $index) {
         <li
-          class="flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2"
-          [class]="stepClass(i)"
+          [class]="state(i) + (state(i) === 'current' ? ' accent' : '')"
           [attr.aria-current]="state(i) === 'current' ? 'step' : null"
           [attr.data-state]="state(i)"
         >
-          <span class="flex size-6 shrink-0 items-center justify-center" aria-hidden="true">
+          <span class="mk" aria-hidden="true">
             @if (state(i) === 'done') {
               <svg lucideIcon="check" [size]="18"></svg>
             } @else {
-              <span class="block size-2.5 rounded-full border-2" [class]="markerClass(i)"></span>
+              <span class="dot"></span>
             }
           </span>
-          <span class="min-w-0">
-            <span class="block font-medium" [class]="labelClass(i)">{{ s.label }}</span>
-            <span class="block text-sm text-[hsl(var(--muted-foreground))]">{{ stateWord(i) }}</span>
+          <span style="min-width: 0">
+            <span class="lbl">{{ s.label }}</span>
+            <span class="word">{{ stateWord(i) }}</span>
           </span>
         </li>
       }
@@ -97,19 +85,6 @@ export class StoryVideoProgressComponent {
     const at = this.at();
     if (i < at) return 'done';
     return i === at ? 'current' : 'waiting';
-  }
-
-  // The accent is for the step in progress, and only there (DESIGN.md).
-  protected stepClass(i: number): string {
-    return this.state(i) === 'current' ? 'border-[#BC5227]' : 'border-[hsl(var(--border))]';
-  }
-
-  protected markerClass(i: number): string {
-    return this.state(i) === 'current' ? 'border-[#BC5227] bg-[#BC5227]' : 'border-[hsl(var(--muted-foreground))]';
-  }
-
-  protected labelClass(i: number): string {
-    return this.state(i) === 'waiting' ? 'text-[hsl(var(--muted-foreground))]' : '';
   }
 
   /** The state in words, because the marker beside it is a picture. */

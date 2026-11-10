@@ -47,12 +47,11 @@ const FALLBACK_VOICES: Record<string, string[]> = {
 const MAX_POLL_FAILURES = 5;
 const MAX_POLL_DELAY_MS = 30_000;
 
-const PRIMARY =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#BC5227] px-6 text-sm font-semibold text-white hover:bg-[#a84822] disabled:cursor-not-allowed disabled:opacity-50';
-const SECONDARY =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[hsl(var(--border))] px-5 text-sm font-medium hover:bg-[hsl(var(--muted))] disabled:cursor-not-allowed disabled:opacity-50';
-const QUIET =
-  'inline-flex min-h-11 items-center justify-center px-3 text-sm underline underline-offset-2 hover:text-[hsl(var(--muted-foreground))] disabled:cursor-not-allowed disabled:opacity-50';
+/** Button looks from ui.css: one primary action per state, the rest secondary or quiet. */
+const PRIMARY = 'ui-btn ui-btn--primary';
+const SECONDARY = 'ui-btn ui-btn--secondary';
+const QUIET = 'ui-btn ui-btn--quiet';
+const DANGER = 'ui-btn ui-btn--danger';
 
 /**
  * Turning a saved plan into a video, and everything that follows: choosing the
@@ -69,136 +68,137 @@ const QUIET =
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DatePipe, NgTemplateOutlet, LucideDynamicIcon, StoryProblemComponent, StoryVideoOptionsComponent, StoryVideoProgressComponent],
-  styles: [
-    `
-      .serif {
-        font-family: 'Cormorant Garamond', Georgia, serif;
-      }
-    `,
-  ],
+  styles: [`
+    :host { display: block; }
+    .video { display: flex; flex-direction: column; gap: var(--space-md); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); font-family: var(--font-body); color: var(--color-ink); }
+    .vh { margin: 0; font-size: var(--type-2xl); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; }
+    .vh:focus, h3:focus { outline: none; }
+    h3 { margin: 0; font-size: var(--type-lg); font-weight: 600; line-height: 1.25; }
+    .card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
+    .card > * { max-width: 100%; }
+    .wide { align-self: stretch; }
+    .line { margin: 0; display: flex; align-items: center; gap: var(--space-sm); color: var(--color-ink-2); }
+    .note { margin: 0; max-width: 42rem; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .lead { margin: 0; max-width: 42rem; color: var(--color-ink-2); }
+    .blocker { margin: 0; max-width: 42rem; font-weight: 600; }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+    @media (max-width: 39.99rem) { .main-act .ui-btn--primary { width: 100%; } }
+    .facts { margin: 0; overflow-wrap: anywhere; }
+    .made { margin: 0; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .player { display: block; width: 100%; max-width: 20rem; max-height: 70dvh; aspect-ratio: 9 / 16; border-radius: var(--radius-control); background: var(--color-paper-3); }
+    .earlier { margin: 0; padding: 0; list-style: none; }
+    .earlier li { padding: var(--space-md) 0; }
+    .earlier li + li { border-top: 1px solid var(--color-rule); }
+    .earlier li:first-child { padding-top: var(--space-xs); }
+    .confirm { padding: var(--space-md); border: 1px solid color-mix(in oklab, var(--color-negative) 45%, transparent); border-radius: var(--radius-control); max-width: 28rem; }
+    .confirm p { margin: 0; }
+    .confirm p + p { margin-top: var(--space-3xs); font-size: var(--type-sm); color: var(--color-ink-2); }
+    .confirm .row { margin-top: var(--space-sm); }
+    .danger { color: var(--color-negative); }
+  `],
   template: `
-    <section class="mt-12 border-t border-[hsl(var(--border))] pt-8" aria-labelledby="video-heading" data-testid="video-panel">
-      <h2 id="video-heading" tabindex="-1" class="serif text-3xl font-medium leading-tight sm:text-4xl">Make the video</h2>
+    <section class="video" aria-labelledby="video-heading" data-testid="video-panel">
+      <h2 id="video-heading" tabindex="-1" class="vh">Make the video</h2>
 
       <!-- Said once, politely, when a video finishes, fails or is removed. -->
       <p class="sr-only" role="status" data-testid="announcement">{{ announcement() }}</p>
 
       @if (loading()) {
-        <p role="status" class="mt-4 flex items-center gap-3 text-[hsl(var(--muted-foreground))]" data-testid="loading">
-          <svg lucideIcon="loader-2" [size]="18" aria-hidden="true" class="animate-spin motion-reduce:animate-none"></svg>
+        <p role="status" class="line" data-testid="loading">
+          <svg lucideIcon="loader-2" [size]="18" aria-hidden="true" class="ui-spin"></svg>
           Checking for videos from this plan…
         </p>
       } @else if (switchedOff()) {
-        <div class="mt-4 max-w-xl">
-          <app-story-problem [problem]="offProblem" />
-        </div>
+        <app-story-problem [problem]="offProblem" />
       } @else {
         @if (loadProblem(); as p) {
-          <div class="mt-4 max-w-xl">
-            <app-story-problem [problem]="p" [polite]="true" actionLabel="Try again" (action)="reload()" />
-          </div>
+          <app-story-problem [problem]="p" [polite]="true" actionLabel="Try again" (action)="reload()" />
         }
 
         @switch (view()) {
           @case ('active') {
             @if (latest(); as v) {
-              <div class="mt-4 max-w-3xl" data-testid="active">
-                <h3 data-state-heading tabindex="-1" class="text-xl font-semibold">Making your video</h3>
+              <div class="ui-card card" data-testid="active">
+                <h3 data-state-heading tabindex="-1">Making your video</h3>
                 @if (followNotice()) {
-                  <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]" data-testid="follow-notice">{{ followNotice() }}</p>
+                  <p class="note" data-testid="follow-notice">{{ followNotice() }}</p>
                 }
-                <div class="mt-4">
+                <div class="wide">
                   <app-story-video-progress [status]="v.status" [progress]="v.progress" />
                 </div>
                 @if (reconnecting()) {
-                  <p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]" data-testid="reconnecting">
-                    Can't reach the server right now. The video keeps being made. Trying again…
-                  </p>
+                  <p class="note" data-testid="reconnecting">Can't reach the server right now. The video keeps being made. Trying again…</p>
                 }
                 @if (pollProblem(); as p) {
-                  <div class="mt-4 max-w-xl">
-                    <app-story-problem [problem]="p" actionLabel="Check again" (action)="checkAgain(v)" />
-                  </div>
+                  <app-story-problem class="wide" [problem]="p" actionLabel="Check again" (action)="checkAgain(v)" />
                 }
-                <p class="mt-4 max-w-2xl text-sm text-[hsl(var(--muted-foreground))]">
-                  You can leave this page. The video keeps being made, and this page picks it up when you come back.
-                </p>
+                <p class="note">You can leave this page. The video keeps being made, and this page picks it up when you come back.</p>
                 @if (actionProblem(); as ap) {
-                  <div class="mt-4 max-w-xl"><app-story-problem [problem]="ap.problem" /></div>
+                  <app-story-problem class="wide" [problem]="ap.problem" />
                 }
-                <div class="mt-4">
-                  <button type="button" [class]="secondary" [disabled]="cancelling()" (click)="cancel(v)" data-testid="cancel">
-                    @if (cancelling()) {
-                      <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="animate-spin motion-reduce:animate-none"></svg>
-                      Cancelling…
-                    } @else {
-                      Cancel the video
-                    }
-                  </button>
-                </div>
+                <button type="button" [class]="secondary" [disabled]="cancelling()" [attr.aria-busy]="cancelling()" (click)="cancel(v)" data-testid="cancel">
+                  @if (cancelling()) {
+                    <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="ui-spin"></svg>
+                    Cancelling…
+                  } @else {
+                    Cancel the video
+                  }
+                </button>
               </div>
             }
           }
 
           @case ('failed') {
             @if (latest(); as v) {
-              <div class="mt-4 max-w-3xl" data-testid="failed">
+              <div class="ui-card card" data-testid="failed">
                 @if (cancelled()) {
-                  <h3 data-state-heading tabindex="-1" class="text-xl font-semibold">You cancelled this video</h3>
-                  <p class="mt-1 text-[hsl(var(--muted-foreground))]">Nothing was kept. Make it again whenever you like.</p>
+                  <h3 data-state-heading tabindex="-1">You cancelled this video</h3>
+                  <p class="lead">Nothing was kept. Make it again whenever you like.</p>
                 } @else {
                   <h3 data-state-heading tabindex="-1" class="sr-only">The last video was not finished</h3>
-                  <app-story-problem [problem]="failureProblem()" [polite]="!justFailed()" />
+                  <app-story-problem class="wide" [problem]="failureProblem()" [polite]="!justFailed()" />
                   @if (sceneToFix(); as n) {
-                    <button type="button" [class]="secondary + ' mt-3'" (click)="goToScene.emit(n)" data-testid="go-to-scene">
-                      Go to scene {{ n }}
-                    </button>
+                    <button type="button" [class]="secondary" (click)="goToScene.emit(n)" data-testid="go-to-scene">Go to scene {{ n }}</button>
                   }
                 }
                 @if (actionProblem(); as ap) {
-                  <div class="mt-4 max-w-xl"><app-story-problem [problem]="ap.problem" /></div>
+                  <app-story-problem class="wide" [problem]="ap.problem" />
                 }
-                <button type="button" [class]="quiet + ' mt-2'" [disabled]="busyId() === v.jobId" (click)="remove(v, true)" data-testid="dismiss">
+                <button type="button" [class]="quiet" [disabled]="busyId() === v.jobId" (click)="remove(v, true)" data-testid="dismiss">
                   Remove this attempt
                 </button>
               </div>
-              <div class="mt-6">
-                <ng-container [ngTemplateOutlet]="makeForm" />
-              </div>
+              <ng-container [ngTemplateOutlet]="makeForm" />
             }
           }
 
           @case ('done') {
             @if (latest(); as v) {
-              <div class="mt-4 max-w-3xl" data-testid="done">
-                <h3 data-state-heading tabindex="-1" class="text-xl font-semibold">Your video is ready</h3>
+              <div class="ui-card card" data-testid="done">
+                <h3 data-state-heading tabindex="-1">Your video is ready</h3>
                 <ng-container [ngTemplateOutlet]="finished" [ngTemplateOutletContext]="{ $implicit: v, latest: true }" />
-                <p class="mt-5 max-w-prose text-sm text-[hsl(var(--muted-foreground))]" data-testid="licence-note">
+                <p class="note" data-testid="licence-note">
                   This is the finished video only. The pictures and clips in it stay under the Pexels and Pixabay licences. Neither requires a
                   credit in your video; the credit for each picture is under its scene above.
                 </p>
               </div>
               @if (showForm()) {
-                <div class="mt-8">
-                  <ng-container [ngTemplateOutlet]="makeForm" />
-                </div>
+                <ng-container [ngTemplateOutlet]="makeForm" />
               }
             }
           }
 
           @default {
-            <div class="mt-4">
-              <ng-container [ngTemplateOutlet]="makeForm" />
-            </div>
+            <ng-container [ngTemplateOutlet]="makeForm" />
           }
         }
 
         @if (earlier().length > 0) {
-          <div class="mt-10 max-w-3xl" data-testid="earlier">
-            <h3 class="text-lg font-semibold">Earlier videos from this plan</h3>
-            <ul class="mt-3 divide-y divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
+          <div class="ui-card" data-testid="earlier">
+            <h3>Earlier videos from this plan</h3>
+            <ul class="earlier">
               @for (v of earlier(); track v.jobId) {
-                <li class="py-4">
+                <li>
                   <ng-container [ngTemplateOutlet]="finished" [ngTemplateOutletContext]="{ $implicit: v, latest: false }" />
                 </li>
               }
@@ -210,50 +210,48 @@ const QUIET =
 
     <!-- The two choices and the button that starts the video. -->
     <ng-template #makeForm>
-      <div class="max-w-3xl" data-testid="make-form">
+      <div class="ui-card card" data-testid="make-form">
         @if (view() === 'form') {
-          <p class="max-w-2xl text-[hsl(var(--muted-foreground))]">
+          <p class="lead">
             Choose a voice and how the captions look, then make the video from this plan. It can take a few minutes. You
             can leave this page and come back.
           </p>
         } @else if (view() === 'done') {
-          <h3 class="text-xl font-semibold">Make another version</h3>
+          <h3>Make another version</h3>
         } @else {
-          <h3 class="text-xl font-semibold">Make it again</h3>
+          <h3>Make it again</h3>
         }
 
         @if (voices().length > 0) {
-          <div class="mt-6">
-            <app-story-video-options
-              [language]="language()"
-              [voices]="voices()"
-              [value]="options()"
-              [disabled]="making()"
-              (valueChange)="options.set($event)"
-            />
-          </div>
+          <app-story-video-options
+            class="wide"
+            [language]="language()"
+            [voices]="voices()"
+            [value]="options()"
+            [disabled]="making()"
+            (valueChange)="options.set($event)"
+          />
         }
 
         @if (reason()) {
-          <p id="video-blocker" class="mt-6 max-w-2xl font-medium" data-testid="blocker">{{ reason() }}</p>
+          <p id="video-blocker" class="blocker" data-testid="blocker">{{ reason() }}</p>
         }
         @if (makeProblem(); as p) {
-          <div class="mt-6 max-w-xl">
-            <app-story-problem [problem]="p" [actionLabel]="makeActionLabel(p)" (action)="onMakeProblemAction(p)" />
-          </div>
+          <app-story-problem class="wide" [problem]="p" [actionLabel]="makeActionLabel(p)" (action)="onMakeProblemAction(p)" />
         }
 
-        <div class="mt-6 flex flex-wrap items-center gap-4">
+        <div class="row wide main-act">
           <button
             type="button"
             [class]="primary"
             [disabled]="!!reason() || making()"
+            [attr.aria-busy]="making()"
             [attr.aria-describedby]="reason() ? 'video-blocker' : null"
             (click)="make()"
             data-testid="make"
           >
             @if (making()) {
-              <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="animate-spin motion-reduce:animate-none"></svg>
+              <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="ui-spin"></svg>
               Starting…
             } @else if (view() === 'done') {
               Make this version
@@ -269,7 +267,7 @@ const QUIET =
         </div>
 
         @if (limits(); as l) {
-          <p class="mt-6 max-w-2xl text-sm text-[hsl(var(--muted-foreground))]" data-testid="limits-note">
+          <p class="note" data-testid="limits-note">
             You can make {{ l.perDay }} videos a day, {{ l.maxActive }} at a time. A video that is cancelled or does not
             finish still counts.
           </p>
@@ -279,8 +277,8 @@ const QUIET =
 
     <!-- A finished video: facts, then what can be done with it. -->
     <ng-template #finished let-v let-isLatest="latest">
-      <div [attr.data-testid]="isLatest ? 'finished' : 'finished-earlier'" [attr.data-job]="v.jobId">
-        <p [class.mt-2]="isLatest" class="[overflow-wrap:anywhere]">
+      <div class="card" [attr.data-testid]="isLatest ? 'finished' : 'finished-earlier'" [attr.data-job]="v.jobId">
+        <p class="facts">
           @if (v.totalSeconds) {
             <span data-testid="length">{{ length(v) }}</span>
             <span aria-hidden="true"> · </span>
@@ -289,7 +287,7 @@ const QUIET =
           <span aria-hidden="true"> · </span>
           <span>{{ caption(v) }} captions</span>
         </p>
-        <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+        <p class="made">
           Made {{ v.completedAt || v.createdAt | date: 'd MMM y, h:mm a' }}.
           @if (isStale(v)) {
             <span data-testid="stale-note"> The plan has changed since, so this video does not include the newest edits.</span>
@@ -298,7 +296,7 @@ const QUIET =
 
         @if (watchId() === v.jobId && watchUrl()) {
           <video
-            class="mt-4 aspect-[9/16] max-h-[70dvh] w-full max-w-xs rounded-xl bg-[hsl(var(--muted))]"
+            class="player"
             [src]="watchUrl()"
             controls
             playsinline
@@ -311,20 +309,21 @@ const QUIET =
 
         @if (actionProblem(); as ap) {
           @if (ap.jobId === v.jobId) {
-            <div class="mt-4 max-w-xl"><app-story-problem [problem]="ap.problem" /></div>
+            <app-story-problem class="wide" [problem]="ap.problem" />
           }
         }
 
-        <div class="mt-4 flex flex-wrap items-center gap-3">
+        <div class="row">
           <button
             type="button"
             [class]="isLatest && !showForm() ? primary : secondary"
             [disabled]="busyId() === v.jobId"
+            [attr.aria-busy]="busyId() === v.jobId && busyAction() === 'download'"
             (click)="download(v)"
             data-testid="download"
           >
             @if (busyId() === v.jobId && busyAction() === 'download') {
-              <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="animate-spin motion-reduce:animate-none"></svg>
+              <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="ui-spin"></svg>
               Preparing…
             } @else {
               <svg lucideIcon="download" [size]="16" aria-hidden="true"></svg>
@@ -347,7 +346,7 @@ const QUIET =
           <button
             type="button"
             [id]="'delete-' + v.jobId"
-            [class]="quiet"
+            [class]="quiet + ' danger'"
             [disabled]="busyId() === v.jobId"
             (click)="askDelete(v)"
             data-testid="delete"
@@ -357,22 +356,14 @@ const QUIET =
         </div>
 
         @if (confirming() === v.jobId) {
-          <div
-            role="group"
-            aria-label="Confirm delete"
-            class="mt-4 max-w-md rounded-xl border border-[hsl(var(--border))] p-4"
-            (keydown.escape)="cancelDelete(v)"
-            data-testid="confirm"
-          >
-            <p class="font-medium">Delete this video?</p>
-            <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-              The file is removed for good. Your plan stays, and you can make another video from it.
-            </p>
-            <div class="mt-3 flex flex-wrap gap-3">
+          <div role="group" aria-label="Confirm delete" class="confirm" (keydown.escape)="cancelDelete(v)" data-testid="confirm">
+            <p><strong>Delete this video?</strong></p>
+            <p>The file is removed for good. Your plan stays, and you can make another video from it.</p>
+            <div class="row">
               <button type="button" [id]="'keep-' + v.jobId" [class]="secondary" (click)="cancelDelete(v)" data-testid="keep">Keep it</button>
-              <button type="button" [class]="secondary" [disabled]="busyId() === v.jobId" (click)="remove(v, false)" data-testid="confirm-delete">
+              <button type="button" [class]="danger" [disabled]="busyId() === v.jobId" [attr.aria-busy]="busyId() === v.jobId && busyAction() === 'delete'" (click)="remove(v, false)" data-testid="confirm-delete">
                 @if (busyId() === v.jobId && busyAction() === 'delete') {
-                  <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="animate-spin motion-reduce:animate-none"></svg>
+                  <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="ui-spin"></svg>
                   Deleting…
                 } @else {
                   Delete the video
@@ -409,6 +400,7 @@ export class StoryVideoPanelComponent implements OnDestroy {
   protected readonly primary = PRIMARY;
   protected readonly secondary = SECONDARY;
   protected readonly quiet = QUIET;
+  protected readonly danger = DANGER;
 
   protected readonly loading = signal(true);
   protected readonly loadProblem = signal<StoryPlanProblem | null>(null);
