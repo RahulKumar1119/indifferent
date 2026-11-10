@@ -17,7 +17,7 @@ export const FORMAT_GUIDE_PATH = '/blog/quiz-file-format-guide';
 export const SAMPLE_FILE_PATH = '/samples/quiz-sample.txt';
 
 const GENERIC: FailureMessage = {
-  title: 'Processing Failed',
+  title: 'Processing failed',
   text: 'Something went wrong while processing your video. Please try again.',
   fileProblem: false,
 };
