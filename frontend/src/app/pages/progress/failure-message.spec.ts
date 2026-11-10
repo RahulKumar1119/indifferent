@@ -19,7 +19,7 @@ describe('failureMessage', () => {
     for (const code of [undefined, '', 'SOMETHING_ELSE']) {
       const m = failureMessage(code);
       expect(m.fileProblem).withContext(String(code)).toBeFalse();
-      expect(m.title).toBe('Processing Failed');
+      expect(m.title).toBe('Processing failed');
       expect(m.text).not.toMatch(/file|question/i);
     }
   });

@@ -5,111 +5,84 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import { ProjectService } from '../../core/services/project.service';
 import { ApiService } from '../../core/services/api.service';
 import { Project } from '../../shared/models/project.model';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
+import { projectStatusLabel } from '../projects/project-status';
 
 @Component({
   selector: 'app-preview',
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterLink,
-    LucideDynamicIcon,
-  ],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent],
+  styles: [`
+    :host { display: block; }
+    .narrow { width: min(60rem, 100%); }
+    .back { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--type-sm); align-self: flex-start; }
+    .name { overflow-wrap: anywhere; }
+    .player { padding: 0; overflow: hidden; background: oklch(0% 0 0); }
+    .player video { display: block; width: 100%; aspect-ratio: 16 / 9; }
+    .actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+    @media (max-width: 39.99rem) { .actions .ui-btn { flex: 1 1 100%; } }
+    .notice { margin: 0; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .thumb { display: block; width: 100%; max-width: 24rem; height: auto; margin-top: var(--space-sm); border: 1px solid var(--color-rule); border-radius: var(--radius-control); }
+    .ui-empty .ui-btn, .ui-error-card .ui-btn { margin-top: var(--space-xs); }
+  `],
   template: `
-    <div class="p-6 max-w-5xl mx-auto">
-      @if (loading) {
-        <div class="flex justify-center items-center py-24">
-          <svg lucideIcon="loader-2" [size]="48" class="animate-spin text-[hsl(var(--primary))]"></svg>
-        </div>
-      } @else if (!project) {
-        <div class="glass-card p-12 text-center">
-          <p class="text-lg mb-2">Video not found</p>
-          <p class="text-sm text-[hsl(var(--muted-foreground))] mb-6">
-            This project doesn't exist or you don't have access to it.
-          </p>
-          <a routerLink="/projects" class="glow-btn">Back to projects</a>
-        </div>
-      } @else if (project) {
-        @if (project.status !== 'completed') {
-          <div class="glass-card p-12 text-center">
-            <svg lucideIcon="clock" [size]="64" class="mx-auto mb-4 text-[hsl(var(--muted-foreground))] opacity-50"></svg>
-            <p class="text-lg mb-2">Video is not ready yet</p>
-            <p class="text-sm text-[hsl(var(--muted-foreground))] mb-6">
-              Current status: {{ getStatusLabel(project.status) }}
-            </p>
-            <a [routerLink]="['/projects', project.id, 'progress']" class="glow-btn">
-              <svg lucideIcon="play" [size]="18"></svg>
-              View Progress
-            </a>
+    <div class="ui-app">
+      <app-navbar />
+      <main id="main" class="ui-app-main narrow hm">
+        <a routerLink="/projects" class="ui-link back">All projects</a>
+        @if (loading) {
+          <div role="status" aria-label="Loading video" data-testid="loading">
+            <div class="ui-skeleton" style="height: 2.25rem; width: 50%"></div>
+            <div class="ui-skeleton" style="margin-top: var(--space-md); aspect-ratio: 16 / 9"></div>
+          </div>
+        } @else if (!project) {
+          <div class="ui-card ui-error-card" role="alert" data-testid="not-found">
+            <h1 class="ui-h1">Video not found</h1>
+            <span class="ui-card-sub">This project doesn't exist or you don't have access to it.</span>
+            <a routerLink="/projects" class="ui-btn ui-btn--secondary">Back to your projects</a>
+          </div>
+        } @else if (project.status !== 'completed') {
+          <div class="ui-card ui-empty" data-testid="not-ready">
+            <span class="ui-chip" aria-hidden="true"><svg lucideIcon="clock" [size]="18"></svg></span>
+            <h1 class="ui-h1">Your video is not ready yet</h1>
+            <p>Status: {{ statusLabel(project.status) }}</p>
+            <a [routerLink]="['/projects', project.id, 'progress']" class="ui-btn ui-btn--primary">Track progress</a>
           </div>
         } @else {
-          <!-- Header -->
-          <div class="mb-6">
-            <h1 class="text-2xl font-semibold">{{ project.name }}</h1>
+          <div>
+            <h1 class="ui-h1 name">{{ project.name }}</h1>
             @if (project.completedAt) {
-              <p class="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                Completed on: {{ formatDate(project.completedAt) }}
-              </p>
+              <p class="ui-lead">Finished {{ formatDate(project.completedAt) }}</p>
             }
           </div>
 
-          <!-- Video Player -->
-          <div class="glass-card overflow-hidden mb-6">
-            <div class="relative w-full" style="max-width: 1280px;">
-              <div class="aspect-video">
-                <video
-                  class="w-full h-full"
-                  controls
-                  [src]="project.videoUrl"
-                  [poster]="project.thumbnailUrl"
-                  preload="metadata"
-                >
-                  Your browser does not support the video tag.
-                </video>
-              </div>
-            </div>
+          <div class="ui-card player">
+            <video controls [src]="project.videoUrl" [poster]="project.thumbnailUrl" preload="metadata" [attr.aria-label]="project.name + ' quiz video'"></video>
           </div>
 
-          <!-- Thumbnail Preview -->
-          @if (project.thumbnailUrl) {
-            <div class="glass-card p-4 mb-6">
-              <p class="text-sm font-medium mb-3">Thumbnail</p>
-              <img
-                [src]="project.thumbnailUrl"
-                [alt]="project.name + ' thumbnail'"
-                class="w-full max-w-sm rounded-lg border border-[hsl(var(--border))]"
-              />
-            </div>
-          }
-
-          <!-- Actions -->
-          <div class="flex flex-wrap gap-4">
-            <button
-              class="glow-btn"
-              (click)="downloadVideo()"
-              [disabled]="downloading"
-              [class.opacity-50]="downloading"
-            >
+          <div class="actions">
+            <button type="button" class="ui-btn ui-btn--primary" (click)="downloadVideo()" [disabled]="downloading" [attr.aria-busy]="downloading" data-testid="download">
               @if (downloading) {
-                <svg lucideIcon="loader-2" [size]="18" class="animate-spin"></svg>
-                Preparing...
+                <svg lucideIcon="loader-2" [size]="18" class="ui-spin" aria-hidden="true"></svg>
+                Preparing…
               } @else {
-                <svg lucideIcon="download" [size]="18"></svg>
-                Download Video
+                <svg lucideIcon="download" [size]="18" aria-hidden="true"></svg>
+                Download video
               }
             </button>
-            <a
-              routerLink="/projects"
-              class="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-[hsl(var(--border))] hover:bg-white/5 transition-colors font-medium"
-            >
-              <svg lucideIcon="arrow-right" [size]="18" class="rotate-180"></svg>
-              Back to Projects
-            </a>
+            <a [routerLink]="['/projects', project.id]" class="ui-btn ui-btn--secondary">Project settings</a>
+            <a routerLink="/projects" class="ui-btn ui-btn--quiet">Back to projects</a>
           </div>
-          @if (notice) {
-            <p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]">{{ notice }}</p>
+          <p class="notice" role="status" data-testid="notice">{{ notice }}</p>
+
+          @if (project.thumbnailUrl) {
+            <section class="ui-card" aria-labelledby="thumb-title">
+              <h2 id="thumb-title" class="ui-card-title">Thumbnail</h2>
+              <img [src]="project.thumbnailUrl" [alt]="project.name + ' thumbnail'" class="thumb" />
+            </section>
           }
         }
-      }
+      </main>
     </div>
   `,
 })
@@ -122,6 +95,7 @@ export class PreviewComponent implements OnInit {
   loading = true;
   downloading = false;
   notice = '';
+  readonly statusLabel = projectStatusLabel;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -181,25 +155,6 @@ export class PreviewComponent implements OnInit {
           this.notice = 'Download failed. Please try again.';
         },
       });
-  }
-
-  getStatusLabel(status: string): string {
-    switch (status) {
-      case 'created':
-        return 'Created';
-      case 'parsing':
-        return 'Parsing';
-      case 'generating_slides':
-        return 'Generating Slides';
-      case 'narrating':
-        return 'Narrating';
-      case 'rendering':
-        return 'Rendering';
-      case 'failed':
-        return 'Failed';
-      default:
-        return status;
-    }
   }
 
   formatDate(dateStr: string): string {

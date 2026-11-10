@@ -17,9 +17,8 @@ import { probeMediaDuration } from '../../shared/media-probe';
 import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH } from '../progress/failure-message';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { StepIndicatorComponent } from '../../shared/components/step-indicator/step-indicator.component';
+import { QUIZ_STEPS } from './quiz-steps';
 
-/** The two steps of making a quiz video, shared with the upload page. */
-export const QUIZ_STEPS = ['Details', 'Questions'] as const;
 
 @Component({
   selector: 'app-create-project',
