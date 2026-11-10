@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { FREE_BETA_FAQ } from '../../core/config/free-beta';
 import { provideRouter } from '@angular/router';
 import { FEATURE_DATA } from '../features/feature-page.component';
 import { GENERAL_FAQ, HelpComponent } from './help.component';
@@ -74,5 +75,14 @@ describe('HelpComponent', () => {
 
     expect(document.title).toBe('Help and FAQ | Indifferent');
     expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/help');
+  });
+
+  it('answers "is it free" with the shared beta answer and links the pricing page (#255)', () => {
+    expect(GENERAL_FAQ).toContain(FREE_BETA_FAQ);
+    const page = render();
+    const item = Array.from(page.querySelectorAll('details')).find((d) => d.querySelector('summary')!.textContent!.includes(FREE_BETA_FAQ.q))!;
+    expect(item.textContent).toContain('daily and hourly usage limits');
+    expect(item.querySelector('a[href="/pricing"]')).not.toBeNull();
+    expect(page.textContent).not.toContain('no paid plan yet');
   });
 });

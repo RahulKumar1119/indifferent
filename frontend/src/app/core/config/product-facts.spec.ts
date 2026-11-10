@@ -43,6 +43,21 @@ describe('product facts', () => {
     expect(PRODUCT_FACTS.story.perDay).toBe(10);
   });
 
+  it('states the usage limits the API enforces (#255)', () => {
+    // Also checked against the Go source by scripts/check-facts.mjs.
+    // backend/internal/api/quota.go
+    expect(PRODUCT_FACTS.limits.quizProjectsPerDay).toBe(40);
+    expect(PRODUCT_FACTS.limits.fileUploadsPerDay).toBe(120);
+    expect(PRODUCT_FACTS.limits.shortsUploadsPerDay).toBe(30);
+    expect(PRODUCT_FACTS.limits.shortsRetriesPerDay).toBe(15);
+    expect(PRODUCT_FACTS.limits.thumbnailSetsPerDay).toBe(30);
+    // backend/internal/api/storyplan.go, stockmedia.go
+    expect(PRODUCT_FACTS.limits.storyPlansPerHour).toBe(20);
+    expect(PRODUCT_FACTS.limits.stockSearchesPerHour).toBe(120);
+    // The notice promised on /pricing before paid plans or lower free limits.
+    expect(PRODUCT_FACTS.changeNoticeDays).toBe(30);
+  });
+
   it('labels the story output the same way as Shorts', () => {
     // Both are 1080x1920 vertical MP4s at 30 fps.
     expect(storyOutputLabel()).toBe('1080×1920 MP4 (H.264 video, AAC audio, 30 fps)');

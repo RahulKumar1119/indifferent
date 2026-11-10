@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { setPageSeo } from '../../shared/seo';
+import { FREE_BETA_FAQ } from '../../core/config/free-beta';
 import { FEATURE_DATA, FeatureData, FeatureFaq } from '../features/feature-page.component';
 
 interface HelpSection {
@@ -18,10 +19,7 @@ interface HelpSection {
 /** Questions that apply to the whole site. Anything about a single tool comes
  * from FEATURE_DATA, so the help page and the product pages cannot disagree. */
 export const GENERAL_FAQ: FeatureFaq[] = [
-  {
-    q: 'Is Indifferent free?',
-    a: 'Yes, during the beta. There is no credit card and no paid plan yet.',
-  },
+  FREE_BETA_FAQ,
   {
     q: 'Do I need an account?',
     a: 'The AI Shorts generator, the TXT to quiz video generator and the Story to video generator need you to sign in with Google. The watermark tool needs no account.',
@@ -105,6 +103,9 @@ export const GENERAL_FAQ: FeatureFaq[] = [
                   <details class="ui-disclosure">
                     <summary>{{ f.q }}</summary>
                     <p>{{ f.a }}</p>
+                    @if (f.link) {
+                      <p><a [routerLink]="f.link.path" class="link">{{ f.link.label }}</a></p>
+                    }
                   </details>
                 }
               </div>

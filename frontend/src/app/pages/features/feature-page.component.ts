@@ -21,6 +21,8 @@ export interface FeatureLimit {
 export interface FeatureFaq {
   q: string;
   a: string;
+  /** A page that answers the question in full, shown under the answer. */
+  link?: { label: string; path: string };
 }
 
 export interface FeatureData {
