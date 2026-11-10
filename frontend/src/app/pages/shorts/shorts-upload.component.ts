@@ -16,6 +16,7 @@ import { NavbarComponent } from '../../shared/components/navbar/navbar.component
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
 import { ShortsUploader, UploadError, UploadProgress, multipartApi } from './shorts-uploader';
+import { probeMediaDuration } from '../../shared/media-probe';
 import {
   DEFAULT_UPLOAD_BYTES_PER_SEC,
   LARGE_UPLOAD_WARNING_BYTES,
@@ -726,39 +727,28 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
     this.probeDuration(file, ext);
   }
 
-  /** Probe media duration with a hidden media element's loadedmetadata event. */
+  /** Read the media duration without uploading anything (shared off-screen probe). */
   private probeDuration(file: File, ext: string): void {
     this.isProbing = true;
     const isAudio = ext === 'mp3' || ext === 'wav';
-    const media = document.createElement(isAudio ? 'audio' : 'video') as HTMLMediaElement;
-    media.preload = 'metadata';
-    const objectUrl = blobObjectUrl(file);
-
-    const cleanup = () => {
-      URL.revokeObjectURL(objectUrl);
-      this.isProbing = false;
-    };
-
-    media.onloadedmetadata = () => {
-      const duration = media.duration;
-      cleanup();
-      if (!isFinite(duration) || duration <= 0) {
-        this.error = 'Could not read media duration. Please try a different file.';
-        return;
-      }
-      if (duration > this.limits.maxDurationSeconds) {
-        this.error = `File is too long (${this.formatDuration(duration)}). Maximum length is ${this.limits.maxDurationMinutes} minutes.`;
-        return;
-      }
-      this.durationSeconds = duration;
-    };
-
-    media.onerror = () => {
-      cleanup();
-      this.error = 'Could not read this media file. Please try a different file.';
-    };
-
-    media.src = objectUrl;
+    probeMediaDuration(file, isAudio ? 'audio' : 'video').then(
+      (duration) => {
+        this.isProbing = false;
+        if (!isFinite(duration) || duration <= 0) {
+          this.error = 'Could not read media duration. Please try a different file.';
+          return;
+        }
+        if (duration > this.limits.maxDurationSeconds) {
+          this.error = `File is too long (${this.formatDuration(duration)}). Maximum length is ${this.limits.maxDurationMinutes} minutes.`;
+          return;
+        }
+        this.durationSeconds = duration;
+      },
+      () => {
+        this.isProbing = false;
+        this.error = 'Could not read this media file. Please try a different file.';
+      },
+    );
   }
 
   /** The effects panel has saved the settings, so the job can start. */
