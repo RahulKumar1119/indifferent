@@ -44,7 +44,7 @@ describe('StoryVideoProgressComponent', () => {
 
   it('lists the three stages in the order they happen', async () => {
     await show('queued', 0);
-    expect(steps().map((s) => s.querySelector('span.font-medium')!.textContent!.trim())).toEqual(['Pictures', 'Narration', 'Video']);
+    expect(steps().map((s) => s.querySelector('.lbl')!.textContent!.trim())).toEqual(['Pictures', 'Narration', 'Video']);
   });
 
   it('says "Starting" before the first stage and marks nothing in progress', async () => {
@@ -64,7 +64,7 @@ describe('StoryVideoProgressComponent', () => {
 
   it('says each state in words, not only with a marker', async () => {
     await show('narrating', 30);
-    const parts = (s: Element) => Array.from(s.querySelectorAll('span.block:not(.size-2\\.5)')).map((p) => p.textContent!.trim());
+    const parts = (s: Element) => Array.from(s.querySelectorAll('.lbl, .word')).map((p) => p.textContent!.trim());
     expect(steps().map(parts)).toEqual([
       ['Pictures', 'Done'],
       ['Narration', 'In progress'],
@@ -83,7 +83,7 @@ describe('StoryVideoProgressComponent', () => {
 
   it('puts the accent on the stage in progress and nowhere else', async () => {
     await show('narrating', 30);
-    const accent = (s: Element) => s.className.includes('#BC5227') || !!s.querySelector('[class*="#BC5227"]');
+    const accent = (s: Element) => s.classList.contains('accent');
     expect(steps().map(accent)).toEqual([false, true, false]);
   });
 

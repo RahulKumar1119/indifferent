@@ -66,8 +66,9 @@ describe('StoryVideoOptionsComponent', () => {
     });
 
     it('gives every control a tap target of at least 44 pixels', () => {
-      expect(select().classList.contains('min-h-11')).toBeTrue();
-      for (const r of radios()) expect(r.closest('label')!.classList.contains('min-h-11')).toBeTrue();
+      // Measured, not read from a class name: ui.css and the component set the 44px minimum (#253).
+      expect(select().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      for (const r of radios()) expect(r.closest('label')!.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
     });
   });
 

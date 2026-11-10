@@ -676,7 +676,7 @@ describe('StoryVideoPanelComponent', () => {
     });
 
     it('offers the download as the one main action', () => {
-      const primaries = Array.from(el.querySelectorAll('button')).filter((b) => b.className.includes('bg-[#BC5227]'));
+      const primaries = Array.from(el.querySelectorAll('button')).filter((b) => b.classList.contains('ui-btn--primary'));
       expect(primaries.length).toBe(1);
       expect(primaries[0].textContent).toContain('Download MP4');
     });
@@ -812,7 +812,7 @@ describe('StoryVideoPanelComponent', () => {
       await render();
       expect(q('make-form')).toBeTruthy();
       expect(make().textContent!.trim()).toBe('Make this version');
-      const primaries = Array.from(el.querySelectorAll('button')).filter((b) => b.className.includes('bg-[#BC5227]'));
+      const primaries = Array.from(el.querySelectorAll('button')).filter((b) => b.classList.contains('ui-btn--primary'));
       expect(primaries.length).withContext('one main action at a time').toBe(1);
       expect(primaries[0]).toBe(make());
       expect(q('another')).toBeNull();
@@ -987,7 +987,7 @@ describe('StoryVideoPanelComponent', () => {
       const states: Mount[] = [{}, { videos: [rendering()] }, { videos: [failed()] }, { videos: [completed(), completed({ jobId: 'job-0' })] }];
       for (const s of states) {
         await mount(s);
-        const primaries = Array.from(el.querySelectorAll('button')).filter((b) => b.className.includes('bg-[#BC5227]'));
+        const primaries = Array.from(el.querySelectorAll('button')).filter((b) => b.classList.contains('ui-btn--primary'));
         expect(primaries.length).withContext(JSON.stringify(s)).toBeLessThanOrEqual(1);
         fixture.destroy();
       }
@@ -997,8 +997,9 @@ describe('StoryVideoPanelComponent', () => {
       await mount({ videos: [completed(), completed({ jobId: 'job-0' })] });
       q<HTMLButtonElement>('delete')!.click();
       await render();
+      // Measured, not read from a class name: ui.css sets the 44px minimum (#253).
       for (const b of Array.from(el.querySelectorAll('button'))) {
-        expect(b.className).withContext(b.textContent!.trim()).toContain('min-h-11');
+        expect(b.getBoundingClientRect().height).withContext(b.textContent!.trim()).toBeGreaterThanOrEqual(44);
       }
     });
 
