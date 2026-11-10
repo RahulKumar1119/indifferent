@@ -51,60 +51,74 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
   standalone: true,
   imports: [DecimalPipe, LucideDynamicIcon, StoryAttributionComponent, StoryProblemComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styles: [
-    `
-      dialog::backdrop {
-        background: rgb(0 0 0 / 0.6);
-      }
-      .serif {
-        font-family: 'Cormorant Garamond', Georgia, serif;
-      }
-      /* A phone held sideways has about 375px of height: a pinned header would
-         leave almost none for the results, so the whole dialog scrolls instead. */
-      @media (max-height: 600px) {
-        .picker-shell {
-          overflow-y: auto;
-        }
-        .picker-body {
-          flex: none;
-          overflow: visible;
-        }
-      }
-    `,
-  ],
+  styles: [`
+    dialog { margin: auto; padding: 0; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; overflow: hidden; border: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); }
+    @media (min-width: 40rem) { dialog { height: auto; max-height: 90dvh; max-width: 64rem; border: 1px solid var(--color-rule); border-radius: var(--radius-surface); } }
+    dialog::backdrop { background: color-mix(in oklab, oklch(0% 0 0) 60%, transparent); }
+    .shell { display: flex; flex-direction: column; height: 100%; max-height: 100dvh; }
+    @media (min-width: 40rem) { .shell { max-height: 90dvh; } }
+    .head { flex: none; padding: var(--space-md); border-bottom: 1px solid var(--color-rule); }
+    @media (min-width: 40rem) { .head { padding: var(--space-md) var(--space-lg); } }
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-md); }
+    h2 { margin: 0; font-size: var(--type-xl); font-weight: 600; line-height: 1.2; }
+    .sub { margin: var(--space-3xs) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); overflow-wrap: anywhere; }
+    .x { width: 44px; padding: 0; flex: none; }
+    form { margin-top: var(--space-md); display: flex; flex-direction: column; gap: var(--space-sm); }
+    @media (min-width: 40rem) { form { flex-direction: row; align-items: flex-end; } }
+    .q { flex: 1; min-width: 0; }
+    .q label { display: block; font-size: var(--type-sm); font-weight: 600; margin-bottom: var(--space-2xs); }
+    .err { margin: var(--space-2xs) 0 0; display: flex; align-items: flex-start; gap: var(--space-xs); font-size: var(--type-sm); font-weight: 500; color: var(--color-negative); }
+    .ctl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
+    .seg { display: flex; gap: var(--space-xs); }
+    .go { flex: 1; }
+    @media (min-width: 40rem) { .go { flex: none; } }
+    .body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-sm); }
+    @media (min-width: 40rem) { .body { padding: var(--space-md) var(--space-lg); } }
+    /* A phone held sideways has about 375px of height: a pinned header would
+       leave almost none for the results, so the whole dialog scrolls instead. */
+    @media (max-height: 600px) { .shell { overflow-y: auto; } .body { flex: none; overflow: visible; } }
+    .status { margin: 0; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .care p { margin: 0; max-width: 65ch; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .care a { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--type-sm); }
+    .note { margin: 0; display: flex; align-items: flex-start; gap: var(--space-xs); padding: var(--space-sm); border-radius: var(--radius-control); border: 1px solid color-mix(in oklab, var(--color-caution) 50%, transparent); font-size: var(--type-sm); }
+    .grid { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-sm); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (min-width: 40rem) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (min-width: 64rem) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .ph { aspect-ratio: 3 / 4; border-radius: var(--radius-control); }
+    .tile { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper-2); }
+    .tile.cur { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
+    .pic { aspect-ratio: 3 / 4; background: var(--color-paper-3); }
+    .pic img, .pic video { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .pic p { margin: 0; display: flex; align-items: center; justify-content: center; height: 100%; padding: var(--space-sm); text-align: center; font-size: var(--type-sm); }
+    .info { flex: 1; display: flex; flex-direction: column; gap: var(--space-2xs); padding: var(--space-sm); }
+    .info .o { margin: 0; font-size: var(--type-xs); color: var(--color-ink-2); }
+    .info a { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--type-xs); overflow-wrap: anywhere; }
+    .info .ui-btn { margin-top: auto; padding: 0 var(--space-sm); }
+    .now { margin: auto 0 0; display: inline-flex; align-items: center; gap: var(--space-xs); min-height: 44px; font-size: var(--type-sm); font-weight: 600; color: var(--color-accent-text); }
+    .empty p { margin: 0; }
+    .empty p + p { margin-top: var(--space-3xs); font-size: var(--type-sm); color: var(--color-ink-2); }
+    .empty .ui-btn, .more { margin-top: var(--space-sm); }
+    .more { display: flex; justify-content: center; }
+  `],
   template: `
-    <dialog
-      #dialog
-      aria-labelledby="picker-title"
-      (close)="onClosed()"
-      class="m-auto h-[100dvh] w-full max-w-none overflow-hidden bg-[hsl(var(--background))] p-0 text-[hsl(var(--foreground))] sm:h-auto sm:max-h-[90dvh] sm:max-w-5xl sm:rounded-2xl sm:border sm:border-[hsl(var(--border))]"
-    >
-      <div class="picker-shell flex h-full max-h-[100dvh] flex-col sm:max-h-[90dvh]">
-        <header class="picker-header shrink-0 border-b border-[hsl(var(--border))] px-4 py-4 sm:px-6">
-          <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0">
-              <h2 id="picker-title" class="serif text-2xl font-medium leading-tight">
-                Choose a {{ mediaType() === 'video' ? 'clip' : 'photo' }} for scene {{ sceneNumber() }}
-              </h2>
+    <dialog #dialog aria-labelledby="picker-title" (close)="onClosed()" class="hm">
+      <div class="shell">
+        <header class="head">
+          <div class="top">
+            <div style="min-width: 0">
+              <h2 id="picker-title">Choose a {{ mediaType() === 'video' ? 'clip' : 'photo' }} for scene {{ sceneNumber() }}</h2>
               @if (scene(); as s) {
-                <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))] [overflow-wrap:anywhere]">
-                  Suggested: {{ s.description }}
-                </p>
+                <p class="sub">Suggested: {{ s.description }}</p>
               }
             </div>
-            <button
-              type="button"
-              (click)="close()"
-              aria-label="Close"
-              class="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
-            >
+            <button type="button" (click)="close()" aria-label="Close" class="ui-btn ui-btn--secondary x">
               <svg lucideIcon="x" [size]="18" aria-hidden="true"></svg>
             </button>
           </div>
 
-          <form class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" role="search" (submit)="onSubmit($event)">
-            <div class="min-w-0 flex-1">
-              <label for="picker-query" class="block text-sm font-medium">Search in English</label>
+          <form role="search" (submit)="onSubmit($event)">
+            <div class="q">
+              <label for="picker-query">Search in English</label>
               <input
                 id="picker-query"
                 type="search"
@@ -115,49 +129,36 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
                 [attr.maxlength]="maxQuery"
                 [attr.aria-invalid]="queryError() ? 'true' : null"
                 [attr.aria-describedby]="queryError() ? 'picker-query-error' : null"
-                class="mt-1 block min-h-11 w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 text-base"
+                class="ui-field"
               />
               @if (queryError()) {
-                <p id="picker-query-error" role="alert" class="mt-1 flex items-start gap-2 text-sm font-medium">
-                  <svg lucideIcon="triangle-alert" [size]="16" aria-hidden="true" class="mt-0.5 shrink-0 text-[var(--color-error)]"></svg>
+                <p id="picker-query-error" role="alert" class="err">
+                  <svg lucideIcon="triangle-alert" [size]="16" aria-hidden="true" style="flex: none; margin-top: 2px"></svg>
                   {{ queryError() }}
                 </p>
               }
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-            <div role="group" aria-label="What to look for" class="flex gap-2">
-              <button
-                type="button"
-                [attr.aria-pressed]="mediaType() === 'photo'"
-                (click)="setType('photo')"
-                [class]="typeButtonClass(mediaType() === 'photo')"
-              >
-                <svg lucideIcon="image" [size]="16" aria-hidden="true"></svg>
-                Photos
+            <div class="ctl">
+              <div role="group" aria-label="What to look for" class="seg">
+                <button type="button" [attr.aria-pressed]="mediaType() === 'photo'" (click)="setType('photo')" class="ui-btn ui-btn--secondary ui-seg">
+                  <svg lucideIcon="image" [size]="16" aria-hidden="true"></svg>
+                  Photos
+                </button>
+                <button type="button" [attr.aria-pressed]="mediaType() === 'video'" (click)="setType('video')" class="ui-btn ui-btn--secondary ui-seg">
+                  <svg lucideIcon="film" [size]="16" aria-hidden="true"></svg>
+                  Clips
+                </button>
+              </div>
+              <button type="submit" class="ui-btn ui-btn--primary go">
+                <svg lucideIcon="search" [size]="16" aria-hidden="true"></svg>
+                Search
               </button>
-              <button
-                type="button"
-                [attr.aria-pressed]="mediaType() === 'video'"
-                (click)="setType('video')"
-                [class]="typeButtonClass(mediaType() === 'video')"
-              >
-                <svg lucideIcon="film" [size]="16" aria-hidden="true"></svg>
-                Clips
-              </button>
-            </div>
-            <button
-              type="submit"
-              class="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[#BC5227] px-5 text-sm font-semibold text-white hover:bg-[#a84822] sm:flex-none"
-            >
-              <svg lucideIcon="search" [size]="16" aria-hidden="true"></svg>
-              Search
-            </button>
             </div>
           </form>
         </header>
 
-        <div class="picker-body min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
-          <p role="status" class="mb-3 text-sm text-[hsl(var(--muted-foreground))]" data-testid="picker-status">
+        <div class="body">
+          <p role="status" class="status" data-testid="picker-status">
             @switch (phase()) {
               @case ('loading') {
                 Searching the photo libraries…
@@ -171,74 +172,52 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
           </p>
 
           @if (phase() === 'ready') {
-            <div class="mb-4" data-testid="picker-care">
+            <div class="care" data-testid="picker-care">
               <app-story-attribution [attributions]="attributions()" />
-              <p class="max-w-prose text-sm text-[hsl(var(--muted-foreground))]">
+              <p>
                 Check each picture before you choose it. Avoid visible logos or brand names, people who could be recognised shown in a bad
                 light or as if they back something, and private homes.
               </p>
-              <a
-                href="/terms#stock"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex min-h-11 items-center text-sm underline underline-offset-2 hover:text-[hsl(var(--foreground))]"
-                data-testid="picker-terms"
+              <a href="/terms#stock" target="_blank" rel="noopener noreferrer" class="ui-link" data-testid="picker-terms"
                 >What the terms say<span class="sr-only"> (opens in a new tab)</span></a
               >
             </div>
           }
 
           @if (problem(); as p) {
-            <app-story-problem
-              [problem]="p"
-              [actionLabel]="p.retryable ? 'Search again' : ''"
-              (action)="retry()"
-            />
+            <app-story-problem [problem]="p" [actionLabel]="p.retryable ? 'Search again' : ''" (action)="retry()" />
           }
 
           @if (notice(); as n) {
-            <p
-              class="mb-3 flex items-start gap-2 rounded-lg border border-[hsl(var(--border))] p-3 text-sm"
-              role="status"
-              data-testid="partial-notice"
-            >
-              <svg lucideIcon="triangle-alert" [size]="16" aria-hidden="true" class="mt-0.5 shrink-0"></svg>
+            <p class="note" role="status" data-testid="partial-notice">
+              <svg lucideIcon="triangle-alert" [size]="16" aria-hidden="true" style="flex: none; margin-top: 2px"></svg>
               <span>{{ n.text }} Showing results from the other library only.</span>
             </p>
           }
 
           @if (phase() === 'loading') {
-            <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-hidden="true">
+            <ul class="grid" aria-hidden="true">
               @for (i of placeholders; track i) {
-                <li class="aspect-[3/4] rounded-xl bg-[hsl(var(--muted))]"></li>
+                <li class="ui-skeleton ph"></li>
               }
             </ul>
           }
 
           @if (phase() === 'ready' && assets().length === 0 && !problem()) {
-            <div class="rounded-xl border border-[hsl(var(--border))] p-5" data-testid="empty">
-              <p class="font-semibold">
-                No {{ mediaType() === 'video' ? 'clips' : 'photos' }} found for “{{ searched() }}”
-              </p>
-              <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-                Try fewer or different English words, or look for
-                {{ mediaType() === 'video' ? 'photos' : 'clips' }} instead.
-              </p>
-              <button
-                type="button"
-                (click)="setType(mediaType() === 'video' ? 'photo' : 'video')"
-                class="mt-3 inline-flex min-h-11 items-center rounded-full border border-[hsl(var(--border))] px-4 text-sm font-medium hover:bg-[hsl(var(--muted))]"
-              >
+            <div class="ui-card empty" data-testid="empty">
+              <p><strong>No {{ mediaType() === 'video' ? 'clips' : 'photos' }} found for “{{ searched() }}”</strong></p>
+              <p>Try fewer or different English words, or look for {{ mediaType() === 'video' ? 'photos' : 'clips' }} instead.</p>
+              <button type="button" (click)="setType(mediaType() === 'video' ? 'photo' : 'video')" class="ui-btn ui-btn--secondary">
                 Search {{ mediaType() === 'video' ? 'photos' : 'clips' }} instead
               </button>
             </div>
           }
 
           @if (assets().length) {
-            <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" data-testid="results">
+            <ul class="grid" data-testid="results">
               @for (asset of assets(); track assetKey(asset)) {
-                <li class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[hsl(var(--border))]">
-                  <div class="aspect-[3/4] bg-[hsl(var(--muted))]">
+                <li class="tile" [class.cur]="isCurrent(asset)">
+                  <div class="pic">
                     @if (asset.type === 'video' && asset.playUrl) {
                       <video
                         [src]="asset.playUrl"
@@ -248,38 +227,29 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
                         playsinline
                         preload="none"
                         [attr.aria-label]="'Preview of ' + altOf(asset)"
-                        class="size-full object-contain"
                       ></video>
                     } @else if (asset.previewUrl) {
-                      <img [src]="asset.previewUrl" [alt]="altOf(asset)" loading="lazy" class="size-full object-contain" />
+                      <img [src]="asset.previewUrl" [alt]="altOf(asset)" loading="lazy" />
                     } @else {
-                      <p class="flex size-full items-center justify-center p-3 text-center text-sm">No preview available</p>
+                      <p>No preview available</p>
                     }
                   </div>
-                  <div class="flex flex-1 flex-col gap-2 p-3">
-                    <p class="text-xs text-[hsl(var(--muted-foreground))]">
+                  <div class="info">
+                    <p class="o">
                       {{ orientationLabel(asset) }}@if (asset.duration) {
                         · {{ asset.duration | number: '1.0-0' }} s
                       }
                     </p>
-                    <a
-                      [href]="asset.pageUrl"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="inline-flex min-h-11 items-center text-xs underline underline-offset-2 [overflow-wrap:anywhere]"
+                    <a [href]="asset.pageUrl" target="_blank" rel="noopener noreferrer" class="ui-link"
                       >{{ asset.credit }}<span class="sr-only"> (opens in a new tab)</span></a
                     >
                     @if (isCurrent(asset)) {
-                      <p class="mt-auto inline-flex min-h-11 items-center gap-2 text-sm font-semibold">
+                      <p class="now">
                         <svg lucideIcon="check" [size]="16" aria-hidden="true"></svg>
                         Current choice
                       </p>
                     } @else {
-                      <button
-                        type="button"
-                        (click)="choose(asset)"
-                        class="mt-auto inline-flex min-h-11 items-center justify-center rounded-full border border-[hsl(var(--foreground))] px-4 text-sm font-semibold hover:bg-[hsl(var(--foreground))] hover:text-[hsl(var(--background))]"
-                      >
+                      <button type="button" (click)="choose(asset)" class="ui-btn ui-btn--secondary">
                         Use this {{ asset.type === 'video' ? 'clip' : 'photo' }}<span class="sr-only">, {{ altOf(asset) }}</span>
                       </button>
                     }
@@ -289,15 +259,10 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
             </ul>
 
             @if (hasMore()) {
-              <div class="mt-4 flex justify-center">
-                <button
-                  type="button"
-                  (click)="loadMore()"
-                  [disabled]="loadingMore()"
-                  class="inline-flex min-h-11 items-center gap-2 rounded-full border border-[hsl(var(--border))] px-5 text-sm font-medium hover:bg-[hsl(var(--muted))] disabled:opacity-60"
-                >
+              <div class="more">
+                <button type="button" (click)="loadMore()" [disabled]="loadingMore()" [attr.aria-busy]="loadingMore()" class="ui-btn ui-btn--secondary">
                   @if (loadingMore()) {
-                    <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="animate-spin motion-reduce:animate-none"></svg>
+                    <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="ui-spin"></svg>
                     Loading…
                   } @else {
                     Show more results
@@ -305,7 +270,6 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
                 </button>
               </div>
             }
-
           }
         </div>
       </div>
@@ -453,13 +417,6 @@ export class StoryMediaPickerComponent implements OnDestroy {
   protected orientationLabel(asset: StockAsset): string {
     const o = asset.orientation;
     return o ? o.charAt(0).toUpperCase() + o.slice(1) : '';
-  }
-
-  protected typeButtonClass(on: boolean): string {
-    const base = 'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium';
-    return on
-      ? `${base} border-[hsl(var(--foreground))] bg-[hsl(var(--foreground))] text-[hsl(var(--background))]`
-      : `${base} border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]`;
   }
 
   private resetResults(): void {

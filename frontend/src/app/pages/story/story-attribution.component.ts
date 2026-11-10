@@ -10,18 +10,18 @@ import { StockAttribution } from './story-plan.models';
   selector: 'app-story-attribution',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [`
+    :host { display: block; }
+    ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 0 var(--space-lg); font-size: var(--type-sm); }
+    a { display: inline-flex; align-items: center; min-height: 44px; }
+    .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  `],
   template: `
     @if (attributions().length) {
-      <ul class="flex flex-wrap gap-x-6 text-sm text-[hsl(var(--muted-foreground))]" data-testid="attribution">
+      <ul data-testid="attribution">
         @for (a of attributions(); track a.provider) {
           <li>
-            <a
-              [href]="a.url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex min-h-11 items-center underline underline-offset-2 hover:text-[hsl(var(--foreground))]"
-              >{{ a.text }}<span class="sr-only"> (opens in a new tab)</span></a
-            >
+            <a [href]="a.url" target="_blank" rel="noopener noreferrer" class="ui-link">{{ a.text }}<span class="sr"> (opens in a new tab)</span></a>
           </li>
         }
       </ul>

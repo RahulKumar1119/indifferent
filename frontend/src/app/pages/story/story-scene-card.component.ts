@@ -14,33 +14,47 @@ import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './sto
   standalone: true,
   imports: [DecimalPipe, LucideDynamicIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styles: [
-    `
-      .serif {
-        font-family: 'Cormorant Garamond', Georgia, serif;
-      }
-    `,
-  ],
+  styles: [`
+    :host { display: block; }
+    article { scroll-margin-top: calc(56px + var(--space-md)); }
+    header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2xs) var(--space-md); }
+    h3 { margin: 0; font-size: var(--type-lg); font-weight: 600; line-height: 1.25; }
+    h3:focus { outline: none; }
+    h3:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; border-radius: 2px; }
+    .meta { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); font-size: var(--type-sm); color: var(--color-muted); }
+    .edited { color: var(--color-caution); }
+    .grid { margin-top: var(--space-md); display: grid; gap: var(--space-lg); }
+    @media (min-width: 48rem) { .grid { grid-template-columns: 13rem minmax(0, 1fr); } }
+    figure { margin: 0; min-width: 0; }
+    .frame { display: flex; align-items: center; justify-content: center; width: 11rem; aspect-ratio: 3 / 4; overflow: hidden; border-radius: var(--radius-control); background: var(--color-paper-3); border: 1px solid var(--color-rule); }
+    @media (min-width: 48rem) { .frame { width: 100%; } }
+    .frame img, .frame video { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .state { margin: 0; padding: var(--space-sm); text-align: center; font-size: var(--type-sm); color: var(--color-ink); }
+    .state svg { display: block; margin: 0 auto var(--space-2xs); color: var(--color-ink-2); }
+    figcaption { margin-top: var(--space-2xs); font-size: var(--type-sm); color: var(--color-ink-2); overflow-wrap: anywhere; }
+    figcaption a { display: inline-flex; align-items: center; min-height: 44px; }
+    .acts { margin-top: var(--space-xs); display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+    label { display: block; font-size: var(--type-sm); font-weight: 600; }
+    textarea { margin-top: var(--space-2xs); min-height: 7rem; resize: vertical; line-height: 1.55; }
+    .count { margin: var(--space-2xs) 0 0; font-size: var(--type-xs); color: var(--color-muted); }
+    .kw { margin: var(--space-sm) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  `],
   template: `
-    <article
-      class="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 sm:p-5"
-      [attr.aria-labelledby]="titleId()"
-    >
-      <header class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h3 [id]="titleId()" class="serif text-2xl font-medium leading-tight">Scene {{ index() + 1 }}</h3>
-        <p class="text-sm text-[hsl(var(--muted-foreground))]">
-          About {{ scene().duration | number: '1.0-1' }} s
+    <article class="ui-card" [id]="'scene-' + (index() + 1)" [attr.aria-labelledby]="titleId()">
+      <header>
+        <h3 [id]="titleId()" tabindex="-1">Scene {{ index() + 1 }}</h3>
+        <p class="meta">
+          <span>About {{ scene().duration | number: '1.0-1' }} s</span>
           @if (edited()) {
-            <span class="font-semibold text-[hsl(var(--foreground))]" data-testid="edited">· Edited, not saved</span>
+            <span class="ui-pill edited" data-testid="edited">Edited, not saved</span>
           }
         </p>
       </header>
 
-      <div class="mt-4 grid gap-5 md:grid-cols-[13rem_minmax(0,1fr)]">
-        <figure class="m-0 min-w-0">
-          <div
-            class="flex aspect-[3/4] w-44 items-center justify-center overflow-hidden rounded-xl bg-[hsl(var(--muted))] md:w-full"
-          >
+      <div class="grid">
+        <figure>
+          <div class="frame">
             @switch (media().state) {
               @case ('asset') {
                 @if (asset(); as a) {
@@ -53,47 +67,41 @@ import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './sto
                       playsinline
                       preload="none"
                       [attr.aria-label]="'Preview clip for scene ' + (index() + 1)"
-                      class="size-full object-contain"
                     ></video>
                   } @else if (a.previewUrl) {
-                    <img [src]="a.previewUrl" [alt]="a.alt || scene().description" class="size-full object-contain" />
+                    <img [src]="a.previewUrl" [alt]="a.alt || scene().description" />
                   } @else {
-                    <p class="p-3 text-center text-sm">No preview available</p>
+                    <p class="state">No preview available</p>
                   }
                 }
               }
               @case ('unavailable') {
-                <p class="p-3 text-center text-sm text-[hsl(var(--foreground))]" data-testid="media-state">
-                  <svg lucideIcon="circle-x" [size]="20" aria-hidden="true" class="mx-auto mb-2"></svg>
+                <p class="state" data-testid="media-state">
+                  <svg lucideIcon="circle-x" [size]="20" aria-hidden="true"></svg>
                   This picture is no longer available
                 </p>
               }
               @case ('error') {
-                <p class="p-3 text-center text-sm text-[hsl(var(--foreground))]" data-testid="media-state">
-                  <svg lucideIcon="triangle-alert" [size]="20" aria-hidden="true" class="mx-auto mb-2"></svg>
+                <p class="state" data-testid="media-state">
+                  <svg lucideIcon="triangle-alert" [size]="20" aria-hidden="true"></svg>
                   This picture could not be loaded
                 </p>
               }
               @default {
-                <p class="p-3 text-center text-sm text-[hsl(var(--foreground))]" data-testid="media-state">
-                  <svg lucideIcon="image" [size]="20" aria-hidden="true" class="mx-auto mb-2"></svg>
+                <p class="state" data-testid="media-state">
+                  <svg lucideIcon="image" [size]="20" aria-hidden="true"></svg>
                   No picture chosen
                 </p>
               }
             }
           </div>
 
-          <figcaption class="mt-2 text-sm text-[hsl(var(--muted-foreground))]">
+          <figcaption>
             @switch (media().state) {
               @case ('asset') {
                 @if (asset(); as a) {
-                  <a
-                    [href]="a.pageUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="inline-flex min-h-11 items-center underline underline-offset-2 [overflow-wrap:anywhere]"
-                    data-testid="credit"
-                    >{{ a.credit }}<span class="sr-only"> (opens in a new tab)</span></a
+                  <a [href]="a.pageUrl" target="_blank" rel="noopener noreferrer" class="ui-link" data-testid="credit"
+                    >{{ a.credit }}<span class="sr"> (opens in a new tab)</span></a
                   >
                 }
               }
@@ -109,35 +117,24 @@ import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './sto
             }
           </figcaption>
 
-          <div class="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              [id]="chooseId()"
-              (click)="choose.emit()"
-              [disabled]="disabled()"
-              class="inline-flex min-h-11 items-center gap-2 rounded-full border border-[hsl(var(--foreground))] px-4 text-sm font-semibold hover:bg-[hsl(var(--foreground))] hover:text-[hsl(var(--background))] disabled:opacity-60"
-            >
+          <div class="acts">
+            <button type="button" [id]="chooseId()" (click)="choose.emit()" [disabled]="disabled()" class="ui-btn ui-btn--secondary">
               <svg lucideIcon="image" [size]="16" aria-hidden="true"></svg>
               {{ media().state === 'none' ? 'Choose picture' : 'Replace picture' }}
-              <span class="sr-only"> for scene {{ index() + 1 }}</span>
+              <span class="sr"> for scene {{ index() + 1 }}</span>
             </button>
             @if (media().state !== 'none') {
-              <button
-                type="button"
-                (click)="remove.emit()"
-                [disabled]="disabled()"
-                class="inline-flex min-h-11 items-center gap-2 rounded-full border border-[hsl(var(--border))] px-4 text-sm font-medium hover:bg-[hsl(var(--muted))] disabled:opacity-60"
-              >
+              <button type="button" (click)="remove.emit()" [disabled]="disabled()" class="ui-btn ui-btn--quiet">
                 <svg lucideIcon="trash-2" [size]="16" aria-hidden="true"></svg>
                 Remove picture
-                <span class="sr-only"> from scene {{ index() + 1 }}</span>
+                <span class="sr"> from scene {{ index() + 1 }}</span>
               </button>
             }
           </div>
         </figure>
 
-        <div class="min-w-0">
-          <label [for]="textareaId()" class="block text-sm font-medium">Narration</label>
+        <div style="min-width: 0">
+          <label [for]="textareaId()">Narration</label>
           <textarea
             [id]="textareaId()"
             rows="5"
@@ -147,14 +144,10 @@ import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './sto
             [attr.lang]="language()"
             [attr.maxlength]="maxChars"
             [attr.aria-describedby]="countId()"
-            class="mt-1 block min-h-28 w-full resize-y rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-base leading-relaxed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+            class="ui-field"
           ></textarea>
-          <p [id]="countId()" class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-            {{ chars() }} of {{ maxChars }} characters
-          </p>
-          <p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]">
-            Search words: {{ scene().keywords.join(', ') }}
-          </p>
+          <p [id]="countId()" class="count">{{ chars() }} of {{ maxChars }} characters</p>
+          <p class="kw">Search words: {{ scene().keywords.join(', ') }}</p>
         </div>
       </div>
     </article>

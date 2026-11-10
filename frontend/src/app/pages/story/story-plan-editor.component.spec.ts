@@ -652,4 +652,55 @@ describe('StoryPlanEditorComponent', () => {
       });
     });
   });
+
+  describe('scene index (#253)', () => {
+    beforeEach(() => create());
+    const entry = (n: number) => el.querySelector<HTMLButtonElement>(`[data-testid="index-scene-${n}"]`)!;
+
+    it('lists every scene with its picture state, read from the plan', () => {
+      const nav = el.querySelector('nav[data-testid="scene-index"]')!;
+      expect(nav.querySelectorAll('button').length).toBe(3);
+      expect(entry(1).getAttribute('data-picture')).toBe('chosen');
+      expect(entry(3).getAttribute('data-picture')).toBe('missing');
+      expect(entry(1).textContent).toContain('Picture chosen');
+      expect(entry(3).textContent).toContain('No picture');
+      expect(el.querySelector('[data-testid="index-edited"]')).toBeNull();
+    });
+
+    it('marks a scene edited as soon as it has an unsaved change, and clears it after discarding', async () => {
+      await type(2, 'A new line for the keeper.');
+      expect(entry(2).getAttribute('data-edited')).toBe('true');
+      expect(entry(2).textContent).toContain('edited, not saved');
+      expect(entry(1).getAttribute('data-edited')).toBe('false');
+      buttonIn(el, /Discard changes/).click();
+      await settle(fixture);
+      expect(entry(2).getAttribute('data-edited')).toBe('false');
+    });
+
+    it('shows a removed picture as missing in the index', async () => {
+      buttonIn(scene(1), /Remove picture/).click();
+      await settle(fixture);
+      expect(entry(1).getAttribute('data-picture')).toBe('missing');
+    });
+
+    it('moves to the scene and marks it current when an entry is pressed', async () => {
+      entry(3).click();
+      await settle(fixture);
+      expect(document.activeElement).toBe(el.querySelector('#scene-3-title'));
+      expect(entry(3).getAttribute('aria-current')).toBe('true');
+      expect(el.querySelectorAll('nav[data-testid="scene-index"] [aria-current]').length).toBe(1);
+    });
+
+    it('follows the scene being edited', async () => {
+      // Headless Chrome fires no focus events while the page itself lacks focus, so send the one the page listens for.
+      narrationBox(2).dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      await settle(fixture);
+      expect(entry(2).getAttribute('aria-current')).toBe('true');
+    });
+
+    it('keeps one save status and one Save button, whatever the screen width', () => {
+      expect(el.querySelectorAll('[data-testid="save-status"]').length).toBe(1);
+      expect(Array.from(el.querySelectorAll('button')).filter((b) => b.textContent!.includes('Save changes')).length).toBe(1);
+    });
+  });
 });
