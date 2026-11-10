@@ -8,6 +8,19 @@ import { provideLucideIcons, LucideArrowRight, LucideCheck, LucideLoader2, Lucid
 import { CreateProjectComponent } from './create-project.component';
 import { ApiService } from '../../core/services/api.service';
 import { ShortsService, DEFAULT_SHORTS_LIMITS } from '../shorts/shorts.service';
+import { wav } from '../../shared/media-probe.spec';
+const fileEvent = (blob: Blob, name: string) => {
+  const input = document.createElement('input');
+  const dt = new DataTransfer();
+  dt.items.add(new File([blob], name, { type: blob.type }));
+  input.type = 'file';
+  input.files = dt.files;
+  return { target: input } as unknown as Event;
+};
+const until = async (ok: () => boolean) => {
+  for (let i = 0; i < 100 && !ok(); i++) await new Promise((r) => setTimeout(r, 20));
+};
+
 
 describe('CreateProjectComponent (#274)', () => {
   function setup() {
@@ -57,5 +70,17 @@ describe('CreateProjectComponent (#274)', () => {
     const { el } = setup();
     const btn = Array.from(el.querySelectorAll('button')).find((b) => b.textContent!.includes('Create and add questions'));
     expect(btn).toBeTruthy();
+  });
+  it('reads the duration of a picked Shorts file through the shared probe, and refuses an unreadable one', async () => {
+    const { cmp } = setup();
+    cmp.onShortsFileSelected(fileEvent(wav(1.5), 'talk.wav'));
+    expect(cmp.shortsProbing).toBeTrue();
+    await until(() => !cmp.shortsProbing);
+    expect(cmp.shortsDuration).toBeCloseTo(1.5, 1);
+    expect(cmp.shortsError).toBe('');
+    cmp.onShortsFileSelected(fileEvent(new Blob([new Uint8Array(16)], { type: 'video/mp4' }), 'broken.mp4'));
+    await until(() => !cmp.shortsProbing);
+    expect(cmp.shortsError).toBe('Could not read this media file.');
+    expect(cmp.shortsFile).toBeNull();
   });
 });

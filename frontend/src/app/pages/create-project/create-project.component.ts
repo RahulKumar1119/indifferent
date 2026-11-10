@@ -14,20 +14,7 @@ import {
   ShortsService,
 } from '../shorts/shorts.service';
 
-/**
- * Object URL for a locally chosen File, guaranteed to be a `blob:` URL the
- * browser minted for this document. Assigning it to a media element's `src`
- * cannot inject markup or script; the explicit check documents that.
- */
-function blobObjectUrl(file: Blob): string {
-  const url = URL.createObjectURL(file);
-  if (!url.startsWith('blob:')) {
-    URL.revokeObjectURL(url);
-    throw new Error('Unexpected object URL scheme');
-  }
-  return url;
-}
-
+import { probeMediaDuration } from '../../shared/media-probe';
 import { FORMAT_GUIDE_PATH, SAMPLE_FILE_PATH } from '../progress/failure-message';
 @Component({
   selector: 'app-create-project',
@@ -467,33 +454,26 @@ export class CreateProjectComponent implements OnInit {
     this.probeShortsDuration(file, ext);
   }
 
-  /** Probe media duration with a hidden media element's loadedmetadata event. */
+  /** Read the media duration without uploading anything (shared off-screen probe). */
   private probeShortsDuration(file: File, ext: string): void {
     this.shortsProbing = true;
     const isAudio = ext === 'mp3' || ext === 'wav';
-    const media = document.createElement(isAudio ? 'audio' : 'video') as HTMLMediaElement;
-    media.preload = 'metadata';
-    const objectUrl = blobObjectUrl(file);
-    const cleanup = () => {
-      URL.revokeObjectURL(objectUrl);
-      this.shortsProbing = false;
-    };
-    media.onloadedmetadata = () => {
-      const duration = media.duration;
-      cleanup();
-      if (!isFinite(duration) || duration <= 0 || duration > this.shortsLimits.maxDurationSeconds) {
-        this.shortsError = `Could not use this file (bad duration or over ${this.shortsLimits.maxDurationMinutes} minutes).`;
+    probeMediaDuration(file, isAudio ? 'audio' : 'video').then(
+      (duration) => {
+        this.shortsProbing = false;
+        if (!isFinite(duration) || duration <= 0 || duration > this.shortsLimits.maxDurationSeconds) {
+          this.shortsError = `Could not use this file (bad duration or over ${this.shortsLimits.maxDurationMinutes} minutes).`;
+          this.shortsFile = null;
+          return;
+        }
+        this.shortsDuration = duration;
+      },
+      () => {
+        this.shortsProbing = false;
+        this.shortsError = 'Could not read this media file.';
         this.shortsFile = null;
-        return;
-      }
-      this.shortsDuration = duration;
-    };
-    media.onerror = () => {
-      cleanup();
-      this.shortsError = 'Could not read this media file.';
-      this.shortsFile = null;
-    };
-    media.src = objectUrl;
+      },
+    );
   }
 
   readonly sampleFilePath = SAMPLE_FILE_PATH;

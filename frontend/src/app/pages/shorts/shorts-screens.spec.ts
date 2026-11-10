@@ -27,6 +27,19 @@ import {
 import { ShortsService, ShortsJobSummary, DEFAULT_SHORTS_LIMITS } from './shorts.service';
 import { ShortsUploadComponent } from './shorts-upload.component';
 import { ShortsHistoryComponent } from './shorts-history.component';
+import { wav } from '../../shared/media-probe.spec';
+const fileEvent = (blob: Blob, name: string) => {
+  const input = document.createElement('input');
+  const dt = new DataTransfer();
+  dt.items.add(new File([blob], name, { type: blob.type }));
+  input.type = 'file';
+  input.files = dt.files;
+  return { target: input } as unknown as Event;
+};
+const until = async (ok: () => boolean) => {
+  for (let i = 0; i < 100 && !ok(); i++) await new Promise((r) => setTimeout(r, 20));
+};
+
 import { ShortsProgressComponent } from './shorts-progress.component';
 
 const ICONS = provideLucideIcons(
@@ -75,6 +88,18 @@ describe('ShortsUploadComponent', () => {
     expect(el.querySelector('a[href="/shorts/history"]')).toBeTruthy();
     expect(el.querySelector('app-navbar')).toBeTruthy();
     noHex(el);
+  });
+
+  it('reads the duration of a picked file through the shared probe, and refuses an unreadable one', async () => {
+    const { fixture } = setup();
+    const cmp = fixture.componentInstance;
+    cmp.onFileSelected(fileEvent(wav(1.5), 'talk.wav'));
+    await until(() => !cmp.isProbing);
+    expect(cmp.durationSeconds).toBeCloseTo(1.5, 1);
+    expect(cmp.error).toBe('');
+    cmp.onFileSelected(fileEvent(new Blob([new Uint8Array(16)], { type: 'video/mp4' }), 'broken.mp4'));
+    await until(() => !cmp.isProbing);
+    expect(cmp.error).toBe('Could not read this media file. Please try a different file.');
   });
 
   it('labels the transcript language select', () => {
