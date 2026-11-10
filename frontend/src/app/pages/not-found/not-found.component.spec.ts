@@ -29,7 +29,19 @@ describe('NotFoundComponent', () => {
     fixture.detectChanges();
     const page = fixture.nativeElement as HTMLElement;
 
-    expect(page.textContent).toContain('Page Not Found');
+    // Sentence case, as everywhere else since #251.
+    expect(page.querySelectorAll('h1').length).toBe(1);
+    expect(page.querySelector('h1')!.textContent!.trim()).toBe('Page not found');
     expect(page.querySelector('a[href="/"]')).not.toBeNull();
+  });
+
+  it('offers the tool picker and help as well, on the shared buttons, with no legacy styling (#256)', () => {
+    const fixture = TestBed.createComponent(NotFoundComponent);
+    fixture.detectChanges();
+    const page = fixture.nativeElement as HTMLElement;
+    const actions = Array.from(page.querySelectorAll('main a.ui-btn')).map((a) => a.getAttribute('href'));
+    expect(actions).toEqual(['/', '/new', '/help']);
+    expect(page.innerHTML).not.toContain('glow-btn');
+    expect(page.innerHTML).not.toContain('hsl(var(');
   });
 });

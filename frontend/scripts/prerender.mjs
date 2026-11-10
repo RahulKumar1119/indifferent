@@ -82,8 +82,21 @@ async function prerenderRoute(browser, base, route) {
       timeout: 30000,
     });
     await sleep(2000); // let lazy chunks + bindings settle
+    // The scroll reveal (appReveal) has armed every section below the fold in this
+    // headless browser, which hides it (opacity 0) until it scrolls in. Saved as is,
+    // crawlers and visitors without JavaScript would get those sections hidden. The
+    // app bootstraps without hydration and re-renders, so the saved copy can show
+    // every reveal as visible; the client arms them again (#256).
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('js');
+      for (const el of document.querySelectorAll('.reveal')) {
+        el.classList.remove('reveal-armed');
+        el.classList.add('is-visible');
+      }
+    });
     const html = await page.content();
     if (!html.includes('<app-root')) throw new Error('app-root missing from DOM');
+    if (html.includes('reveal-armed') || /<html[^>]*class="[^"]*\bjs\b/.test(html)) throw new Error('a scroll reveal is still armed, so its content would be hidden without JavaScript');
     if (errors.length > 0) throw new Error(errors[0]);
 
     const outDir = route === '/' ? DIST : join(DIST, route);

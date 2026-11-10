@@ -26,5 +26,9 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { appConfig } from './app/app.config';
 import { App } from './app/app';
 
+// Script-only states (the scroll reveal) are scoped under html.js, so with
+// scripting off, or in the prerendered copy, everything stays visible (#256).
+document.documentElement.classList.add('js');
+
 bootstrapApplication(App, appConfig)
   .catch((err) => console.error(err));

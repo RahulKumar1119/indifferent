@@ -1,406 +1,81 @@
+/* Hallmark · shape: kept · genre: editorial · theme: brand · redesign: full · global sheet (#256): only live rules, all on tokens */
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Outfit:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./ui.css";
 
-/* Custom design tokens */
-:root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 3.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 3.9%;
-  --primary: 239 84% 67%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 96.1%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96.1%;
-  --muted-foreground: 0 0% 45.1%;
-  --accent: 239 84% 67%;
-  --accent-foreground: 0 0% 98%;
-  --border: 0 0% 89.8%;
-  --ring: 239 84% 67%;
-  --radius: 0.75rem;
-  /* Cross-page design tokens (issue: dark-mode + token system) */
-  --color-primary: #6366f1;    /* indigo-500 */
-  --color-success: #10b981;    /* emerald-500 */
-  --color-warning: #f59e0b;    /* amber-500 */
-  --color-error: #f43f5e;      /* rose-500 */
-  --radius-card: 12px;         /* rounded-xl */
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.1);
-  --shadow-card-hover: 0 10px 15px -3px rgba(0,0,0,0.1);
-  --transition-fast: 150ms ease;
-  --transition-normal: 300ms ease;
-  /* Canonical motion curves (ui-animation skill). One source of truth so the
-   * per-component copies stop drifting. `enter` is the historical house curve
-   * (0.23,1,0.32,1), used for entrances and transform hover; `move` for
-   * slides/panels; `press` for button press; `expo` for dramatic reveals. */
-  --ease-enter: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-move: cubic-bezier(0.25, 1, 0.5, 1);
-  --ease-press: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --ease-expo: cubic-bezier(0.19, 1, 0.22, 1);
-}
+/*
+ * The global sheet (#256). The palette, type, spacing and motion live in
+ * tokens.css and the shared controls in ui.css; this file holds only what has
+ * to be global: the page base, the default rule colour, focus, scrollbars, the
+ * two Angular Material pieces still in use (the error snackbar and the
+ * sign-in spinner), the toast entrance, the scroll reveal and reduced motion.
+ */
 
-.dark {
-  --background: 0 0% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 0 0% 6%;
-  --card-foreground: 0 0% 98%;
-  --primary: 239 84% 67%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 14.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 14.9%;
-  --muted-foreground: 0 0% 63.9%;
-  --accent: 239 84% 67%;
-  --accent-foreground: 0 0% 98%;
-  --border: 0 0% 14.9%;
-  --ring: 239 84% 67%;
-}
-
-* {
-  border-color: hsl(var(--border));
-}
+/* Tailwind's `border` utility takes this colour when no colour class is given. */
+* { border-color: var(--color-rule); }
 
 html, body {
   height: 100%;
   margin: 0;
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
   scroll-behavior: smooth;
-  /* Transformed fixed decor (aurora background) must never create a
-     horizontal scrollbar. `clip` preserves sticky positioning (unlike
-     hidden); the hidden declaration is a fallback for older browsers. */
-  overflow-x: hidden;
+  /* `clip` keeps sticky positioning working, unlike hidden. */
   overflow-x: clip;
 }
 
 ::selection { background: var(--color-accent); color: var(--color-accent-ink); }
 
-/* Aurora gradient background */
-.aurora-bg {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(ellipse at 20% 50%, rgba(120, 60, 255, 0.08) 0%, transparent 50%),
-              radial-gradient(ellipse at 80% 20%, rgba(60, 120, 255, 0.06) 0%, transparent 50%),
-              radial-gradient(ellipse at 50% 80%, rgba(200, 60, 255, 0.04) 0%, transparent 50%);
-  animation: aurora-shift 15s ease-in-out infinite alternate;
-}
-
-@keyframes aurora-shift {
-  0% { opacity: 0.6; transform: scale(1) rotate(0deg); }
-  50% { opacity: 1; transform: scale(1.05) rotate(1deg); }
-  100% { opacity: 0.8; transform: scale(1) rotate(-1deg); }
-}
-
-/* Glassmorphism card */
-.glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: var(--radius);
-}
-
-.dark .glass-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Shimmer text effect */
-.shimmer-text {
-  background: linear-gradient(90deg, hsl(var(--foreground)) 0%, hsl(var(--primary)) 50%, hsl(var(--foreground)) 100%);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: shimmer 3s linear infinite;
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-/* Glow button */
-.glow-btn {
-  position: relative;
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-  padding: 12px 32px;
-  border-radius: var(--radius);
-  font-weight: 600;
-  font-size: 1rem;
-  border: none;
-  cursor: pointer;
-  /* Explicit list, not `transition: all`: only these ever animate here. */
-  transition: transform 0.2s var(--ease-enter), background-color 0.2s var(--ease-enter), box-shadow 0.3s var(--ease-enter);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.glow-btn:hover {
-  transform: translateY(-2px);
-}
-
-/* Spotlight hover effect */
-.spotlight-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.spotlight-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(120, 60, 255, 0.1) 0%, transparent 60%);
-  opacity: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
-}
-
-.spotlight-card:hover::after {
-  opacity: 1;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: hsl(var(--background)); }
-::-webkit-scrollbar-thumb { background: hsl(var(--muted)); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
-
-/* ===== Angular Material Dark Theme Overrides ===== */
-
-/* Cards */
-.mat-mdc-card {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: hsl(var(--foreground)) !important;
-}
-
-/* Form Fields */
-.mat-mdc-form-field {
-  color: hsl(var(--foreground)) !important;
-}
-
-.mdc-text-field--filled {
-  background-color: hsl(var(--secondary)) !important;
-}
-
-.mat-mdc-input-element {
-  color: hsl(var(--foreground)) !important;
-}
-
-.mat-mdc-form-field-label,
-.mat-mdc-floating-label {
-  color: hsl(var(--muted-foreground)) !important;
-}
-
-/* Select / Dropdown */
-.mat-mdc-select-value {
-  color: hsl(var(--foreground)) !important;
-}
-
-.mat-mdc-option {
-  color: hsl(var(--foreground)) !important;
-}
-
-.mat-mdc-select-panel {
-  background: hsl(var(--card)) !important;
-}
-
-/* Expansion Panel */
-.mat-expansion-panel {
-  background: rgba(255, 255, 255, 0.03) !important;
-  color: hsl(var(--foreground)) !important;
-}
-
-.mat-expansion-panel-header-title {
-  color: hsl(var(--foreground)) !important;
-}
-
-.mat-expansion-panel-body {
-  color: hsl(var(--muted-foreground)) !important;
-}
-
-/* Table */
-.mat-mdc-table {
-  background: transparent !important;
-}
-
-.mat-mdc-header-cell {
-  color: hsl(var(--muted-foreground)) !important;
-  border-bottom-color: hsl(var(--border)) !important;
-}
-
-.mat-mdc-cell {
-  color: hsl(var(--foreground)) !important;
-  border-bottom-color: hsl(var(--border)) !important;
-}
-
-.mat-mdc-row:hover {
-  background: rgba(255, 255, 255, 0.03) !important;
-}
-
-/* Progress Bar */
-.mat-mdc-progress-bar {
-  --mdc-linear-progress-active-indicator-color: hsl(var(--primary)) !important;
-  --mdc-linear-progress-track-color: hsl(var(--secondary)) !important;
-}
-
-/* Slide Toggle */
-.mat-mdc-slide-toggle {
-  --mdc-switch-selected-track-color: hsl(var(--primary)) !important;
-  --mdc-switch-selected-handle-color: hsl(var(--primary-foreground)) !important;
-}
-
-/* Buttons */
-.mat-mdc-raised-button, .mat-mdc-flat-button {
-  --mdc-filled-button-container-color: hsl(var(--primary)) !important;
-  --mdc-filled-button-label-text-color: hsl(var(--primary-foreground)) !important;
-}
-
-/* List */
-.mat-mdc-list-item {
-  color: hsl(var(--foreground)) !important;
-}
-
-/* Divider */
-.mat-divider {
-  border-top-color: hsl(var(--border)) !important;
-}
-
-/* Checkbox */
-.mat-mdc-checkbox .mdc-form-field label {
-  color: hsl(var(--foreground)) !important;
-}
-
-/* Spinner */
-.mat-mdc-progress-spinner circle {
-  stroke: hsl(var(--primary)) !important;
-}
-
-/* Snackbar */
-.mat-mdc-snack-bar-container {
-  background: hsl(var(--card)) !important;
-  color: hsl(var(--foreground)) !important;
-}
-
-/* Dialog / Overlay backgrounds */
-.cdk-overlay-dark-backdrop {
-  background: rgba(0, 0, 0, 0.7) !important;
-}
-
-/* ---- Cross-page micro-interactions (dark-mode + token system) ---- */
-
-/* Button hover/active physics: scale(1.02) + shadow, 150ms; active 0.98. */
-.btn-interactive {
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
-}
-.btn-interactive:hover {
-  transform: scale(1.02);
-  box-shadow: var(--shadow-card-hover);
-}
-.btn-interactive:active {
-  transform: scale(0.98);
-  transition-duration: 100ms;
-}
-
-/* Focus visibility: indigo ring on all interactive elements. */
+/* Focus for anything outside a .hm region (which sets the same ring in ui.css). */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 
-/* Loading skeleton shimmer. */
-.skeleton {
-  position: relative;
-  overflow: hidden;
-  background: hsl(var(--muted));
-  border-radius: var(--radius-card);
+/* Scrollbars follow the theme. */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--color-paper); }
+::-webkit-scrollbar-thumb { background: var(--color-paper-3); border-radius: var(--radius-control); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+
+/* ---- Angular Material: the two pieces still used ---- */
+
+/* Error snackbar (core/services/error.service.ts). The action button gets a 44px target. */
+.mat-mdc-snack-bar-container {
+  --mdc-snackbar-container-color: var(--color-ink) !important;
+  --mdc-snackbar-supporting-text-color: var(--color-paper) !important;
+  --mat-snack-bar-button-color: var(--color-paper) !important;
 }
-.skeleton::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-paper) 40%, transparent), transparent);
-  animation: skeleton-shimmer 1.4s ease infinite;
-}
-@keyframes skeleton-shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+.mat-mdc-snack-bar-container .mat-mdc-button {
+  min-height: var(--control-height);
+  font-family: var(--font-body);
+  font-weight: 600;
 }
 
-/* Toast slide-in (top-right, 300ms). Auto-dismiss handled in code (4s). */
+/* Sign-in spinner (auth/components/auth-callback.component.ts). */
+.mat-mdc-progress-spinner circle { stroke: var(--color-accent) !important; }
+
+/* Toast slide-in (shared/components/toast). Auto-dismiss is handled in code. */
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(24px); }
   to { opacity: 1; transform: none; }
 }
-.toast-enter {
-  animation: toast-in 300ms cubic-bezier(0.23, 1, 0.32, 1);
-}
+.toast-enter { animation: toast-in var(--dur-long) var(--ease-out); }
 
-/* ---------------------------------------------------------------------------
- * Shared UI motion (ui-animation skill, issue #182)
- *
- * One definition for the reveal / lift / press patterns that were copy-pasted
- * into landing, shorts-maker, blog, about, dashboard and new. Components use
- * these classes (and the appReveal directive) instead of redeclaring the CSS.
- * Movement is transform + opacity only. The global reduced-motion block below
- * neutralises every transition, so these need no per-rule reduced-motion gate.
- * ------------------------------------------------------------------------- */
-
-/* Scroll reveal: the appReveal directive arms the element (`reveal-armed`) and
- * adds `is-visible` on scroll. Before it runs, or with scripting off, the
- * element is simply visible. */
-.reveal {
-  transition: opacity 0.8s var(--ease-enter), transform 0.8s var(--ease-enter);
-}
-.reveal.reveal-armed:not(.is-visible) {
-  opacity: 0;
-  transform: translateY(28px);
-}
-.reveal.is-visible {
-  opacity: 1;
-  transform: none;
-}
-
-/* Card hover lift. Transform/shadow only; gated to real hover pointers so a
- * tap on a touch screen does not stick the lifted state. */
-.card-lift {
-  transition: transform 0.35s var(--ease-enter), box-shadow 0.35s var(--ease-enter);
-}
-@media (hover: hover) and (pointer: fine) {
-  .card-lift:hover {
-    transform: translateY(-6px);
-    box-shadow: var(--shadow-card-hover);
-  }
-}
-.card-lift:active {
-  transform: translateY(-1px) scale(0.99);
-}
-
-/* Button press feedback. Presses at 0ms on :active; manipulation kills the
- * 300ms tap delay on touch. */
-.btn-motion {
-  transition: transform 0.2s var(--ease-enter), background-color 0.2s var(--ease-enter);
-  touch-action: manipulation;
-}
-@media (hover: hover) and (pointer: fine) {
-  .btn-motion:hover {
-    transform: translateY(-1px);
-  }
-}
-.btn-motion:active {
-  transform: translateY(1px) scale(0.98);
-}
+/* Scroll reveal: main.ts puts `js` on <html>, the appReveal directive adds
+ * `reveal-armed`, then `is-visible` as the element scrolls in. The hidden state
+ * needs both, so with scripting off, or in the prerendered copy (which
+ * scripts/prerender.mjs saves without `js` and with every reveal visible),
+ * the content is always visible. */
+.reveal { transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out); }
+.js .reveal.reveal-armed:not(.is-visible) { opacity: 0; transform: translateY(28px); }
+.reveal.is-visible { opacity: 1; transform: none; }
 
 /* Global reduced-motion kill switch. */
 @media (prefers-reduced-motion: reduce) {
