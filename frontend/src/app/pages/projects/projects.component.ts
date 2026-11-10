@@ -1,142 +1,93 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { ProjectService } from '../../core/services/project.service';
-import { Project, ProjectStatus } from '../../shared/models/project.model';
+import { Project } from '../../shared/models/project.model';
+import { projectStatusLabel, projectStatusTone } from './project-status';
+import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterLink,
-    LucideDynamicIcon,
-  ],
+  imports: [CommonModule, RouterLink, LucideDynamicIcon, NavbarComponent],
   styles: [`
-    .serif { font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif; }
-    .sans { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-    .btn-primary { transition: transform .2s cubic-bezier(0.23,1,0.32,1), background-color .2s; }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(1px) scale(.98); }
-    .row-hover { transition: background-color .2s; }
-    .row-hover:hover { background-color: rgba(26,23,20,0.04); }
-    @media (prefers-reduced-motion: reduce) {
-      .btn-primary, .row-hover { transition: none; }
-    }
+    :host { display: block; }
+    .list { display: flex; flex-direction: column; gap: var(--space-xs); }
+    .rows { margin: 0; padding: var(--space-2xs) var(--space-md); list-style: none; }
+    .rows li + li { border-top: 1px solid var(--color-rule); }
+    .open { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; padding: var(--space-sm) var(--space-xs); margin-inline: calc(-1 * var(--space-xs)); border-radius: var(--radius-control); color: var(--color-ink); text-decoration: none; }
+    .open:hover { background: var(--color-paper-3); }
+    .main { flex: 1; min-width: 0; }
+    .title { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta { display: flex; flex-wrap: wrap; gap: 0 var(--space-sm); font-size: var(--type-xs); color: var(--color-muted); }
+    .arrow { flex: none; color: var(--color-muted); }
+    .t-ok { color: var(--color-positive); } .t-bad { color: var(--color-negative); } .t-wait { color: var(--color-caution); } .t-new { color: var(--color-ink-2); }
+    .ui-empty .ui-btn, .ui-error-card .ui-btn { margin-top: var(--space-xs); }
   `],
   template: `
-    <div class="sans bg-[#FAF7F2] text-[#1A1714] antialiased min-h-[100dvh]">
-      <!-- App header -->
-      <header class="border-b border-black/[0.07] bg-[#FAF7F2]/90 backdrop-blur sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
-          <a routerLink="/" class="font-semibold tracking-tight text-[17px]">Indifferent<span class="text-[#D96C3D]">.</span></a>
-          <div class="flex items-center gap-2 sm:gap-3">
-            <a routerLink="/" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Home</a>
-            <a routerLink="/dashboard" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Dashboard</a>
-            <a routerLink="/profile" class="hidden sm:inline-flex rounded-full px-4 py-2 text-[13.5px] font-medium text-[#3E3A33] hover:bg-black/[0.05] transition-colors">Profile</a>
-            <a routerLink="/profile" class="sm:hidden w-9 h-9 rounded-full hover:bg-black/[0.05] inline-flex items-center justify-center text-[#3E3A33]" aria-label="Profile">
-              <svg lucideIcon="user" [size]="17"></svg>
-            </a>
-            <a routerLink="/projects/new" class="btn-primary inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white pl-4 pr-1.5 py-1.5 text-[13.5px] font-semibold">
-              New project
-              <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
-                <svg lucideIcon="plus" [size]="15"></svg>
-              </span>
-            </a>
-          </div>
-        </div>
-      </header>
-
-      <main class="max-w-7xl mx-auto px-5 md:px-8 py-10 md:py-14">
-        <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="ui-app">
+      <app-navbar />
+      <main id="main" class="ui-app-main hm">
+        <div class="ui-page-head">
           <div>
-            <p class="text-[11.5px] uppercase tracking-[0.08em] text-[#6B6560]">Studio · Library</p>
-            <h1 class="serif mt-2 font-medium leading-none tracking-[-0.02em] text-[clamp(2.4rem,5vw,3.8rem)]">Projects.</h1>
+            <h1 class="ui-h1">Quiz videos</h1>
+            <p class="ui-lead">
+              @if (!isLoading && !loadError && projects.length > 0) {
+                {{ projects.length }} {{ projects.length === 1 ? 'project' : 'projects' }}, newest first.
+              } @else {
+                Every quiz project you make, newest first.
+              }
+            </p>
           </div>
-          <p class="text-[13.5px] text-[#6B6560]">{{ projects.length }} {{ projects.length === 1 ? 'film' : 'films' }} in the cutting room</p>
+          <a routerLink="/projects/new" class="ui-btn ui-btn--primary"><svg lucideIcon="plus" [size]="18" aria-hidden="true"></svg>New quiz video</a>
         </div>
 
-        <section class="mt-8 rounded-[20px] bg-white border border-black/[0.07] overflow-hidden">
-          @if (isLoading && !loadError) {
-            <div class="py-16 text-center px-6">
-              <div class="skeleton h-[24px] w-[18%] mx-auto mb-4"></div>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                @for (i of [1, 2, 3, 4, 5, 6]; track i) {
-                  <div class="rounded-[20px] bg-white border border-black/[0.07] p-6">
-                    <div class="skeleton h-[44px] mb-2"></div>
-                    <div class="skeleton h-[14px] w-[40%]"></div>
-                  </div>
-                }
-              </div>
-            </div>
-          } @else if (loadError) {
-            <div class="py-16 text-center px-6" role="alert">
-              <p class="serif text-[30px]">Couldn't load projects.</p>
-              <p class="mt-2 text-[14.5px] text-[#6B6560]">Check your connection and try again.</p>
-              <button type="button" (click)="reload()" class="btn-primary mt-6 inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white px-7 py-3.5 font-semibold text-[14.5px]">
-                Retry
-              </button>
-            </div>
-          } @else if (projects.length === 0) {
-            <div class="py-16 text-center px-6">
-              <p class="serif text-[30px]">No projects yet.</p>
-              <p class="mt-2 text-[14.5px] text-[#6B6560]">Upload a TXT file and render your first quiz video.</p>
-              <a routerLink="/projects/new" class="btn-primary mt-6 inline-flex items-center gap-2 rounded-full bg-[#1A1714] text-white px-7 py-3.5 font-semibold text-[14.5px]">
-                Create your first project →
-              </a>
-            </div>
-          } @else {
-            <!-- Table Header -->
-            <div class="hidden sm:grid grid-cols-12 gap-4 px-6 py-3.5 border-b border-black/[0.07] text-[11.5px] font-semibold uppercase tracking-[0.12em] text-[#6B6560]">
-              <div class="col-span-4">Name</div>
-              <div class="col-span-3">Design</div>
-              <div class="col-span-3">Status</div>
-              <div class="col-span-2">Created</div>
-            </div>
-
-            <!-- Table Rows -->
-            @for (project of projects; track project.id) {
-              <div
-                class="row-hover grid grid-cols-1 sm:grid-cols-12 gap-1.5 sm:gap-4 px-6 py-4 border-b border-black/[0.05] last:border-b-0 cursor-pointer"
-                (click)="navigateToProject(project)"
-                (keydown.enter)="navigateToProject(project)"
-                tabindex="0"
-              >
-                <div class="sm:col-span-4 font-medium truncate text-[15px]">{{ project.name }}</div>
-                <div class="sm:col-span-3 text-[13.5px] text-[#6B6560]">{{ project.template | titlecase }}</div>
-                <div class="sm:col-span-3">
-                  <span
-                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
-                    [ngClass]="getStatusBadgeClasses(project.status)"
-                  >
-                    <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getStatusDotClass(project.status)"></span>
-                    {{ getStatusLabel(project.status) }}
-                  </span>
-                </div>
-                <div class="sm:col-span-2 text-[13px] text-[#6B6560]">{{ formatDate(project.createdAt) }}</div>
-              </div>
+        @if (isLoading && !loadError) {
+          <div class="list" role="status" aria-label="Loading projects" data-testid="loading">
+            @for (i of [1, 2, 3]; track i) {
+              <div class="ui-skeleton" style="height: 4.25rem"></div>
             }
-          }
-        </section>
-
-        <footer class="mt-10 pt-6 border-t border-black/[0.07] flex flex-col sm:flex-row justify-between gap-2 text-[12.5px] text-[#6B6560]">
-          <span>© {{ currentYear }} Indifferent. All rights reserved.</span>
-          <span class="flex gap-5">
-            <a routerLink="/" class="hover:text-[#1A1714]">Home</a>
-            <a routerLink="/dashboard" class="hover:text-[#1A1714]">Dashboard</a>
-            <a routerLink="/contact" class="hover:text-[#1A1714]">Contact</a>
-          </span>
-        </footer>
+          </div>
+        } @else if (loadError) {
+          <div class="ui-card ui-error-card" role="alert" data-testid="load-error">
+            <p><svg lucideIcon="triangle-alert" [size]="18" aria-hidden="true"></svg>Couldn't load your projects.</p>
+            <span class="ui-card-sub">Check your connection and try again.</span>
+            <button type="button" class="ui-btn ui-btn--secondary" (click)="reload()">Try again</button>
+          </div>
+        } @else if (projects.length === 0) {
+          <div class="ui-card ui-empty" data-testid="empty">
+            <span class="ui-chip" aria-hidden="true"><svg lucideIcon="file-text" [size]="18"></svg></span>
+            <p><strong>No quiz videos yet.</strong></p>
+            <p>Write your questions in a TXT file and we turn them into a narrated video.</p>
+            <a routerLink="/projects/new" class="ui-btn ui-btn--primary">Make your first quiz video</a>
+          </div>
+        } @else {
+          <ul class="ui-card rows" aria-label="Your quiz videos">
+            @for (project of projects; track project.id) {
+              <li [attr.data-testid]="'project-' + project.id">
+                <a [routerLink]="['/projects', project.id]" class="open">
+                  <span class="main">
+                    <span class="title">{{ project.name }}</span>
+                    <span class="meta">
+                      <span>{{ project.template | titlecase }}</span>
+                      <span>{{ formatDate(project.createdAt) }}</span>
+                    </span>
+                  </span>
+                  <span [class]="'ui-pill ' + tone(project.status)">{{ getStatusLabel(project.status) }}</span>
+                  <svg lucideIcon="chevron-right" [size]="16" class="arrow" aria-hidden="true"></svg>
+                </a>
+              </li>
+            }
+          </ul>
+        }
       </main>
     </div>
   `,
 })
 export class ProjectsComponent implements OnInit {
   private readonly projectService = inject(ProjectService);
-  private readonly router = inject(Router);
 
-  currentYear = new Date().getFullYear();
   projects: Project[] = [];
   loadError = false;
   isLoading = true;
@@ -162,61 +113,13 @@ export class ProjectsComponent implements OnInit {
     });
   }
 
-  navigateToProject(project: Project): void {
-    this.router.navigate(['/projects', project.id]);
-  }
-
-  getStatusLabel(status: ProjectStatus): string {
-    switch (status) {
-      case 'created':
-        return 'Created';
-      case 'parsing':
-        return 'Parsing';
-      case 'generating_slides':
-        return 'Generating Slides';
-      case 'narrating':
-        return 'Narrating';
-      case 'rendering':
-        return 'Rendering';
-      case 'completed':
-        return 'Completed';
-      case 'failed':
-        return 'Failed';
-    }
-  }
-
-  getStatusBadgeClasses(status: ProjectStatus): Record<string, boolean> {
-    return {
-      'bg-[#1E3A2A]/10 text-[#1E3A2A]': status === 'completed',
-      'bg-[#956400]/10 text-[#956400]':
-        status === 'parsing' ||
-        status === 'generating_slides' ||
-        status === 'narrating' ||
-        status === 'rendering',
-      'bg-[#BC5227]/10 text-[#BC5227]': status === 'failed',
-      'bg-black/[0.05] text-[#6B6560]': status === 'created',
-    };
-  }
-
-  getStatusDotClass(status: ProjectStatus): Record<string, boolean> {
-    return {
-      'bg-[#1E3A2A]': status === 'completed',
-      'bg-[#956400]':
-        status === 'parsing' ||
-        status === 'generating_slides' ||
-        status === 'narrating' ||
-        status === 'rendering',
-      'bg-[#BC5227]': status === 'failed',
-      'bg-[#6B6560]': status === 'created',
-    };
-  }
+  readonly getStatusLabel = projectStatusLabel;
+  readonly tone = projectStatusTone;
 
   formatDate(dateStr: string): string {
     const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return isNaN(date.getTime())
+      ? dateStr
+      : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   }
 }

@@ -4,7 +4,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
-import { provideLucideIcons, LucideArrowRight, LucideCheck, LucideLoader2, LucideMic } from '@lucide/angular';
+import { provideLucideIcons, LucideArrowRight, LucideCheck, LucideLoader2, LucideMic, LucideMoon, LucideSun, LucideUser } from '@lucide/angular';
 import { CreateProjectComponent } from './create-project.component';
 import { ApiService } from '../../core/services/api.service';
 import { ShortsService, DEFAULT_SHORTS_LIMITS } from '../shorts/shorts.service';
@@ -32,7 +32,7 @@ describe('CreateProjectComponent (#274)', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         provideNoopAnimations(),
-        provideLucideIcons(LucideArrowRight, LucideCheck, LucideLoader2, LucideMic),
+        provideLucideIcons(LucideArrowRight, LucideCheck, LucideLoader2, LucideMic, LucideMoon, LucideSun, LucideUser),
         { provide: ApiService, useValue: api },
         { provide: ShortsService, useValue: { getLimits: () => of(DEFAULT_SHORTS_LIMITS) } },
       ],
@@ -71,6 +71,69 @@ describe('CreateProjectComponent (#274)', () => {
     const btn = Array.from(el.querySelectorAll('button')).find((b) => b.textContent!.includes('Create and add questions'));
     expect(btn).toBeTruthy();
   });
+  it('shows step 1 of 2 with aria-current, and no Material stepper', () => {
+    const { el } = setup();
+    expect(el.querySelector('mat-stepper, .mat-stepper-horizontal')).toBeNull();
+    const now = el.querySelector('app-step-indicator [aria-current="step"]')!;
+    expect(now.textContent).toContain('Details');
+  });
+
+  it('keeps the optional settings in a closed "More options" panel that says it uses the defaults', () => {
+    const { el } = setup();
+    const more = el.querySelector('[data-testid="more-options"]') as HTMLDetailsElement;
+    expect(more.tagName).toBe('DETAILS');
+    expect(more.open).toBeFalse();
+    expect(more.querySelector('summary')!.textContent).toContain('More options');
+    expect(el.querySelector('[data-testid="more-state"]')!.textContent).toContain('Using the defaults');
+    for (const name of ['textSize', 'accent', 'answerLabels', 'showQuestionNumber', 'watermarkText', 'channelName', 'includeShorts']) {
+      expect(more.querySelector(`[formcontrolname="${name}"]`)).withContext(name).toBeTruthy();
+    }
+    // Design and voice stay in view: they are not optional.
+    expect(more.querySelector('[formcontrolname="template"]')).toBeNull();
+    expect(more.querySelector('[formcontrolname="voice"]')).toBeNull();
+  });
+
+  it('keeps choices made in the panel after it closes, says what changed, and sends them', () => {
+    const { fixture, el, cmp, api } = setup();
+    const more = el.querySelector('[data-testid="more-options"]') as HTMLDetailsElement;
+    more.open = true;
+    more.dispatchEvent(new Event('toggle'));
+    cmp.projectForm.patchValue({ name: 'Q', watermarkText: 'Mine', channelName: '@me', designOptions: { textSize: 'l' } });
+    more.open = false;
+    more.dispatchEvent(new Event('toggle'));
+    fixture.detectChanges();
+    expect(cmp.moreOpen).toBeFalse();
+    expect(el.querySelector('[data-testid="more-state"]')!.textContent).toContain('Changed: Design options, Watermark, Branding');
+    cmp.createProject();
+    expect(api.post).toHaveBeenCalledWith('/projects', jasmine.objectContaining({
+      designOptions: jasmine.objectContaining({ textSize: 'l' }),
+      watermark: { text: 'Mine', opacity: 0.8 },
+      branding: { channelName: '@me' },
+    }));
+  });
+
+  it('sends the defaults when the panel is never opened', () => {
+    const { cmp, api } = setup();
+    cmp.projectForm.patchValue({ name: 'Q' });
+    cmp.createProject();
+    const body = api.post.calls.mostRecent().args[1];
+    expect(body.designOptions).toEqual({ accent: jasmine.any(String), textSize: 'm', showQuestionNumber: true, answerLabels: 'letters' });
+    expect(body.voice).toBe('Joanna');
+    expect(body.watermark).toBeUndefined();
+    expect(body.branding).toBeUndefined();
+    expect(body.shorts).toBeUndefined();
+  });
+
+  it('opens the panel and says why when AI Shorts is on without a file', () => {
+    const { fixture, el, cmp, api } = setup();
+    cmp.projectForm.patchValue({ name: 'Q', includeShorts: true });
+    cmp.createProject();
+    fixture.detectChanges();
+    expect(api.post).not.toHaveBeenCalled();
+    expect((el.querySelector('[data-testid="more-options"]') as HTMLDetailsElement).open).toBeTrue();
+    expect(el.querySelector('[role="alert"]')!.textContent).toContain('Choose a video or audio file for AI Shorts');
+  });
+
   it('reads the duration of a picked Shorts file through the shared probe, and refuses an unreadable one', async () => {
     const { cmp } = setup();
     cmp.onShortsFileSelected(fileEvent(wav(1.5), 'talk.wav'));
