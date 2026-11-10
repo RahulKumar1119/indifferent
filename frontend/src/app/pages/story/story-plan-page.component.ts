@@ -31,93 +31,98 @@ import { StoryProblemComponent } from './story-problem.component';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, LucideDynamicIcon, NavbarComponent, StoryProblemComponent],
-  styles: [
-    `
-      .serif {
-        font-family: 'Cormorant Garamond', Georgia, serif;
-      }
-    `,
-  ],
+  styles: [`
+    :host { display: block; }
+    .narrow { width: min(48rem, 100%); }
+    form { display: flex; flex-direction: column; gap: var(--space-md); }
+    label { display: block; font-weight: 600; }
+    .hint { margin: var(--space-3xs) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); }
+    textarea { margin-top: var(--space-xs); min-height: 14rem; resize: vertical; line-height: 1.6; }
+    .under { margin-top: var(--space-xs); display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-2xs) var(--space-lg); font-size: var(--type-sm); }
+    .count { margin: 0; color: var(--color-ink-2); }
+    .err { margin: 0; display: flex; align-items: flex-start; gap: var(--space-xs); font-weight: 500; color: var(--color-negative); }
+    .go { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
+    .wait { margin: 0; max-width: 28rem; font-size: var(--type-sm); color: var(--color-ink-2); }
+    @media (max-width: 39.99rem) { .go .ui-btn { width: 100%; } }
+    .fine { margin: 0; max-width: 42rem; font-size: var(--type-sm); color: var(--color-ink-2); }
+  `],
   template: `
-    <app-navbar></app-navbar>
-    <main class="mx-auto w-full max-w-3xl px-4 py-10">
-      <h1 class="serif text-4xl font-medium leading-tight sm:text-5xl">Turn a story into a video plan</h1>
-      <p class="mt-3 max-w-2xl text-[hsl(var(--muted-foreground))]">
-        Paste a story. It is split into {{ limits().minScenes }} to {{ limits().maxScenes }} scenes, up to
-        {{ limits().maxTotalSeconds }} seconds in all, with narration for each. Then you choose a picture for every scene.
-      </p>
-
-      @if (!limits().enabled) {
-        <div class="mt-8 max-w-xl">
-          <app-story-problem [problem]="offProblem" />
+    <div class="ui-app">
+      <app-navbar></app-navbar>
+      <main id="main" class="ui-app-main narrow hm">
+        <div>
+          <h1 class="ui-h1">Turn a story into a video plan</h1>
+          <p class="ui-lead">
+            Paste a story. It is split into {{ limits().minScenes }} to {{ limits().maxScenes }} scenes, up to
+            {{ limits().maxTotalSeconds }} seconds in all, with narration for each. Then you choose a picture for every scene.
+          </p>
         </div>
-      } @else {
-        <form class="mt-8" (submit)="onSubmit($event)" novalidate>
-          <label for="story" class="block font-medium">Your story</label>
-          <p id="story-hint" class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-            Write in English or Hindi. The narration stays in your language. The words used to search for pictures are
-            made in English.
-          </p>
-          <textarea
-            #field
-            id="story"
-            rows="10"
-            [value]="story()"
-            (input)="onInput($event)"
-            [readOnly]="planning()"
-            [attr.aria-describedby]="describedBy()"
-            [attr.aria-invalid]="fieldError() ? 'true' : null"
-            class="mt-2 block min-h-56 w-full resize-y rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3 text-base leading-relaxed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
-          ></textarea>
 
-          <div class="mt-2 flex flex-wrap items-start justify-between gap-x-6 gap-y-1 text-sm">
-            <p id="story-count" class="text-[hsl(var(--muted-foreground))]">
-              {{ chars() | number }} of {{ limits().maxStoryChars | number }} characters
-              @if (shortBy() > 0 && chars() > 0) {
-                · {{ shortBy() | number }} more needed
-              }
-            </p>
-            @if (fieldError()) {
-              <p id="story-error" role="alert" class="flex items-start gap-2 font-medium">
-                <svg lucideIcon="triangle-alert" [size]="16" aria-hidden="true" class="mt-0.5 shrink-0 text-[var(--color-error)]"></svg>
-                {{ fieldError() }}
+        @if (!limits().enabled) {
+          <app-story-problem [problem]="offProblem" />
+        } @else {
+          <form class="ui-card" (submit)="onSubmit($event)" novalidate>
+            <div>
+              <label for="story">Your story</label>
+              <p id="story-hint" class="hint">
+                Write in English or Hindi. The narration stays in your language. The words used to search for pictures are
+                made in English.
               </p>
-            }
-          </div>
-
-          <div class="mt-6 flex flex-wrap items-center gap-4">
-            <button
-              type="submit"
-              [disabled]="planning()"
-              class="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#BC5227] px-6 text-sm font-semibold text-white hover:bg-[#a84822] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              @if (planning()) {
-                <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="animate-spin motion-reduce:animate-none"></svg>
-                Planning…
-              } @else {
-                Plan my video
-              }
-            </button>
-            <p role="status" class="max-w-md text-sm text-[hsl(var(--muted-foreground))]" data-testid="progress">
-              @if (planning()) {
-                Planning your video. This usually takes 5 to 10 seconds and can take up to 25. Keep this page open.
-              }
-            </p>
-          </div>
-
-          @if (problem(); as p) {
-            <div class="mt-6 max-w-xl">
-              <app-story-problem [problem]="p" />
+              <textarea
+                #field
+                id="story"
+                rows="10"
+                [value]="story()"
+                (input)="onInput($event)"
+                [readOnly]="planning()"
+                [attr.aria-describedby]="describedBy()"
+                [attr.aria-invalid]="fieldError() ? 'true' : null"
+                class="ui-field"
+              ></textarea>
+              <div class="under">
+                <p id="story-count" class="count">
+                  {{ chars() | number }} of {{ limits().maxStoryChars | number }} characters
+                  @if (shortBy() > 0 && chars() > 0) {
+                    · {{ shortBy() | number }} more needed
+                  }
+                </p>
+                @if (fieldError()) {
+                  <p id="story-error" role="alert" class="err">
+                    <svg lucideIcon="triangle-alert" [size]="16" aria-hidden="true" style="flex: none; margin-top: 2px"></svg>
+                    {{ fieldError() }}
+                  </p>
+                }
+              </div>
             </div>
-          }
 
-          <p class="mt-8 max-w-2xl text-sm text-[hsl(var(--muted-foreground))]">
-            Your story is sent to an AI model to plan the scenes. We keep the plan, not the story. You can make
-            {{ limits().perHour }} plans an hour.
-          </p>
-        </form>
-      }
-    </main>
+            <div class="go">
+              <button type="submit" [disabled]="planning()" [attr.aria-busy]="planning()" class="ui-btn ui-btn--primary">
+                @if (planning()) {
+                  <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="ui-spin"></svg>
+                  Planning…
+                } @else {
+                  Plan my video
+                }
+              </button>
+              <p role="status" class="wait" data-testid="progress">
+                @if (planning()) {
+                  Planning your video. This usually takes 5 to 10 seconds and can take up to 25. Keep this page open.
+                }
+              </p>
+            </div>
+
+            @if (problem(); as p) {
+              <app-story-problem [problem]="p" />
+            }
+
+            <p class="fine">
+              Your story is sent to an AI model to plan the scenes. We keep the plan, not the story. You can make
+              {{ limits().perHour }} plans an hour.
+            </p>
+          </form>
+        }
+      </main>
+    </div>
   `,
 })
 export class StoryPlanPageComponent implements OnInit, OnDestroy {

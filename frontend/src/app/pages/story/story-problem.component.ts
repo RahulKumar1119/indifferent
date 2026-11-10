@@ -16,30 +16,31 @@ import { StoryPlanProblem } from './story-plan-problem';
   standalone: true,
   imports: [LucideDynamicIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [`
+    :host { display: block; }
+    .box { display: flex; align-items: flex-start; gap: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-control); border: 1px solid color-mix(in oklab, var(--color-negative) 45%, transparent); background: color-mix(in oklab, var(--color-negative) 6%, var(--app-card, var(--color-paper))); color: var(--color-ink); font-family: var(--font-body); }
+    .box.wait { border-color: color-mix(in oklab, var(--color-caution) 50%, transparent); background: color-mix(in oklab, var(--color-caution) 8%, var(--app-card, var(--color-paper))); }
+    .ic { flex: none; margin-top: 2px; color: var(--color-negative); }
+    .wait .ic { color: var(--color-ink-2); }
+    .body { flex: 1; min-width: 0; }
+    .title { margin: 0; font-weight: 600; }
+    .msg { margin: var(--space-3xs) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); overflow-wrap: anywhere; }
+    .ui-btn { margin-top: var(--space-sm); }
+  `],
   template: `
     <div
-      class="flex items-start gap-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4"
+      class="box"
+      [class.wait]="problem().kind === 'rate_limited' || problem().kind === 'disabled'"
       [attr.role]="polite() || problem().kind === 'rate_limited' || problem().kind === 'disabled' ? 'status' : 'alert'"
       data-testid="problem"
       [attr.data-kind]="problem().kind"
     >
-      <svg
-        [lucideIcon]="problem().kind === 'rate_limited' ? 'clock' : 'triangle-alert'"
-        [size]="20"
-        aria-hidden="true"
-        class="mt-0.5 shrink-0 text-[var(--color-error)]"
-      ></svg>
-      <div class="min-w-0 flex-1">
-        <p class="font-semibold text-[hsl(var(--foreground))]">{{ problem().title }}</p>
-        <p class="mt-1 text-sm text-[hsl(var(--muted-foreground))] [overflow-wrap:anywhere]">{{ problem().message }}</p>
+      <svg [lucideIcon]="problem().kind === 'rate_limited' ? 'clock' : 'triangle-alert'" [size]="20" aria-hidden="true" class="ic"></svg>
+      <div class="body">
+        <p class="title">{{ problem().title }}</p>
+        <p class="msg">{{ problem().message }}</p>
         @if (actionLabel()) {
-          <button
-            type="button"
-            (click)="action.emit()"
-            class="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-[hsl(var(--border))] px-4 text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
-          >
-            {{ actionLabel() }}
-          </button>
+          <button type="button" (click)="action.emit()" class="ui-btn ui-btn--secondary">{{ actionLabel() }}</button>
         }
       </div>
     </div>
