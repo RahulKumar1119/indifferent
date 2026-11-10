@@ -22,6 +22,8 @@ import { OAuthFlow, createOAuthFlow, rememberOAuthFlow } from '../oauth-flow';
     /* Left: a solid dark brand panel. Under 64rem it is a short band above the form. */
     .brand-panel { background: var(--color-paper); color: var(--color-ink); padding: var(--space-xl) var(--gutter); display: flex; flex-direction: column; gap: var(--space-xl); }
     @media (min-width: 64rem) { .brand-panel { padding: var(--space-2xl); justify-content: space-between; min-height: 100dvh; } }
+    /* On very wide screens the two halves keep to a 1440px frame instead of reaching the edges (#256). */
+    @media (min-width: 90rem) { .brand-panel { padding-inline-start: max(var(--space-2xl), calc((100vw - 1440px) / 2)); } .form-panel { padding-inline-end: max(var(--gutter), calc((100vw - 1440px) / 2)); } }
     .brand { display: inline-flex; align-items: center; min-height: 44px; width: max-content; font-size: var(--type-lg); font-weight: 600; letter-spacing: -0.01em; color: var(--color-ink); text-decoration: none; }
     .brand .dot { color: var(--color-accent-text); }
     .brand:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
@@ -52,7 +54,8 @@ import { OAuthFlow, createOAuthFlow, rememberOAuthFlow } from '../oauth-flow';
     .perks li { padding-left: var(--space-md); position: relative; }
     .perks li::before { content: ''; position: absolute; left: 0; top: 0.6em; width: 8px; height: 2px; background: var(--color-accent); }
     .terms { margin-top: var(--space-xl); font-size: var(--type-sm); color: var(--color-muted); }
-    .terms a { font-weight: 400; min-height: 0; }
+    /* In-sentence links stay inline; the padding makes the tap target 44px tall without moving the text (#256). */
+    .terms a { font-weight: 400; min-height: 0; display: inline; padding-block: 11px; }
     .back { margin-top: var(--space-xs); font-size: var(--type-sm); color: var(--color-muted); text-decoration: none; }
     .back:hover { color: var(--color-ink); text-decoration: underline; }
   `],

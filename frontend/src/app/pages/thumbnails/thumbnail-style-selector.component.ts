@@ -51,7 +51,7 @@ import { THUMBNAIL_STYLES, ThumbnailFormat, ThumbnailStyle } from './thumbnail.s
     .opt small { font-size: var(--type-xs); color: var(--color-muted); }
     /* Selected and focus states hang off the hidden radio via the sibling selector. */
     input:checked + .opt { border: 2px solid var(--color-accent); background: color-mix(in oklab, var(--color-accent) 8%, var(--app-card, var(--color-paper))); }
-    input:focus-visible + .opt { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+    .choice:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
     @media (prefers-reduced-motion: reduce) { .opt { transition: none; } }
   `],
 })

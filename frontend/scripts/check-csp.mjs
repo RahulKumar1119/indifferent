@@ -37,6 +37,9 @@ export function policyFromYaml(yaml) {
   return parts.join(' ');
 }
 
+/** Hosts the Google Ads tag needs in connect-src (checked when index.html configures an AW- tag). */
+export const ADS_CONNECT = ['https://www.googleadservices.com', 'https://*.doubleclick.net', 'https://www.google.com'];
+
 /** directive name -> list of source tokens */
 export function parsePolicy(policy) {
   const out = new Map();
@@ -108,11 +111,19 @@ function main() {
     .map((t) => t.slice(1, -1))
     .filter((h) => !used.has(h));
 
+  // The Google Ads tag (AW-...) sends conversions to these hosts. Without them in
+  // connect-src the full policy would block conversions, as the CSP reports showed
+  // for www.googleadservices.com (#256).
+  const connect = directives.get('connect-src') ?? [];
+  const adsTag = /gtag\('config',\s*'AW-/.test(readFileSync(join(DIST, 'index.html'), 'utf8'));
+  const adsMissing = adsTag ? ADS_CONNECT.filter((host) => !connect.includes(host)) : [];
+
   if (PRINT) for (const [h, what] of seen) console.log(`'${h}'  ${what}`);
-  if (missing.size > 0 || stale.length > 0) {
+  if (missing.size > 0 || stale.length > 0 || adsMissing.length > 0) {
     console.error('CSP check failed. Update customHttp.yml (run: node scripts/check-csp.mjs --print).');
     for (const [m, pages] of missing) console.error(`  ${m} (${pages} page${pages === 1 ? '' : 's'})`);
     for (const s of stale) console.error(`  stale hash in the policy, no page uses it: '${s}'`);
+    for (const host of adsMissing) console.error(`  connect-src is missing ${host}, which the Google Ads tag in index.html sends conversions to`);
     process.exit(1);
   }
   console.log(`CSP check ok: ${seen.size} inline script/handler hashes match across ${htmlFiles(DIST).length} pages.`);

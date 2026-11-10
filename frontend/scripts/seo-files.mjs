@@ -96,6 +96,15 @@ function walk(dir, filter, out = []) {
 function appRoutePatterns() {
   const source = read(join(APP, 'app.routes.ts'));
   const paths = [...source.matchAll(/path:\s*'([^']*)'/g)].map((m) => m[1]).filter((p) => p !== '**');
+  // Child routes from `loadChildren: () => import('./x.routes')`, prefixed with the parent path (#256).
+  for (const m of source.matchAll(/path:\s*'([^']*)'[^}]*?loadChildren:[^}]*?import\('\.\/([^']+)'\)/gs)) {
+    const file = join(APP, `${m[2]}.ts`);
+    if (!existsSync(file)) continue;
+    for (const c of read(file).matchAll(/path:\s*'([^']*)'/g)) {
+      if (c[1] === '**') continue;
+      paths.push([m[1], c[1]].filter(Boolean).join('/'));
+    }
+  }
   return paths.map((p) => ({
     path: p,
     regex: new RegExp(`^/${p.split('/').map((seg) => (seg.startsWith(':') ? '[^/]+' : seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('/')}$`),

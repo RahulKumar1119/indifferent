@@ -48,9 +48,12 @@ input:focus-visible,
 
 /* Error snackbar (core/services/error.service.ts). The action button gets a 44px target. */
 .mat-mdc-snack-bar-container {
-  --mdc-snackbar-container-color: var(--color-ink) !important;
-  --mdc-snackbar-supporting-text-color: var(--color-paper) !important;
-  --mat-snack-bar-button-color: var(--color-paper) !important;
+  /* Material 20 reads --mat-snack-bar-*: an inverse surface (ink on paper themes, paper on ink). */
+  --mat-snack-bar-container-color: var(--color-ink);
+  --mat-snack-bar-supporting-text-color: var(--color-paper);
+  --mat-snack-bar-button-color: var(--color-paper);
+  --mat-snack-bar-supporting-text-font: var(--font-body);
+  --mat-snack-bar-container-shape: var(--radius-control);
 }
 .mat-mdc-snack-bar-container .mat-mdc-button {
   min-height: var(--control-height);

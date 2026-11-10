@@ -70,7 +70,8 @@ export const GENERAL_FAQ: FeatureFaq[] = [
     .link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
     .stuck { background: var(--color-paper-2); border-top: 1px solid var(--color-rule); padding: var(--space-2xl) 0; }
     .stuck p { margin-top: var(--space-sm); color: var(--color-ink-2); max-width: 60ch; }
-    .stuck a { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; }
+    /* In-sentence links stay inline; the padding makes the tap target 44px tall without moving the text (#256). */
+    .stuck a { color: var(--color-accent-text); text-decoration: underline; text-underline-offset: 0.2em; padding-block: 13px; }
     .stuck a:hover { color: var(--color-ink); }
     .stuck a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
   `],
