@@ -26,7 +26,17 @@ const constant = (file, name) => {
   return m ? Number(m[1]) : NaN;
 };
 
+const SHORTS = join(FRONTEND_DIR, '..', 'backend', 'internal', 'shorts', 'constants.go');
+/** `<constant> = N` (or N.0) in backend/internal/shorts/constants.go. */
+const shortsConst = (name) => {
+  const m = new RegExp(`\\b${name}\\s*=\\s*(\\d+)(?:\\.0+)?\\b`).exec(readFileSync(SHORTS, 'utf8'));
+  return m ? Number(m[1]) : NaN;
+};
+/** The shortest source is the shortest clip (#286); anything else is reported as missing. */
+const minSource = /\bMinSourceDuration\s*=\s*MinClipDuration\b/.test(readFileSync(SHORTS, 'utf8')) ? shortsConst('MinClipDuration') : NaN;
+
 const L = PRODUCT_FACTS.limits;
+const S = PRODUCT_FACTS.shorts;
 const pairs = [
   ['limits.quizProjectsPerDay', L.quizProjectsPerDay, 'quota.go project-create', quota('project-create')],
   ['limits.fileUploadsPerDay', L.fileUploadsPerDay, 'quota.go upload-url', quota('upload-url')],
@@ -37,6 +47,10 @@ const pairs = [
   ['limits.stockSearchesPerHour', L.stockSearchesPerHour, 'stockmedia.go stockSearchPerHour', constant('stockmedia.go', 'stockSearchPerHour')],
   ['story.perDay', PRODUCT_FACTS.story.perDay, 'storyvideo.go storyVideoDefaultPerDay', constant('storyvideo.go', 'storyVideoDefaultPerDay')],
   ['story.maxActive', PRODUCT_FACTS.story.maxActive, 'storyvideo.go storyVideoDefaultMaxActive', constant('storyvideo.go', 'storyVideoDefaultMaxActive')],
+  ['shorts.minDurationSeconds', S.minDurationSeconds, 'shorts/constants.go MinSourceDuration (= MinClipDuration)', minSource],
+  ['shorts.maxDurationMinutes × 60', S.maxDurationMinutes * 60, 'shorts/constants.go MaxSourceDuration', shortsConst('MaxSourceDuration')],
+  ['shorts.clipMinSeconds', S.clipMinSeconds, 'shorts/constants.go MinClipDuration', shortsConst('MinClipDuration')],
+  ['shorts.clipMaxSeconds', S.clipMaxSeconds, 'shorts/constants.go MaxClipDuration', shortsConst('MaxClipDuration')],
 ];
 
 let failed = 0;

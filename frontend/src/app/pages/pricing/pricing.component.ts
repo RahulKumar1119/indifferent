@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { setPageSeo } from '../../shared/seo';
-import { PRODUCT_FACTS, durationLabel, joinOr } from '../../core/config/product-facts';
+import { PRODUCT_FACTS, joinOr, shortsLengthLabel } from '../../core/config/product-facts';
 
 export interface UsageLimit {
   what: string;
@@ -158,7 +158,7 @@ export class PricingComponent implements OnInit {
   /** Each tool with the limit on one file, from PRODUCT_FACTS. */
   readonly tools = [
     { title: 'Story to video', path: '/features/story-video', text: `A story of ${S.minStoryChars} to ${S.maxStoryChars.toLocaleString('en-US')} characters becomes ${S.minScenes} to ${S.maxScenes} scenes, up to ${S.maxTotalSeconds} seconds.` },
-    { title: 'AI Shorts generator', path: '/features/ai-shorts', text: `One ${joinOr(PRODUCT_FACTS.shorts.inputFormats)} file of up to ${durationLabel(PRODUCT_FACTS.shorts.maxDurationMinutes)} and ${PRODUCT_FACTS.shorts.maxUploadGb} GB.` },
+    { title: 'AI Shorts generator', path: '/features/ai-shorts', text: `One ${joinOr(PRODUCT_FACTS.shorts.inputFormats)} file from ${shortsLengthLabel()}, up to ${PRODUCT_FACTS.shorts.maxUploadGb} GB.` },
     { title: 'TXT to quiz video', path: '/features/txt-to-video-quiz', text: `One ${PRODUCT_FACTS.quiz.inputFormat} file of questions, up to ${PRODUCT_FACTS.quiz.maxFileMb} MB.` },
     { title: 'Watermark tool', path: '/features/watermark', text: 'Runs in your browser and needs no account.' },
   ];

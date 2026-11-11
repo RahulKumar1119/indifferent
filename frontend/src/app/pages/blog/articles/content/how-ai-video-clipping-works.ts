@@ -22,7 +22,7 @@ export const blocks: ArticleBlock[] = [
   { type: 'h2', text: 'Stage 1: upload' },
   {
     type: 'p',
-    text: "The page accepts MP4, MOV, MP3 and WAV files up to 1 hour and 2 GB and checks both limits before sending anything. Files over 16 MB are cut into 16 MB parts that upload several at a time. Each part is retried on its own, and the browser remembers which parts finished so a reload can pick up where it stopped. The file lands in private storage and is tied to your account. Only you can start a job on it.",
+    text: "The page accepts MP4, MOV, MP3 and WAV files of 30 seconds to 1 hour and up to 2 GB, and checks the length and size before sending anything. Files over 16 MB are cut into 16 MB parts that upload several at a time. Each part is retried on its own, and the browser remembers which parts finished so a reload can pick up where it stopped. The file lands in private storage and is tied to your account. Only you can start a job on it.",
   },
 
   { type: 'h2', text: 'Stage 2: transcription' },

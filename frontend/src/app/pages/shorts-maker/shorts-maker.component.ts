@@ -122,7 +122,7 @@ interface UseCaseLink {
             <a href="#how" class="ui-btn ui-btn--secondary">See how it works</a>
           </div>
           <div>
-            <p class="fine">MP4, MOV, MP3 or WAV · 1 hour max · 2 GB max</p>
+            <p class="fine">MP4, MOV, MP3 or WAV · 30 seconds to 1 hour · 2 GB max</p>
             <p class="fine">
               Free during beta, no credit card.
               <a routerLink="/terms" class="inline">Beta terms</a>
@@ -204,7 +204,7 @@ interface UseCaseLink {
               <li appReveal class="reveal">
                 <p class="step">Step 1</p>
                 <h3>Upload a video or audio file</h3>
-                <p>MP4, MOV, MP3 or WAV up to 1 hour long and 2 GB. Podcasts, interviews or phone footage.</p>
+                <p>MP4, MOV, MP3 or WAV of 30 seconds to 1 hour and up to 2 GB. Podcasts, interviews or phone footage.</p>
               </li>
               <li appReveal class="reveal">
                 <p class="step">Step 2</p>
@@ -402,9 +402,9 @@ export class ShortsMakerComponent implements OnInit {
     { q: 'Are captions added automatically?', a: 'Yes. Word-level timestamps become short burned-in caption lines styled for readability without sound.' },
     { q: 'What formats and quality do I get?', a: 'MP4 with H.264 video and AAC audio at 1080×1920 and 30fps, a standard format for YouTube Shorts, Instagram Reels and TikTok.' },
     { q: 'What if my video has no people in it?', a: 'When no face is found in a clip, it renders in blur-fill fit: the whole frame stays visible over a blurred background, so text and diagrams are never cut.' },
-    { q: 'Which files can I upload?', a: 'MP4, MOV, MP3 and WAV up to 1 hour long and 2 GB.' },
+    { q: 'Which files can I upload?', a: 'MP4, MOV, MP3 and WAV of 30 seconds to 1 hour and up to 2 GB. A file shorter than 30 seconds is refused before upload, because each clip is at least 30 seconds.' },
     { q: 'How are the best moments picked?', a: 'Your file is transcribed, and the transcript is sent to a language model in 10 second blocks. The model is asked for up to 3 self-contained moments of 30 to 90 seconds with a strong hook or a complete thought, and returns a score for each. The clips are rendered in score order, and the score shows in the gallery. The model reads text only, so it cannot see the picture or hear tone of voice.' },
-    { q: 'What happens if no segment scores well?', a: 'You still get clips, up to 3. If the source is mostly silence or a static frame, the chosen moments will not be compelling, and the tool cannot fix that. Trim the file to the interesting part and try again. A file with no speech at all fails with a no speech detected message.' },
+    { q: 'What happens if no segment scores well?', a: 'You still get clips, up to 3. If the source is mostly silence or a static frame, the chosen moments will not be compelling, and the tool cannot fix that. Trim the file to the interesting part and try again. A file with no speech at all fails with a no speech detected message, and one with no usable moment of 30 to 90 seconds fails with a message that says so.' },
     { q: 'Is my source file uploaded and kept?', a: 'Your file is uploaded to private storage so it can be transcribed and rendered. It stays in your account until you delete the job, and uploaded sources move to archive storage after 30 days. Deleting a Short removes its files and its record, so download your clips first.' },
     { q: 'How long does processing take?', a: 'Most files finish in a few minutes, and a one-hour file takes longer than a short one. The progress page shows the live stage you are on, so you can leave it open while it works.' },
     { q: 'Can I change the captions after the clips are made?', a: 'No. The captions are burned into the video, and a finished job is not rendered again. Animated captions and the other effects can be changed in the step between upload and processing, and on a failed job before you press Retry. To try a different look on a finished job, upload the file again and set the effects first.' },

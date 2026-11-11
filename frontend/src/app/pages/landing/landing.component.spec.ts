@@ -2,7 +2,7 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { FREE_BETA_FAQ } from '../../core/config/free-beta';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { PRODUCT_FACTS, durationLabel } from '../../core/config/product-facts';
+import { PRODUCT_FACTS, shortsLengthLabel } from '../../core/config/product-facts';
 import { FlipbookComponent } from './flipbook.component';
 import { HeroSceneComponent } from './hero-scene.component';
 import { LandingComponent } from './landing.component';
@@ -69,7 +69,7 @@ describe('LandingComponent', () => {
     const text = render().textContent!;
     const s = PRODUCT_FACTS.shorts;
 
-    expect(text).toContain(`${s.inputFormats.join(', ')}, up to ${durationLabel(s.maxDurationMinutes)}`);
+    expect(text).toContain(`${s.inputFormats.join(', ')}, ${shortsLengthLabel()}`);
     expect(text).toContain(`Up to ${s.maxClips} clips per upload, ${s.clipMinSeconds} to ${s.clipMaxSeconds} seconds each`);
     expect(text).toContain(`${s.outputWidth}×${s.outputHeight} MP4`);
     expect(text).toContain(`H.264 + AAC, ${s.frameRate}fps`);
@@ -155,7 +155,7 @@ describe('LandingComponent', () => {
       .join('');
     expect(raw).not.toMatch(/aggregateRating|ratingValue|reviewCount|"review"/);
     const shorts = JSON.parse(document.head.querySelector('script[data-seo-id="software-shorts"]')!.textContent!);
-    expect(shorts.description).toContain('up to 1 hour');
+    expect(shorts.description).toContain('30 seconds to 1 hour');
     expect(shorts.offers.price).toBe('0');
   });
 

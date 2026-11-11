@@ -61,7 +61,7 @@ describe('PricingComponent (#255)', () => {
     const items = Array.from(render().querySelectorAll('[data-testid="free-tools"] li p')).map(text);
     expect(items).toEqual([
       'A story of 30 to 5,000 characters becomes 2 to 10 scenes, up to 90 seconds.',
-      'One MP4, MOV, MP3 or WAV file of up to 1 hour and 2 GB.',
+      'One MP4, MOV, MP3 or WAV file from 30 seconds to 1 hour, up to 2 GB.',
       'One TXT file of questions, up to 5 MB.',
       'Runs in your browser and needs no account.',
     ]);

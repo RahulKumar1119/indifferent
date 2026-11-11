@@ -1,6 +1,6 @@
 import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
-import { PRODUCT_FACTS, durationLabel, joinAnd } from '../../core/config/product-facts';
+import { PRODUCT_FACTS, joinAnd, shortsLengthLabel } from '../../core/config/product-facts';
 import { AboutComponent } from './about.component';
 
 describe('AboutComponent', () => {
@@ -65,7 +65,7 @@ describe('AboutComponent', () => {
     expect(text).toContain(`${t.minScenes} to ${t.maxScenes} scenes`);
     expect(text).toContain(`up to ${t.maxTotalSeconds} seconds`);
     expect(text).toContain(joinAnd(t.stockLibraries));
-    expect(text).toContain(`up to ${durationLabel(PRODUCT_FACTS.shorts.maxDurationMinutes)}`);
+    expect(text).toContain(`of ${shortsLengthLabel()}`);
     expect(text).toContain(`up to ${PRODUCT_FACTS.shorts.maxClips} ranked vertical clips`);
     expect(text).toContain('nothing is uploaded');
   });

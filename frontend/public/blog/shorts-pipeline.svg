@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-labelledby="t d">
   <title id="t">From upload to download: six stages</title>
-  <desc id="d">Upload, transcribe, rank, frame, caption and render. A video or audio file up to 1 hour and 2 GB becomes up to 3 vertical clips of 30 to 90 seconds.</desc>
+  <desc id="d">Upload, transcribe, rank, frame, caption and render. A video or audio file of 30 seconds to 1 hour and up to 2 GB becomes up to 3 vertical clips of 30 to 90 seconds.</desc>
   <rect width="1200" height="630" fill="#FAF7F2"/>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">

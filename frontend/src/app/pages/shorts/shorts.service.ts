@@ -331,6 +331,8 @@ export interface LanguageOption {
 }
 
 export interface ShortsLimits {
+  /** Shortest source the API accepts: one clip's minimum (issue #286). Older APIs leave it out. */
+  minDurationSeconds?: number;
   maxDurationSeconds: number;
   maxDurationMinutes: number;
   maxUploadBytes: number;
@@ -356,6 +358,7 @@ export const DEFAULT_SHORTS_LANGUAGES: LanguageOption[] = [
  * backend constants; the API response replaces them as soon as it arrives.
  */
 export const DEFAULT_SHORTS_LIMITS: ShortsLimits = {
+  minDurationSeconds: 30,
   maxDurationSeconds: 3600,
   maxDurationMinutes: 60,
   maxUploadBytes: 2 * 1024 * 1024 * 1024,
@@ -366,6 +369,28 @@ export const DEFAULT_SHORTS_LIMITS: ShortsLimits = {
   acceptedFileTypes: ['mp3', 'mp4', 'mov', 'wav'],
   languages: DEFAULT_SHORTS_LANGUAGES,
 };
+
+/**
+ * The shortest source the API accepts. The server's number when it sends a
+ * usable one, otherwise 30 seconds, so an older API still gets the check.
+ */
+export function minSourceSeconds(limits: Pick<ShortsLimits, 'minDurationSeconds'>): number {
+  const min = limits.minDurationSeconds;
+  return typeof min === 'number' && isFinite(min) && min > 0 ? min : DEFAULT_SHORTS_LIMITS.minDurationSeconds!;
+}
+
+/**
+ * Why a file is too short for AI Shorts, or '' when it is long enough. Exactly
+ * the minimum is accepted. The length rounds down, so a 29.9 second file is
+ * never described as 30 seconds.
+ */
+export function tooShortMessage(durationSeconds: number, limits: Pick<ShortsLimits, 'minDurationSeconds'>): string {
+  const min = minSourceSeconds(limits);
+  if (durationSeconds >= min) return '';
+  const whole = Math.floor(durationSeconds);
+  const length = whole < 1 ? 'under 1 second' : whole === 1 ? '1 second' : `${whole} seconds`;
+  return `This file is ${length} long. AI Shorts needs at least ${min} seconds to cut a clip from.`;
+}
 
 /** The uploader retries and reports its own failures, so the global error toast stays quiet. */
 function quietContext(): HttpContext {

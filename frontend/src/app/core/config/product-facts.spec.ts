@@ -1,4 +1,4 @@
-import { PRODUCT_FACTS, durationLabel, joinAnd, joinOr, shortsOutputLabel, storyOutputLabel } from './product-facts';
+import { PRODUCT_FACTS, durationLabel, joinAnd, joinOr, shortsLengthLabel, shortsOutputLabel, storyOutputLabel } from './product-facts';
 import { LEGAL_LAST_UPDATED, legalUpdatedLabel } from './legal';
 
 describe('product facts', () => {
@@ -13,6 +13,7 @@ describe('product facts', () => {
   it('labels durations and the Shorts output', () => {
     expect(durationLabel(60)).toBe('1 hour');
     expect(durationLabel(45)).toBe('45 minutes');
+    expect(shortsLengthLabel()).toBe('30 seconds to 1 hour');
     expect(shortsOutputLabel()).toBe('1080×1920 MP4 (H.264 video, AAC audio, 30 fps)');
   });
 
@@ -23,6 +24,8 @@ describe('product facts', () => {
     expect(PRODUCT_FACTS.shorts.maxClips).toBe(3);
     expect(PRODUCT_FACTS.shorts.clipMinSeconds).toBe(30);
     expect(PRODUCT_FACTS.shorts.clipMaxSeconds).toBe(90);
+    // MinSourceDuration = MinClipDuration (#286)
+    expect(PRODUCT_FACTS.shorts.minDurationSeconds).toBe(PRODUCT_FACTS.shorts.clipMinSeconds);
     // backend/internal/parser/validator.go
     expect(PRODUCT_FACTS.quiz.maxFileMb).toBe(5);
     // backend/internal/narrator/polly.go

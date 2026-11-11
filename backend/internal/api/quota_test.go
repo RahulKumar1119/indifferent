@@ -208,6 +208,58 @@ func TestQuota_RetryAndThumbnailsAreLimited(t *testing.T) {
 	}
 }
 
+// Issue #286: a VALIDATION failure cannot succeed on the same file, so its
+// retry is refused with 409 before the quota is checked, and costs nothing.
+func TestRetryShorts_ValidationFailuresAreRefusedWithoutSpendingARetry(t *testing.T) {
+	withLimit(t, &quotaShortsRetry, 1)
+	db, _ := quotaDB()
+	job := models.ShortsJob{UserID: "u", JobID: "j1", Status: "failed", SourceKey: "uploads/u/j1/source.mp4", FileType: "mp4", FailedStage: "ranking"}
+	db.getItemFunc = func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+		return &dynamodb.GetItemOutput{Item: shortsJobToItem(job)}, nil
+	}
+	var resets int
+	db.putItemFunc = func(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+		if v, ok := params.Item["status"].(*dbtypes.AttributeValueMemberS); ok && v.Value == "uploaded" {
+			resets++
+		}
+		return &dynamodb.PutItemOutput{}, nil
+	}
+	h := newShortsTestHandler(t, db)
+	h.QuotaTable = "sessions-table"
+	tok := generateTestToken("u")
+	retry := func() events.APIGatewayProxyResponse {
+		resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+			HTTPMethod: "POST", Path: "/shorts/j1/retry", Body: "{}", Headers: map[string]string{"Authorization": "Bearer " + tok},
+		})
+		return resp
+	}
+
+	for _, code := range []string{"VALIDATION_NO_SEGMENTS", "VALIDATION_NO_SPEECH", "VALIDATION_DURATION", "VALIDATION_UPLOAD"} {
+		job.ErrorCode = code
+		for i := 0; i < 2; i++ {
+			resp := retry()
+			if resp.StatusCode != 409 || quotaErrCode(t, resp.Body) != "NOT_RETRYABLE" {
+				t.Fatalf("%s retry %d: %d %s, want 409 NOT_RETRYABLE", code, i+1, resp.StatusCode, resp.Body)
+			}
+			if strings.Contains(resp.Body, code) {
+				t.Errorf("%s: the refusal shows the internal code to the user: %s", code, resp.Body)
+			}
+		}
+	}
+	if resets != 0 {
+		t.Fatalf("a refused retry reset the job %d times", resets)
+	}
+
+	// None of those spent the one allowed retry: a retryable failure still gets it.
+	job.ErrorCode = "INFRASTRUCTURE"
+	if resp := retry(); resp.StatusCode != 200 {
+		t.Fatalf("retryable failure after refused retries: %d %s, want 200", resp.StatusCode, resp.Body)
+	}
+	if resets != 1 {
+		t.Errorf("resets = %d, want 1", resets)
+	}
+}
+
 func TestQuota_ProjectCreateAndUploadURLAreLimited(t *testing.T) {
 	withLimit(t, &quotaProjectCreate, 1)
 	withLimit(t, &quotaUploadURL, 1)

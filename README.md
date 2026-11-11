@@ -3,7 +3,7 @@
 **TXT2Video** is the AI video studio behind [indifferent.fun](https://indifferent.fun). It turns plain text, written stories and long recordings into publish-ready video:
 
 - **Quiz films** — upload a `.txt` file of multiple-choice questions and get a narrated 1920×1080 MP4 with answer reveals, transitions and optional channel branding.
-- **AI Shorts** — upload a video or audio file up to 1 hour / 2 GB and get up to three ranked 1080×1920 clips with burned-in captions and face-aware framing.
+- **AI Shorts** — upload a video or audio file of 30 seconds to 1 hour (up to 2 GB) and get up to three ranked 1080×1920 clips with burned-in captions and face-aware framing.
 - **Story to video**: paste a short story and get a narrated 1080×1920 MP4 of up to 90 seconds. A model plans the scenes, you confirm a stock photo or clip from Pexels or Pixabay for each one, and Amazon Polly narrates it in the story's own language.
 - **Watermark tool** — add a watermark to an image entirely in the browser; nothing is uploaded to a server.
 
@@ -43,7 +43,7 @@ Four products share one account and one asset bucket:
 | Product | Input | Output |
 |---|---|---|
 | **Quiz films** | A TXT file of multiple-choice questions | A 1920×1080 MP4 with narrated questions, answer highlights and transitions |
-| **AI Shorts Generator** | A video or audio file (up to 1 hour / 2 GB) | Up to three 1080×1920 clips with burned-in captions and subject-aware cropping |
+| **AI Shorts Generator** | A video or audio file (30 seconds to 1 hour, up to 2 GB) | Up to three 1080×1920 clips with burned-in captions and subject-aware cropping |
 | **Story to video** | A short story (30 to 5,000 characters) | A narrated 1080×1920 MP4 of up to 90 seconds, with the stock photos and clips you chose, scene by scene |
 | **Watermark tool** | An image, in the browser | A watermarked image. Nothing is uploaded to a server |
 

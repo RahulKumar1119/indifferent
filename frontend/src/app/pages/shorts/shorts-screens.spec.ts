@@ -93,13 +93,48 @@ describe('ShortsUploadComponent', () => {
   it('reads the duration of a picked file through the shared probe, and refuses an unreadable one', async () => {
     const { fixture } = setup();
     const cmp = fixture.componentInstance;
-    cmp.onFileSelected(fileEvent(wav(1.5), 'talk.wav'));
+    cmp.onFileSelected(fileEvent(wav(30), 'talk.wav'));
     await until(() => !cmp.isProbing);
-    expect(cmp.durationSeconds).toBeCloseTo(1.5, 1);
+    expect(cmp.durationSeconds).toBeCloseTo(30, 1);
     expect(cmp.error).toBe('');
     cmp.onFileSelected(fileEvent(new Blob([new Uint8Array(16)], { type: 'video/mp4' }), 'broken.mp4'));
     await until(() => !cmp.isProbing);
     expect(cmp.error).toBe('Could not read this media file. Please try a different file.');
+  });
+
+  // Issue #286: a file shorter than one clip can never make a clip.
+  it('refuses a file under the minimum before anything is uploaded, and says why', async () => {
+    const { fixture, el } = setup();
+    const cmp = fixture.componentInstance;
+    cmp.onFileSelected(fileEvent(wav(10), 'short.wav'));
+    await until(() => !cmp.isProbing);
+    fixture.detectChanges();
+    expect(cmp.error).toBe('This file is 10 seconds long. AI Shorts needs at least 30 seconds to cut a clip from.');
+    expect(cmp.durationSeconds).toBe(0);
+    expect((el.querySelector('[data-testid="generate"]') as HTMLButtonElement).disabled).toBeTrue();
+    expect(el.textContent).toContain('AI Shorts needs at least 30 seconds');
+  });
+
+  it('uses the minimum the API sends, and 30 seconds when it sends none', async () => {
+    const { fixture } = setup();
+    const cmp = fixture.componentInstance;
+    cmp.limits = { ...cmp.limits, minDurationSeconds: 45 };
+    cmp.onFileSelected(fileEvent(wav(30), 'talk.wav'));
+    await until(() => !cmp.isProbing);
+    expect(cmp.error).toBe('This file is 30 seconds long. AI Shorts needs at least 45 seconds to cut a clip from.');
+
+    const { minDurationSeconds: _, ...older } = cmp.limits;
+    cmp.limits = older;
+    expect(cmp.minSeconds).toBe(30);
+    cmp.onFileSelected(fileEvent(wav(12), 'short.wav'));
+    await until(() => !cmp.isProbing);
+    expect(cmp.error).toContain('at least 30 seconds');
+  });
+
+  it('states the length range in the requirements', () => {
+    const { el } = setup();
+    expect(el.querySelector('[aria-label="Upload requirements"]')!.textContent).toContain('30 sec to 60 min');
+    expect(el.querySelector('[data-testid="dropzone"]')!.getAttribute('aria-label')).toContain('from 30 seconds to 60 minutes long');
   });
 
   it('labels the transcript language select', () => {
@@ -251,8 +286,24 @@ describe('ShortsProgressComponent', () => {
       retry.click();
       expect(service.retryJob).toHaveBeenCalled();
     } else {
-      expect(alert.textContent).toContain("can't be processed as-is");
+      expect(alert.textContent).toContain("can't be processed as it is");
     }
+    fixture.destroy();
+    discardPeriodicTasks();
+  }));
+
+  // Issue #286: a file with no usable moment is a file problem, not ours.
+  it('shows a no-moment failure as a file problem, with its message and no Retry', fakeAsync(() => {
+    const message = 'We could not find a moment of 30 to 90 seconds to cut into a clip. Try a longer file with more speech.';
+    const { fixture, el, service } = setup('failed', { error: message, errorCode: 'VALIDATION_NO_SEGMENTS' });
+    tick();
+    fixture.detectChanges();
+    const alert = el.querySelector('[role="alert"]')!;
+    expect(alert.textContent).toContain(message);
+    expect(alert.textContent).toContain("can't be processed as it is");
+    expect(alert.textContent).not.toMatch(/errorMessage|errorType|wrapError|\{/);
+    expect(Array.from(alert.querySelectorAll('button')).some((b) => b.textContent!.includes('Retry'))).toBeFalse();
+    expect(service.retryJob).not.toHaveBeenCalled();
     fixture.destroy();
     discardPeriodicTasks();
   }));

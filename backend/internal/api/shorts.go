@@ -54,6 +54,7 @@ var validShortsFileTypes = map[string]string{
 // pipeline enforces. The client reads it from GET /shorts/limits so the
 // limits shown in the UI can never drift from the ones the API applies.
 type ShortsLimits struct {
+	MinDurationSeconds float64                 `json:"minDurationSeconds"`
 	MaxDurationSeconds float64                 `json:"maxDurationSeconds"`
 	MaxDurationMinutes int                     `json:"maxDurationMinutes"`
 	MaxUploadBytes     int64                   `json:"maxUploadBytes"`
@@ -76,6 +77,7 @@ func (h *APIHandler) handleGetShortsLimits(ctx context.Context, req events.APIGa
 	sort.Strings(types)
 
 	return jsonResponse(http.StatusOK, ShortsLimits{
+		MinDurationSeconds: shorts.MinSourceDuration,
 		MaxDurationSeconds: shorts.MaxSourceDuration,
 		MaxDurationMinutes: int(shorts.MaxSourceDuration / 60),
 		MaxUploadBytes:     shorts.MaxUploadBytes,
@@ -98,6 +100,12 @@ func validateCreateShorts(req *CreateShortsRequest) error {
 	if req.Duration <= 0 {
 		return fmt.Errorf("duration must be greater than zero")
 	}
+	// A source shorter than one clip can never yield a clip (issue #286).
+	// Exactly MinSourceDuration is allowed.
+	if req.Duration < shorts.MinSourceDuration {
+		return fmt.Errorf("Your file is %s long. AI Shorts needs at least %.0f seconds to cut a clip from.",
+			secondsLabel(req.Duration), shorts.MinSourceDuration)
+	}
 	if req.Duration > shorts.MaxSourceDuration {
 		return fmt.Errorf("source duration %.0fs exceeds maximum of %.0f minutes", req.Duration, shorts.MaxSourceDuration/60)
 	}
@@ -105,6 +113,21 @@ func validateCreateShorts(req *CreateShortsRequest) error {
 		return err
 	}
 	return nil
+}
+
+// secondsLabel is "8 seconds" for 8.4 and "1 second" for 1.2. It rounds down,
+// so a 29.9 second file is never described as 30 seconds when it is refused
+// for being under 30.
+func secondsLabel(d float64) string {
+	n := int(d)
+	switch {
+	case n < 1:
+		return "under 1 second"
+	case n == 1:
+		return "1 second"
+	default:
+		return strconv.Itoa(n) + " seconds"
+	}
 }
 
 // handleCreateShorts creates a new shorts job with status "uploaded" and
@@ -394,9 +417,8 @@ func (h *APIHandler) verifyShortsUpload(ctx context.Context, job *models.ShortsJ
 // condition instead of double-running the pipeline) and a fresh execution is
 // started under a unique name. Only failed/delete_failed jobs may restart;
 // stale clips are cleared so the gallery never shows previous-run renders
-// mid-rerun. Validation failures (VALIDATION_*) restart the same way — the
-// pipeline will fail fast again unless the input changed — so the UI steers
-// those toward a different file instead.
+// mid-rerun. Validation failures (VALIDATION_*) are refused with 409 and cost
+// no retry: the same file would fail the same way (issue #286).
 func (h *APIHandler) handleRetryShorts(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
 	jobID := extractShortsIDFromSubpath(req.Path, "/retry")
 	if jobID == "" {
@@ -409,6 +431,13 @@ func (h *APIHandler) handleRetryShorts(ctx context.Context, req events.APIGatewa
 	}
 	if job.Status != "failed" && job.Status != "delete_failed" {
 		return errorResponse(http.StatusBadRequest, "INVALID_STATE", "Only failed jobs can be retried"), nil
+	}
+	// A VALIDATION failure is a verdict on the file: the same input fails the
+	// same way. Refuse it before the quota check, so no daily retry is spent.
+	if strings.HasPrefix(job.ErrorCode, "VALIDATION") {
+		log.Printf("retry_shorts_refused user=%s job=%s code=%s", claims.UserID, jobID, job.ErrorCode)
+		return errorResponse(http.StatusConflict, "NOT_RETRYABLE",
+			"This file cannot make clips as it is, so trying again would fail the same way. Upload a different file."), nil
 	}
 	if resp := h.checkQuota(ctx, claims.UserID, quotaShortsRetry); resp != nil {
 		return *resp, nil

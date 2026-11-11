@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/shorts"
 )
 
 // mockDynamoDBClient implements DynamoDBClient for testing.
@@ -413,9 +415,10 @@ func TestUpdateShortsStatus_Failed(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	// Issue #286: the user sees what to do, not the ranker's sentence.
 	errorVal := mock.updateItemInput.ExpressionAttributeValues[":error"].(*types.AttributeValueMemberS).Value
-	if errorVal != "no engaging segments identified" {
-		t.Errorf("expected failure reason stored, got %q", errorVal)
+	if errorVal != shorts.NoSegmentsMessage {
+		t.Errorf("expected the no-segments message stored, got %q", errorVal)
 	}
 	if _, ok := mock.updateItemInput.ExpressionAttributeValues[":clips"]; ok {
 		t.Error("unexpected :clips on failed status")
@@ -472,6 +475,9 @@ func TestClassifyShortsErrorCode(t *testing.T) {
 		{"use an inference profile instead", "RANKING_BACKEND"},
 		{"ConflictException: job exists", "TRANSIENT_CONFLICT"},
 		{"weird ffmpeg crash", "INFRASTRUCTURE"},
+		// Issue #286: the exact cause Step Functions stored for the six jobs.
+		{`{"errorMessage":"ranking failed: no engaging segments identified","errorType":"wrapError"}`, "VALIDATION_NO_SEGMENTS"},
+		{"ranking failed: no engaging segments identified", "VALIDATION_NO_SEGMENTS"},
 	}
 	for _, tc := range cases {
 		if got := classifyShortsErrorCode(tc.msg); got != tc.want {
@@ -527,5 +533,72 @@ func TestUpdateShortsStatus_FailedPreservesPriorStage(t *testing.T) {
 	vals := mock.updateItemInput.ExpressionAttributeValues
 	if v, ok := vals[":failedStage"].(*types.AttributeValueMemberS); !ok || v.Value != "rendering" {
 		t.Errorf("expected preserved failedStage=rendering, got %+v", vals[":failedStage"])
+	}
+}
+
+// Issue #286: a ranking that finds no moment fails as a file problem, with a
+// message a person can act on, and the Step Functions envelope never reaches
+// the record the progress page shows.
+func TestUpdateShortsStatus_NoSegmentsIsAValidationFailureWithAPlainMessage(t *testing.T) {
+	const cause = `{"errorMessage":"ranking failed: no engaging segments identified","errorType":"wrapError"}`
+	mock := &mockDynamoDBClient{
+		getItemResult: map[string]types.AttributeValue{
+			"status": &types.AttributeValueMemberS{Value: "ranking"},
+		},
+	}
+	updater := &StatusUpdater{DB: mock, TableName: "jobs"}
+	err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
+		JobID:  "j1",
+		UserID: "u1",
+		Status: ShortsStatusFailed,
+		Error:  map[string]any{"Error": "wrapError", "Cause": cause},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	vals := mock.updateItemInput.ExpressionAttributeValues
+	if v, ok := vals[":errorCode"].(*types.AttributeValueMemberS); !ok || v.Value != shorts.CodeNoSegments {
+		t.Errorf("expected errorCode=%s, got %+v", shorts.CodeNoSegments, vals[":errorCode"])
+	}
+	if !strings.HasPrefix(shorts.CodeNoSegments, "VALIDATION") {
+		t.Errorf("%s must be a VALIDATION code so it is not retried", shorts.CodeNoSegments)
+	}
+	got := vals[":error"].(*types.AttributeValueMemberS).Value
+	if got != shorts.NoSegmentsMessage {
+		t.Errorf("stored error %q, want %q", got, shorts.NoSegmentsMessage)
+	}
+	if want := "We could not find a moment of 30 to 90 seconds to cut into a clip. Try a longer file with more speech."; got != want {
+		t.Errorf("message %q, want %q", got, want)
+	}
+}
+
+func TestShortsUserMessage_NeverShowsTheLambdaEnvelope(t *testing.T) {
+	cases := []struct{ msg, code, want string }{
+		{`{"errorMessage":"ranking failed: bedrock InvokeModel failed","errorType":"wrapError"}`, "RANKING_BACKEND", "ranking failed: bedrock InvokeModel failed"},
+		{`{"errorMessage":"render failed","errorType":"errorString","stackTrace":[{"path":"main.go","line":12}]}`, "INFRASTRUCTURE", "render failed"},
+		{` {"errorMessage":"","errorType":"x"}`, "INFRASTRUCTURE", "Processing failed."},
+		{"Transcription failed.", "INFRASTRUCTURE", "Transcription failed."},
+		{"{not json", "INFRASTRUCTURE", "{not json"},
+		{`{"other":"shape"}`, "INFRASTRUCTURE", `{"other":"shape"}`},
+		{"anything", shorts.CodeNoSegments, shorts.NoSegmentsMessage},
+	}
+	for _, tc := range cases {
+		if got := shortsUserMessage(tc.msg, tc.code); got != tc.want {
+			t.Errorf("shortsUserMessage(%q, %s) = %q, want %q", tc.msg, tc.code, got, tc.want)
+		}
+		if got := shortsUserMessage(tc.msg, tc.code); strings.Contains(got, "errorType") || strings.Contains(got, "stackTrace") {
+			t.Errorf("shortsUserMessage(%q) leaks the envelope: %q", tc.msg, got)
+		}
+	}
+}
+
+func TestSanitizeForLog_BoundsTheCause(t *testing.T) {
+	long := strings.Repeat("é", maxLoggedCause+50)
+	got := sanitizeForLog(long)
+	if r := []rune(got); len(r) != maxLoggedCause+3 || !strings.HasSuffix(got, "...") {
+		t.Errorf("sanitizeForLog kept %d runes, want %d plus an ellipsis", len(r), maxLoggedCause)
+	}
+	if sanitizeForLog("short") != "short" {
+		t.Error("a short cause must be logged whole")
 	}
 }
