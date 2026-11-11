@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/shorts/render"
 )
 
 // fakeRenderUpdater records the last UpdateItem call.
@@ -64,6 +67,48 @@ func TestRecordRenderErrorKeepsTheFirstReason(t *testing.T) {
 	}
 	if store.writes != 1 {
 		t.Errorf("only the first failure may be written, got %d writes", store.writes)
+	}
+}
+
+// Issue #287: every failed render stores a short reason a person can read.
+// The technical cause goes to the task log only.
+func TestRenderErrorMessage(t *testing.T) {
+	ffmpegErr := errors.New(`ffmpeg failed: exit status 234
+[Parsed_crop_0 @ 0x7fe0] Invalid too big or non positive size for width '1424' or height '2532'`)
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"an ffmpeg failure", fmt.Errorf("ffmpeg render failed: %w", ffmpegErr), renderFailedMessage},
+		{"a download failure", errors.New("download source: s3 GetObject: AccessDenied"), renderFailedMessage},
+		{"a timeout", fmt.Errorf("%w after 2m0s: signal: killed", render.ErrRenderTimeout), renderTimeoutMessage},
+		{"invalid effects", fmt.Errorf("%w: freeze at 40s is outside the clip", render.ErrEffectsInvalid), renderEffectsMessage},
+		{"a cancel stores nothing", fmt.Errorf("%w: context canceled", render.ErrRenderCanceled), ""},
+	}
+	for _, c := range cases {
+		got := renderErrorMessage(c.err)
+		if got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
+	}
+	for _, m := range []string{renderFailedMessage, renderTimeoutMessage, renderEffectsMessage} {
+		if m == "" || len([]rune(m)) > maxRenderErrorChars {
+			t.Errorf("message %q must be short and present", m)
+		}
+		if strings.ContainsAny(m, "{}[]@\n") || regexp.MustCompile(`(?i)ffmpeg|exit status|/tmp|crop|s3`).MatchString(m) {
+			t.Errorf("message %q leaks technical detail", m)
+		}
+	}
+}
+
+func TestLogCauseIsBounded(t *testing.T) {
+	long := errors.New(strings.Repeat("é", maxLoggedRenderCauses+10))
+	if got := []rune(logCause(long)); len(got) != maxLoggedRenderCauses+3 {
+		t.Errorf("logCause kept %d runes", len(got))
+	}
+	if logCause(errors.New("short")) != "short" {
+		t.Error("a short cause is logged whole")
 	}
 }
 

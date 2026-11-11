@@ -709,9 +709,11 @@ func (p clipEffects) graph(in graphInput) (string, string, error) {
 	// nothing to visualize, so the effect is skipped. cur holds the final video
 	// label (a plain label reserved above when a waveform is present).
 	if p.waveform != nil {
-		audioSrc := audioOut
-		if audioSrc == "" {
-			audioSrc = in.audioIn
+		// audioOut is a plain label; in.audioIn already carries its brackets.
+		// waveformGraph wants a bracketed reference either way.
+		audioSrc := in.audioIn
+		if audioOut != "" {
+			audioSrc = ref(audioOut)
 		}
 		if audioSrc != "" {
 			vizChains, newAudio := p.waveformGraph(cur, audioSrc, label)
@@ -729,16 +731,20 @@ func (p clipEffects) graph(in graphInput) (string, string, error) {
 // waveformGraph overlays an audio visualizer on the video. videoIn is the
 // finished-picture label (a plain label, not [vout]); audioSrc is the audio to
 // read and also map out. It returns the chains and the audio label to map
-// (split off audioSrc). The overlay produces [vout].
+// (split off audioSrc), as a plain label without brackets. The overlay
+// produces [vout].
 func (p clipEffects) waveformGraph(videoIn, audioSrc string, label func(string) string) ([]string, string) {
 	w := p.waveform
 	var chains []string
 	vIn := videoIn
 
 	// Split the audio: one copy for the output map, one for the visualizer.
-	aMain := ref(label("wa"))
+	// The mapped copy is returned as a plain label, like every other audio
+	// stage: the caller brackets it exactly once (-map ref(label)). Returning
+	// it bracketed made the map "[[wa4]]", which ffmpeg rejects (#287).
+	aMain := label("wa")
 	aViz := ref(label("wa"))
-	chains = append(chains, audioSrc+"asplit="+aMain+aViz)
+	chains = append(chains, audioSrc+"asplit="+ref(aMain)+aViz)
 
 	// Visualizer: full width, height a share of the frame, in the chosen color.
 	vizH := outputHeight * clampInt(w.Height, 10, 50) / 100

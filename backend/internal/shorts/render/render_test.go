@@ -91,7 +91,7 @@ func TestBuildCropCaptionArgs_VideoFilterAndFlags(t *testing.T) {
 
 	// Video filter: center-crop, scale to 9:16, subtitles burn.
 	vf := argValue(args, "-vf")
-	if !strings.Contains(vf, "crop=w=ih*9/16:h=ih:x=(iw-ih*9/16)/2:y=0") {
+	if !strings.Contains(vf, centredCrop) {
 		t.Errorf("expected center-crop expression in -vf, got: %s", vf)
 	}
 	if !strings.Contains(vf, "scale=1080:1920,setsar=1") {
@@ -137,7 +137,7 @@ func TestBuildCropCaptionArgs_AudioOnlyCanvas(t *testing.T) {
 		t.Errorf("expected black 1080x1920 canvas, got: %s", joined)
 	}
 	// No center-crop for audio-only (there is no video stream to crop).
-	if strings.Contains(joined, "crop=w=ih*9/16") {
+	if strings.Contains(joined, "crop=w=") {
 		t.Errorf("did not expect a crop filter for audio-only, got: %s", joined)
 	}
 	// Duration guards the canvas length.
@@ -157,6 +157,9 @@ func TestBuildCropCaptionArgs_AudioOnlyCanvas(t *testing.T) {
 	}
 }
 
+// centredCrop is the centred 9:16 window: the largest that fits in any frame (#287).
+const centredCrop = "crop=w='min(iw,ih*9/16)':h='min(ih,iw*16/9)':x='(iw-ow)/2':y='(ih-oh)/2'"
+
 // legacyArgsCase is one entry of testdata/legacy_args.json: the argument list
 // origin/main produced for a render without effects.
 type legacyArgsCase struct {
@@ -166,7 +169,9 @@ type legacyArgsCase struct {
 
 // TestBuildCropCaptionArgs_MatchesOriginMain pins the no-effects argument lists
 // to the lists origin/main produced. A job without effect settings must keep
-// the same ffmpeg command.
+// the same ffmpeg command. The one intended change is the crop window (#287):
+// it is now the largest 9:16 window that fits the frame, which for a landscape
+// or 9:16 source is the same rectangle as before.
 func TestBuildCropCaptionArgs_MatchesOriginMain(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("testdata", "legacy_args.json"))
 	if err != nil {

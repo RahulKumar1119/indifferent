@@ -244,7 +244,7 @@ func TestBuildCropCaptionArgs_FitFill(t *testing.T) {
 			t.Errorf("expected fit-fill filter to contain %q, got: %s", want, joined)
 		}
 	}
-	if strings.Contains(joined, "crop=w=ih*9/16") {
+	if strings.Contains(joined, "crop=w=") {
 		t.Errorf("fit-fill must not crop, got: %s", joined)
 	}
 }
@@ -253,10 +253,10 @@ func TestBuildCropCaptionArgs_SmartCropOffset(t *testing.T) {
 	r := &Renderer{Bucket: "b", WorkDir: "/tmp"}
 	args := r.buildCropCaptionArgs("source.mp4", "cap.srt", "out.mp4", 12.4, 39.9, false, "656", false, models.CaptionStyle{})
 	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "crop=w=ih*9/16:h=ih:x=656:y=0") {
+	if !strings.Contains(joined, "x='min(656,iw-ow)':y='(ih-oh)/2'") {
 		t.Errorf("expected tracked crop x=656, got: %s", joined)
 	}
-	if strings.Contains(joined, "(iw-ih*9/16)/2") {
+	if strings.Contains(joined, "x='(iw-ow)/2'") {
 		t.Errorf("centered expression must be replaced when tracking, got: %s", joined)
 	}
 }
@@ -307,7 +307,7 @@ func TestRender_UsesTrackedCrop(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// Face center 0.4*1920=768-303=465 -> 464 even.
-	if !strings.Contains(vf, "x=464") {
+	if !strings.Contains(vf, "x='min(464,iw-ow)'") {
 		t.Errorf("expected tracked x=464 in ffmpeg filter, got: %s", vf)
 	}
 }

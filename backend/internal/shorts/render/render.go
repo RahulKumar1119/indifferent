@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,13 +31,42 @@ const (
 	outputHeight = 1920
 )
 
-// cropCaptionFilter is the 9:16 center-crop + scale video filter applied to a
-// video source. It takes the widest full-height 9:16 column, centers it
-// horizontally (center-crop, Requirement 4.3), scales to the canonical
-// 1080x1920 output (Requirement 4.2), and normalizes the frame rate to 30fps
-// so the clip always uses a YouTube Shorts-supported frame rate regardless of
-// the source (phone VFR, 120fps slow-mo, etc.).
-const cropCaptionFilter = "crop=w=ih*9/16:h=ih:x=(iw-ih*9/16)/2:y=0,scale=1080:1920,setsar=1,fps=30"
+// The 9:16 crop window is the largest 9:16 rectangle that fits in the frame,
+// for every source shape (#287):
+//
+//   - wider than 9:16 (landscape, square): the full height and a 9:16 column
+//     of it, as it has always been;
+//   - exactly 9:16: the whole frame;
+//   - taller than 9:16 (most phones: 1170x2532 is 19.5:9): the full width and
+//     a centred 9:16 band of it, trimming a little off the top and bottom.
+//
+// Taking min() of both candidates means the window never exceeds the frame,
+// which a fixed ih*9/16 width did for any source narrower than 9:16. The
+// expressions are evaluated by ffmpeg on the frames it filters, after
+// auto-rotation, so a rotated phone video is cropped on the right axis. The
+// commas inside min() are protected by the single quotes.
+const (
+	cropWindowW = "w='min(iw,ih*9/16)'"
+	cropWindowH = "h='min(ih,iw*16/9)'"
+	// cropTail scales the window to the canonical 1080x1920 output
+	// (Requirement 4.2) and normalizes the frame rate to 30fps so the clip
+	// always uses a YouTube Shorts-supported frame rate regardless of the
+	// source (phone VFR, 120fps slow-mo, etc.).
+	cropTail = "scale=1080:1920,setsar=1,fps=30"
+)
+
+// cropCaptionFilter is the centred 9:16 crop (Requirement 4.3) plus scale.
+const cropCaptionFilter = "crop=" + cropWindowW + ":" + cropWindowH + ":x='(iw-ow)/2':y='(ih-oh)/2'," + cropTail
+
+// trackedCropFilter is the 9:16 crop at a tracked horizontal offset. The offset
+// is clamped to the frame, so a stale or wrong offset can move the window but
+// never push it outside the picture. Vertically the window is centred.
+func trackedCropFilter(x int) string {
+	if x < 0 {
+		x = 0
+	}
+	return fmt.Sprintf("crop=%s:%s:x='min(%d,iw-ow)':y='(ih-oh)/2',%s", cropWindowW, cropWindowH, x, cropTail)
+}
 
 // fitFillFilter scales the whole source frame to fit inside 1080x1920 over a
 // blurred copy of itself as background. Nothing is ever cut: full-width
@@ -364,7 +394,13 @@ func framingFilter(cropX string, fit bool) string {
 	case fit:
 		return fitFillFilter
 	case cropX != "":
-		return fmt.Sprintf("crop=w=ih*9/16:h=ih:x=%s:y=0,scale=1080:1920,setsar=1,fps=30", cropX)
+		x, err := strconv.Atoi(cropX)
+		if err != nil {
+			// Only smartReframe sets cropX, always from an int. Anything else
+			// must not reach ffmpeg: frame the clip centred instead.
+			return cropCaptionFilter
+		}
+		return trackedCropFilter(x)
 	default:
 		return cropCaptionFilter
 	}
@@ -410,8 +446,9 @@ func (r *Renderer) smartReframe(ctx context.Context, srcPath string, start, end 
 		return "", false
 	}
 	if cropWindowWidth(h) >= w {
-		// Window covers the full width (vertical/square-narrow source):
-		// pin to the left edge rather than evaluating a negative center.
+		// Window covers the full width (a 9:16 or taller source): nothing to
+		// pan. The crop keeps the full width and centres a 9:16 band
+		// vertically (#287), so there is no face to follow either.
 		return "0", false
 	}
 	extract := r.ExtractFrames
@@ -441,29 +478,70 @@ func (r *Renderer) smartReframe(ctx context.Context, srcPath string, start, end 
 }
 
 // defaultProbeDimensions reports the first video stream's width and height
-// via ffprobe.
+// via ffprobe, as displayed: rotation applied (see displayDimensions).
 func defaultProbeDimensions(path string) (int, int, error) {
 	out, err := exec.Command("ffprobe",
 		"-v", "error",
 		"-select_streams", "v:0",
-		"-show_entries", "stream=width,height",
+		"-show_entries", "stream=width,height:stream_side_data_list:stream_tags=rotate",
 		"-of", "json", path).Output()
 	if err != nil {
 		return 0, 0, fmt.Errorf("ffprobe failed: %w", err)
 	}
+	return displayDimensions(out)
+}
+
+// displayDimensions reads ffprobe's JSON for one video stream and returns its
+// width and height as displayed. A phone often stores a portrait video as
+// landscape frames with a 90 or 270 degree rotation (a display matrix side
+// data entry, or a "rotate" tag from older muxers). ffmpeg rotates the frames
+// before any filter sees them, so the reframe decision must use the rotated
+// size too, or it pans a landscape window across what is really a portrait
+// picture (#287).
+func displayDimensions(ffprobeJSON []byte) (int, int, error) {
 	var parsed struct {
 		Streams []struct {
-			Width  int `json:"width"`
-			Height int `json:"height"`
+			Width        int `json:"width"`
+			Height       int `json:"height"`
+			SideDataList []struct {
+				Rotation *float64 `json:"rotation"`
+			} `json:"side_data_list"`
+			Tags struct {
+				Rotate string `json:"rotate"`
+			} `json:"tags"`
 		} `json:"streams"`
 	}
-	if err := json.Unmarshal(out, &parsed); err != nil {
+	if err := json.Unmarshal(ffprobeJSON, &parsed); err != nil {
 		return 0, 0, fmt.Errorf("ffprobe output unparsable: %w", err)
 	}
 	if len(parsed.Streams) == 0 || parsed.Streams[0].Width <= 0 || parsed.Streams[0].Height <= 0 {
 		return 0, 0, fmt.Errorf("ffprobe found no video dimensions")
 	}
-	return parsed.Streams[0].Width, parsed.Streams[0].Height, nil
+	s := parsed.Streams[0]
+	rotation := 0.0
+	found := false
+	for _, sd := range s.SideDataList {
+		if sd.Rotation != nil {
+			rotation, found = *sd.Rotation, true
+			break
+		}
+	}
+	if !found && s.Tags.Rotate != "" {
+		if r, err := strconv.ParseFloat(s.Tags.Rotate, 64); err == nil {
+			rotation = r
+		}
+	}
+	if quarterTurn(rotation) {
+		return s.Height, s.Width, nil
+	}
+	return s.Width, s.Height, nil
+}
+
+// quarterTurn reports whether a rotation in degrees (any sign, any number of
+// whole turns) is 90 or 270 degrees, which swaps width and height.
+func quarterTurn(deg float64) bool {
+	r := math.Mod(math.Abs(math.Round(deg)), 360)
+	return r == 90 || r == 270
 }
 
 // defaultProbeHasAudio reports whether the file has at least one audio stream.

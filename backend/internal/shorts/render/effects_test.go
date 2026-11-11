@@ -922,22 +922,28 @@ func TestPhase3GraphsRunThroughFFmpeg(t *testing.T) {
 		"wavebars":  {Waveform: &models.WaveformEffect{Enabled: true, Style: "bars", Color: "#00C7FF", Position: "top", Height: 40}},
 		"combo":    {Shake: &models.ShakeEffect{Enabled: true, Intensity: 60, Windows: []models.ShakeWindow{{At: 0.5, Duration: 1}}}, Finish: &models.FinishEffect{Enabled: true, Grain: 20}, Waveform: &models.WaveformEffect{Enabled: true, Style: "waves", Color: "#FFFFFF", Position: "middle", Height: 20}},
 	}
+	// Waveform with audio retimed or faded first: the visualizer then reads a
+	// labelled stream, not the input, which once lost its brackets (#287).
+	cases["wavefade"] = &models.VideoEffects{
+		Fade:     &models.FadeEffect{Enabled: true, InDuration: 0.5, OutDuration: 0.5},
+		Waveform: &models.WaveformEffect{Enabled: true, Style: "waves", Color: "#FFFFFF", Position: "bottom", Height: 20},
+	}
 	for name, e := range cases {
 		t.Run(name, func(t *testing.T) {
-			graph, audioLabel, err := planEffects(e, 3).graph(graphInput{
-				framing: "scale=1080:1920", videoIn: "[0:v]", audioIn: "[0:a]",
+			// The production argument builder, so the -map of the audio label
+			// is exactly the one a real render sends (#287: a label returned
+			// with brackets became "-map [[wa4]]" and every waveform render
+			// with audio failed).
+			out := filepath.Join(dir, name+".mp4")
+			args, err := effectArgs(effectJob{
+				src: src, out: out, start: 0, end: 3, hasAudio: true,
+				framing: framingFilter("", false), plan: planEffects(e, 3),
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			out := filepath.Join(dir, name+".mp4")
-			args := []string{"-v", "error", "-i", src, "-filter_complex", graph, "-map", "[vout]"}
-			if audioLabel != "" {
-				args = append(args, "-map", audioLabel)
-			}
-			args = append(args, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-t", "4", "-y", out)
-			if o, err := exec.Command("ffmpeg", args...).CombinedOutput(); err != nil {
-				t.Fatalf("ffmpeg rejected the %s graph: %v\ngraph: %s\n%s", name, err, graph, o)
+			if o, err := exec.Command("ffmpeg", append([]string{"-v", "error"}, args...)...).CombinedOutput(); err != nil {
+				t.Fatalf("ffmpeg rejected the %s render: %v\nargs: %q\n%s", name, err, args, o)
 			}
 			fi, err := os.Stat(out)
 			if err != nil || fi.Size() < 1000 {

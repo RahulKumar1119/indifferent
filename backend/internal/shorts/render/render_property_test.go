@@ -41,7 +41,7 @@ func TestProperty6_RenderedClipsAre9x16(t *testing.T) {
 			if !strings.Contains(joined, "scale=1080:1920") {
 				t.Fatalf("video args missing scale=1080:1920: %s", joined)
 			}
-			if !strings.Contains(joined, "crop=w=ih*9/16") {
+			if !strings.Contains(joined, "crop=w='min(iw,ih*9/16)':h='min(ih,iw*16/9)'") {
 				t.Fatalf("video args missing center-crop expression: %s", joined)
 			}
 		}

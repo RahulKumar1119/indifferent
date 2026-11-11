@@ -172,10 +172,12 @@ func run(ctx context.Context) error {
 
 	clipKey, err := renderer.Render(renderCtx, in)
 	if err != nil {
-		// Renders with effects record their own reason, so the job shows it
-		// instead of the state machine's generic render failure.
-		if effects.Active() {
-			recordRenderError(dbClient, table, userID, jobID, err)
+		// The full error (ffmpeg's exit, the phase) stays in the task log; the
+		// job record gets a short reason a person can read, instead of the
+		// state machine's generic "failed on both Spot and on-demand" (#287).
+		log.Printf("render_failed job=%s clip=%s effects=%t err=%q", jobID, clipID, effects.Active(), logCause(err))
+		if msg := renderErrorMessage(err); msg != "" {
+			recordRenderError(dbClient, table, userID, jobID, errors.New(msg))
 		}
 		return err
 	}
@@ -227,10 +229,46 @@ func jobStatus(ctx context.Context, dbClient *dynamodb.Client, table, userID, jo
 	return status.Value, nil
 }
 
+// Render failure messages a person sees on the job. None names ffmpeg, an
+// exit status or a file path. None reads as a problem with the user's file
+// either: the status updater's classifier keeps every one of them retryable
+// (none matches a VALIDATION pattern), because a render failure is ours to fix.
+const (
+	renderFailedMessage   = "We could not render this clip. Try again, and if it keeps failing, try a different file."
+	renderTimeoutMessage  = "This clip took too long to render. Try again, or turn off some video effects first."
+	renderEffectsMessage  = "These video effects could not be applied to this clip. Change them, then try again."
+	maxLoggedRenderCauses = 2000
+)
+
+// renderErrorMessage is the reason to store for a failed render, or "" when
+// none should be stored: a cancelled render ended because the user asked.
+func renderErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, render.ErrRenderCanceled):
+		return ""
+	case errors.Is(err, render.ErrRenderTimeout):
+		return renderTimeoutMessage
+	case errors.Is(err, render.ErrEffectsInvalid):
+		return renderEffectsMessage
+	default:
+		return renderFailedMessage
+	}
+}
+
+// logCause bounds an error for one log line. It is logged with %q, which
+// escapes newlines, so ffmpeg output inside it cannot forge log lines.
+func logCause(err error) string {
+	r := []rune(err.Error())
+	if len(r) > maxLoggedRenderCauses {
+		return string(r[:maxLoggedRenderCauses]) + "..."
+	}
+	return string(r)
+}
+
 // maxRenderErrorChars bounds the render reason stored on the job record.
 const maxRenderErrorChars = 300
 
-// recordRenderError stores why a render with effects failed on the job record.
+// recordRenderError stores why a render failed on the job record.
 // The status updater reports that reason in place of the generic cause. The
 // first reason wins: the write only happens while no reason is set, so the
 // failure of the first clip, which usually holds the root cause, is kept. The
