@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -26,6 +27,14 @@ func TestGetShortsLimits_MatchesEnforcedConstants(t *testing.T) {
 		t.Fatalf("decode body: %v", err)
 	}
 
+	// Issue #286: the shortest source is the shortest clip, and the client
+	// reads it from here.
+	if limits.MinDurationSeconds != shorts.MinClipDuration {
+		t.Errorf("MinDurationSeconds = %v, want %v (the shortest clip)", limits.MinDurationSeconds, shorts.MinClipDuration)
+	}
+	if !strings.Contains(resp.Body, `"minDurationSeconds":30`) {
+		t.Errorf("body %s does not carry minDurationSeconds: 30", resp.Body)
+	}
 	if limits.MaxDurationSeconds != shorts.MaxSourceDuration {
 		t.Errorf("MaxDurationSeconds = %v, want %v", limits.MaxDurationSeconds, shorts.MaxSourceDuration)
 	}

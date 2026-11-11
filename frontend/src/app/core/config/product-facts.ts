@@ -11,6 +11,8 @@
  */
 export const PRODUCT_FACTS = {
   shorts: {
+    /** Shortest source: one clip's minimum, since a clip must fit inside the source (#286). */
+    minDurationSeconds: 30,
     maxDurationMinutes: 60,
     maxUploadGb: 2,
     inputFormats: ['MP4', 'MOV', 'MP3', 'WAV'],
@@ -114,4 +116,10 @@ export function storyOutputLabel(): string {
 export function durationLabel(minutes: number): string {
   if (minutes === 60) return '1 hour';
   return `${minutes} minutes`;
+}
+
+/** "30 seconds to 1 hour": the length a Shorts source may have. */
+export function shortsLengthLabel(): string {
+  const s = PRODUCT_FACTS.shorts;
+  return `${s.minDurationSeconds} seconds to ${durationLabel(s.maxDurationMinutes)}`;
 }

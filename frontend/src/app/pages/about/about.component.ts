@@ -5,7 +5,7 @@ import { PublicHeaderComponent } from '../../shared/components/public-header/pub
 import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { setPageSeo } from '../../shared/seo';
 import { TEMPLATE_OPTIONS } from '../../shared/models';
-import { PRODUCT_FACTS, durationLabel, joinAnd } from '../../core/config/product-facts';
+import { PRODUCT_FACTS, joinAnd, shortsLengthLabel } from '../../core/config/product-facts';
 
 @Component({
   selector: 'app-about',
@@ -236,7 +236,7 @@ export class AboutComponent implements OnInit {
     {
       title: 'AI Shorts generator',
       href: '/features/ai-shorts',
-      text: `Upload a video or audio file of up to ${durationLabel(PRODUCT_FACTS.shorts.maxDurationMinutes)} and get up to ${PRODUCT_FACTS.shorts.maxClips} ranked vertical clips with captions burned in.`,
+      text: `Upload a video or audio file of ${shortsLengthLabel()} and get up to ${PRODUCT_FACTS.shorts.maxClips} ranked vertical clips with captions burned in.`,
     },
     {
       title: 'Story to video',

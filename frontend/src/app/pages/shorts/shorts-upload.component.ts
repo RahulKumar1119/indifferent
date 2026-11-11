@@ -10,7 +10,9 @@ import {
   LanguageOption,
   ShortsLimits,
   ShortsService,
+  minSourceSeconds,
   startPipeline,
+  tooShortMessage,
 } from './shorts.service';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
@@ -120,7 +122,7 @@ function blobObjectUrl(file: Blob): string {
         <ul class="reqs" aria-label="Upload requirements">
           <li class="req"><span class="ui-chip" aria-hidden="true"><svg lucideIcon="video" [size]="18"></svg></span><span><b>MP4 or MOV</b><span class="t">video sources</span></span></li>
           <li class="req"><span class="ui-chip" aria-hidden="true"><svg lucideIcon="mic" [size]="18"></svg></span><span><b>MP3 or WAV</b><span class="t">audio sources</span></span></li>
-          <li class="req"><span class="ui-chip" aria-hidden="true"><svg lucideIcon="clock" [size]="18"></svg></span><span><b>Max {{ limits.maxDurationMinutes }} min</b><span class="t">per upload</span></span></li>
+          <li class="req"><span class="ui-chip" aria-hidden="true"><svg lucideIcon="clock" [size]="18"></svg></span><span><b>{{ minSeconds }} sec to {{ limits.maxDurationMinutes }} min</b><span class="t">per upload</span></span></li>
           <li class="req"><span class="ui-chip" aria-hidden="true"><svg lucideIcon="scissors" [size]="18"></svg></span><span><b>Up to 3 clips</b><span class="t">1080×1920, captioned</span></span></li>
         </ul>
 
@@ -143,7 +145,7 @@ function blobObjectUrl(file: Blob): string {
           tabindex="0"
           role="button"
           data-testid="dropzone"
-          aria-label="Drop zone for media file upload. Accepts MP4, MOV, MP3, WAV up to {{ limits.maxDurationMinutes }} minutes and {{ limits.maxUploadMb }} MB."
+          aria-label="Drop zone for media file upload. Accepts MP4, MOV, MP3, WAV from {{ minSeconds }} seconds to {{ limits.maxDurationMinutes }} minutes long and up to {{ limits.maxUploadMb }} MB."
         >
           <input #fileInput type="file" accept=".mp4,.mov,.mp3,.wav" class="hidden" (change)="onFileSelected($event)" aria-hidden="true" />
 
@@ -152,7 +154,7 @@ function blobObjectUrl(file: Blob): string {
             <h2>{{ isDragOver ? 'Drop it. We take it from here' : 'Drag & drop anywhere on this page' }}</h2>
             <ul class="chips">
               <li>MP4, MOV, MP3, WAV</li>
-              <li>Max {{ limits.maxDurationMinutes }} min</li>
+              <li>{{ minSeconds }} sec to {{ limits.maxDurationMinutes }} min</li>
               <li>Max {{ limits.maxUploadMb }} MB</li>
             </ul>
             <button type="button" class="ui-btn ui-btn--primary" (click)="fileInput.click(); $event.stopPropagation()">Choose a file</button>
@@ -368,6 +370,11 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
       },
       error: () => {},
     });
+  }
+
+  /** Shortest source the API accepts, from GET /shorts/limits (30 until it answers). */
+  get minSeconds(): number {
+    return minSourceSeconds(this.limits);
   }
 
   /** Language choices from the API, with local defaults as a fallback. */
@@ -740,6 +747,12 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
         }
         if (duration > this.limits.maxDurationSeconds) {
           this.error = `File is too long (${this.formatDuration(duration)}). Maximum length is ${this.limits.maxDurationMinutes} minutes.`;
+          return;
+        }
+        // A file shorter than one clip can never make a clip (issue #286).
+        const tooShort = tooShortMessage(duration, this.limits);
+        if (tooShort) {
+          this.error = tooShort;
           return;
         }
         this.durationSeconds = duration;

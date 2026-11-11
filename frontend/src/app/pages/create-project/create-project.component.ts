@@ -11,6 +11,8 @@ import {
   LanguageOption,
   ShortsLimits,
   ShortsService,
+  minSourceSeconds,
+  tooShortMessage,
 } from '../shorts/shorts.service';
 
 import { probeMediaDuration } from '../../shared/media-probe';
@@ -231,7 +233,7 @@ import { QUIZ_STEPS } from './quiz-steps';
                     <label class="drop">
                       <input type="file" accept=".mp4,.mov,.mp3,.wav" class="sr" (change)="onShortsFileSelected($event)" />
                       <span style="font-weight: 600">Choose video or audio</span>
-                      <span class="ui-hint">MP4, MOV, MP3 or WAV, up to {{ shortsLimits.maxDurationMinutes }} minutes</span>
+                      <span class="ui-hint">MP4, MOV, MP3 or WAV, {{ shortsMinSeconds }} seconds to {{ shortsLimits.maxDurationMinutes }} minutes</span>
                     </label>
                   } @else {
                     <div class="file">
@@ -387,6 +389,11 @@ export class CreateProjectComponent implements OnInit {
     });
   }
 
+  /** Shortest Shorts source the API accepts, from GET /shorts/limits (30 until it answers). */
+  get shortsMinSeconds(): number {
+    return minSourceSeconds(this.shortsLimits);
+  }
+
   get shortsLanguages(): LanguageOption[] {
     return this.shortsLimits.languages?.length ? this.shortsLimits.languages : DEFAULT_SHORTS_LANGUAGES;
   }
@@ -433,6 +440,13 @@ export class CreateProjectComponent implements OnInit {
         this.shortsProbing = false;
         if (!isFinite(duration) || duration <= 0 || duration > this.shortsLimits.maxDurationSeconds) {
           this.shortsError = `Could not use this file (bad duration or over ${this.shortsLimits.maxDurationMinutes} minutes).`;
+          this.shortsFile = null;
+          return;
+        }
+        // A file shorter than one clip can never make a clip (issue #286).
+        const tooShort = tooShortMessage(duration, this.shortsLimits);
+        if (tooShort) {
+          this.shortsError = tooShort;
           this.shortsFile = null;
           return;
         }

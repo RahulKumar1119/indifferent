@@ -58,6 +58,30 @@ func newUnifiedTestHandler(db *captureDB) *APIHandler {
 	}
 }
 
+// Issue #286: the quiz create page's Shorts option goes through /projects, and
+// must refuse a source too short for one clip just as /shorts does.
+func TestCreateProject_UnifiedRefusesAShortsSourceUnder30Seconds(t *testing.T) {
+	for _, tc := range []struct {
+		duration string
+		want     int
+	}{{"10", 400}, {"29.9", 400}, {"30", 201}} {
+		db := newCaptureDB()
+		h := newUnifiedTestHandler(db)
+		resp, _ := h.HandleRequest(context.Background(), events.APIGatewayProxyRequest{
+			HTTPMethod: "POST",
+			Path:       "/projects",
+			Headers:    map[string]string{"Authorization": "Bearer " + generateTestToken("user1")},
+			Body:       `{"name":"Launch","template":"classic","voice":"Joanna","shorts":{"fileType":"mp4","duration":` + tc.duration + `}}`,
+		})
+		if resp.StatusCode != tc.want {
+			t.Errorf("duration %ss: status %d, want %d (body: %s)", tc.duration, resp.StatusCode, tc.want, resp.Body)
+		}
+		if tc.want == 400 && !strings.Contains(resp.Body, "at least 30 seconds") {
+			t.Errorf("duration %ss: body %s does not give the reason", tc.duration, resp.Body)
+		}
+	}
+}
+
 func TestCreateProject_Unified(t *testing.T) {
 	db := newCaptureDB()
 	h := newUnifiedTestHandler(db)

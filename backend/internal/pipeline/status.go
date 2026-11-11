@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/rahul/indifferent/backend/internal/models"
+	"github.com/rahul/indifferent/backend/internal/shorts"
 	"github.com/rahul/indifferent/backend/internal/shorts/render"
 	"github.com/rahul/indifferent/backend/internal/storage"
 )
@@ -164,13 +166,18 @@ func (u *StatusUpdater) UpdateShortsStatus(ctx context.Context, input ShortsStat
 		if own := u.renderOwnError(ctx, input); own != "" {
 			errMsg = own
 		}
-		updateExpr += ", #error = :error"
-		exprNames["#error"] = "error"
-		exprValues[":error"] = &types.AttributeValueMemberS{Value: errMsg}
 		// Record where it broke and what kind of failure it was, so retries
 		// and the UI can distinguish "try again" from "fix the input".
 		// The previous stage is read from the record itself (no ASL change).
-		if stage, code := classifyShortsFailure(ctx, u, input, errMsg); stage != "" {
+		stage, code := classifyShortsFailure(ctx, u, input, errMsg)
+		// The full cause stays in the log for troubleshooting; the job record,
+		// which the user sees, gets a message without Step Functions JSON.
+		log.Printf("shorts_failed user=%s job=%s stage=%s code=%s cause=%q",
+			input.UserID, input.JobID, stage, code, sanitizeForLog(errMsg))
+		updateExpr += ", #error = :error"
+		exprNames["#error"] = "error"
+		exprValues[":error"] = &types.AttributeValueMemberS{Value: shortsUserMessage(errMsg, code)}
+		if stage != "" {
 			updateExpr += ", #failedStage = :failedStage, #errorCode = :errorCode"
 			exprNames["#failedStage"] = "failedStage"
 			exprNames["#errorCode"] = "errorCode"
@@ -309,6 +316,9 @@ func classifyShortsErrorCode(msg string) string {
 		return "CANCELLED"
 	case strings.Contains(lower, "no speech detected"):
 		return "VALIDATION_NO_SPEECH"
+	case strings.Contains(lower, "no engaging segments"):
+		// rank.ErrNoValidSegments: no moment fits the clip length limits.
+		return shorts.CodeNoSegments
 	case strings.Contains(lower, "over the") && strings.Contains(lower, "limit"):
 		return "VALIDATION_DURATION"
 	case strings.Contains(lower, "upload not found") ||
@@ -323,6 +333,52 @@ func classifyShortsErrorCode(msg string) string {
 	default:
 		return "INFRASTRUCTURE"
 	}
+}
+
+// shortsUserMessage is the error stored on a failed shorts job, which the
+// progress page shows as it is. A failure with no usable moment gets a
+// sentence that says what to do. Anything else loses the Lambda error
+// envelope ({"errorMessage":..., "errorType":..., "stackTrace":...}) that
+// Step Functions passes on as the cause, so no JSON or stack trace is shown.
+func shortsUserMessage(msg, code string) string {
+	if code == shorts.CodeNoSegments {
+		return shorts.NoSegmentsMessage
+	}
+	return unwrapLambdaError(msg)
+}
+
+// unwrapLambdaError returns the errorMessage of a Lambda error object, or
+// msg unchanged when it is not one.
+func unwrapLambdaError(msg string) string {
+	trimmed := strings.TrimSpace(msg)
+	if !strings.HasPrefix(trimmed, "{") {
+		return msg
+	}
+	var envelope struct {
+		ErrorMessage *string `json:"errorMessage"`
+	}
+	if err := json.Unmarshal([]byte(trimmed), &envelope); err != nil || envelope.ErrorMessage == nil {
+		return msg
+	}
+	if m := strings.TrimSpace(*envelope.ErrorMessage); m != "" {
+		return m
+	}
+	return "Processing failed."
+}
+
+// maxLoggedCause bounds a failure cause in the log: a stack trace can be
+// long, and the first part says what broke.
+const maxLoggedCause = 2000
+
+// sanitizeForLog shortens a failure cause for one log line. The caller logs
+// it with %q, which escapes newlines and control characters, so the cause
+// cannot forge another log line.
+func sanitizeForLog(msg string) string {
+	r := []rune(msg)
+	if len(r) > maxLoggedCause {
+		return string(r[:maxLoggedCause]) + "..."
+	}
+	return msg
 }
 
 // extractErrorMessage extracts a human-readable error message from the Step Functions error object.

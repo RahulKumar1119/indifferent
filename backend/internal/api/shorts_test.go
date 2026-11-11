@@ -33,6 +33,23 @@ func newShortsTestHandler(t *testing.T, db *mockDynamoDB) *APIHandler {
 	}
 }
 
+// Issue #286: the refusal says how long the file is and what is needed, and
+// never rounds a file under the minimum up to the minimum.
+func TestValidateCreateShorts_TooShortSaysWhy(t *testing.T) {
+	for d, want := range map[float64]string{
+		10:   "Your file is 10 seconds long. AI Shorts needs at least 30 seconds to cut a clip from.",
+		7.93: "Your file is 7 seconds long.",
+		29.9: "Your file is 29 seconds long.",
+		1.2:  "Your file is 1 second long.",
+		0.4:  "Your file is under 1 second long.",
+	} {
+		err := validateCreateShorts(&CreateShortsRequest{FileType: "mp4", Duration: d})
+		if err == nil || !strings.HasPrefix(err.Error(), want) {
+			t.Errorf("duration %v: err = %v, want prefix %q", d, err, want)
+		}
+	}
+}
+
 func TestValidateCreateShorts(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -56,6 +73,11 @@ func TestValidateCreateShorts(t *testing.T) {
 		{"valid Hindi code", CreateShortsRequest{FileType: "mp4", Duration: 60, Language: shorts.LanguageHindi}, false},
 		{"valid English India", CreateShortsRequest{FileType: "mp4", Duration: 60, Language: shorts.LanguageEnglishIN}, false},
 		{"unsupported language", CreateShortsRequest{FileType: "mp4", Duration: 60, Language: "klingon"}, true},
+		// Issue #286: a source shorter than one clip can never yield a clip.
+		{"10 second file", CreateShortsRequest{FileType: "mp4", Duration: 10}, true},
+		{"just under the minimum", CreateShortsRequest{FileType: "mp4", Duration: 29.9}, true},
+		{"exactly the minimum", CreateShortsRequest{FileType: "mp4", Duration: shorts.MinSourceDuration}, false},
+		{"just over the minimum", CreateShortsRequest{FileType: "mp3", Duration: 30.1}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

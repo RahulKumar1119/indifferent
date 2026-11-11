@@ -232,7 +232,7 @@ Answer: C</code></pre>
                   the strongest moments from the transcript, and the top ones are rendered as 9:16 clips with captions burned in.
                 </p>
                 <ul class="ticks">
-                  <li>Video or audio in: MP4, MOV, MP3, WAV, up to 1 hour</li>
+                  <li>Video or audio in: MP4, MOV, MP3, WAV, 30 seconds to 1 hour</li>
                   <li>Up to 3 clips per upload, 30 to 90 seconds each, ranked by score</li>
                   <li>Face detection centers the 9:16 window on the speaker</li>
                   <li>Blur-fill keeps text cards and screen recordings whole</li>
@@ -454,7 +454,7 @@ export class LandingComponent implements OnInit {
       url: 'https://indifferent.fun/features/ai-shorts',
       applicationCategory: 'MultimediaApplication',
       operatingSystem: 'Web',
-      description: 'Turns a video or audio file of up to 1 hour into up to 3 captioned 9:16 clips.',
+      description: 'Turns a video or audio file of 30 seconds to 1 hour into up to 3 captioned 9:16 clips.',
       offers: free,
     });
     setJsonLd(this.document, 'software-story', {

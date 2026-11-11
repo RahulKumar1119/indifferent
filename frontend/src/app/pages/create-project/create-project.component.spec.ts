@@ -136,14 +136,30 @@ describe('CreateProjectComponent (#274)', () => {
 
   it('reads the duration of a picked Shorts file through the shared probe, and refuses an unreadable one', async () => {
     const { cmp } = setup();
-    cmp.onShortsFileSelected(fileEvent(wav(1.5), 'talk.wav'));
+    cmp.onShortsFileSelected(fileEvent(wav(30), 'talk.wav'));
     expect(cmp.shortsProbing).toBeTrue();
     await until(() => !cmp.shortsProbing);
-    expect(cmp.shortsDuration).toBeCloseTo(1.5, 1);
+    expect(cmp.shortsDuration).toBeCloseTo(30, 1);
     expect(cmp.shortsError).toBe('');
     cmp.onShortsFileSelected(fileEvent(new Blob([new Uint8Array(16)], { type: 'video/mp4' }), 'broken.mp4'));
     await until(() => !cmp.shortsProbing);
     expect(cmp.shortsError).toBe('Could not read this media file.');
+    expect(cmp.shortsFile).toBeNull();
+  });
+
+  // Issue #286: the quiz page's Shorts option refuses a too-short file too.
+  it('refuses a Shorts file under the minimum before upload, with the server minimum or 30 seconds', async () => {
+    const { cmp } = setup();
+    cmp.onShortsFileSelected(fileEvent(wav(10), 'short.wav'));
+    await until(() => !cmp.shortsProbing);
+    expect(cmp.shortsError).toBe('This file is 10 seconds long. AI Shorts needs at least 30 seconds to cut a clip from.');
+    expect(cmp.shortsFile).toBeNull();
+    expect(cmp.shortsMinSeconds).toBe(30);
+
+    cmp.shortsLimits = { ...cmp.shortsLimits, minDurationSeconds: 45 };
+    cmp.onShortsFileSelected(fileEvent(wav(30), 'talk.wav'));
+    await until(() => !cmp.shortsProbing);
+    expect(cmp.shortsError).toContain('at least 45 seconds');
     expect(cmp.shortsFile).toBeNull();
   });
 });

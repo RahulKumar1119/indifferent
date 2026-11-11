@@ -8,7 +8,7 @@ import {
   LucideScissors,
   provideLucideIcons,
 } from '@lucide/angular';
-import { PRODUCT_FACTS, durationLabel } from '../../core/config/product-facts';
+import { PRODUCT_FACTS, shortsLengthLabel } from '../../core/config/product-facts';
 import { ShortsMakerComponent } from './shorts-maker.component';
 
 describe('ShortsMakerComponent (public landing page)', () => {
@@ -39,8 +39,8 @@ describe('ShortsMakerComponent (public landing page)', () => {
     const s = PRODUCT_FACTS.shorts;
     const text = page.textContent!;
 
-    expect(text).toContain(`${s.inputFormats.slice(0, -1).join(', ')} or ${s.inputFormats.at(-1)} · ${durationLabel(s.maxDurationMinutes)} max · ${s.maxUploadGb} GB max`);
-    expect(text).toContain(`${s.inputFormats.slice(0, -1).join(', ')} and ${s.inputFormats.at(-1)} up to ${durationLabel(s.maxDurationMinutes)} long and ${s.maxUploadGb} GB.`);
+    expect(text).toContain(`${s.inputFormats.slice(0, -1).join(', ')} or ${s.inputFormats.at(-1)} · ${shortsLengthLabel()} · ${s.maxUploadGb} GB max`);
+    expect(text).toContain(`${s.inputFormats.slice(0, -1).join(', ')} and ${s.inputFormats.at(-1)} of ${shortsLengthLabel()} and up to ${s.maxUploadGb} GB.`);
     expect(text).not.toMatch(/10 ?min|500 ?MB/i);
   });
 

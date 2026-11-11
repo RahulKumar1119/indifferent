@@ -254,12 +254,12 @@ export async function check() {
 
   // 9. The static summary in index.html matches the product facts.
   try {
-    const { PRODUCT_FACTS, durationLabel } = await import(pathToFileURL(join(APP, 'core/config/product-facts.ts')).href);
+    const { PRODUCT_FACTS, shortsLengthLabel } = await import(pathToFileURL(join(APP, 'core/config/product-facts.ts')).href);
     const noscript = [...indexHtml.matchAll(/<noscript>([\s\S]*?)<\/noscript>/g)].map((m) => m[1]).join('\n');
     const s = PRODUCT_FACTS.shorts;
     const q = PRODUCT_FACTS.quiz;
     const expected = [
-      `${durationLabel(s.maxDurationMinutes)} and ${s.maxUploadGb} GB`,
+      `${shortsLengthLabel()}, up to ${s.maxUploadGb} GB`,
       `up to ${s.maxClips} moments of ${s.clipMinSeconds} to ${s.clipMaxSeconds} seconds`,
       `${s.outputWidth}x${s.outputHeight}`,
       `up to ${q.maxFileMb} MB`,

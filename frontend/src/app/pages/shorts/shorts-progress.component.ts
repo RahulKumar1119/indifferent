@@ -187,7 +187,7 @@ const STAGES: Stage[] = [
                     }
                   </button>
                 } @else {
-                  <p style="width: 100%">This file can't be processed as-is. Try a different file with clear speech, under an hour long.</p>
+                  <p style="width: 100%">This file can't be processed as it is. Try a different file with clear speech, from 30 seconds to an hour long.</p>
                 }
                 <button type="button" class="ui-btn ui-btn--secondary" (click)="goToUpload()">Start Over</button>
               </div>

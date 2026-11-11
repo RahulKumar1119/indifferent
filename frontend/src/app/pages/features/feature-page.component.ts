@@ -2,7 +2,7 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DOCUMENT } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { PRODUCT_FACTS, durationLabel, joinAnd, joinOr, shortsOutputLabel, storyOutputLabel } from '../../core/config/product-facts';
+import { PRODUCT_FACTS, joinAnd, joinOr, shortsLengthLabel, shortsOutputLabel, storyOutputLabel } from '../../core/config/product-facts';
 import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
 import { ROBOTS_NOINDEX, setJsonLd, setPageSeo, setRobots } from '../../shared/seo';
@@ -118,7 +118,7 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
     title: 'AI Shorts Generator',
     hook: `Turn a long video or audio file into up to ${S.maxClips} captioned 9:16 clips.`,
     description:
-      `Upload a video or audio file up to ${durationLabel(S.maxDurationMinutes)} long. Amazon Transcribe produces word-level timestamps, a language model picks up to ${S.maxClips} moments from the transcript, and each one is rendered as a ${S.outputWidth}×${S.outputHeight} clip with captions burned in.`,
+      `Upload a video or audio file of ${shortsLengthLabel()}. Amazon Transcribe produces word-level timestamps, a language model picks up to ${S.maxClips} moments from the transcript, and each one is rendered as a ${S.outputWidth}×${S.outputHeight} clip with captions burned in.`,
     bullets: [
       `Captions timed to each word, in cues of up to ${S.captionWordsPerCue} words`,
       `A language model reads the transcript and picks up to ${S.maxClips} moments of ${S.clipMinSeconds} to ${S.clipMaxSeconds} seconds, each with a score`,
@@ -129,7 +129,7 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
     steps: [
       {
         title: 'Upload',
-        text: `Choose an ${joinOr(S.inputFormats)} file up to ${durationLabel(S.maxDurationMinutes)} and ${S.maxUploadGb} GB. The page checks both limits before it sends anything, and large files upload in parts that retry and resume.`,
+        text: `Choose an ${joinOr(S.inputFormats)} file of ${shortsLengthLabel()} and up to ${S.maxUploadGb} GB. The page checks the length and size before it sends anything, and large files upload in parts that retry and resume.`,
       },
       {
         title: 'Pick a language',
@@ -152,7 +152,7 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
     ctaLink: '/shorts',
     specs: [`${S.outputWidth}×${S.outputHeight}`, 'H.264 + AAC', `${S.frameRate} fps`, `Up to ${S.maxClips} clips per upload`],
     limits: [
-      { label: 'Length per upload', value: durationLabel(S.maxDurationMinutes) },
+      { label: 'Length per upload', value: shortsLengthLabel() },
       { label: 'File size per upload', value: `${S.maxUploadGb} GB` },
       { label: 'File types', value: S.inputFormats.join(', ') },
       { label: 'Clips per upload', value: `Up to ${S.maxClips}, ${S.clipMinSeconds} to ${S.clipMaxSeconds} seconds each` },
@@ -164,8 +164,12 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
       'Your file is uploaded to private storage and processed on AWS: Amazon Transcribe for the transcript, Amazon Bedrock for ranking, Amazon Rekognition for face detection and FFmpeg for rendering. The source file, transcript and clips stay in your account until you delete the job. Deleting a Short removes its files and its record.',
     troubleshooting: [
       {
-        q: 'The page says my file is too long or too large.',
-        a: `The limits are ${durationLabel(S.maxDurationMinutes)} and ${S.maxUploadGb} GB per upload. Split a long file at a natural break, or re-encode a large video at a lower resolution. The podcast guide has the ffmpeg commands.`,
+        q: 'The page says my file is too short, too long or too large.',
+        a: `A file must be ${shortsLengthLabel()} long and at most ${S.maxUploadGb} GB. Each clip is at least ${S.clipMinSeconds} seconds, so a shorter file has nothing to cut. Split a long file at a natural break, or re-encode a large video at a lower resolution. The podcast guide has the ffmpeg commands.`,
+      },
+      {
+        q: 'The job failed because no moment could be cut.',
+        a: `The language model found no stretch of ${S.clipMinSeconds} to ${S.clipMaxSeconds} seconds that works as a clip. Retrying the same file would fail the same way, so try a longer recording with more speech.`,
       },
       {
         q: 'The job failed with "no speech detected".',
