@@ -602,3 +602,32 @@ func TestSanitizeForLog_BoundsTheCause(t *testing.T) {
 		t.Error("a short cause must be logged whole")
 	}
 }
+
+// Issue #287: a render failure is ours to fix, so the reason shortsrender
+// records (cmd/shortsrender renderErrorMessage) must stay retryable, and it is
+// what the user sees instead of the state machine's generic cause.
+func TestRenderFailureReasonsStayRetryable(t *testing.T) {
+	for _, reason := range []string{
+		"We could not render this clip. Try again, and if it keeps failing, try a different file.",
+		"This clip took too long to render. Try again, or turn off some video effects first.",
+		"These video effects could not be applied to this clip. Change them, then try again.",
+	} {
+		if code := classifyShortsErrorCode(reason); strings.HasPrefix(code, "VALIDATION") || code == "CANCELLED" {
+			t.Errorf("%q classified %s, want a retryable code", reason, code)
+		}
+		mock := &mockDynamoDBClient{getItemResult: map[string]types.AttributeValue{
+			"status":      &types.AttributeValueMemberS{Value: "rendering"},
+			"renderError": &types.AttributeValueMemberS{Value: reason},
+		}}
+		updater := &StatusUpdater{DB: mock, TableName: "jobs"}
+		if err := updater.UpdateShortsStatus(context.Background(), ShortsStatusInput{
+			JobID: "j1", UserID: "u1", Status: ShortsStatusFailed,
+			Error: map[string]any{"Error": "RenderFailed", "Cause": "Clip rendering failed on both Spot and on-demand capacity"},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if got := mock.updateItemInput.ExpressionAttributeValues[":error"].(*types.AttributeValueMemberS).Value; got != reason {
+			t.Errorf("stored %q, want the render's reason %q", got, reason)
+		}
+	}
+}
