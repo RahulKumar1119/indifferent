@@ -31,6 +31,13 @@ const (
 	ModelNovaPro ModelID = "apac.amazon.nova-pro-v1:0"
 	// ModelClaude is selectable via deployment config (Requirement 3.8).
 	ModelClaude ModelID = "apac.anthropic.claude-3-5-sonnet-20240620-v1:0"
+	// ModelQwen3 is Qwen3 235B A22B 2507, the text-only model. It answers in
+	// the OpenAI-compatible format and is served in ap-south-1 itself, with no
+	// cross-region inference profile. The story planner's default (#293).
+	ModelQwen3 ModelID = "qwen.qwen3-235b-a22b-2507-v1:0"
+	// ModelDeepSeek is DeepSeek V3.2, OpenAI-compatible format, served in
+	// ap-south-1 itself. The story planner's default fallback (#293).
+	ModelDeepSeek ModelID = "deepseek.v3.2"
 )
 
 // Service ranks transcript moments using a Bedrock model. The model output is
@@ -47,13 +54,18 @@ func NewService(client BedrockClient, model ModelID) *Service {
 
 // ModelFromString maps a deployment-config value to a ModelID. Kimi is the
 // default, selected when s is "kimi", empty, or unrecognized (case-insensitive).
-// "nova" selects Nova Pro and "claude" selects Claude. (Requirement 3.8)
+// "nova" selects Nova Pro, "claude" Claude, "qwen" Qwen3 235B and "deepseek"
+// DeepSeek V3.2. (Requirement 3.8)
 func ModelFromString(s string) ModelID {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "claude":
 		return ModelClaude
 	case "nova":
 		return ModelNovaPro
+	case "qwen":
+		return ModelQwen3
+	case "deepseek":
+		return ModelDeepSeek
 	case "kimi", "": // default
 		return ModelKimi
 	default:

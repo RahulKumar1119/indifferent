@@ -152,14 +152,17 @@ func TestRank_ModelSelectionHonorsConfig(t *testing.T) {
 
 func TestModelFromString(t *testing.T) {
 	cases := map[string]ModelID{
-		"claude": ModelClaude,
-		"Claude": ModelClaude,
-		"CLAUDE": ModelClaude,
-		"nova":   ModelNovaPro,
-		"kimi":   ModelKimi,
-		"Kimi":   ModelKimi,
-		"":       ModelKimi, // Kimi is now the default.
-		"other":  ModelKimi, // unrecognized falls back to the default.
+		"claude":   ModelClaude,
+		"Claude":   ModelClaude,
+		"CLAUDE":   ModelClaude,
+		"nova":     ModelNovaPro,
+		"kimi":     ModelKimi,
+		"Kimi":     ModelKimi,
+		"qwen":     ModelQwen3,
+		"Qwen":     ModelQwen3,
+		"deepseek": ModelDeepSeek,
+		"":         ModelKimi, // Kimi stays the ranking default; the planner picks its own (#293).
+		"other":    ModelKimi, // unrecognized falls back to the default.
 	}
 	for in, want := range cases {
 		if got := ModelFromString(in); got != want {
@@ -227,9 +230,9 @@ func TestRank_KimiIsDefaultAndProducesOpenAIBody(t *testing.T) {
 func TestRank_MalformedJSONTreatedAsZeroSegments(t *testing.T) {
 	cases := []string{
 		"this is not json at all",
-		`{"segments": [`,        // truncated
-		"",                       // empty text
-		"here you go: {oops}",   // junk braces
+		`{"segments": [`,      // truncated
+		"",                    // empty text
+		"here you go: {oops}", // junk braces
 	}
 	for _, text := range cases {
 		svc := NewService(&mockBedrockClient{body: novaBody(t, text)}, ModelNovaPro)

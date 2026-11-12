@@ -34,6 +34,22 @@ func TestComplete_SendsEachModelsShapeWithTheCallersBudget(t *testing.T) {
 				t.Errorf("nova request = %+v", r)
 			}
 		}},
+		// Qwen3 and DeepSeek on Bedrock take the same OpenAI-compatible shape
+		// as Kimi (#293, measured against the live models).
+		{"qwen", ModelQwen3, kimiBody, func(t *testing.T, b []byte) {
+			var r kimiRequest
+			mustUnmarshal(t, b, &r)
+			if r.MaxTokens != 1234 || r.Messages[0].Content != "the prompt" {
+				t.Errorf("qwen request = %+v", r)
+			}
+		}},
+		{"deepseek", ModelDeepSeek, kimiBody, func(t *testing.T, b []byte) {
+			var r kimiRequest
+			mustUnmarshal(t, b, &r)
+			if r.MaxTokens != 1234 || r.Messages[0].Content != "the prompt" {
+				t.Errorf("deepseek request = %+v", r)
+			}
+		}},
 		{"claude", ModelClaude, claudeBody, func(t *testing.T, b []byte) {
 			var r claudeRequest
 			mustUnmarshal(t, b, &r)
