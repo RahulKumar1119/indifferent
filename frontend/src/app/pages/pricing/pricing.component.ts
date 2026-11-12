@@ -122,7 +122,7 @@ export const USAGE_LIMITS: UsageLimit[] = [
                 </tbody>
               </table>
             </div>
-            <p class="fine">At a limit, the app says when it resets. Failed attempts count too.</p>
+            <p class="fine">At a limit, the app says when it resets. Failed attempts count too, except a story plan that fails because the planner was slow or busy.</p>
           </div>
         </section>
 

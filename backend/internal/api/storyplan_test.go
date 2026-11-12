@@ -462,23 +462,125 @@ func TestStoryPlans_ModelFailuresMapToStatusCodesAndAreRecorded(t *testing.T) {
 	}
 }
 
-// A failed attempt must still count against the hourly allowance: it cost
-// model tokens, and the allowance is what stops a loop of failures from being
-// free.
-func TestStoryPlans_FailedAttemptsCountTowardsTheAllowance(t *testing.T) {
+// An attempt that failed because the plan was unusable still counts against
+// the hourly allowance: a story can cause it, and the allowance is what stops
+// a loop of failures from being free.
+func TestStoryPlans_UnusablePlansCountTowardsTheAllowance(t *testing.T) {
 	e := newSPEnv(t)
 	e.h.StoryPlansPerHour = 3
-	e.planner.err = fmt.Errorf("%w: busy", storyplan.ErrModelFailed)
+	e.planner.err = fmt.Errorf("%w: no usable scene", storyplan.ErrInvalidPlan)
 	for i := 0; i < 3; i++ {
 		e.now = e.now.Add(time.Second) // plan ids are time ordered, so each attempt gets a later id
-		if resp := e.do(t, "POST", "/story-plans", storyBody(spEnglish), "user1"); resp.StatusCode != 503 {
+		if resp := e.do(t, "POST", "/story-plans", storyBody(spEnglish), "user1"); resp.StatusCode != 502 {
 			t.Fatalf("attempt %d: status %d", i+1, resp.StatusCode)
 		}
 	}
 	before := e.planner.calls()
+	e.now = e.now.Add(time.Second)
 	resp := e.do(t, "POST", "/story-plans", storyBody(spEnglish), "user1")
 	if resp.StatusCode != 429 || e.planner.calls() != before {
 		t.Errorf("status %d, planner calls %d -> %d: the fourth attempt must be refused before the model", resp.StatusCode, before, e.planner.calls())
+	}
+}
+
+// When the planner times out or is unavailable, that is our failure, not the
+// user's: it must not use their allowance. Every attempt still counts towards
+// a cap of twice the allowance, so an outage cannot mean unlimited model calls.
+func TestStoryPlans_PlannerFailuresOfOursDoNotUseTheAllowance(t *testing.T) {
+	attempt := func(e *spEnv) events.APIGatewayProxyResponse {
+		e.now = e.now.Add(time.Second)
+		return e.do(t, "POST", "/story-plans", storyBody(spEnglish), "user1")
+	}
+	for name, err := range map[string]error{
+		"timeout":     fmt.Errorf("%w: %w", storyplan.ErrModelTimeout, storyplan.ErrModelFailed),
+		"unavailable": fmt.Errorf("%w: busy", storyplan.ErrModelFailed),
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := newSPEnv(t)
+			e.h.StoryPlansPerHour = 3
+			e.planner.err = err
+			for i := 0; i < 5; i++ {
+				if resp := attempt(e); resp.StatusCode == 429 {
+					t.Fatalf("failure %d of ours was refused: %s", i+1, resp.Body)
+				}
+			}
+			// The planner recovers: the user still has their full allowance.
+			e.planner.err = nil
+			if resp := attempt(e); resp.StatusCode != 201 {
+				t.Fatalf("plan after recovery: status %d %s", resp.StatusCode, resp.Body)
+			}
+			// 6 attempts so far (5 ours, 1 ready) of a cap of 6: the cap stops the next one.
+			before := e.planner.calls()
+			resp := attempt(e)
+			if resp.StatusCode != 429 || decodeErr(t, resp).Code != "RATE_LIMITED" || e.planner.calls() != before {
+				t.Errorf("at the cap: status %d, planner calls %d -> %d", resp.StatusCode, before, e.planner.calls())
+			}
+		})
+	}
+	t.Run("ours and counted together", func(t *testing.T) {
+		e := newSPEnv(t)
+		e.h.StoryPlansPerHour = 3
+		e.planner.err = fmt.Errorf("%w: %w", storyplan.ErrModelTimeout, storyplan.ErrModelFailed)
+		attempt(e)
+		attempt(e)
+		e.planner.err = nil
+		for i := 0; i < 3; i++ {
+			if resp := attempt(e); resp.StatusCode != 201 {
+				t.Fatalf("plan %d: status %d %s: two timeouts must not have used the allowance", i+1, resp.StatusCode, resp.Body)
+			}
+		}
+		if resp := attempt(e); resp.StatusCode != 429 {
+			t.Errorf("after 3 counted plans: status %d, want 429", resp.StatusCode)
+		}
+	})
+	t.Run("Retry-After waits for the oldest counted plan, not the oldest attempt", func(t *testing.T) {
+		e := newSPEnv(t)
+		e.h.StoryPlansPerHour = 2
+		e.planner.err = fmt.Errorf("%w: busy", storyplan.ErrModelFailed)
+		attempt(e) // ours, at about T
+		e.now = e.now.Add(20 * time.Minute)
+		e.planner.err = nil
+		attempt(e) // counted, at about T+20m
+		attempt(e) // counted
+		resp := attempt(e)
+		var secs int
+		fmt.Sscan(resp.Headers["Retry-After"], &secs)
+		// The oldest counted plan is about 0 minutes old, so about 60 remain; the
+		// attempt of ours, 20 minutes older, does not set the wait.
+		if resp.StatusCode != 429 || secs < 59*60 || secs > 60*60 {
+			t.Errorf("status %d Retry-After %ds, want about an hour", resp.StatusCode, secs)
+		}
+	})
+}
+
+func TestStoryPlanAttemptIsOurs(t *testing.T) {
+	item := func(status, code string) map[string]dbtypes.AttributeValue {
+		it := map[string]dbtypes.AttributeValue{"status": &dbtypes.AttributeValueMemberS{Value: status}}
+		if code != "" {
+			it["errorCode"] = &dbtypes.AttributeValueMemberS{Value: code}
+		}
+		return it
+	}
+	for _, c := range []struct {
+		status, code string
+		ours         bool
+	}{
+		{"failed", "timeout", true},
+		{"failed", "model_failed", true},
+		{"failed", "invalid_plan", false},
+		{"failed", "canceled", false},
+		{"failed", "error", false},
+		{"failed", "", false},
+		{"pending", "", false},
+		{"ready", "", false},
+		{"ready", "timeout", false}, // only a failed attempt can be ours
+	} {
+		if got := storyPlanAttemptIsOurs(item(c.status, c.code)); got != c.ours {
+			t.Errorf("%s/%s: ours = %v, want %v", c.status, c.code, got, c.ours)
+		}
+	}
+	if storyPlanAttemptIsOurs(map[string]dbtypes.AttributeValue{}) {
+		t.Error("an item without a status is not ours")
 	}
 }
 
@@ -584,8 +686,11 @@ func TestStoryPlans_RateLimitQueryIsABoundedKeyRange(t *testing.T) {
 	if aws.ToString(q.KeyConditionExpression) != "PK = :pk AND SK BETWEEN :lo AND :hi" {
 		t.Errorf("key condition = %q", aws.ToString(q.KeyConditionExpression))
 	}
-	if aws.ToInt32(q.Limit) != 5 {
-		t.Errorf("Limit = %d: the check must read no more than the allowance", aws.ToInt32(q.Limit))
+	if aws.ToInt32(q.Limit) != 10 {
+		t.Errorf("Limit = %d: the check must read no more than the attempt cap (twice the allowance)", aws.ToInt32(q.Limit))
+	}
+	if aws.ToString(q.ProjectionExpression) != "SK, createdAt, #st, errorCode" || q.ExpressionAttributeNames["#st"] != "status" {
+		t.Errorf("projection %q names %v: status must be read through a name placeholder", aws.ToString(q.ProjectionExpression), q.ExpressionAttributeNames)
 	}
 	if q.IndexName != nil || q.FilterExpression != nil {
 		t.Error("the check must be a plain key-range query: no index, no filter")
