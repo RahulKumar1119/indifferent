@@ -256,12 +256,17 @@ func (m *memoryDB) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemIn
 			item = map[string]dbtypes.AttributeValue{"PK": params.Key["PK"], "SK": params.Key["SK"]}
 			m.items[k] = item
 		}
+		// The sign-up counter (#297) names its attribute through #n.
+		attr := "attempts"
+		if name, ok := params.ExpressionAttributeNames["#n"]; ok {
+			attr = name
+		}
 		n := 0
-		if cur, ok := item["attempts"].(*dbtypes.AttributeValueMemberN); ok {
+		if cur, ok := item[attr].(*dbtypes.AttributeValueMemberN); ok {
 			n, _ = strconv.Atoi(cur.Value)
 		}
-		item["attempts"] = &dbtypes.AttributeValueMemberN{Value: strconv.Itoa(n + 1)}
-		return &dynamodb.UpdateItemOutput{Attributes: map[string]dbtypes.AttributeValue{"attempts": item["attempts"]}}, nil
+		item[attr] = &dbtypes.AttributeValueMemberN{Value: strconv.Itoa(n + 1)}
+		return &dynamodb.UpdateItemOutput{Attributes: map[string]dbtypes.AttributeValue{attr: item[attr]}}, nil
 	}
 	item, ok := m.items[itemKey(strAttr(params.Key, "PK"), strAttr(params.Key, "SK"))]
 	if !ok {

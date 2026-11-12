@@ -76,6 +76,24 @@ func main() {
 		log.Fatalf("Failed to create S3 client: %v", err)
 	}
 
+	// Owner alerts (#297): with ADMIN_ALERT_EMAIL set, every new account sends
+	// one email there, numbered by a counter in the users table. Unset sends
+	// nothing. Best effort: it can add at most a few seconds to a first sign-in
+	// and never fails it.
+	var signups *auth.SignupAlerter
+	if to := strings.TrimSpace(os.Getenv("ADMIN_ALERT_EMAIL")); to != "" {
+		signups = &auth.SignupAlerter{
+			DB:         dbClient,
+			UsersTable: usersTable,
+			Notifier: notifier.SignupMailer{To: to, Mailer: &notifier.SESMailer{
+				Client:    sesv2.NewFromConfig(awsCfg),
+				From:      envOr("FROM_ADDRESS", "Indifferent <notifications@indifferent.fun>"),
+				ConfigSet: envOr("SES_CONFIG_SET", "indifferent-notifications"),
+			}},
+		}
+		log.Printf("signup alerts on")
+	}
+
 	// Initialize auth services
 	authConfig := auth.GoogleAuthConfig{
 		ClientID:     googleClientID,
@@ -84,6 +102,7 @@ func main() {
 		JWTSecret:    jwtSecret,
 		UsersTable:   usersTable,
 		SessionTable: sessionTable,
+		Signups:      signups,
 	}
 	authService := auth.NewGoogleAuthService(authConfig, dbClient, &http.Client{
 		Timeout: 10 * time.Second,
@@ -158,6 +177,7 @@ func main() {
 	}
 	passwordAuth := auth.NewPasswordAuthService(dbClient, jwtService, usersTable, sessionTable)
 	passwordAuth.Verifier = verifier
+	passwordAuth.Signups = signups
 
 	// Create API handler
 	handler := &api.APIHandler{

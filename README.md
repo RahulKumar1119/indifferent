@@ -604,6 +604,7 @@ Generate the JWT secret with `openssl rand -hex 32`.
 | `PLANNING_MODEL` | API | Model for the planner: `qwen` (default, Qwen3 235B A22B 2507), `deepseek`, `kimi`, `nova` or `claude`. An unknown value means the default. Needs `bedrock:InvokeModel`, which the shared Lambda role already has. |
 | `PLANNING_FALLBACK_MODEL` | API | Model asked when the first times out, fails or answers with an unusable plan: `deepseek` (default, DeepSeek V3.2), any `PLANNING_MODEL` value, or `none` for no fallback. The first model gets 15 of the 25 seconds and the fallback the rest, so a plan still answers within the API's limit. The plan record's `model` is the one that made the plan. |
 | `SES_CONFIG_SET` / `FROM_ADDRESS` / `REPLY_TO` / `APP_BASE_URL` | `notifier` | Email delivery settings |
+| `ADMIN_ALERT_EMAIL` | API | Where to send one email per new account (Google or email sign-up), numbered by the `COUNTER#accounts` item in the users table. Unset sends nothing. `@example.com` test accounts are neither counted nor reported. Best effort: it gives up after 3 seconds and never fails a sign-in. Seed the counter once with `scripts/ops/user_counts.py --seed-counter --apply`. |
 
 The deploy scripts default to region `ap-south-1` and the `indifferent-fun` project prefix. Override the values in the scripts if you deploy elsewhere.
 

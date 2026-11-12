@@ -104,6 +104,8 @@ type GoogleAuthConfig struct {
 	JWTSecret    string
 	UsersTable   string
 	SessionTable string
+	// Signups tells the site owner about each new account (#297). Nil does nothing.
+	Signups *SignupAlerter
 }
 
 // googleAuthService is the concrete implementation of GoogleAuthService.
@@ -262,11 +264,16 @@ func (s *googleAuthService) fetchUserInfo(ctx context.Context, accessToken strin
 func (s *googleAuthService) upsertUser(ctx context.Context, user *GoogleUserInfo) (string, int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	item := map[string]dbtypes.AttributeValue{}
+	// isNew is true only when the read worked and found no profile: a failed
+	// read says nothing about whether the account exists, so it is never
+	// reported as a sign-up.
+	isNew := false
 	if existing, err := s.db.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName:      aws.String(s.config.UsersTable),
 		Key:            userKey(user.ID),
 		ConsistentRead: aws.Bool(true),
-	}); err == nil && existing.Item != nil {
+	}); err == nil {
+		isNew = existing.Item == nil
 		for k, v := range existing.Item {
 			item[k] = v
 		}
@@ -320,6 +327,9 @@ func (s *googleAuthService) upsertUser(ctx context.Context, user *GoogleUserInfo
 		Item:      item,
 	}); err != nil {
 		return "", 0, fmt.Errorf("put user item: %w", err)
+	}
+	if isNew {
+		s.config.Signups.newAccount(ctx, user.Name, user.Email, "google")
 	}
 	return user.ID, 0, nil
 }
