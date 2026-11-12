@@ -17,6 +17,8 @@ from test_setup_storyvideo import DEPLOY, Base, base_world
 
 SCRIPT = os.path.join(DEPLOY, "setup-story-metrics.sh")
 NAME = "indifferent-fun-story"
+ALARM = "indifferent-fun-story-plans-failing"
+TOPIC = "arn:aws:sns:ap-south-1:%s:indifferent-fun-email-alerts"
 
 
 def render_expected():
@@ -55,12 +57,15 @@ class Metrics(Base):
         self.assertIn("does not exist; it will be created", r.text)
         self.assertIn("[dry-run] would: write the dashboard %s" % NAME, r.text)
         self.assertIsNone(self.board())
-        self.assertEqual([c["op"] for c in r.calls], ["cloudwatch get-dashboard"])
+        self.assertIn("[dry-run] would: put the alarm %s" % ALARM, r.text)
+        self.assertEqual([c["op"] for c in r.calls],
+                         ["cloudwatch get-dashboard", "sts get-caller-identity", "sns get-topic-attributes", "cloudwatch describe-alarms"])
+        self.assertEqual(self.world.get("alarms", {}), {})
 
     def test_apply_from_nothing_uploads_exactly_the_rendered_dashboard(self):
         r = self.run_metrics("--apply")
         self.assertEqual(r.rc, 0, r.text)
-        self.assertEqual(r.ops(), ["cloudwatch put-dashboard"])
+        self.assertEqual(r.ops(), ["cloudwatch put-dashboard", "cloudwatch put-metric-alarm"])
         self.assertEqual(self.board(), EXPECTED)
         self.assertIn("CloudWatch accepted the dashboard.", r.text)
         put = [c for c in r.calls if c["op"] == "cloudwatch put-dashboard"][0]
@@ -120,14 +125,17 @@ class Metrics(Base):
         self.assertIn("could not read the dashboard", r.err)
         self.assertNothingChanged(r)
 
-    def test_the_only_write_is_one_put_dashboard_and_nothing_is_ever_deleted(self):
+    def test_the_only_writes_are_the_dashboard_and_the_alarm_and_nothing_is_ever_deleted(self):
         for args in ([], ["--apply"], ["--apply"]):
             r = self.run_metrics(*args)
             for c in r.calls:
                 self.assertNotRegex(c["op"], r"delete|remove|deregister", c["argv"])
-            self.assertLessEqual(len(r.changes), 1)
+            self.assertLessEqual(len(r.changes), 2)
             for c in r.changes:
-                self.assertEqual(c["op"], "cloudwatch put-dashboard")
+                self.assertIn(c["op"], ("cloudwatch put-dashboard", "cloudwatch put-metric-alarm"))
+            for c in r.changes:
+                if c["op"] == "cloudwatch put-metric-alarm":
+                    self.assertEqual(json.loads(list(c["files"].values())[0])["AlarmName"], ALARM)
 
     def test_an_unknown_argument_is_refused_before_aws_is_asked_anything(self):
         r = self.run_metrics("--aply")
@@ -149,6 +157,56 @@ class Metrics(Base):
         self.assertLessEqual(names, {
             "PlansReady", "PlansFailed", "VideosStarted", "VideosCompleted", "VideosFailed", "VideosCancelled", "VideoSeconds",
             "StockSearches", "StockSearchesEmpty", "PicturesChosen", "PicturesReplaced", "PicturesRemoved", "NarrationsEdited"})
+
+    # --- the story-plans-failing alarm
+
+    def alarm(self):
+        return self.world.get("alarms", {}).get(ALARM)
+
+    def test_the_alarm_fires_on_four_failures_that_outnumber_successes_and_mails_the_alerts_topic(self):
+        r = self.run_metrics("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        a = self.alarm()
+        self.assertIsNotNone(a, r.text)
+        self.assertEqual(a["AlarmActions"], [TOPIC % self.world["account"]])
+        ids = {m["Id"]: m for m in a["Metrics"]}
+        self.assertEqual(set(ids), {"failed", "ready", "failing"})
+        for id_, metric in (("failed", "PlansFailed"), ("ready", "PlansReady")):
+            stat = ids[id_]["MetricStat"]
+            self.assertEqual(stat["Metric"], {"Namespace": "Indifferent/Story", "MetricName": metric, "Dimensions": []})
+            self.assertEqual((stat["Period"], stat["Stat"]), (900, "Sum"))
+            self.assertFalse(ids[id_]["ReturnData"])
+        self.assertEqual(ids["failing"]["Expression"], "IF(FILL(failed,0) >= 4 AND FILL(failed,0) >= FILL(ready,0), 1, 0)")
+        self.assertTrue(ids["failing"]["ReturnData"])
+        self.assertEqual((a["Threshold"], a["ComparisonOperator"]), (1, "GreaterThanOrEqualToThreshold"))
+        self.assertEqual((a["EvaluationPeriods"], a["DatapointsToAlarm"]), (2, 1))
+        self.assertEqual(a["TreatMissingData"], "notBreaching")
+        self.assertIn("undo: aws cloudwatch delete-alarms --alarm-names %s" % ALARM, r.text)
+
+    def test_the_alarm_is_not_written_again_when_it_is_already_right(self):
+        self.assertEqual(self.run_metrics("--apply").rc, 0)
+        r = self.run_metrics("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertNothingChanged(r)
+        self.assertIn("The alarm %s is already up to date." % ALARM, r.text)
+
+    def test_an_alarm_that_differs_is_replaced(self):
+        self.assertEqual(self.run_metrics("--apply").rc, 0)
+        self.world = json.load(open(self.world_path))
+        self.world["alarms"][ALARM]["Threshold"] = 5
+        r = self.run_metrics("--apply")
+        self.assertEqual(r.rc, 0, r.text)
+        self.assertEqual(r.ops(), ["cloudwatch put-metric-alarm"])
+        self.assertIn("exists and differs; it will be replaced", r.text)
+        self.assertEqual(self.alarm()["Threshold"], 1)
+
+    def test_without_the_alerts_topic_nothing_is_written(self):
+        self.world["topics"] = []
+        r = self.run_metrics("--apply")
+        self.assertNotEqual(r.rc, 0, r.text)
+        self.assertIn("the alerts topic", r.err)
+        self.assertNothingChanged(r)
+        self.assertIsNone(self.board())
 
 
 if __name__ == "__main__":

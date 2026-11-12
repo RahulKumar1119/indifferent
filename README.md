@@ -633,7 +633,8 @@ bash deploy/setup-notifications.sh
 # 6. Optional: a stock-media cache shared by every container (table, TTL, one API variable)
 bash deploy/setup-stock-cache.sh            # dry run
 bash deploy/setup-stock-cache.sh --apply
-# 7. Optional: the Story2Shorts success-metrics dashboard (the metrics come from the API and notifier code)
+# 7. Optional: the Story2Shorts success-metrics dashboard, and the indifferent-fun-story-plans-failing alarm
+#    (4+ failed plans in 15 minutes, at least as many failed as succeeded; e-mails the alerts topic)
 bash deploy/setup-story-metrics.sh            # dry run
 bash deploy/setup-story-metrics.sh --apply
 # 8. Optional: Story2Shorts videos (needs steps 3 and 5; run step 6 first to share the stock cache with the worker)

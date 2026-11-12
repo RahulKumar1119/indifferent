@@ -33,7 +33,7 @@ MUTATING = {
     ("ecs", "register-task-definition"),
     ("lambda", "update-function-configuration"),
     ("dynamodb", "create-table"), ("dynamodb", "update-time-to-live"), ("dynamodb", "put-item"),
-    ("cloudwatch", "put-dashboard"),
+    ("cloudwatch", "put-dashboard"), ("cloudwatch", "put-metric-alarm"),
     ("stepfunctions", "create-state-machine"), ("stepfunctions", "update-state-machine"),
     ("docker", "login"), ("docker", "build"), ("docker", "push"),
 }
@@ -130,6 +130,36 @@ def cloudwatch_dashboard(w, op, rest, q):
         save(w)
         out(json.dumps(w.get("dashboard_warnings", [])))
         return True
+    # Alarms. World key "alarms": {name: the alarm as describe-alarms returns it}.
+    alarms = w.setdefault("alarms", {})
+    if op == "describe-alarms" and q == "MetricAlarms[0]":
+        names = []
+        if "--alarm-names" in rest:
+            for a in rest[rest.index("--alarm-names") + 1:]:
+                if a.startswith("--"):
+                    break
+                names.append(a)
+        found = [alarms[n] for n in names if n in alarms]
+        out(json.dumps(found[0]) if found else "null")
+        return True
+    if op == "put-metric-alarm":
+        spec = json.loads(read_file_arg(flag(rest, "--cli-input-json")))
+        for key in ("AlarmName", "Metrics", "Threshold", "ComparisonOperator", "EvaluationPeriods"):
+            if key not in spec:
+                err("ValidationError", "missing %s" % key)
+        if not any(m.get("ReturnData") for m in spec["Metrics"]):
+            err("ValidationError", "exactly one metric must return data")
+        # describe-alarms adds fields the caller never sets; the script must ignore them.
+        # Like the real service, it returns a metric without dimensions as "Dimensions": [],
+        # and numbers as floats.
+        for m in spec["Metrics"]:
+            if "MetricStat" in m:
+                m["MetricStat"]["Metric"].setdefault("Dimensions", [])
+        spec["Threshold"] = float(spec["Threshold"])
+        alarms[spec["AlarmName"]] = dict(spec, AlarmArn="arn:aws:cloudwatch:ap-south-1:%s:alarm:%s" % (w["account"], spec["AlarmName"]),
+                                         StateValue="INSUFFICIENT_DATA", OKActions=[], InsufficientDataActions=[])
+        save(w)
+        return True
     return False
 
 
@@ -217,6 +247,12 @@ def aws(argv):
 
     if (svc, op) == ("sts", "get-caller-identity"):
         return out(acct)
+
+    if (svc, op) == ("sns", "get-topic-attributes"):
+        arn = flag(rest, "--topic-arn")
+        if arn not in w.get("topics", ["arn:aws:sns:ap-south-1:%s:indifferent-fun-email-alerts" % acct]):
+            return err("NotFound", "Topic does not exist")
+        return out(arn)
 
     if svc == "s3api":
         if op == "head-bucket":
