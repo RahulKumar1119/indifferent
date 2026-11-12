@@ -56,6 +56,8 @@ type PasswordAuthService struct {
 	// Verifier mails the confirmation link after sign-up. Nil sends nothing and
 	// leaves the account unconfirmed.
 	Verifier *EmailVerifier
+	// Signups tells the site owner about each new account (#297). Nil does nothing.
+	Signups *SignupAlerter
 }
 
 // NewPasswordAuthService builds a PasswordAuthService sharing the JWT service
@@ -179,6 +181,7 @@ func (s *PasswordAuthService) signUp(ctx context.Context, email, name, password 
 			log.Printf("verification_email_failed err=%v", err)
 		}
 	}
+	s.Signups.newAccount(ctx, name, email, "email")
 	return tokens, nil
 }
 

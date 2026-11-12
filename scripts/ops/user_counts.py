@@ -13,10 +13,17 @@ apart. The index is also checked: every EMAIL# row should point to an account
 with that address, and every account should have one (accounts created before
 the index existed get theirs at their next Google sign-in).
 
+It also shows the sign-up counter COUNTER#accounts (#297), which numbers the
+owner's sign-up alerts, and --seed-counter sets it to the number of real
+accounts. Seeding writes only when the counter is missing or lower than that
+number, so it can never lower a counter that new sign-ups have moved on.
+
 Prints counts only, never an email or a name.
 
 Usage:
   scripts/ops/user_counts.py [--days 7] [--table indifferent-fun-users] [--region ap-south-1]
+  scripts/ops/user_counts.py --seed-counter            # dry run: says what it would set
+  scripts/ops/user_counts.py --seed-counter --apply    # sets it
 """
 import argparse
 import collections
@@ -26,6 +33,8 @@ import sys
 import boto3
 
 TEST_DOMAIN = "@example.com"
+# The sign-up counter (backend/internal/auth/signupalert.go).
+COUNTER_PK, COUNTER_SK = "COUNTER#accounts", "COUNTER"
 
 
 def scan(db, table):
@@ -47,9 +56,13 @@ def main():
     ap.add_argument("--table", default="indifferent-fun-users")
     ap.add_argument("--region", default="ap-south-1")
     ap.add_argument("--days", type=int, default=7, help="show sign-ups for this many recent days")
+    ap.add_argument("--seed-counter", action="store_true", help="set the sign-up counter to the number of real accounts")
+    ap.add_argument("--apply", action="store_true", help="with --seed-counter: write; without it nothing is changed")
     args = ap.parse_args()
 
-    items = scan(boto3.client("dynamodb", region_name=args.region), args.table)
+    db = boto3.client("dynamodb", region_name=args.region)
+    items = scan(db, args.table)
+    counter = None
     accounts, index, other = {}, {}, collections.Counter()
     for it in items:
         pk = s(it, "PK")
@@ -57,6 +70,8 @@ def main():
             accounts[pk[len("USER#"):]] = it
         elif pk.startswith("EMAIL#") and s(it, "SK") == "PROFILE":
             index[pk[len("EMAIL#"):]] = s(it, "userId")
+        elif pk == COUNTER_PK and s(it, "SK") == COUNTER_SK:
+            counter = int(it.get("n", {}).get("N", "0"))
         else:
             other[pk.split("#", 1)[0] + "#"] += 1
 
@@ -87,8 +102,27 @@ def main():
     print(f"Email index rows: {len(index)} (not users)")
     print(f"  pointing to a missing account or another address: {orphans}")
     print(f"  accounts without an index row: {missing} (older accounts get one at their next Google sign-in)")
+    print(f"Sign-up counter:  {counter if counter is not None else 'not set'}")
     if other:
         print(f"Other items: {dict(other)}")
+
+    if args.seed_counter:
+        want = len(real)
+        if counter is not None and counter >= want:
+            print(f"Counter already at {counter}, not below {want}: nothing to do.")
+        elif not args.apply:
+            print(f"[dry-run] would set the sign-up counter to {want}. Add --apply to write.")
+        else:
+            try:
+                db.put_item(
+                    TableName=args.table,
+                    Item={"PK": {"S": COUNTER_PK}, "SK": {"S": COUNTER_SK}, "n": {"N": str(want)}},
+                    ConditionExpression="attribute_not_exists(PK) OR n < :want",
+                    ExpressionAttributeValues={":want": {"N": str(want)}},
+                )
+                print(f"Set the sign-up counter to {want}.")
+            except db.exceptions.ConditionalCheckFailedException:
+                print("The counter moved past that number meanwhile: left as it is.")
     return 1 if orphans or no_email else 0
 
 
