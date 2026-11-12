@@ -457,7 +457,7 @@ Mark correct answers with a `*` suffix. Multiple `*` markers are supported for m
 | Narration | Amazon Polly (Standard) | 5 voices; Aditi also narrates Hindi in Story videos |
 | Transcription | Amazon Transcribe | Word-level timestamps for Shorts |
 | Ranking | Amazon Bedrock (Moonshot Kimi K3 by default) | Engagement scoring; Nova Pro and Claude fallbacks |
-| Story planning | Amazon Bedrock (Moonshot Kimi by default; Nova and Claude selectable with `PLANNING_MODEL`) | Splits a story into scenes with narration and search keywords |
+| Story planning | Amazon Bedrock (Qwen3 235B by default, DeepSeek V3.2 as fallback, both served in ap-south-1; Kimi, Nova and Claude selectable with `PLANNING_MODEL`) | Splits a story into scenes with narration and search keywords |
 | Stock media | Pexels and Pixabay APIs | Photos and clips for Story videos; results cached for 24 hours |
 | Faces/objects | Amazon Rekognition (`DetectFaces`, `DetectLabels`) | Reframing and thumbnail scoring |
 | Thumbnails | Rekognition + Bedrock vision (Claude Haiku 4.5 by default) | Three AI thumbnail concepts |
@@ -601,7 +601,8 @@ Generate the JWT secret with `openssl rand -hex 32`.
 | `STORYVIDEO_STATE_MACHINE_ARN` | API | The story-video state machine (`indifferent-fun-story-pipeline`). Set by `deploy/setup-storyvideo.sh`. Unset, `POST /story-videos` answers `503` while the other story-video routes keep working. `bash deploy/setup-storyvideo.sh --unwire-api --apply` removes it, which is the kill switch for making videos. |
 | `S3_BUCKET` / `DYNAMODB_TABLE` / `USER_ID` / `JOB_ID` | `storyrender` (Fargate task) | The bucket and projects table are in the task definition; Step Functions passes the user and job ids per run. Stock keys reach the task as SSM SecureString parameters under `/indifferent-fun/story-render/`, never as plain environment values. |
 | `STORY_PLAN_ENABLED` | API | Switch for the Story2Shorts planner (`/story-plans`). `true` or `1` turns it on; unset or anything else leaves it off, so the routes answer `503` and nothing calls Bedrock. It is the kill switch. |
-| `PLANNING_MODEL` | API | Model for the planner: `kimi` (default, the one measured), `nova` or `claude`. Same values as `RANKING_MODEL`. Needs `bedrock:InvokeModel`, which the shared Lambda role already has. |
+| `PLANNING_MODEL` | API | Model for the planner: `qwen` (default, Qwen3 235B A22B 2507), `deepseek`, `kimi`, `nova` or `claude`. An unknown value means the default. Needs `bedrock:InvokeModel`, which the shared Lambda role already has. |
+| `PLANNING_FALLBACK_MODEL` | API | Model asked when the first times out, fails or answers with an unusable plan: `deepseek` (default, DeepSeek V3.2), any `PLANNING_MODEL` value, or `none` for no fallback. The first model gets 15 of the 25 seconds and the fallback the rest, so a plan still answers within the API's limit. The plan record's `model` is the one that made the plan. |
 | `SES_CONFIG_SET` / `FROM_ADDRESS` / `REPLY_TO` / `APP_BASE_URL` | `notifier` | Email delivery settings |
 
 The deploy scripts default to region `ap-south-1` and the `indifferent-fun` project prefix. Override the values in the scripts if you deploy elsewhere.

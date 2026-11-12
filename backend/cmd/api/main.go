@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -97,13 +98,25 @@ func main() {
 	// Story planning (issue #191). Off unless STORY_PLAN_ENABLED is true or 1:
 	// the endpoints then answer 503 and nothing calls Bedrock, so this binary
 	// can be deployed before the feature is switched on, and switched off again
-	// by clearing the variable. PLANNING_MODEL takes the same values as
-	// RANKING_MODEL (kimi, nova, claude); it defaults to kimi, the model whose
-	// latency and Hindi output were measured.
+	// by clearing the variable.
+	//
+	// PLANNING_MODEL picks the model (qwen, deepseek, kimi, nova, claude) and
+	// defaults to qwen. PLANNING_FALLBACK_MODEL picks the one asked when the
+	// first times out, fails or answers with an unusable plan; it defaults to
+	// deepseek, and "none" turns the fallback off. Both defaults were measured
+	// over 21 plans each, English and Hindi (#293).
 	var storyPlanner api.StoryPlanner
 	if appconfig.Enabled(os.Getenv("STORY_PLAN_ENABLED")) {
-		model := rank.ModelFromString(os.Getenv("PLANNING_MODEL"))
-		storyPlanner = storyplan.NewService(rank.NewService(bedrockruntime.NewFromConfig(awsCfg), model), string(model))
+		bedrock := bedrockruntime.NewFromConfig(awsCfg)
+		model := planningModel(os.Getenv("PLANNING_MODEL"), rank.ModelQwen3)
+		var opts []storyplan.Option
+		if fb := os.Getenv("PLANNING_FALLBACK_MODEL"); !strings.EqualFold(strings.TrimSpace(fb), "none") {
+			if fallback := planningModel(fb, rank.ModelDeepSeek); fallback != model {
+				opts = append(opts, storyplan.WithFallback(rank.NewService(bedrock, fallback), string(fallback)))
+				log.Printf("story planning model=%s fallback=%s", model, fallback)
+			}
+		}
+		storyPlanner = storyplan.NewService(rank.NewService(bedrock, model), string(model), opts...)
 	}
 
 	// Stock media search (issue #192). Built from PEXELS_API_KEY and
@@ -184,4 +197,18 @@ func envOr(name, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// planningModel maps a PLANNING_MODEL or PLANNING_FALLBACK_MODEL value to a
+// model. Empty means def. An unknown name also means def, and is logged:
+// rank.ModelFromString would turn it into Kimi, which is neither default.
+func planningModel(v string, def rank.ModelID) rank.ModelID {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "":
+		return def
+	case "qwen", "deepseek", "kimi", "nova", "claude":
+		return rank.ModelFromString(v)
+	}
+	log.Printf("story planning: unknown model %q, using %s", v, def)
+	return def
 }

@@ -345,6 +345,26 @@ func TestStoryPlans_ValidationMessagesNameTheLimit(t *testing.T) {
 	}
 }
 
+// Issue #293: when the fallback model made the plan, the record and the
+// response name it, not the configured first model.
+func TestStoryPlans_RecordsTheModelThatMadeThePlan(t *testing.T) {
+	e := newSPEnv(t)
+	e.planner.res.Model = "deepseek.v3.2"
+	resp := e.do(t, "POST", "/story-plans", storyBody(spEnglish), "user1")
+	if resp.StatusCode != 201 {
+		t.Fatalf("status %d body %s", resp.StatusCode, resp.Body)
+	}
+	if got := decodePlan(t, resp).Model; got != "deepseek.v3.2" {
+		t.Errorf("response model = %q, want the fallback", got)
+	}
+	if got := e.puts[0]["model"].(*dbtypes.AttributeValueMemberS).Value; got != "test-model" {
+		t.Errorf("pending record model = %q, want the first model", got)
+	}
+	if got := e.puts[len(e.puts)-1]["model"].(*dbtypes.AttributeValueMemberS).Value; got != "deepseek.v3.2" {
+		t.Errorf("stored model = %q, want the fallback", got)
+	}
+}
+
 func TestStoryPlans_CreateStoresAndReturnsThePlan(t *testing.T) {
 	e := newSPEnv(t)
 	resp := e.do(t, "POST", "/story-plans", storyBody(spEnglish), "user1")

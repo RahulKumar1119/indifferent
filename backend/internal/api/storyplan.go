@@ -300,6 +300,10 @@ func (h *APIHandler) handleCreateStoryPlan(ctx context.Context, req events.APIGa
 	rec.Status = storyPlanReady
 	rec.Revision = 1
 	rec.Plan = &res.Plan
+	// The model that made the plan, which is the fallback when the first failed.
+	if res.Model != "" {
+		rec.Model = res.Model
+	}
 	if err := h.putStoryPlan(ctx, rec); err != nil {
 		log.Printf("story_plan_save_failed user=%s plan=%s err=%v", claims.UserID, rec.PlanID, err)
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "The plan was made but could not be saved. Please try again."), nil
