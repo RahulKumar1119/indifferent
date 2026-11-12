@@ -45,10 +45,18 @@ import (
 const (
 	storyPlanPrefix = "STORYPLAN#"
 
-	// storyPlanDefaultPerHour is how many plans one user may create per hour,
-	// counting failed attempts, which cost model tokens too.
+	// storyPlanDefaultPerHour is how many plans one user may create per hour.
+	// It counts successful plans, attempts still running, and attempts that
+	// failed for a reason that may lie with the story (an unusable plan). An
+	// attempt that failed because the planner was slow or unavailable is ours,
+	// and does not count (see storyPlanAttemptIsOurs).
 	storyPlanDefaultPerHour = 20
 	storyPlanWindow         = time.Hour
+
+	// storyPlanAttemptCapFactor bounds every attempt, ours included, at this
+	// many times the allowance per hour. Each attempt still costs model time,
+	// so a planner outage cannot turn into unlimited calls from one account.
+	storyPlanAttemptCapFactor = 2
 
 	// storyPlanMaxBodyBytes bounds the request body before it is parsed. A
 	// story of MaxStoryRunes characters in Devanagari is 15 KB in UTF-8; JSON
@@ -134,7 +142,8 @@ type storyPlanRecord struct {
 }
 
 // storyPlanMaxPerHour bounds the configured allowance. The allowance check reads
-// up to this many keys, so a mistaken huge value cannot turn it into a scan.
+// up to storyPlanAttemptCapFactor times this many keys, so a mistaken huge
+// value cannot turn it into a scan.
 const storyPlanMaxPerHour = 1000
 
 func (h *APIHandler) storyPlansPerHour() int {
@@ -542,12 +551,33 @@ func (r storyPlanRecord) response() StoryPlanResponse {
 	}
 }
 
+// storyPlanAttemptIsOurs reports whether a stored attempt failed for a reason
+// that lies with us, not with the story: the planner timed out, or the model
+// service was busy or unreachable. Such an attempt does not use the user's
+// allowance. An unusable plan (invalid_plan) still counts: a story can cause
+// it, and retrying the same story would spend model time in a loop.
+func storyPlanAttemptIsOurs(item map[string]dbtypes.AttributeValue) bool {
+	status, _ := item["status"].(*dbtypes.AttributeValueMemberS)
+	code, _ := item["errorCode"].(*dbtypes.AttributeValueMemberS)
+	if status == nil || code == nil || status.Value != storyPlanFailed {
+		return false
+	}
+	return code.Value == "timeout" || code.Value == "model_failed"
+}
+
 // storyPlanLimited reports whether the user already made the hourly allowance
-// of plans, and if so how long until the oldest of them leaves the window.
+// of plans, and if so how long until enough of them leave the window.
 //
-// It reads at most `limit` keys of the user's last-hour range, oldest first.
-// The range comes from the time ordering of the plan IDs, so no scan or index
-// is involved. Reaching `limit` items means the allowance is used.
+// Two limits apply to the user's last hour:
+//
+//   - the allowance: `limit` attempts that count (every attempt except one
+//     that failed for a reason of ours, see storyPlanAttemptIsOurs);
+//   - a cap on every attempt, ours included, of storyPlanAttemptCapFactor
+//     times the allowance, because each one still costs model time.
+//
+// It reads at most `cap` keys of the user's last-hour range, oldest first. The
+// range comes from the time ordering of the plan IDs, so no scan or index is
+// involved, and the read stays bounded.
 func (h *APIHandler) storyPlanLimited(ctx context.Context, userID string, now time.Time) (bool, time.Duration, error) {
 	limit := h.storyPlansPerHour()
 	// Bounded here as well as in storyPlansPerHour, next to the conversion, so
@@ -557,6 +587,7 @@ func (h *APIHandler) storyPlanLimited(ctx context.Context, userID string, now ti
 	} else if limit > storyPlanMaxPerHour {
 		limit = storyPlanMaxPerHour
 	}
+	attemptCap := limit * storyPlanAttemptCapFactor
 	out, err := h.DB.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(h.TableName),
 		KeyConditionExpression: aws.String("PK = :pk AND SK BETWEEN :lo AND :hi"),
@@ -566,25 +597,52 @@ func (h *APIHandler) storyPlanLimited(ctx context.Context, userID string, now ti
 			// '~' sorts after every character a UUID can contain.
 			":hi": &dbtypes.AttributeValueMemberS{Value: storyPlanPrefix + "~"},
 		},
-		ProjectionExpression: aws.String("SK, createdAt"),
-		ScanIndexForward:     aws.Bool(true),
-		Limit:                aws.Int32(int32(limit)),
+		// status is a DynamoDB reserved word.
+		ProjectionExpression:     aws.String("SK, createdAt, #st, errorCode"),
+		ExpressionAttributeNames: map[string]string{"#st": "status"},
+		ScanIndexForward:         aws.Bool(true),
+		Limit:                    aws.Int32(int32(attemptCap)),
 	})
 	if err != nil {
 		return false, 0, err
 	}
-	if len(out.Items) < limit {
+
+	var counted []map[string]dbtypes.AttributeValue
+	for _, it := range out.Items {
+		if !storyPlanAttemptIsOurs(it) {
+			counted = append(counted, it)
+		}
+	}
+	capUsed, allowanceUsed := len(out.Items) >= attemptCap, len(counted) >= limit
+	if !capUsed && !allowanceUsed {
 		return false, 0, nil
 	}
-	retry := time.Minute
-	if v, ok := out.Items[0]["createdAt"].(*dbtypes.AttributeValueMemberS); ok {
-		if t, err := time.Parse(time.RFC3339, v.Value); err == nil {
-			if wait := t.Add(storyPlanWindow).Sub(now); wait > 0 {
-				retry = wait
-			}
+	// A place frees up when the attempt that fills it leaves the window: the
+	// oldest of all for the cap, the oldest counted one for the allowance.
+	// When both are used, the user waits for whichever is later.
+	retry := time.Duration(0)
+	if capUsed {
+		retry = storyPlanWaitFor(out.Items[0], now)
+	}
+	if allowanceUsed {
+		if w := storyPlanWaitFor(counted[0], now); w > retry {
+			retry = w
 		}
 	}
 	return true, retry, nil
+}
+
+// storyPlanWaitFor is how long until a stored attempt leaves the allowance
+// window, or a minute when its time cannot be read.
+func storyPlanWaitFor(item map[string]dbtypes.AttributeValue, now time.Time) time.Duration {
+	if v, ok := item["createdAt"].(*dbtypes.AttributeValueMemberS); ok {
+		if t, err := time.Parse(time.RFC3339, v.Value); err == nil {
+			if wait := t.Add(storyPlanWindow).Sub(now); wait > 0 {
+				return wait
+			}
+		}
+	}
+	return time.Minute
 }
 
 // newStoryPlanID returns a UUIDv7 for time now: the 48 bit millisecond timestamp

@@ -433,7 +433,7 @@ Mark correct answers with a `*` suffix. Multiple `*` markers are supported for m
 - Story: 30 to 5,000 characters. A longer story is summarised, because 90 seconds of speech holds about 225 words
 - Plan: 2 to 10 scenes, 2 to 15 seconds each. The whole video is 10 to 90 seconds, and the planner aims for 30 to 60
 - Voices: Joanna, Matthew, Amy, Brian and Aditi for English; Aditi for Hindi. Narration is never translated
-- Per account: 20 plans an hour, 2 videos being made at once and 10 started in 24 hours (cancelled and failed ones count)
+- Per account: 20 plans an hour, 2 videos being made at once and 10 started in 24 hours (cancelled and failed ones count). A plan that failed because the planner timed out or was unavailable does not count towards the 20, but every attempt counts towards a cap of 40 an hour
 
 **Story video output:**
 - Resolution: 1080×1920 (9:16), 30 fps
