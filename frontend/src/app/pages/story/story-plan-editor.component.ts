@@ -225,6 +225,7 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
                 <app-story-attribution [attributions]="rec.mediaAttributions ?? []" />
 
                 <app-story-video-panel
+                  #videoPanel
                   [planId]="rec.planId"
                   [revision]="rec.revision"
                   [language]="plan.language"
@@ -261,6 +262,11 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
                 <svg lucideIcon="check" [size]="16" aria-hidden="true"></svg>
                 Saved
               </span>
+              @if (canMake()) {
+                <span data-testid="ready"> Your plan is ready.</span>
+              }
+            } @else if (canMake()) {
+              <span data-testid="ready">Your plan is ready.</span>
             } @else {
               <span class="muted">No changes yet</span>
             }
@@ -268,7 +274,21 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
           @if (dirty() && !saving()) {
             <button type="button" (click)="discard()" class="ui-btn ui-btn--secondary">Discard changes</button>
           }
-          <button type="button" (click)="save()" [disabled]="!dirty() || saving()" [attr.aria-busy]="saving()" class="ui-btn ui-btn--primary">
+          @if (canMake()) {
+            <button type="button" (click)="showVideoPanel()" class="ui-btn ui-btn--primary" data-testid="make-video">
+              <svg lucideIcon="film" [size]="16" aria-hidden="true"></svg>
+              Make the video
+            </button>
+          }
+          <button
+            type="button"
+            (click)="save()"
+            [disabled]="!dirty() || saving()"
+            [attr.aria-busy]="saving()"
+            class="ui-btn"
+            [class.ui-btn--primary]="!canMake()"
+            [class.ui-btn--secondary]="canMake()"
+          >
             @if (saving()) {
               <svg lucideIcon="loader-2" [size]="16" aria-hidden="true" class="ui-spin"></svg>
             }
@@ -340,6 +360,15 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
     const rec = this.record();
     return rec ? videoBlocker(rec, this.dirty()) : '';
   });
+
+  private readonly videoPanel = viewChild(StoryVideoPanelComponent);
+  /**
+   * "Make the video" is offered in the rail and the save bar when the plan is
+   * saved and complete (no blocker) and the panel says nothing is in the way:
+   * no video being made or finished, a voice for the language, making not
+   * switched off (#304).
+   */
+  protected readonly canMake = computed(() => !!this.record()?.plan && !this.videoReason() && !!this.videoPanel()?.startable());
 
   private heading = viewChild<{ nativeElement: HTMLElement }>('heading');
   private pickerScene = -1;
@@ -445,6 +474,11 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
     this.pending.update((p) => withRemoval(rec, p, index));
     // The button that was pressed is about to disappear: keep focus in the scene.
     afterNextRender(() => this.document.getElementById(`scene-${index + 1}-choose`)?.focus(), { injector: this.injector });
+  }
+
+  /** From the rail or the save bar: show the video panel, with its choices. Starts nothing. */
+  protected showVideoPanel(): void {
+    this.videoPanel()?.reveal();
   }
 
   /** Moves to a scene's picture button, for a failure that choosing another picture fixes. */

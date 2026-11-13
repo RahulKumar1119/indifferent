@@ -107,6 +107,52 @@ describe('StoryVideoPanelComponent', () => {
 
   // -------------------------------------------------------------------------
 
+  describe('startable and reveal (#304)', () => {
+    const startable = () => fixture.componentInstance.startable();
+
+    it('is true when no video exists and a voice is available, and does not depend on the plan blocker', async () => {
+      await mount({ blocker: 'Scene 3 has no picture. Choose one, then save.' });
+      expect(startable()).toBeTrue();
+    });
+    it('is false while loading', () => {
+      build({ listSource: new Subject<StoryVideoList>() });
+      fixture.detectChanges();
+      expect(startable()).toBeFalse();
+    });
+    it('is false while a video is being made', async () => {
+      await mount({ videos: [rendering()] });
+      expect(startable()).toBeFalse();
+      fixture.destroy();
+    });
+    it('is false once a video is finished, true again when the last attempt failed or was cancelled', async () => {
+      await mount({ videos: [completed()] });
+      expect(startable()).toBeFalse();
+      fixture.destroy();
+      await mount({ videos: [failed()] });
+      expect(startable()).toBeTrue();
+      fixture.destroy();
+      await mount({ videos: [cancelledVideo()] });
+      expect(startable()).toBeTrue();
+    });
+    it('is false when making videos is switched off, and for a language with no voice', async () => {
+      await mount({ limits: { ...VIDEO_LIMITS, enabled: false } });
+      expect(startable()).toBeFalse();
+      fixture.destroy();
+      await mount({ language: 'fr', limits: { ...VIDEO_LIMITS, voices: { en: ['Joanna'], hi: ['Aditi'] } } });
+      expect(startable()).toBeFalse();
+    });
+    it('reveal() scrolls the panel into view and focuses its heading, and makes nothing', async () => {
+      await mount();
+      const section = el.querySelector('section')!;
+      const scrolled = spyOn(section, 'scrollIntoView');
+      fixture.componentInstance.reveal();
+      await render();
+      expect(scrolled).toHaveBeenCalledOnceWith({ block: 'start' });
+      expect(document.activeElement).toBe(el.querySelector('#video-heading'));
+      expect(svc.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('before any video', () => {
     it('shows no licence note when there is no finished video to download', () => {
       expect(q('licence-note')).toBeNull();

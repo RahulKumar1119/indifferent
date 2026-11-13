@@ -10,10 +10,14 @@ import {
   NavbarStub,
   ServiceSpy,
   STORY_ICONS,
+  VIDEO_LIMITS,
   asset,
   autoPickedRecord,
+  completed,
+  failed,
   httpError,
   planRecord,
+  rendering,
   routeFor,
   searchResponse,
   serviceSpy,
@@ -738,6 +742,133 @@ describe('StoryPlanEditorComponent', () => {
       expect(text()).toContain('We picked the picture for scene 1, but the photo library no longer has it. Choose another, then save.');
       expect(label(1)).toBeNull();
       expect(entry(1).getAttribute('data-picture')).toBe('problem');
+    });
+  });
+
+  describe('"Make the video" in the rail and save bar (#304)', () => {
+    /** The fixture plan with a picture in every scene. */
+    function complete(over: Partial<StoryPlanRecord> = {}): StoryPlanRecord {
+      const rec = planRecord(over);
+      rec.plan!.scenes[2].media = { provider: 'pixabay', type: 'photo', id: '303' };
+      rec.media![2] = { provider: 'pixabay', type: 'photo', id: '303', asset: asset({ id: '303' }) };
+      return rec;
+    }
+    const make = () => el.querySelector<HTMLButtonElement>('[data-testid="make-video"]');
+    const withVideos = (...videos: ReturnType<typeof completed>[]) => videoService.listForPlan.and.returnValue(of({ hasMore: false, videos }));
+
+    it('shows once every scene has a picture and nothing is unsaved, with the plan ready, in one place', async () => {
+      await create(complete());
+      expect(make()).not.toBeNull();
+      expect(make()!.textContent).toContain('Make the video');
+      expect(el.querySelectorAll('[data-testid="make-video"]').length).toBe(1);
+      expect(el.querySelector('[data-testid="ready"]')!.textContent).toContain('Your plan is ready.');
+      expect(saveButton().classList).toContain('ui-btn--secondary');
+      expect(saveButton().disabled).toBeTrue();
+    });
+
+    it('shows straight away for a plan the auto-pick filled, with no save', async () => {
+      const rec = autoPickedRecord();
+      rec.plan!.scenes[2].media = { provider: 'pixabay', type: 'photo', id: '303' };
+      rec.plan!.scenes[2].mediaSource = 'auto';
+      rec.media![2] = { provider: 'pixabay', type: 'photo', id: '303', asset: asset({ id: '303' }) };
+      await create(rec);
+      expect(make()).not.toBeNull();
+      expect(service.save).not.toHaveBeenCalled();
+    });
+
+    it('is hidden while a scene has no picture, and the Save button stays the main action', async () => {
+      await create();
+      expect(make()).toBeNull();
+      expect(el.querySelector('[data-testid="ready"]')).toBeNull();
+      expect(status()).toBe('No changes yet');
+      expect(saveButton().classList).toContain('ui-btn--primary');
+    });
+
+    it('is hidden while changes are not saved, and comes back, with the prompt, after saving', async () => {
+      await create(complete());
+      await type(1, 'A new first line for the lighthouse.');
+      expect(make()).toBeNull();
+      service.save.and.returnValue(of(complete({ revision: 2 })));
+      saveButton().click();
+      await settle(fixture);
+      expect(make()).not.toBeNull();
+      expect(status()).toContain('Saved');
+      expect(status()).toContain('Your plan is ready.');
+    });
+
+    it('goes when a picture is removed, and returns on discard', async () => {
+      await create(complete());
+      buttonIn(scene(1), /Remove picture/).click();
+      await settle(fixture);
+      expect(make()).toBeNull();
+      buttonIn(el, /Discard changes/).click();
+      await settle(fixture);
+      expect(make()).not.toBeNull();
+    });
+
+    it('is hidden when a chosen picture is no longer available', async () => {
+      const rec = complete();
+      rec.media![1] = { provider: 'pexels', type: 'video', id: '202', status: 'unavailable' };
+      await create(rec);
+      expect(make()).toBeNull();
+    });
+
+    it('is hidden for a language no voice can read', async () => {
+      const rec = complete();
+      rec.plan!.language = 'fr';
+      await create(rec);
+      expect(make()).toBeNull();
+    });
+
+    it('is hidden when making videos is switched off', async () => {
+      videoService.getLimits.and.returnValue(of({ ...VIDEO_LIMITS, enabled: false }));
+      await create(complete());
+      expect(make()).toBeNull();
+    });
+
+    it('goes as soon as a video is started from the panel, since one is then being made', async () => {
+      await create(complete());
+      videoService.create.and.returnValue(of(rendering()));
+      el.querySelector<HTMLButtonElement>('[data-testid="make"]')!.click();
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="active"]')).not.toBeNull();
+      expect(make()).toBeNull();
+    });
+
+    it('is hidden when the plan already has a finished video', async () => {
+      withVideos(completed());
+      await create(complete());
+      expect(el.querySelector('[data-testid="done"]')).not.toBeNull();
+      expect(make()).toBeNull();
+    });
+
+    it('comes back after a video failed', async () => {
+      withVideos(failed());
+      await create(complete());
+      expect(make()).not.toBeNull();
+    });
+
+    it('can be reached with the keyboard, as a real button', async () => {
+      await create(complete());
+      const b = make()!;
+      expect(b.tagName).toBe('BUTTON');
+      expect(b.disabled).toBeFalse();
+      b.focus();
+      expect(document.activeElement).toBe(b);
+    });
+
+    it('brings the video panel into view and moves focus into it, without starting a video', async () => {
+      await create(complete());
+      const panel = el.querySelector<HTMLElement>('[data-testid="video-panel"]')!;
+      const scrolled = spyOn(panel, 'scrollIntoView');
+      make()!.click();
+      await settle(fixture);
+      expect(scrolled).toHaveBeenCalled();
+      expect(document.activeElement).toBe(el.querySelector('#video-heading'));
+      expect(videoService.create).not.toHaveBeenCalled();
+      // The choices are still the person's to make: the form and its own button are there.
+      expect(el.querySelector('[data-testid="make-form"]')).not.toBeNull();
+      expect(el.querySelector<HTMLButtonElement>('[data-testid="make"]')!.disabled).toBeFalse();
     });
   });
 
