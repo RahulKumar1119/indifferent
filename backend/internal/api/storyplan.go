@@ -139,6 +139,9 @@ type storyPlanRecord struct {
 	Plan       *storyplan.Plan
 	CreatedAt  string
 	UpdatedAt  string
+	// AutoPick is what auto-pick did when the plan was made (#302), nil when
+	// it did not run. Kept through edits, for the funnel (#305).
+	AutoPick *autoPickSummary
 }
 
 // storyPlanMaxPerHour bounds the configured allowance. The allowance check reads
@@ -228,6 +231,9 @@ func (h *APIHandler) handleGetStoryPlanLimits() events.APIGatewayProxyResponse {
 // still counts, and the check fails closed: if the database cannot be read, no
 // model call is made.
 func (h *APIHandler) handleCreateStoryPlan(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	// Wall-clock start, for auto-pick's deadline (#302). Not storyPlanNow,
+	// which tests stop.
+	started := time.Now()
 	if h.StoryPlanner == nil {
 		return errorResponse(http.StatusServiceUnavailable, "UNAVAILABLE", "Story planning is not available yet"), nil
 	}
@@ -304,12 +310,19 @@ func (h *APIHandler) handleCreateStoryPlan(ctx context.Context, req events.APIGa
 	if res.Model != "" {
 		rec.Model = res.Model
 	}
+	// A picture for each scene (#302). Never fails the plan: a scene that gets
+	// none stays empty, as it was before.
+	rec.AutoPick = h.autoPick(ctx, rec.Plan, started)
 	if err := h.putStoryPlan(ctx, rec); err != nil {
 		log.Printf("story_plan_save_failed user=%s plan=%s err=%v", claims.UserID, rec.PlanID, err)
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "The plan was made but could not be saved. Please try again."), nil
 	}
 	h.Metrics.PlanReady()
-	return jsonResponse(http.StatusCreated, rec.response()), nil
+	resp := rec.response()
+	if rec.AutoPick != nil && rec.AutoPick.Picked > 0 {
+		h.attachAutoPicked(ctx, &resp, started)
+	}
+	return jsonResponse(http.StatusCreated, resp), nil
 }
 
 // storyPlanErrorCode is the stable code stored with a failed attempt.
@@ -724,6 +737,13 @@ func storyPlanToItem(r storyPlanRecord) (map[string]dbtypes.AttributeValue, erro
 		}
 		item["plan"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
 	}
+	if r.AutoPick != nil {
+		b, err := json.Marshal(r.AutoPick)
+		if err != nil {
+			return nil, fmt.Errorf("encoding autopick: %w", err)
+		}
+		item["autoPick"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+	}
 	return item, nil
 }
 
@@ -772,6 +792,12 @@ func itemToStoryPlan(item map[string]dbtypes.AttributeValue) storyPlanRecord {
 			rec.Plan = &p
 		}
 	}
+	if raw := str("autoPick"); raw != "" {
+		var s autoPickSummary
+		if err := json.Unmarshal([]byte(raw), &s); err == nil {
+			rec.AutoPick = &s
+		}
+	}
 	return rec
 }
 
@@ -785,11 +811,18 @@ func planEdits(before, after storyplan.Plan) storymetrics.Edits {
 			break
 		}
 		was, now := before.Scenes[i].Media, after.Scenes[i].Media
+		auto := was != nil && before.Scenes[i].MediaSource == storyplan.MediaSourceAuto
 		switch {
 		case was == nil && now != nil:
 			c.Chosen++
+		case was != nil && now == nil && auto:
+			c.AutoRemoved++
 		case was != nil && now == nil:
 			c.Removed++
+		case was != nil && now != nil && *was != *now && auto:
+			// Swapping a suggested picture is the user choosing one (#302).
+			c.AutoReplaced++
+			c.Chosen++
 		case was != nil && now != nil && *was != *now:
 			c.Replaced++
 		}

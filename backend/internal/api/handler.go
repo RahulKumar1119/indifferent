@@ -120,6 +120,10 @@ type APIHandler struct {
 	// StockLimiter caps searches per user; nil takes the default (120 an hour).
 	StockLimiter     *PreviewLimiter
 	stockLimiterOnce sync.Once
+	// AutoPick gives each scene of a new plan a Pixabay picture (#302). Off
+	// unless STORY_AUTOPICK_ENABLED is set: it waits on confirming Pixabay's
+	// terms allow searches the user did not type.
+	AutoPick bool
 	// Metrics records the Story2Shorts success metrics (issue #194) as CloudWatch
 	// embedded-metric lines. Nil records nothing, and recording never fails a
 	// request.

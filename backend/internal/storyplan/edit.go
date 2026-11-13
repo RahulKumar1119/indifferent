@@ -100,11 +100,17 @@ func ApplyEdits(plan Plan, edits []SceneEdit, story Script) (Plan, error) {
 			return Plan{}, invalidEdit("scene %d: choose a media item or clear it, not both", n)
 		case e.ClearMedia:
 			sc.Media = nil
+			sc.MediaSource = ""
 		case e.Media != nil:
 			if !e.Media.Valid() {
 				return Plan{}, invalidEdit("scene %d: that media choice is not valid", n)
 			}
 			m := *e.Media
+			// Sending the auto-picked picture back unchanged keeps it marked as
+			// auto-picked; any other picture is the user's choice (#302).
+			if sc.Media == nil || *sc.Media != m {
+				sc.MediaSource = ""
+			}
 			sc.Media = &m
 		}
 		out.Scenes[i] = sc

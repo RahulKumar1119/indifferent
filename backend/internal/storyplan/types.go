@@ -26,7 +26,14 @@ type Scene struct {
 	// its URLs and Pexels video links are signed, so the API looks the asset up
 	// again each time a plan is opened.
 	Media *MediaRef `json:"media,omitempty"`
+	// MediaSource says who chose Media: MediaSourceAuto when the plan picked
+	// it at creation (#302), empty when the user did or there is no picture.
+	// Plans made before #302 have none, so they read as chosen by the user.
+	MediaSource string `json:"mediaSource,omitempty"`
 }
+
+// MediaSourceAuto marks a picture chosen automatically when the plan was made.
+const MediaSourceAuto = "auto"
 
 // MediaRef names a stock asset without any URL.
 type MediaRef struct {

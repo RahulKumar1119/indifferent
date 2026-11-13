@@ -104,6 +104,34 @@ func TestApplyEdits_NarrationIsCleanedAndReEstimated(t *testing.T) {
 	}
 }
 
+// #302: the auto-pick mark stays on a picture kept as it was, and goes when the
+// picture is swapped or removed. Editing only the narration keeps it.
+func TestApplyEdits_AutoPickMark(t *testing.T) {
+	p := basePlan(t, 4)
+	for i := range p.Scenes {
+		p.Scenes[i].Media = &MediaRef{"pixabay", "photo", fmt.Sprint(100 + i)}
+		p.Scenes[i].MediaSource = MediaSourceAuto
+	}
+	edits := noEdits(4)
+	same := *p.Scenes[0].Media
+	edits[0].Media = &same
+	edits[1].Media = &MediaRef{"pixabay", "photo", "999"}
+	edits[2].ClearMedia = true
+	edits[3].Narration = ptr("A different line for the fourth scene, said out loud here")
+	out, err := ApplyEdits(p, edits, ScriptLatin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []string{MediaSourceAuto, "", "", MediaSourceAuto} {
+		if got := out.Scenes[i].MediaSource; got != want {
+			t.Errorf("scene %d mark = %q, want %q", i+1, got, want)
+		}
+	}
+	if p.Scenes[1].MediaSource != MediaSourceAuto {
+		t.Error("ApplyEdits modified its input")
+	}
+}
+
 func TestApplyEdits_PickingAndClearingMedia(t *testing.T) {
 	p := basePlan(t, 3)
 	pick := &MediaRef{"pixabay", "video", "125"}
