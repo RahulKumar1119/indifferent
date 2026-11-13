@@ -94,6 +94,8 @@ var autoPickReasons = map[string]bool{
 	"quota":      true,
 	"error":      true,
 	"budget":     true,
+	// The scene's search words looked like personal data, so it was not searched.
+	"skipped_sensitive": true,
 }
 
 // AutoPickReasons returns the codes an AutoPickScenesEmpty metric can carry,

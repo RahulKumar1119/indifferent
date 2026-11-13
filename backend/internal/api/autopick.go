@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/rahul/indifferent/backend/internal/stockmedia"
 	"github.com/rahul/indifferent/backend/internal/storyplan"
@@ -46,7 +48,46 @@ const (
 	autoPickQuota     = "quota"
 	autoPickError     = "error"
 	autoPickBudgetOut = "budget"
+	autoPickSensitive = "skipped_sensitive"
 )
+
+// Patterns for search words that may be personal data. Deliberately broad on
+// what they catch and narrow on what they read: a skipped scene only means the
+// person picks that picture themselves, while a search sends the words to a
+// third party.
+var (
+	// An email address or a handle: an "@" with something after it.
+	sensitiveAt = regexp.MustCompile(`@\S`)
+	// A link: a scheme, "www.", or a name followed by a dot and a domain ending.
+	sensitiveURL = regexp.MustCompile(`(?i)(\b[a-z][a-z0-9+.-]*://|\bwww\.|\b[a-z0-9-]+\.(com|net|org|in|io|co|me|info|biz|app|dev|ly|gl|xyz|edu|gov)\b)`)
+	// A phone number: seven or more digits, which may be split by spaces,
+	// dots, dashes or brackets, with an optional leading "+".
+	sensitivePhone = regexp.MustCompile(`\+?\(?\d(?:[\s().-]*\d){6,}`)
+)
+
+// looksSensitive reports whether q may hold contact details or an account,
+// phone or id number. Any digit counts, Devanagari ones included, so "९८७६५४३२१०"
+// is caught like "9876543210". A year or a small count ("1920s", "2 dogs") is
+// not.
+func looksSensitive(q string) bool {
+	var ascii strings.Builder
+	run := 0
+	for _, r := range q {
+		if unicode.IsDigit(r) {
+			run++
+			if run >= 6 {
+				return true // an id, account or card number
+			}
+			// The patterns below read ASCII digits; which digit does not matter.
+			ascii.WriteByte('0')
+			continue
+		}
+		run = 0
+		ascii.WriteRune(r)
+	}
+	s := ascii.String()
+	return sensitiveAt.MatchString(s) || sensitiveURL.MatchString(s) || sensitivePhone.MatchString(s)
+}
 
 // autoPickSummary is stored on the plan record for the funnel (#305). Counts
 // only: no search words.
@@ -92,13 +133,21 @@ func (h *APIHandler) autoPick(ctx context.Context, plan *storyplan.Plan, start t
 	}
 	results := make([]found, len(plan.Scenes))
 	sem := make(chan struct{}, autoPickConcurrency)
+	// A scene whose search words look like personal data (an email, a link, a
+	// phone or account number) is not searched at all: nothing about it is
+	// sent to the provider unless the person opens the picker themselves.
+	for i := range plan.Scenes {
+		if plan.Scenes[i].Media == nil && looksSensitive(autoPickParams(plan.Scenes[i]).Query) {
+			results[i].reason = autoPickSensitive
+		}
+	}
 	var wg sync.WaitGroup
 	// Searches start in scene order, so when time runs out it is the last
 	// scenes that go without, not a random few.
 scenes:
 	for i := range plan.Scenes {
 		sc := plan.Scenes[i]
-		if sc.Media != nil {
+		if sc.Media != nil || results[i].reason != "" {
 			continue
 		}
 		select {

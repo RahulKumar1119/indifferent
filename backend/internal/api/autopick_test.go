@@ -612,3 +612,105 @@ func (e *spEnv) storedPlan(t *testing.T, user, planID string) storyPlanRecord {
 	}
 	return itemToStoryPlan(item)
 }
+
+func TestLooksSensitive(t *testing.T) {
+	for _, q := range []string{
+		"contact ravi@example.com",
+		"follow @ravi_k on instagram",
+		"visit https://shop.example",
+		"www.myshop",
+		"myshop.com sale",
+		"mybakery.in cakes",
+		"call 98765 43210",
+		"+91 98765-43210",
+		"(022) 2345 6789",
+		"phone 555.123.4567",
+		"order 1234567",
+		"account 123456",
+		"card 4111 1111 1111 1111",
+		"aadhaar 1234 5678 9012",
+		"नंबर ९८७६५४३२१०",
+	} {
+		if !looksSensitive(q) {
+			t.Errorf("%q was not flagged", q)
+		}
+	}
+	for _, q := range []string{
+		"fishing boat sunrise",
+		"1920s street",
+		"2 dogs running",
+		"city at night",
+		"year 2024 festival",
+		"top 10 beaches",
+		"4k ocean waves",
+		"3 friends 2 cats",
+		"मछुआरा नाव",
+		"केरल बैकवाटर",
+		"mr. sharma at home",
+		"st. mary church",
+		"",
+	} {
+		if looksSensitive(q) {
+			t.Errorf("%q was flagged", q)
+		}
+	}
+}
+
+// The comment on PR #307: a scene whose words look like personal data is not
+// sent to Pixabay; the others still are, and the log says only why.
+func TestAutoPick_ASensitiveSceneIsNotSearched(t *testing.T) {
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	defer log.SetOutput(os.Stderr)
+	fs := pixabayOnly(byQuery(1))
+	h, metrics := autoHandler(fs)
+	plan := &storyplan.Plan{Scenes: []storyplan.Scene{
+		{Keywords: []string{"harbour"}, MediaType: "photo", Duration: 5},
+		{Keywords: []string{"call ravi", "98765 43210"}, MediaType: "photo", Duration: 5},
+		{Keywords: []string{"ravi@example.com"}, MediaType: "photo", Duration: 5},
+		{Keywords: []string{"lantern"}, MediaType: "photo", Duration: 5},
+	}}
+	s := h.autoPick(context.Background(), plan, time.Now())
+	if s.Picked != 2 || s.Empty != 2 || s.Reasons["skipped_sensitive"] != 2 {
+		t.Errorf("summary = %+v", s)
+	}
+	for _, p := range fs.searches {
+		if strings.Contains(p.Query, "ravi") || strings.Contains(p.Query, "98765") {
+			t.Errorf("searched for %q", p.Query)
+		}
+	}
+	if fs.count() != 2 {
+		t.Errorf("searches = %d, want 2", fs.count())
+	}
+	for _, i := range []int{1, 2} {
+		if sc := plan.Scenes[i]; sc.Media != nil || sc.MediaSource != "" {
+			t.Errorf("scene %d = %+v", i+1, sc)
+		}
+	}
+	out := logs.String()
+	if !strings.Contains(out, "skipped_sensitive:2") {
+		t.Errorf("log = %q", out)
+	}
+	for _, word := range []string{"ravi", "98765", "example.com", "harbour", "lantern"} {
+		if strings.Contains(out, word) {
+			t.Errorf("the log has %q: %q", word, out)
+		}
+	}
+	if !strings.Contains(metrics.String(), `"Code":"skipped_sensitive"`) {
+		t.Errorf("metrics = %s", metrics.String())
+	}
+}
+
+// A sensitive scene keeps its own reason even when time runs out first.
+func TestAutoPick_ASensitiveSceneIsReportedAsSuchPastTheDeadline(t *testing.T) {
+	fs := pixabayOnly(byQuery(1))
+	h, _ := autoHandler(fs)
+	plan := &storyplan.Plan{Scenes: []storyplan.Scene{
+		{Keywords: []string{"harbour"}, MediaType: "photo", Duration: 5},
+		{Keywords: []string{"www.example"}, MediaType: "photo", Duration: 5},
+	}}
+	s := h.autoPick(context.Background(), plan, time.Now().Add(-autoPickDeadline+50*time.Millisecond))
+	if s.Reasons["skipped_sensitive"] != 1 {
+		t.Errorf("summary = %+v", s)
+	}
+}

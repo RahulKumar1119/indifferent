@@ -70,6 +70,8 @@ describe('PrivacyComponent', () => {
     it('says what Pexels and Pixabay receive, and what the browser loads from them directly', () => {
       const t = text();
       expect(t).toContain('our server sends the search words (the scene’s keywords, or what you type) to Pexels and Pixabay, without your name, email or account');
+      expect(t).toContain('When you make a plan, our server may also search Pixabay with each scene’s keywords to suggest a picture, the same search the picker makes when you open it');
+      expect(t).toContain('A scene whose keywords look like contact details, a link or a long number is not searched');
       expect(t).toContain('Your browser then loads the preview pictures and clips directly from those services and the networks they use');
       expect(t).toContain('they can see your IP address and browser details');
       expect(t).toContain('Pexels and Pixabay: the photo and clip libraries behind Story videos');
