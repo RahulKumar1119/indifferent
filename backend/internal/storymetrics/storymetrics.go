@@ -58,6 +58,10 @@ const (
 	PicturesReplaced   = "PicturesReplaced"
 	PicturesRemoved    = "PicturesRemoved"
 	NarrationsEdited   = "NarrationsEdited"
+	// VideoStartsRefused counts "Make the video" requests that made no job
+	// (#301), by Code: what the user had to fix, or a failure of ours before
+	// the job was written. A start that made a job is VideosStarted instead.
+	VideoStartsRefused = "VideoStartsRefused"
 )
 
 // CodeDimension is the one dimension, on VideosFailed.
@@ -68,6 +72,7 @@ func Names() []string {
 	return []string{
 		PlansReady, PlansFailed, VideosStarted, VideosCompleted, VideosFailed, VideosCancelled, VideoSeconds,
 		StockSearches, StockSearchesEmpty, PicturesChosen, PicturesReplaced, PicturesRemoved, NarrationsEdited,
+		VideoStartsRefused,
 	}
 }
 
@@ -104,6 +109,43 @@ func FailureCodes() []string {
 // SafeCode maps a failure code to one of the known values.
 func SafeCode(code string) string {
 	if failureCodes[code] {
+		return code
+	}
+	return OtherCode
+}
+
+// startRefusalCodes are the API error codes a refused video start can carry
+// (handleCreateStoryVideo in backend/internal/api). As with failureCodes, any
+// other value is recorded as OtherCode, so the number of metrics stays bounded.
+var startRefusalCodes = map[string]bool{
+	"MISSING_PICTURES":     true,
+	"UNSUPPORTED_LANGUAGE": true,
+	"STALE_REVISION":       true,
+	"NOT_READY":            true,
+	"NOT_FOUND":            true,
+	"ALREADY_RUNNING":      true,
+	"TOO_MANY_ACTIVE":      true,
+	"RATE_LIMITED":         true,
+	"VALIDATION_ERROR":     true,
+	"INVALID_BODY":         true,
+	"UNAVAILABLE":          true,
+	"DB_ERROR":             true,
+	"INTERNAL_ERROR":       true,
+}
+
+// StartRefusalCodes returns the codes a VideoStartsRefused metric can carry,
+// OtherCode included.
+func StartRefusalCodes() []string {
+	out := make([]string, 0, len(startRefusalCodes)+1)
+	for c := range startRefusalCodes {
+		out = append(out, c)
+	}
+	return append(out, OtherCode)
+}
+
+// SafeStartCode maps a start refusal code to one of the known values.
+func SafeStartCode(code string) string {
+	if startRefusalCodes[code] {
 		return code
 	}
 	return OtherCode
@@ -224,6 +266,12 @@ func (e *Emitter) VideoCompleted(secs float64, known bool) {
 // with no dimension, for the total, and with the code, for the breakdown.
 func (e *Emitter) VideoFailed(code string) {
 	e.emit([][]string{{}, {CodeDimension}}, map[string]string{CodeDimension: SafeCode(code)}, metric{VideosFailed, 1, count})
+}
+
+// VideoStartRefused records a "Make the video" request that made no job, with
+// its code. Like a failure, it is published as a total and by code.
+func (e *Emitter) VideoStartRefused(code string) {
+	e.emit([][]string{{}, {CodeDimension}}, map[string]string{CodeDimension: SafeStartCode(code)}, metric{VideoStartsRefused, 1, count})
 }
 
 // StockSearch records a search of the stock libraries that every provider

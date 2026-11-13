@@ -133,6 +133,7 @@ func TestEveryMetricNameIsEmittedBySomeEventAndNoOtherIs(t *testing.T) {
 	e.VideoCancelled()
 	e.VideoCompleted(1, true)
 	e.VideoFailed("INTERNAL")
+	e.VideoStartRefused("MISSING_PICTURES")
 	e.StockSearch(false)
 	e.PlanEdited(Edits{Chosen: 1, Replaced: 1, Removed: 1, Narration: 1})
 	seen := map[string]bool{}
@@ -318,5 +319,24 @@ func TestTheTimestampIsInMillisecondsOfTheClock(t *testing.T) {
 	}
 	if got := int64(root["_aws"].(map[string]any)["Timestamp"].(float64)); got != fixedNow.UnixMilli() {
 		t.Errorf("Timestamp = %d, want %d", got, fixedNow.UnixMilli())
+	}
+}
+
+// Issue #301: a refused start is published as a total and by code, and only
+// known codes become metrics.
+func TestARefusedStartIsPublishedByKnownCodeOnly(t *testing.T) {
+	for in, want := range map[string]string{"MISSING_PICTURES": "MISSING_PICTURES", "TOO_MANY_ACTIVE": "TOO_MANY_ACTIVE", "made up": OtherCode, "": OtherCode, "PIPELINE_ERROR": OtherCode} {
+		e, buf := newTestEmitter()
+		e.VideoStartRefused(in)
+		ev := only(t, buf)
+		if ev.values[VideoStartsRefused] != 1 {
+			t.Errorf("%q: values %v", in, ev.values)
+		}
+		if !strings.Contains(ev.raw, `"Code":"`+want+`"`) {
+			t.Errorf("%q: line %s, want Code %s", in, ev.raw, want)
+		}
+	}
+	if len(StartRefusalCodes()) != len(startRefusalCodes)+1 {
+		t.Error("StartRefusalCodes must list every code plus OTHER")
 	}
 }

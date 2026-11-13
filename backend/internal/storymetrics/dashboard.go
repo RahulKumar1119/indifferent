@@ -111,6 +111,14 @@ func Dashboard(region string) ([]byte, error) {
 				{map[string]any{"expression": fmt.Sprintf(`SEARCH('{%s,%s} MetricName="%s"', 'Sum', 86400)`, Namespace, CodeDimension, VideosFailed), "id": "bycode", "label": ""}},
 			},
 		}},
+		// Requests to make a video that made no job, by reason (#301).
+		{"type": "metric", "x": 0, "y": 26, "width": 12, "height": 6, "properties": map[string]any{
+			"title": "Video starts refused, by reason", "view": "timeSeries", "stacked": true, "region": "", "period": 86400, "stat": "Sum",
+			"metrics": [][]any{
+				ns(VideoStartsRefused, map[string]any{"label": "Refused (all)", "visible": false}),
+				{map[string]any{"expression": fmt.Sprintf(`SEARCH('{%s,%s} MetricName="%s"', 'Sum', 86400)`, Namespace, CodeDimension, VideoStartsRefused), "id": "refusedbycode", "label": ""}},
+			},
+		}},
 		{"type": "metric", "x": 12, "y": 20, "width": 12, "height": 6, "properties": map[string]any{
 			"title": "Stories and edits (counts)", "view": "timeSeries", "stacked": false, "region": "", "period": 86400, "stat": "Sum",
 			"metrics": [][]any{

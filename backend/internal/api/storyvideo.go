@@ -398,14 +398,72 @@ func (h *APIHandler) getStoryPlanRecord(ctx context.Context, userID, planID stri
 	return &rec, nil
 }
 
-// handleCreateStoryVideo makes a job from a plan and starts the pipeline.
+// handleCreateStoryVideo answers POST /story-videos and records the attempt
+// (#301): one story_video_start log line for every request, and a
+// VideoStartsRefused metric for one that made no job. The line carries the
+// internal user and plan ids, the outcome and the API code, never the story,
+// the narration or anything about the person.
+func (h *APIHandler) handleCreateStoryVideo(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	resp, err := h.createStoryVideo(ctx, req, claims)
+	outcome, code := storyVideoStartOutcome(resp, err)
+	log.Printf("story_video_start user=%s plan=%s outcome=%s code=%s", claims.UserID, storyVideoStartPlanID(req.Body), outcome, code)
+	if outcome != "started" && code != "PIPELINE_ERROR" {
+		// A pipeline that would not start has a job, which VideosStarted and
+		// VideoFailed(START_FAILED) already count.
+		h.Metrics.VideoStartRefused(code)
+	}
+	return resp, err
+}
+
+// storyVideoStartOutcome reads what a start request ended as: started (202),
+// refused (4xx: something for the user to change, or a limit) or error (5xx,
+// or an error returned to the router), with the API error code ("-" for a
+// start).
+func storyVideoStartOutcome(resp events.APIGatewayProxyResponse, err error) (string, string) {
+	if err != nil {
+		return "error", "INTERNAL_ERROR"
+	}
+	if resp.StatusCode == http.StatusAccepted {
+		return "started", "-"
+	}
+	var body struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal([]byte(resp.Body), &body)
+	code := body.Code
+	if code == "" || len(code) > 40 || strings.ContainsAny(code, " =\n\t\r") {
+		code = "OTHER"
+	}
+	if resp.StatusCode >= 500 {
+		return "error", code
+	}
+	return "refused", code
+}
+
+// storyVideoStartPlanID is the plan id of a start request when it is a valid
+// one, and "-" otherwise, so nothing the client sent reaches the log as typed.
+func storyVideoStartPlanID(raw string) string {
+	var body struct {
+		PlanID string `json:"planId"`
+	}
+	if len(raw) > storyVideoMaxBodyBytes || json.Unmarshal([]byte(raw), &body) != nil {
+		return "-"
+	}
+	id := strings.ToLower(strings.TrimSpace(body.PlanID))
+	if !validStoryPlanID(id) {
+		return "-"
+	}
+	return id
+}
+
+// createStoryVideo makes a job from a plan and starts the pipeline.
 //
 // The order matters. Everything the user can fix (the plan, its revision, the
 // pictures, the voice) is checked first, since it costs nothing and consumes no
 // allowance. The limits come next, then the job is written, and only then is
 // the pipeline started. If starting fails, the job is marked failed rather than
 // left queued for ever.
-func (h *APIHandler) handleCreateStoryVideo(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+func (h *APIHandler) createStoryVideo(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
 	if !h.storyVideoEnabled() {
 		return errorResponse(http.StatusServiceUnavailable, "UNAVAILABLE", "Making videos is not available yet"), nil
 	}

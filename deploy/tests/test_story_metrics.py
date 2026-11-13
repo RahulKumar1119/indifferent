@@ -53,7 +53,7 @@ class Metrics(Base):
         self.assertEqual(r.rc, 0, r.text)
         self.assertNothingChanged(r)
         self.assertIn("MODE: dry run", r.text)
-        self.assertIn("Rendered %s: 9 widgets, ap-south-1." % NAME, r.text)
+        self.assertIn("Rendered %s: 10 widgets, ap-south-1." % NAME, r.text)
         self.assertIn("does not exist; it will be created", r.text)
         self.assertIn("[dry-run] would: write the dashboard %s" % NAME, r.text)
         self.assertIsNone(self.board())
@@ -156,7 +156,8 @@ class Metrics(Base):
         self.assertGreaterEqual(len(names), 12)
         self.assertLessEqual(names, {
             "PlansReady", "PlansFailed", "VideosStarted", "VideosCompleted", "VideosFailed", "VideosCancelled", "VideoSeconds",
-            "StockSearches", "StockSearchesEmpty", "PicturesChosen", "PicturesReplaced", "PicturesRemoved", "NarrationsEdited"})
+            "StockSearches", "StockSearchesEmpty", "PicturesChosen", "PicturesReplaced", "PicturesRemoved", "NarrationsEdited",
+            "VideoStartsRefused"})
 
     # --- the story-plans-failing alarm
 
