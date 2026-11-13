@@ -54,6 +54,9 @@ type Service struct {
 
 	mu       sync.Mutex
 	cooldown map[ProviderName]time.Time
+	// quota is the last rate limit each provider reported, for callers that
+	// must leave room for others (WithQuotaReserve).
+	quota map[ProviderName]Quota
 }
 
 // Option customizes a Service.
@@ -97,6 +100,7 @@ func NewService(providers []Provider, opts ...Option) (*Service, error) {
 		now:         time.Now,
 		retry:       DefaultRetryPolicy(),
 		cooldown:    make(map[ProviderName]time.Time),
+		quota:       make(map[ProviderName]Quota),
 	}
 	for _, p := range providers {
 		if p == nil {
@@ -341,6 +345,47 @@ func (s *Service) SearchAll(ctx context.Context, p SearchParams) (MultiResult, e
 	return m, nil
 }
 
+// ErrQuotaReserved is returned instead of calling a provider whose last
+// reported remaining quota is below the reserve the caller asked to leave
+// (WithQuotaReserve). Nothing was sent.
+var ErrQuotaReserved = errors.New("stock media quota is reserved for user searches")
+
+type reserveKey struct{}
+
+// WithQuotaReserve marks the calls made with ctx as ones that yield to people
+// searching: a provider is not called while its last reported remaining quota,
+// in the current window, is under n, and failed calls are not retried. Cached
+// results are still returned. Automatic work (#302) uses it; the picker does
+// not.
+func WithQuotaReserve(ctx context.Context, n int) context.Context {
+	return context.WithValue(ctx, reserveKey{}, n)
+}
+
+func quotaReserve(ctx context.Context) int {
+	n, _ := ctx.Value(reserveKey{}).(int)
+	return n
+}
+
+// checkReserve returns ErrQuotaReserved when the provider last reported fewer
+// than reserve requests left and its window has not reset since. Without a
+// report (a fresh container, or a provider that sends none) the call goes
+// ahead; the cooldown still stops calls after a refusal.
+func (s *Service) checkReserve(name ProviderName, reserve int) error {
+	if reserve <= 0 {
+		return nil
+	}
+	s.mu.Lock()
+	q, ok := s.quota[name]
+	s.mu.Unlock()
+	if !ok || q.Remaining >= reserve {
+		return nil
+	}
+	if !q.ResetAt.IsZero() && !s.now().Before(q.ResetAt) {
+		return nil // a new window has started
+	}
+	return fmt.Errorf("%w (%s has %d left)", ErrQuotaReserved, name, q.Remaining)
+}
+
 // checkCooldown returns an error when the provider must not be called yet.
 func (s *Service) checkCooldown(name ProviderName) error {
 	s.mu.Lock()
@@ -369,10 +414,20 @@ func (s *Service) callProvider(ctx context.Context, name ProviderName, op string
 	policy.now, policy.sleep = s.now, s.sleep
 	started := s.now()
 	attempts := 0
+	reserve := quotaReserve(ctx)
+	if reserve > 0 {
+		// A caller that yields to others does not retry either: a retry is one
+		// more call against the same shared limit.
+		policy = RetryPolicy{}
+	}
 	err := policy.Do(ctx, func(actx context.Context, attempt int) error {
 		attempts = attempt
 		if err := s.checkCooldown(name); err != nil {
 			s.logf("stockmedia_%s_skipped provider=%s reason=cooldown attempt=%d", op, name, attempt)
+			return err
+		}
+		if err := s.checkReserve(name, reserve); err != nil {
+			s.logf("stockmedia_%s_skipped provider=%s reason=reserve reserve=%d", op, name, reserve)
 			return err
 		}
 		err := call(actx)
@@ -445,6 +500,9 @@ func (s *Service) noteError(name ProviderName, op string, attempt int, err error
 // noteQuota starts a cooldown when a provider reports its quota is used up,
 // so the next call is not wasted on a certain 429.
 func (s *Service) noteQuota(name ProviderName, q *Quota) {
+	s.mu.Lock()
+	s.quota[name] = *q
+	s.mu.Unlock()
 	if q.Remaining > 0 {
 		return
 	}

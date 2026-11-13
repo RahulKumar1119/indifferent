@@ -153,6 +153,13 @@ func main() {
 	} else if !errors.Is(err, stockmedia.ErrNotConfigured) {
 		log.Fatalf("stock media: %v", err)
 	}
+	// Auto-pick (#302): a Pixabay picture for each scene of a new plan. Off
+	// unless STORY_AUTOPICK_ENABLED is true or 1. Turn it on only once Pixabay
+	// has confirmed its API terms allow searches made from a plan.
+	autoPick := appconfig.Enabled(os.Getenv("STORY_AUTOPICK_ENABLED"))
+	if autoPick && stockMedia != nil {
+		log.Printf("story autopick on provider=pixabay")
+	}
 
 	// Email confirmation for password sign-ups (SEC-08). Off unless
 	// EMAIL_VERIFICATION_ENABLED is true or 1: nothing is mailed, new accounts are
@@ -206,6 +213,7 @@ func main() {
 		PreviewRenderer: slidegen.NewNativeRenderer(),
 		StoryPlanner:    storyPlanner,
 		StockMedia:      stockMedia,
+		AutoPick:        autoPick,
 	}
 
 	// Start Lambda

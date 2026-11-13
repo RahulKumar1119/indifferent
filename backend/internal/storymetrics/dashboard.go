@@ -16,9 +16,11 @@ Rates are per day, so a quiet day is noisy. Counts are recorded when something h
 
 1. **Story to video**: finished videos ÷ stories submitted (plans made + plans that failed). A story that was planned and never turned into a video lowers it.
 2. **Generation time**: from "Make the video" to the finished file, including waiting for a task to start.
-3. **Stock coverage**: searches that found something ÷ searches. The product does not pick a picture for a scene: the picker searches the scene's keywords and the user chooses. So this counts searches, including ones the user typed, not scenes.
+3. **Stock coverage**: searches that found something ÷ searches. Without auto-pick the product does not pick a picture for a scene: the picker searches the scene's keywords and the user chooses. So this counts searches, including ones the user typed, not scenes.
 4. **Render failure rate**: failed ÷ (finished + failed). A video the user cancels is not a failure.
-5. **Replacement rate**: pictures swapped or removed ÷ pictures chosen. Nothing is suggested, so this is how often a chosen picture changes later.`
+5. **Replacement rate**: pictures the user chose that were later swapped or removed ÷ pictures chosen. Nothing is suggested in these counts, so this is how often a chosen picture changes later.
+
+**Auto-pick** (#302, off unless STORY_AUTOPICK_ENABLED is set): scenes given a picture when the plan was made, scenes left empty by reason, and how many of those pictures people later swapped or removed.`
 
 type widget map[string]any
 
@@ -117,6 +119,17 @@ func Dashboard(region string) ([]byte, error) {
 			"metrics": [][]any{
 				ns(VideoStartsRefused, map[string]any{"label": "Refused (all)", "visible": false}),
 				{map[string]any{"expression": fmt.Sprintf(`SEARCH('{%s,%s} MetricName="%s"', 'Sum', 86400)`, Namespace, CodeDimension, VideoStartsRefused), "id": "refusedbycode", "label": ""}},
+			},
+		}},
+		// Auto-pick (#302): what it chose, what it could not, and what people changed.
+		{"type": "metric", "x": 12, "y": 26, "width": 12, "height": 6, "properties": map[string]any{
+			"title": "Auto-pick (counts; empty scenes by reason)", "view": "timeSeries", "stacked": false, "region": "", "period": 86400, "stat": "Sum",
+			"metrics": [][]any{
+				ns(PicturesAutoPicked, map[string]any{"label": "Picked"}),
+				ns(AutoPicksReplaced, map[string]any{"label": "Later swapped"}),
+				ns(AutoPicksRemoved, map[string]any{"label": "Later removed"}),
+				ns(AutoPickScenesEmpty, map[string]any{"label": "Left empty (all)", "visible": false}),
+				{map[string]any{"expression": fmt.Sprintf(`SEARCH('{%s,%s} MetricName="%s"', 'Sum', 86400)`, Namespace, CodeDimension, AutoPickScenesEmpty), "id": "emptybycode", "label": ""}},
 			},
 		}},
 		{"type": "metric", "x": 12, "y": 20, "width": 12, "height": 6, "properties": map[string]any{

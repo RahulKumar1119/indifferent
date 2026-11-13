@@ -135,7 +135,8 @@ func TestEveryMetricNameIsEmittedBySomeEventAndNoOtherIs(t *testing.T) {
 	e.VideoFailed("INTERNAL")
 	e.VideoStartRefused("MISSING_PICTURES")
 	e.StockSearch(false)
-	e.PlanEdited(Edits{Chosen: 1, Replaced: 1, Removed: 1, Narration: 1})
+	e.PlanEdited(Edits{Chosen: 1, Replaced: 1, Removed: 1, Narration: 1, AutoReplaced: 1, AutoRemoved: 1})
+	e.AutoPicked(1, map[string]int{"quota": 1})
 	seen := map[string]bool{}
 	for _, ev := range lines(t, buf) {
 		for n := range ev.values {
@@ -151,6 +152,48 @@ func TestEveryMetricNameIsEmittedBySomeEventAndNoOtherIs(t *testing.T) {
 	sort.Strings(want)
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("emitted %v, but Names() lists %v: the dashboard and the README are built from Names()", got, want)
+	}
+}
+
+// Auto-pick (#302): the picked count, then one line per reason, each published
+// as a total and by code. A reason from outside the list is OTHER, and a plan
+// where everything was picked writes no empty line.
+func TestAutoPickedCountsPicksAndEmptyScenesByReason(t *testing.T) {
+	e, buf := newTestEmitter()
+	e.AutoPicked(4, map[string]int{"quota": 2, "budget": 1, "a search word": 1, "error": 0})
+	evs := lines(t, buf)
+	picked := 0.0
+	empty := map[string]float64{}
+	for _, ev := range evs {
+		if v, ok := ev.values[PicturesAutoPicked]; ok {
+			picked += v
+			if !reflect.DeepEqual(ev.dimensions, [][]string{{}}) {
+				t.Errorf("picked dimensions = %v", ev.dimensions)
+			}
+		}
+		if v, ok := ev.values[AutoPickScenesEmpty]; ok {
+			empty[ev.strings[CodeDimension]] += v
+			if !reflect.DeepEqual(ev.dimensions, [][]string{{}, {"Code"}}) {
+				t.Errorf("empty dimensions = %v", ev.dimensions)
+			}
+		}
+	}
+	if picked != 4 {
+		t.Errorf("picked = %v", picked)
+	}
+	if want := map[string]float64{"quota": 2, "budget": 1, OtherCode: 1}; !reflect.DeepEqual(empty, want) {
+		t.Errorf("empty = %v, want %v", empty, want)
+	}
+
+	e2, buf2 := newTestEmitter()
+	e2.AutoPicked(3, nil)
+	if n := len(lines(t, buf2)); n != 1 {
+		t.Errorf("all picked: %d lines, want 1", n)
+	}
+	e3, buf3 := newTestEmitter()
+	e3.AutoPicked(0, map[string]int{})
+	if n := len(lines(t, buf3)); n != 0 {
+		t.Errorf("nothing to record: %d lines, want 0", n)
 	}
 }
 

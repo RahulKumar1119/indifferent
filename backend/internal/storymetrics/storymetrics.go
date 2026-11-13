@@ -62,6 +62,16 @@ const (
 	// (#301), by Code: what the user had to fix, or a failure of ours before
 	// the job was written. A start that made a job is VideosStarted instead.
 	VideoStartsRefused = "VideoStartsRefused"
+	// Auto-pick (#302). PicturesAutoPicked counts scenes given a picture when
+	// a plan was made; AutoPickScenesEmpty those left without one, by Code (one
+	// of AutoPickReasons). AutoPicksReplaced and AutoPicksRemoved count those
+	// pictures later swapped or taken out. A swap is the user choosing, so it
+	// counts in PicturesChosen as well; PicturesReplaced and PicturesRemoved
+	// stay about pictures the user chose.
+	PicturesAutoPicked  = "PicturesAutoPicked"
+	AutoPickScenesEmpty = "AutoPickScenesEmpty"
+	AutoPicksReplaced   = "AutoPicksReplaced"
+	AutoPicksRemoved    = "AutoPicksRemoved"
 )
 
 // CodeDimension is the one dimension, on VideosFailed.
@@ -73,7 +83,37 @@ func Names() []string {
 		PlansReady, PlansFailed, VideosStarted, VideosCompleted, VideosFailed, VideosCancelled, VideoSeconds,
 		StockSearches, StockSearchesEmpty, PicturesChosen, PicturesReplaced, PicturesRemoved, NarrationsEdited,
 		VideoStartsRefused,
+		PicturesAutoPicked, AutoPickScenesEmpty, AutoPicksReplaced, AutoPicksRemoved,
 	}
+}
+
+// autoPickReasons are why auto-pick left a scene empty (backend/internal/api
+// autopick.go). Any other value is recorded as OtherCode.
+var autoPickReasons = map[string]bool{
+	"no_results": true,
+	"quota":      true,
+	"error":      true,
+	"budget":     true,
+	// The scene's search words looked like personal data, so it was not searched.
+	"skipped_sensitive": true,
+}
+
+// AutoPickReasons returns the codes an AutoPickScenesEmpty metric can carry,
+// OtherCode included.
+func AutoPickReasons() []string {
+	out := make([]string, 0, len(autoPickReasons)+1)
+	for c := range autoPickReasons {
+		out = append(out, c)
+	}
+	return append(out, OtherCode)
+}
+
+// SafeAutoPickReason maps a reason to one of the known values.
+func SafeAutoPickReason(r string) string {
+	if autoPickReasons[r] {
+		return r
+	}
+	return OtherCode
 }
 
 // failureCodes are the codes a failed video can carry (backend/internal/storyjob
@@ -284,12 +324,33 @@ func (e *Emitter) StockSearch(found bool) {
 	e.emit(noDimensions, nil, ms...)
 }
 
+// AutoPicked records what auto-pick did for one plan: how many scenes it gave
+// a picture, and how many it left empty for each reason. Each reason is
+// published as a total and by code.
+func (e *Emitter) AutoPicked(picked int, empty map[string]int) {
+	if picked > 0 {
+		e.emit(noDimensions, nil, metric{PicturesAutoPicked, float64(picked), count})
+	}
+	byCode := map[string]int{}
+	for r, n := range empty {
+		if n > 0 {
+			byCode[SafeAutoPickReason(r)] += n
+		}
+	}
+	for code, n := range byCode {
+		e.emit([][]string{{}, {CodeDimension}}, map[string]string{CodeDimension: code}, metric{AutoPickScenesEmpty, float64(n), count})
+	}
+}
+
 // Edits counts what one saved plan changed.
 type Edits struct {
-	Chosen    int // scenes that had no picture and now have one
-	Replaced  int // scenes whose picture was swapped for another
-	Removed   int // scenes whose picture was taken out
+	Chosen    int // scenes whose picture the user chose: new, or in place of an auto-picked one
+	Replaced  int // scenes whose user-chosen picture was swapped for another
+	Removed   int // scenes whose user-chosen picture was taken out
 	Narration int // scenes whose narration text changed
+	// AutoReplaced and AutoRemoved are the same for pictures auto-pick chose (#302).
+	AutoReplaced int
+	AutoRemoved  int
 }
 
 // PlanEdited records the changes one save made. A save that changed nothing
@@ -305,5 +366,7 @@ func (e *Emitter) PlanEdited(c Edits) {
 	add(PicturesReplaced, c.Replaced)
 	add(PicturesRemoved, c.Removed)
 	add(NarrationsEdited, c.Narration)
+	add(AutoPicksReplaced, c.AutoReplaced)
+	add(AutoPicksRemoved, c.AutoRemoved)
 	e.emit(noDimensions, nil, ms...)
 }
