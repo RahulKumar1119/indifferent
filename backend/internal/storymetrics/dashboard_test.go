@@ -239,7 +239,12 @@ func TestTheFailureRateReadsTheTotalAndTheBreakdownReadsTheCodes(t *testing.T) {
 			if m, ok := row[0].(map[string]any); ok {
 				if e, _ := m["expression"].(string); strings.HasPrefix(e, "SEARCH(") {
 					sawSearch = true
-					for _, want := range []string{Namespace, CodeDimension, `MetricName="` + VideosFailed + `"`} {
+					// Each breakdown reads one coded metric: failures, or refused starts (#301).
+					metric := VideosFailed
+					if strings.Contains(e, VideoStartsRefused) {
+						metric = VideoStartsRefused
+					}
+					for _, want := range []string{Namespace, CodeDimension, `MetricName="` + metric + `"`} {
 						if !strings.Contains(e, want) {
 							t.Errorf("the breakdown %q lacks %q", e, want)
 						}
