@@ -70,7 +70,7 @@ const DANGER = 'ui-btn ui-btn--danger';
   imports: [DatePipe, NgTemplateOutlet, LucideDynamicIcon, StoryProblemComponent, StoryVideoOptionsComponent, StoryVideoProgressComponent],
   styles: [`
     :host { display: block; }
-    .video { display: flex; flex-direction: column; gap: var(--space-md); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); font-family: var(--font-body); color: var(--color-ink); }
+    .video { scroll-margin-top: calc(56px + var(--space-md)); display: flex; flex-direction: column; gap: var(--space-md); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); font-family: var(--font-body); color: var(--color-ink); }
     .vh { margin: 0; font-size: var(--type-2xl); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; }
     .vh:focus, h3:focus { outline: none; }
     h3 { margin: 0; font-size: var(--type-lg); font-weight: 600; line-height: 1.25; }
@@ -449,6 +449,15 @@ export class StoryVideoPanelComponent implements OnDestroy {
     if (this.blocker()) return this.blocker();
     return this.voices().length === 0 ? 'Narration is available in English and Hindi. This story is in another language.' : '';
   });
+  /**
+   * True when the form is what the person needs next: nothing is being made,
+   * no video is finished, and a voice exists for the story's language. The page
+   * uses it to offer "Make the video" in its rail and save bar (#304). It says
+   * nothing about the plan itself (pictures, unsaved edits): that is `blocker`.
+   */
+  readonly startable = computed(
+    () => !this.loading() && !this.switchedOff() && this.voices().length > 0 && (this.view() === 'form' || this.view() === 'failed'),
+  );
   /** What the panel says when making videos is switched off on this site. */
   protected readonly offProblem = describeVideoProblem(
     new HttpErrorResponse({ status: 503, error: { code: 'UNAVAILABLE' } }),
@@ -654,6 +663,18 @@ export class StoryVideoPanelComponent implements OnDestroy {
     } else {
       this.make();
     }
+  }
+
+  /**
+   * Brings the panel into view and moves focus to its heading, so the voice and
+   * caption choices are next. It starts nothing: no video is made until the
+   * person presses "Make the video" in the form.
+   */
+  reveal(): void {
+    this.host.nativeElement.querySelector('section')?.scrollIntoView({ block: 'start' });
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('#video-heading')?.focus({ preventScroll: true }), {
+      injector: this.injector,
+    });
   }
 
   protected openForm(): void {
