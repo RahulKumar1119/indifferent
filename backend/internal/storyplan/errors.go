@@ -49,8 +49,51 @@ func StoryReason(err error) string {
 	return ""
 }
 
-// invalidPlan wraps ErrInvalidPlan with a reason that names what failed and
-// never contains story or model text.
-func invalidPlan(format string, args ...any) error {
-	return fmt.Errorf("%w: %s", ErrInvalidPlan, fmt.Sprintf(format, args...))
+// Reasons a model's answer could not be made into a plan (#299). They are
+// logged and counted, so they come from this fixed list and never carry story
+// or model text.
+const (
+	ReasonNoJSON   = "no_json"   // no JSON object in the answer
+	ReasonBadShape = "bad_shape" // JSON, but not a plan
+	ReasonNoScenes = "no_scenes" // a plan with an empty scene list
+	ReasonTooFew   = "too_few"   // too few scenes survived validation
+	ReasonTooShort = "too_short" // the scenes left are under the minimum length
+	ReasonOther    = "other"     // anything not above
+)
+
+// Why a scene was dropped. With ReasonTooFew, the most common of these is the
+// cause worth fixing, so they are counted per plan.
+const (
+	DropNotObject   = "not_object"
+	DropNoNarration = "no_narration"
+	DropWrongScript = "wrong_language"
+	DropNoKeywords  = "no_keywords"
+	DropTooLong     = "narration_too_long"
+)
+
+// PlanError is an ErrInvalidPlan with its reason and, when scenes were
+// dropped, how many for each drop reason. errors.Is(err, ErrInvalidPlan) holds.
+type PlanError struct {
+	Reason string
+	Drops  map[string]int
+	msg    string
+}
+
+func (e *PlanError) Error() string { return ErrInvalidPlan.Error() + ": " + e.msg }
+func (e *PlanError) Unwrap() error { return ErrInvalidPlan }
+
+// invalidPlan returns a PlanError with reason and a message that names what
+// failed and never contains story or model text.
+func invalidPlan(reason string, drops map[string]int, format string, args ...any) error {
+	return &PlanError{Reason: reason, Drops: drops, msg: fmt.Sprintf(format, args...)}
+}
+
+// PlanFailure returns the reason and the scene drops of an invalid plan, or
+// ReasonOther when err is not a PlanError.
+func PlanFailure(err error) (string, map[string]int) {
+	var pe *PlanError
+	if errors.As(err, &pe) {
+		return pe.Reason, pe.Drops
+	}
+	return ReasonOther, nil
 }

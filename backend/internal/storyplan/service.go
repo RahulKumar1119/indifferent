@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/aws/smithy-go"
@@ -196,8 +197,11 @@ func (s *Service) try(ctx, callCtx context.Context, a attempt, prompt string, sc
 			return plan, nil
 		}
 	}
-	s.logf("storyplan_failed model=%s attempt=%s storyRunes=%d script=%s latencyMs=%d outcome=invalid_plan answerRunes=%d",
-		a.model, a.name, runes, script, latency.Milliseconds(), len([]rune(text)))
+	// Which check failed, and why scenes were dropped (#299): a fixed list of
+	// codes and counts, never story or answer text.
+	reason, drops := PlanFailure(err)
+	s.logf("storyplan_failed model=%s attempt=%s storyRunes=%d script=%s latencyMs=%d outcome=invalid_plan reason=%s drops=%s answerRunes=%d",
+		a.model, a.name, runes, script, latency.Milliseconds(), reason, formatDrops(drops), len([]rune(text)))
 	return Plan{}, err
 }
 
@@ -229,4 +233,19 @@ func classifyModelError(callCtx context.Context, err error) modelFailure {
 		return modelFailure{"api_error", fmt.Errorf("%w: the model service returned an error", ErrModelFailed)}
 	}
 	return modelFailure{"error", fmt.Errorf("%w: the model could not be reached", ErrModelFailed)}
+}
+
+// formatDrops writes scene-drop counts as "code:n,code:n" in a fixed order,
+// or "-" when none were dropped.
+func formatDrops(drops map[string]int) string {
+	var parts []string
+	for _, k := range []string{DropTooLong, DropWrongScript, DropNoKeywords, DropNoNarration, DropNotObject} {
+		if n := drops[k]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%s:%d", k, n))
+		}
+	}
+	if len(parts) == 0 {
+		return "-"
+	}
+	return strings.Join(parts, ",")
 }

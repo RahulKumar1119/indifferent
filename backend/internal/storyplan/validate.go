@@ -34,16 +34,19 @@ func validate(rp rawPlan, story Script) (Plan, error) {
 	warn := func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
 
 	scenes := make([]Scene, 0, len(rp.Scenes))
+	drops := map[string]int{}
 	for i, raw := range rp.Scenes {
 		n := i + 1
 		rs, ok := parseRawScene(raw)
 		if !ok {
 			warn("scene %d dropped: not a scene object", n)
+			drops[DropNotObject]++
 			continue
 		}
-		sc, reason := cleanScene(rs, story, warn, n)
+		sc, drop, reason := cleanScene(rs, story, warn, n)
 		if reason != "" {
 			warn("scene %d dropped: %s", n, reason)
+			drops[drop]++
 			continue
 		}
 		scenes = append(scenes, sc)
@@ -66,9 +69,9 @@ func validate(rp rawPlan, story Script) (Plan, error) {
 
 	switch {
 	case len(scenes) < MinScenes:
-		return Plan{}, invalidPlan("only %d usable scene(s) remained, at least %d are needed", len(scenes), MinScenes)
+		return Plan{}, invalidPlan(ReasonTooFew, drops, "only %d usable scene(s) remained, at least %d are needed", len(scenes), MinScenes)
 	case total < MinTotalSeconds:
-		return Plan{}, invalidPlan("the plan is %.1f seconds long, under the %.0f second minimum", total, MinTotalSeconds)
+		return Plan{}, invalidPlan(ReasonTooShort, drops, "the plan is %.1f seconds long, under the %.0f second minimum", total, MinTotalSeconds)
 	}
 
 	hook := cleanHook(rp.Hook, story)
@@ -92,21 +95,21 @@ func validate(rp rawPlan, story Script) (Plan, error) {
 }
 
 // cleanScene validates and repairs one scene. A non-empty reason means the
-// scene cannot be used.
-func cleanScene(rs rawScene, story Script, warn func(string, ...any), n int) (Scene, string) {
+// scene cannot be used; drop is its code from the Drop list.
+func cleanScene(rs rawScene, story Script, warn func(string, ...any), n int) (Scene, string, string) {
 	narration := cleanText(rs.Narration, MaxNarrationRunes)
 	if narration == "" {
-		return Scene{}, "no narration"
+		return Scene{}, DropNoNarration, "no narration"
 	}
 	if story != ScriptNone && story != ScriptOther {
 		if ShareInScript(narration, story) < minScriptShare {
-			return Scene{}, "narration is not in the story's language"
+			return Scene{}, DropWrongScript, "narration is not in the story's language"
 		}
 	}
 
 	keywords := cleanKeywords(keywordStrings(rs.Keywords))
 	if len(keywords) == 0 {
-		return Scene{}, "no usable English search keyword"
+		return Scene{}, DropNoKeywords, "no usable English search keyword"
 	}
 
 	description := cleanText(rs.Description, MaxDescriptionRunes)
@@ -119,7 +122,7 @@ func cleanScene(rs rawScene, story Script, warn func(string, ...any), n int) (Sc
 
 	speech := estimateSpeech(narration)
 	if speech > MaxSceneSeconds*1.2 {
-		return Scene{}, "narration is too long to say in one scene"
+		return Scene{}, DropTooLong, "narration is too long to say in one scene"
 	}
 	duration, changed := sceneDuration(rs.Duration, speech)
 	if changed {
@@ -132,7 +135,7 @@ func cleanScene(rs rawScene, story Script, warn func(string, ...any), n int) (Sc
 		Keywords:    keywords,
 		MediaType:   cleanMedia(rs.MediaType),
 		Duration:    duration,
-	}, ""
+	}, "", ""
 }
 
 // estimateSpeech is the time to say text at WordsPerSecond. Text with very few
