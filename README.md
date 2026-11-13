@@ -771,7 +771,7 @@ A confirmed plan becomes a finished MP4 (see [Story to video pipeline](#story-to
 | GET | `/story-videos/limits` | What an account may do: videos at once, videos a day, the longest video, and the voices for each language. No sign-in needed |
 | POST | `/story-videos` | Make a video from `{planId, revision, voice?, caption?}`. Answers `202` with the `jobId`. Refused before anything is spent when a scene has no picture or the language or voice cannot be narrated |
 | GET | `/story-videos` | The account's videos, newest first. `?planId=` narrows it to one plan |
-| GET | `/story-videos/:id` | One video's `status` and `progress`, and on failure its `errorCode`, `failedStage` and a message that is fit to show |
+| GET | `/story-videos/:id` | One video's `status` and `progress`, and on failure its `errorCode`, `failedStage` and a message that is fit to show. While it is being made it may also carry `delayedScene`: the lowest scene whose picture the file host is refusing to hand over right now, so the page can say why it is slow and offer to swap that picture (#311) |
 | POST | `/story-videos/:id/cancel` | Stop a video that is being made |
 | GET | `/story-videos/:id/download` | A short-lived link (15 minutes) to the finished MP4: `{url, filename, expiresInSeconds}` |
 | DELETE | `/story-videos/:id` | Remove a finished or cancelled video and its files |

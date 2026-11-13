@@ -35,6 +35,12 @@ export interface StoryVideo {
   /** "CANCELLED" when the user cancelled it. Only when `status` is "failed". */
   errorCode?: string;
   failedStage?: string;
+  /**
+   * Only while the video is being made: the lowest scene (from 1) whose picture
+   * the file host is refusing to hand over right now (#311). It clears by itself
+   * when that picture comes through.
+   */
+  delayedScene?: number;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;

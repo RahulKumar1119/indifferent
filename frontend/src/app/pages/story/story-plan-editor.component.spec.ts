@@ -842,6 +842,21 @@ describe('StoryPlanEditorComponent', () => {
       expect(make()).toBeNull();
     });
 
+    it('takes the person to the slow scene\'s picture button after cancelling for a slow picture (#311)', async () => {
+      await create(complete());
+      videoService.create.and.returnValue(of(rendering({ delayedScene: 2 })));
+      el.querySelector<HTMLButtonElement>('[data-testid="make"]')!.click();
+      fixture.detectChanges();
+      videoService.cancel.and.returnValue(of(failed({ errorCode: 'CANCELLED', error: 'You cancelled this video.' })));
+      el.querySelector<HTMLButtonElement>('[data-testid="swap-picture"]')!.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(videoService.cancel).toHaveBeenCalledOnceWith('job-1');
+      expect(document.activeElement!.id).toBe('scene-2-choose');
+      expect(el.querySelector('[data-testid="active"]')).toBeNull();
+    });
+
     it('comes back after a video failed', async () => {
       withVideos(failed());
       await create(complete());

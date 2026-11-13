@@ -986,6 +986,54 @@ func TestStoryVideos_GetShowsOnlyTheViewAndOnlyToItsOwner(t *testing.T) {
 	}
 }
 
+// #311: a video that is still being made says which scene's picture the file
+// host is holding back, in the status poll and in the list. A finished or failed
+// one never does, even if the record still carries the field.
+func TestStoryVideos_ADelayedSceneIsShownOnlyWhileTheVideoIsBeingMade(t *testing.T) {
+	e := newSVEnv(t)
+	delayed := func(j *storyjob.Job) { j.DelayedScene = 4 }
+	going := e.seedJob(svGoogleUser, svPlanA, "preparing", e.now.Add(-time.Minute), delayed)
+	if v := decodeVideo(t, e.do("GET", "/story-videos/"+going, "", svGoogleUser)); v.DelayedScene != 4 {
+		t.Errorf("a video being made: delayedScene = %d, want 4", v.DelayedScene)
+	}
+	plain := e.seedJob(svGoogleUser, svPlanA, "preparing", e.now.Add(-2*time.Minute))
+	resp := e.do("GET", "/story-videos/"+plain, "", svGoogleUser)
+	if v := decodeVideo(t, resp); v.DelayedScene != 0 || strings.Contains(resp.Body, "delayedScene") {
+		t.Errorf("a video with no delay mentions one: %s", resp.Body)
+	}
+	for _, status := range []string{"completed", "failed"} {
+		id := e.seedJob(svGoogleUser, svPlanA, status, e.now.Add(-time.Hour), delayed)
+		resp := e.do("GET", "/story-videos/"+id, "", svGoogleUser)
+		if strings.Contains(resp.Body, "delayedScene") {
+			t.Errorf("a %s video shows a delayed scene: %s", status, resp.Body)
+		}
+	}
+	list := e.do("GET", "/story-videos", "", svGoogleUser)
+	var body struct {
+		Videos []StoryVideoResponse `json:"videos"`
+	}
+	if err := json.Unmarshal([]byte(list.Body), &body); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, v := range body.Videos {
+		if v.JobID == going {
+			found = true
+			if v.DelayedScene != 4 {
+				t.Errorf("the list shows delayedScene %d, want 4", v.DelayedScene)
+			}
+		} else if v.DelayedScene != 0 {
+			t.Errorf("the list shows a delayed scene on video %s (%s)", v.JobID, v.Status)
+		}
+	}
+	if !found {
+		t.Error("the video being made is not in the list")
+	}
+	if attrs := strings.Join(e.resolvedProjection(e.queries[len(e.queries)-1]), ","); !strings.Contains(attrs, "delayedScene") {
+		t.Errorf("the list does not read delayedScene: %s", attrs)
+	}
+}
+
 func TestStoryVideos_TheErrorIsShownOnlyOnceTheVideoHasFailed(t *testing.T) {
 	e := newSVEnv(t)
 	reason := func(j *storyjob.Job) {

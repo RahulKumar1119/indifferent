@@ -300,6 +300,7 @@ scene text, no internal error.
       "progress": 0-100, "language", "voice", "caption": {preset, fontSize, color, highlight, position},
       "totalSeconds"?,                                  // once known
       "error"?, "errorCode"?, "failedStage"?,           // only when status is "failed"
+      "delayedScene"?,                                  // only while being made: a scene waiting out a file-host throttle (#311)
       "createdAt", "updatedAt", "completedAt"?
     }
 

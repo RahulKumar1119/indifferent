@@ -95,9 +95,14 @@ type StoryVideoResponse struct {
 	Error       string `json:"error,omitempty"`
 	ErrorCode   string `json:"errorCode,omitempty"`
 	FailedStage string `json:"failedStage,omitempty"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
-	CompletedAt string `json:"completedAt,omitempty"`
+	// DelayedScene is present only while the video is being made: the lowest
+	// scene (from 1) whose picture the file host is refusing to hand over right
+	// now. It tells the page why the video is slow and which picture to swap
+	// (#311). It is never set on a finished or failed video.
+	DelayedScene int    `json:"delayedScene,omitempty"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
+	CompletedAt  string `json:"completedAt,omitempty"`
 }
 
 // CreateStoryVideoRequest is the body of POST /story-videos. Only the plan's id
@@ -243,6 +248,9 @@ func storyVideoView(j storyjob.Job) StoryVideoResponse {
 	// starts, so the reason is shown only once the job has failed.
 	if j.Status == storyjob.StatusFailed {
 		v.Error, v.ErrorCode, v.FailedStage = j.Error, j.ErrorCode, j.FailedStage
+	}
+	if !storyjob.Terminal(j.Status) {
+		v.DelayedScene = j.DelayedScene
 	}
 	return v
 }
@@ -775,7 +783,7 @@ func (h *APIHandler) handleDeleteStoryVideo(ctx context.Context, claims *models.
 // they are the bulk of a record and the list does not show them.
 var storyVideoListAttrs = []string{
 	"PK", "SK", "planId", "planRevision", "status", "progress", "language", "voice", "caption", "totalSeconds",
-	"error", "errorCode", "failedStage", "createdAt", "updatedAt", "completedAt",
+	"error", "errorCode", "failedStage", "delayedScene", "createdAt", "updatedAt", "completedAt",
 }
 
 // handleListStoryVideos returns the user's videos, newest first. With ?planId=

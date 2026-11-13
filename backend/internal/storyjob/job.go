@@ -74,9 +74,15 @@ type Job struct {
 	Error       string `json:"error,omitempty"`
 	ErrorCode   string `json:"errorCode,omitempty"`
 	FailedStage string `json:"failedStage,omitempty"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
-	CompletedAt string `json:"completedAt,omitempty"`
+	// DelayedScene is the lowest-numbered scene whose picture the file host is
+	// refusing to hand over right now (HTTP 429), from 1, or 0 for none. It is
+	// set when the worker starts waiting out the throttle, and cleared when that
+	// scene is copied or the job ends, so the page can say why a video is slow
+	// and let the person choose another picture (#311).
+	DelayedScene int    `json:"delayedScene,omitempty"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
+	CompletedAt  string `json:"completedAt,omitempty"`
 }
 
 // Scene is one scene of the job.
