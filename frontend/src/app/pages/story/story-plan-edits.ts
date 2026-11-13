@@ -11,13 +11,17 @@ import {
 export type PendingMedia = { kind: 'set'; asset: StockAsset } | { kind: 'clear' };
 
 /** What one scene's picture block shows. */
+/**
+ * What one scene's picture block shows. `auto` is true when the plan picked
+ * the picture (#302) and the user has not changed it, saved or not.
+ */
 export type SceneMediaView =
   | { state: 'none' }
-  | { state: 'asset'; asset: StockAsset; changed: boolean }
+  | { state: 'asset'; asset: StockAsset; changed: boolean; auto: boolean }
   /** The provider no longer has it. Nothing to retry; choose another. */
-  | { state: 'unavailable'; ref: MediaRef }
+  | { state: 'unavailable'; ref: MediaRef; auto: boolean }
   /** A temporary failure looking it up. */
-  | { state: 'error'; ref: MediaRef };
+  | { state: 'error'; ref: MediaRef; auto: boolean };
 
 /** The picture a scene shows now: a pending change if there is one, else what is saved. */
 export function sceneMediaView(
@@ -25,16 +29,19 @@ export function sceneMediaView(
   index: number,
   pending: PendingMedia | undefined,
 ): SceneMediaView {
-  if (pending?.kind === 'set') return { state: 'asset', asset: pending.asset, changed: true };
+  // Any change the user makes is their own choice, so the label goes at once.
+  if (pending?.kind === 'set') return { state: 'asset', asset: pending.asset, changed: true, auto: false };
   if (pending?.kind === 'clear') return { state: 'none' };
 
-  const ref = record.plan?.scenes[index]?.media;
+  const scene = record.plan?.scenes[index];
+  const ref = scene?.media;
   if (!ref) return { state: 'none' };
+  const auto = scene.mediaSource === 'auto';
   const item = record.media?.[index];
-  if (item?.asset) return { state: 'asset', asset: item.asset, changed: false };
-  if (item?.status === 'unavailable') return { state: 'unavailable', ref };
+  if (item?.asset) return { state: 'asset', asset: item.asset, changed: false, auto };
+  if (item?.status === 'unavailable') return { state: 'unavailable', ref, auto };
   // A saved pick the API did not describe (lookups are off, or it failed).
-  return { state: 'error', ref };
+  return { state: 'error', ref, auto };
 }
 
 /** The reference the scene points at now, for marking the current choice in the picker. */

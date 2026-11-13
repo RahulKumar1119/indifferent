@@ -8,7 +8,7 @@ import {
   withRemoval,
 } from './story-plan-edits';
 import { MAX_QUERY_CHARS, charCount, mediaKey, sceneSearchQuery, toMediaRef } from './story-plan.models';
-import { asset, planRecord } from './story-plan-fixtures.spec';
+import { asset, autoPickedRecord, planRecord } from './story-plan-fixtures.spec';
 
 describe('story plan edits', () => {
   const none: (PendingMedia | undefined)[] = [];
@@ -51,6 +51,44 @@ describe('story plan edits', () => {
 
     it('survives a plan with no scenes', () => {
       expect(sceneMediaView(planRecord({ plan: undefined }), 0, undefined)).toEqual({ state: 'none' });
+    });
+
+    describe('auto-picked pictures (#303)', () => {
+      const auto = (v: ReturnType<typeof sceneMediaView>) => v.state !== 'none' && v.auto;
+
+      it('marks a saved picture the plan chose, and only that one', () => {
+        const rec = autoPickedRecord();
+        expect(auto(sceneMediaView(rec, 0, undefined))).toBeTrue();
+        expect(auto(sceneMediaView(rec, 1, undefined))).toBeFalse();
+        expect(auto(sceneMediaView(planRecord(), 0, undefined))).toBeFalse();
+      });
+
+      it('drops the mark as soon as the user picks another picture or removes it, before saving', () => {
+        const rec = autoPickedRecord();
+        expect(auto(sceneMediaView(rec, 0, { kind: 'set', asset: asset({ id: '555' }) }))).toBeFalse();
+        expect(sceneMediaView(rec, 0, { kind: 'clear' })).toEqual({ state: 'none' });
+      });
+
+      it('keeps the mark when the same picture is picked again, as the server does', () => {
+        const rec = autoPickedRecord();
+        const pending = withPick(rec, [], 0, asset({ id: '101' }));
+        expect(pending[0]).toBeUndefined();
+        expect(auto(sceneMediaView(rec, 0, pending[0]))).toBeTrue();
+      });
+
+      it('keeps the mark on an auto-picked picture that is unavailable or failed to load', () => {
+        const rec = autoPickedRecord();
+        rec.media![0] = { provider: 'pixabay', type: 'photo', id: '101', status: 'unavailable' };
+        expect(sceneMediaView(rec, 0, undefined)).toEqual({ state: 'unavailable', ref: rec.plan!.scenes[0].media!, auto: true });
+        rec.media![0] = { provider: 'pixabay', type: 'photo', id: '101', status: 'error' };
+        expect(auto(sceneMediaView(rec, 0, undefined))).toBeTrue();
+      });
+
+      it('ignores a marker on a scene with no picture', () => {
+        const rec = planRecord();
+        rec.plan!.scenes[2].mediaSource = 'auto';
+        expect(sceneMediaView(rec, 2, undefined)).toEqual({ state: 'none' });
+      });
     });
   });
 

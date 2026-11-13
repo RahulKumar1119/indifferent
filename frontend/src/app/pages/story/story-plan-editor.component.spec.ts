@@ -11,6 +11,7 @@ import {
   ServiceSpy,
   STORY_ICONS,
   asset,
+  autoPickedRecord,
   httpError,
   planRecord,
   routeFor,
@@ -650,6 +651,93 @@ describe('StoryPlanEditorComponent', () => {
         panel()!.querySelector<HTMLButtonElement>('[data-testid="go-to-scene"]')!.click();
         expect(document.activeElement!.id).toBe('scene-2-choose');
       });
+    });
+  });
+
+  describe('pictures the plan picked (#303)', () => {
+    const label = (n: number) => scene(n).querySelector<HTMLElement>('[data-testid="picked-label"]');
+    const entry = (n: number) => el.querySelector<HTMLButtonElement>(`[data-testid="index-scene-${n}"]`)!;
+
+    it('labels an auto-picked picture in words and with an icon, and no other', async () => {
+      await create(autoPickedRecord());
+      expect(label(1)).not.toBeNull();
+      expect(label(1)!.textContent).toContain('Picked for you');
+      expect(label(1)!.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+      expect(label(1)!.textContent).toContain('Replace it if it doesn’t fit the scene');
+      expect(label(2)).toBeNull();
+      expect(label(3)).toBeNull();
+      expect(buttonIn(scene(1), /Replace picture/)).toBeDefined();
+    });
+
+    it('shows no label on a plan the user picked everything for', async () => {
+      await create();
+      expect(el.querySelector('[data-testid="picked-label"]')).toBeNull();
+      expect(el.textContent).not.toContain('Picked for you');
+    });
+
+    it('marks the scene in the index with its own icon and words', async () => {
+      await create(autoPickedRecord());
+      expect(entry(1).getAttribute('data-picture')).toBe('picked');
+      expect(entry(1).textContent).toContain('Picked for you');
+      // Not colour alone: a different icon from a picture the user chose.
+      expect(entry(1).querySelector('svg')!.outerHTML).toContain('wand-sparkles');
+      expect(entry(2).querySelector('svg')!.outerHTML).not.toContain('wand-sparkles');
+      expect(entry(2).getAttribute('data-picture')).toBe('chosen');
+      expect(entry(3).getAttribute('data-picture')).toBe('missing');
+    });
+
+    it('drops the label and the marker straight away when the picture is replaced', async () => {
+      await create(autoPickedRecord());
+      await pickInPicker(1, 0);
+      expect(label(1)).toBeNull();
+      expect(entry(1).getAttribute('data-picture')).toBe('chosen');
+      expect(status()).toContain('1 scene has changes that are not saved');
+    });
+
+    it('drops them when the picture is removed, and brings them back on discard', async () => {
+      await create(autoPickedRecord());
+      buttonIn(scene(1), /Remove picture/).click();
+      await settle(fixture);
+      expect(label(1)).toBeNull();
+      expect(entry(1).getAttribute('data-picture')).toBe('missing');
+      buttonIn(el, /Discard changes/).click();
+      await settle(fixture);
+      expect(label(1)).not.toBeNull();
+      expect(entry(1).getAttribute('data-picture')).toBe('picked');
+    });
+
+    it('follows the saved plan the server returns', async () => {
+      await create(autoPickedRecord());
+      await pickInPicker(1, 0);
+      const saved = planRecord({ revision: 2 });
+      saved.plan!.scenes[0].media = { provider: 'pixabay', type: 'photo', id: '301' };
+      saved.media![0] = { provider: 'pixabay', type: 'photo', id: '301', asset: asset({ id: '301' }) };
+      service.save.and.returnValue(of(saved));
+      saveButton().click();
+      await settle(fixture);
+      expect(service.save.calls.mostRecent().args[2][0]).toEqual({ media: { provider: 'pixabay', type: 'photo', id: '301' } });
+      expect(label(1)).toBeNull();
+      expect(entry(1).getAttribute('data-picture')).toBe('chosen');
+    });
+
+    it('keeps the label after a save that left the picture as it was', async () => {
+      await create(autoPickedRecord());
+      await type(1, 'A new first line for the lighthouse.');
+      service.save.and.returnValue(of(autoPickedRecord({ revision: 2 })));
+      saveButton().click();
+      await settle(fixture);
+      expect(label(1)).not.toBeNull();
+    });
+
+    it('says we picked it when an auto-picked picture has gone from the library', async () => {
+      const rec = autoPickedRecord();
+      rec.plan!.scenes[2].media = { provider: 'pixabay', type: 'photo', id: '303' };
+      rec.media![2] = { provider: 'pixabay', type: 'photo', id: '303', asset: asset({ id: '303' }) };
+      rec.media![0] = { provider: 'pixabay', type: 'photo', id: '101', status: 'unavailable' };
+      await create(rec);
+      expect(text()).toContain('We picked the picture for scene 1, but the photo library no longer has it. Choose another, then save.');
+      expect(label(1)).toBeNull();
+      expect(entry(1).getAttribute('data-picture')).toBe('problem');
     });
   });
 

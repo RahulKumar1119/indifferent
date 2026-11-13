@@ -21,6 +21,7 @@ import { StoryAttributionComponent } from './story-attribution.component';
 import { StoryMediaPickerComponent } from './story-media-picker.component';
 import {
   PendingMedia,
+  SceneMediaView,
   buildEdits,
   changedSceneCount,
   currentRef,
@@ -42,7 +43,7 @@ import { videoBlocker } from './story-video-blockers';
  * results; everything is saved together, against the revision that was loaded,
  * so an edit made from an old copy is refused instead of overwriting a newer one.
  */
-type ScenePicture = 'chosen' | 'missing' | 'problem';
+type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
 
 @Component({
   selector: 'app-story-plan-editor',
@@ -83,6 +84,7 @@ type ScenePicture = 'chosen' | 'missing' | 'problem';
     .idx button[aria-current='true'] { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); font-weight: 600; }
     .idx .ok { color: var(--color-positive); }
     .idx .miss { color: var(--color-ink-2); }
+    .idx .auto { color: var(--color-accent); }
     .idx .bad { color: var(--color-negative); }
     .word, .ed > span { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .ed { display: inline-flex; align-items: center; }
@@ -179,6 +181,7 @@ type ScenePicture = 'chosen' | 'missing' | 'problem';
                         >
                           @switch (item.picture) {
                             @case ('chosen') { <svg lucideIcon="check" [size]="16" aria-hidden="true" class="ok"></svg> }
+                            @case ('picked') { <svg lucideIcon="wand-sparkles" [size]="16" aria-hidden="true" class="auto"></svg> }
                             @case ('missing') { <svg lucideIcon="image" [size]="16" aria-hidden="true" class="miss"></svg> }
                             @default { <svg lucideIcon="triangle-alert" [size]="16" aria-hidden="true" class="bad"></svg> }
                           }
@@ -315,12 +318,13 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
   protected readonly indexItems = computed(() =>
     this.views().map((v, i) => ({
       n: i + 1,
-      picture: (v.state === 'asset' ? 'chosen' : v.state === 'none' ? 'missing' : 'problem') as ScenePicture,
+      picture: this.pictureState(v),
       edited: this.isEdited(i),
     })),
   );
   protected readonly pictureWords: Record<ScenePicture, string> = {
     chosen: 'Picture chosen',
+    picked: 'Picked for you',
     missing: 'No picture',
     problem: 'Picture problem',
   };
@@ -455,6 +459,13 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
     // Bring the scene's top under the navbar (its scroll-margin), then focus the heading without a second jump.
     this.document.getElementById(`scene-${sceneNumber}`)?.scrollIntoView({ block: 'start' });
     this.document.getElementById(`scene-${sceneNumber}-title`)?.focus({ preventScroll: true });
+  }
+
+  /** What the index says about a scene's picture. An auto-picked one is told apart so the user can see which to check. */
+  private pictureState(v: SceneMediaView): ScenePicture {
+    if (v.state === 'none') return 'missing';
+    if (v.state !== 'asset') return 'problem';
+    return v.auto ? 'picked' : 'chosen';
   }
 
   protected isEdited(index: number): boolean {
