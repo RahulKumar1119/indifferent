@@ -297,6 +297,27 @@ func TestRun_ARestartResumesWhereTheLastRunStoppedAndClearsItsOldReason(t *testi
 	}
 }
 
+// #311: the scene a failed attempt was waiting on belongs to that attempt. The
+// next one starts without it, so the page does not name a scene that may be fine.
+func TestRun_ARestartClearsTheSceneTheLastAttemptWasWaitingOn(t *testing.T) {
+	e := newEnv(t)
+	job := e.jobWith(3)
+	job.DelayedScene = 2
+	st := newStore(job)
+	var saw []int
+	rend := &renderSpy{inner: &fakeRenderer{}, onRender: func(j *Job) { saw = append(saw, j.DelayedScene) }}
+	out, err := e.runner(st, rend).Run(context.Background(), "u1", "j1")
+	if out != OutcomeCompleted || err != nil {
+		t.Fatalf("outcome %v err %v", out, err)
+	}
+	if len(saw) != 1 || saw[0] != 0 {
+		t.Errorf("the job still named a delayed scene while it rendered: %v", saw)
+	}
+	if got := st.current(); got.DelayedScene != 0 {
+		t.Errorf("a completed job names scene %d", got.DelayedScene)
+	}
+}
+
 type renderSpy struct {
 	inner    Renderer
 	onRender func(*Job)

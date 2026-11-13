@@ -75,6 +75,17 @@ func CopyMedia(ctx context.Context, d Deps, job *Job, progress Progress) error {
 	// progress. SaveProgress and the progress callback write the whole job, and
 	// neither may see another scene half recorded.
 	var mu sync.Mutex
+	// When a scene starts waiting out a throttle, say so on the job so the page
+	// can tell the person which picture is slow (#311). Best effort: a failed
+	// write only means the page does not say so, and the job goes on.
+	st.report = func(ctx context.Context) {
+		mu.Lock()
+		defer mu.Unlock()
+		job.DelayedScene = st.lowestDelayed()
+		if err := d.saveProgress(ctx); err != nil {
+			d.logf("storyjob scene=%d media=delay_note_failed: %v", job.DelayedScene, err)
+		}
+	}
 	copyScene := func(ctx context.Context, i int) error {
 		media, err := copyOne(ctx, d, job, i+1, job.Scenes[i].Pick, st)
 		if err != nil {
@@ -83,6 +94,8 @@ func CopyMedia(ctx context.Context, d Deps, job *Job, progress Progress) error {
 		mu.Lock()
 		defer mu.Unlock()
 		job.Scenes[i].Media = media
+		st.dropDelayed(i + 1)
+		job.DelayedScene = st.lowestDelayed()
 		// Record the copy before moving on. A task that is restarted after a
 		// later scene is throttled then skips this one (the already_copied path
 		// above) instead of downloading it again and re-hitting the throttle.
@@ -123,6 +136,43 @@ type copyState struct {
 	// throttled is set when any download sees a 429. From then on no new scene
 	// is started side by side with another.
 	throttled atomic.Bool
+	// delayed holds the scenes (from 1) now waiting out a throttle. report, set
+	// by CopyMedia, writes the lowest of them to the job.
+	delayed map[int]bool
+	report  func(ctx context.Context)
+}
+
+// markDelayed notes that scene is waiting out a throttle and tells the job.
+func (c *copyState) markDelayed(ctx context.Context, scene int) {
+	c.mu.Lock()
+	if c.delayed == nil {
+		c.delayed = map[int]bool{}
+	}
+	c.delayed[scene] = true
+	c.mu.Unlock()
+	if c.report != nil {
+		c.report(ctx)
+	}
+}
+
+// dropDelayed notes that scene is no longer waiting (it was copied).
+func (c *copyState) dropDelayed(scene int) {
+	c.mu.Lock()
+	delete(c.delayed, scene)
+	c.mu.Unlock()
+}
+
+// lowestDelayed is the lowest scene number waiting, or 0 for none.
+func (c *copyState) lowestDelayed() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	low := 0
+	for n := range c.delayed {
+		if low == 0 || n < low {
+			low = n
+		}
+	}
+	return low
 }
 
 func (c *copyState) isThrottled() bool { return c.throttled.Load() }
@@ -218,6 +268,7 @@ func download(ctx context.Context, d Deps, scene int, asset stockmedia.Asset, pa
 			return err
 		}
 		d.logf("storyjob scene=%d media=throttled wait_s=%d: %v", scene, int(wait.Seconds()), err)
+		st.markDelayed(ctx, scene)
 		if serr := d.sleep(ctx, wait); serr != nil {
 			return serr
 		}

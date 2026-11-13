@@ -108,6 +108,14 @@ func (s *DynamoStore) write(ctx context.Context, j *Job, final bool) error {
 	field("error", "error", j.Error)
 	field("errorCode", "errorCode", j.ErrorCode)
 	field("failedStage", "failedStage", j.FailedStage)
+	// The scene being waited on, only while the job is still going.
+	names["#delayedScene"] = "delayedScene"
+	if j.DelayedScene > 0 && !final {
+		set = append(set, "#delayedScene = :delayedScene")
+		vals[":delayedScene"] = num(strconv.Itoa(j.DelayedScene))
+	} else {
+		remove = append(remove, "#delayedScene")
+	}
 	if j.TotalSeconds > 0 {
 		names["#totalSeconds"] = "totalSeconds"
 		set = append(set, "#totalSeconds = :totalSeconds")

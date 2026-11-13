@@ -79,6 +79,7 @@ const DANGER = 'ui-btn ui-btn--danger';
     .wide { align-self: stretch; }
     .line { margin: 0; display: flex; align-items: center; gap: var(--space-sm); color: var(--color-ink-2); }
     .note { margin: 0; max-width: 42rem; font-size: var(--type-sm); color: var(--color-ink-2); }
+    .delayed { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-xs); }
     .lead { margin: 0; max-width: 42rem; color: var(--color-ink-2); }
     .blocker { margin: 0; max-width: 42rem; font-weight: 600; }
     .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
@@ -126,6 +127,17 @@ const DANGER = 'ui-btn ui-btn--danger';
                 <div class="wide">
                   <app-story-video-progress [status]="v.status" [progress]="v.progress" />
                 </div>
+                @if (v.delayedScene; as n) {
+                  <div class="delayed" data-testid="delayed">
+                    <p class="note">
+                      Scene {{ n }}’s picture is slow to download. The photo library is limiting downloads right now. This may
+                      clear on its own in a few minutes.
+                    </p>
+                    <button type="button" [class]="secondary" [disabled]="cancelling()" (click)="cancel(v, n)" data-testid="swap-picture">
+                      Cancel and choose another picture for scene {{ n }}
+                    </button>
+                  </div>
+                }
                 @if (reconnecting()) {
                   <p class="note" data-testid="reconnecting">Can't reach the server right now. The video keeps being made. Trying again…</p>
                 }
@@ -481,6 +493,7 @@ export class StoryVideoPanelComponent implements OnDestroy {
   private pollFailures = 0;
   private requests: Subscription[] = [];
   private lastStatus = '';
+  private lastDelayed = 0;
 
   constructor() {
     effect(() => {
@@ -565,6 +578,7 @@ export class StoryVideoPanelComponent implements OnDestroy {
             this.lastStatus = v.status;
             this.say(v);
           }
+          this.sayDelay(v);
           if (isActive(v.status)) this.schedule(jobId, this.pollMs());
         },
         error: (err) => {
@@ -592,6 +606,15 @@ export class StoryVideoPanelComponent implements OnDestroy {
   /** Keeps a video's place in the list and swaps in the newer copy. */
   private replace(v: StoryVideo): void {
     this.videos.update((list) => (list.some((x) => x.jobId === v.jobId) ? list.map((x) => (x.jobId === v.jobId ? v : x)) : [v, ...list]));
+  }
+
+  /** Said once when a picture starts being slow, and again only if a different scene does. */
+  private sayDelay(v: StoryVideo): void {
+    const n = v.delayedScene ?? 0;
+    if (n > 0 && n !== this.lastDelayed) {
+      this.announcement.set(`Scene ${n}’s picture is slow to download. You can wait, or cancel and choose another picture for it.`);
+    }
+    this.lastDelayed = n;
   }
 
   private say(v: StoryVideo): void {
@@ -689,7 +712,12 @@ export class StoryVideoPanelComponent implements OnDestroy {
   // ---------------------------------------------------------------------------
   // Cancel, download, watch, delete
 
-  protected cancel(v: StoryVideo): void {
+  /**
+   * Cancels the video being made. With `thenScene`, the person then goes to that
+   * scene's picture button (#311), but only if the video really ended as
+   * cancelled: if it had just finished, there is nothing to swap.
+   */
+  protected cancel(v: StoryVideo, thenScene = 0): void {
     if (this.cancelling()) return;
     this.cancelling.set(true);
     this.actionProblem.set(null);
@@ -703,7 +731,9 @@ export class StoryVideoPanelComponent implements OnDestroy {
           this.lastStatus = updated.status;
           this.replace(updated);
           this.say(updated);
-          this.focusState();
+          // Going to the scene takes focus there; the heading must not take it back.
+          if (thenScene > 0 && updated.status === 'failed' && wasCancelled(updated)) this.goToScene.emit(thenScene);
+          else this.focusState();
         },
         error: (err) => {
           this.cancelling.set(false);

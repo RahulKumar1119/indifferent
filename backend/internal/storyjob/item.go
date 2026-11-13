@@ -63,6 +63,9 @@ func ToItem(j Job) (map[string]types.AttributeValue, error) {
 	set("error", j.Error)
 	set("errorCode", j.ErrorCode)
 	set("failedStage", j.FailedStage)
+	if j.DelayedScene > 0 {
+		item["delayedScene"] = &types.AttributeValueMemberN{Value: strconv.Itoa(j.DelayedScene)}
+	}
 	set("createdAt", j.CreatedAt)
 	set("updatedAt", j.UpdatedAt)
 	set("completedAt", j.CompletedAt)
@@ -95,7 +98,7 @@ func FromItem(item map[string]types.AttributeValue) (Job, error) {
 		OutputKey: str("outputKey"), Error: str("error"), ErrorCode: str("errorCode"), FailedStage: str("failedStage"),
 		CreatedAt: str("createdAt"), UpdatedAt: str("updatedAt"), CompletedAt: str("completedAt"),
 	}
-	for name, dst := range map[string]*int{"planRevision": &j.PlanRevision, "progress": &j.Progress} {
+	for name, dst := range map[string]*int{"planRevision": &j.PlanRevision, "progress": &j.Progress, "delayedScene": &j.DelayedScene} {
 		f, err := num(name)
 		if err != nil {
 			return Job{}, fmt.Errorf("%s: %w", name, err)

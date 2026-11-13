@@ -631,6 +631,100 @@ describe('StoryVideoPanelComponent', () => {
 
   // -------------------------------------------------------------------------
 
+  describe('a picture that is slow to download (#311)', () => {
+    const note = () => q('delayed');
+    const swap = () => q<HTMLButtonElement>('swap-picture')!;
+
+    it('says which scene, why, and that it may clear by itself, with a button to swap it', async () => {
+      await mount({ videos: [rendering({ delayedScene: 4 })], pollMs: 10_000_000 });
+      expect(note()).toBeTruthy();
+      expect(note()!.textContent).toContain('Scene 4’s picture is slow to download');
+      expect(note()!.textContent).toContain('may clear on its own in a few minutes');
+      expect(swap().textContent!.trim()).toBe('Cancel and choose another picture for scene 4');
+      expect(swap().tagName).toBe('BUTTON');
+      expect(swap().disabled).toBeFalse();
+      // The cancel button and the progress are still there: waiting is a choice.
+      expect(q('cancel')).toBeTruthy();
+      expect(percent()).toBeTruthy();
+    });
+    it('says nothing when no scene is slow, and nothing on a finished or failed video', async () => {
+      await mount({ videos: [rendering()], pollMs: 10_000_000 });
+      expect(note()).toBeNull();
+      fixture.destroy();
+      await mount({ videos: [completed({ delayedScene: 2 })] });
+      expect(note()).toBeNull();
+      fixture.destroy();
+      await mount({ videos: [failed({ delayedScene: 2 })] });
+      expect(note()).toBeNull();
+    });
+    it('cancels the video and then takes the person to that scene', fakeAsync(() => {
+      svc.cancel.and.returnValue(of(cancelledVideo()));
+      mountFake({ videos: [rendering({ delayedScene: 4 })], pollMs: 1000 });
+      swap().click();
+      pump();
+      expect(svc.cancel).toHaveBeenCalledOnceWith('job-1');
+      expect(q('failed')).toBeTruthy();
+      expect(note()).toBeNull();
+      expect(scenes).toEqual([4]);
+    }));
+    it('does not go to the scene when the video had finished before the cancel got there', fakeAsync(() => {
+      svc.cancel.and.returnValue(of(completed()));
+      mountFake({ videos: [rendering({ delayedScene: 4 })], pollMs: 1000 });
+      swap().click();
+      pump();
+      expect(q('done')).toBeTruthy();
+      expect(scenes).toEqual([]);
+    }));
+    it('does not go to the scene when the cancel failed, and says so', fakeAsync(() => {
+      svc.cancel.and.returnValue(throwError(() => httpError(500, 'DB_ERROR')));
+      svc.get.and.returnValue(of(rendering({ delayedScene: 4 })));
+      mountFake({ videos: [rendering({ delayedScene: 4 })], pollMs: 1000 });
+      swap().click();
+      pump();
+      expect(problem()!.textContent).toContain("The video wasn't cancelled");
+      expect(scenes).toEqual([]);
+      expect(note()).toBeTruthy();
+      fixture.destroy();
+      flush();
+    }));
+    it('is one request however often the button is pressed, and the button is disabled meanwhile', async () => {
+      const pending = new Subject<StoryVideo>();
+      svc.cancel.and.returnValue(pending);
+      await mount({ videos: [rendering({ delayedScene: 4 })], pollMs: 10_000_000 });
+      swap().click();
+      swap().click();
+      await render();
+      expect(svc.cancel).toHaveBeenCalledTimes(1);
+      expect(swap().disabled).toBeTrue();
+    });
+    it('appears when a check finds a slow picture, announced once, and goes when it clears', fakeAsync(() => {
+      svc.get.and.returnValues(
+        of(rendering({ progress: 17, delayedScene: 4 })),
+        of(rendering({ progress: 17, delayedScene: 4 })),
+        of(rendering({ progress: 40 })),
+      );
+      mountFake({ videos: [rendering({ progress: 17 })], pollMs: 1000 });
+      expect(note()).toBeNull();
+      pump(1000);
+      expect(note()).toBeTruthy();
+      expect(q('announcement')!.textContent).toContain('Scene 4’s picture is slow to download');
+      // The same scene on the next check is not announced again.
+      fixture.componentInstance['announcement'].set('');
+      pump(1000);
+      expect(q('announcement')!.textContent).toBe('');
+      expect(note()).toBeTruthy();
+      pump(1000);
+      expect(note()).toBeNull();
+      expect(percent()).toBe('40%');
+      fixture.destroy();
+      flush();
+    }));
+    it('uses no em dash', async () => {
+      await mount({ videos: [rendering({ delayedScene: 2 })], pollMs: 10_000_000 });
+      expect(note()!.textContent).not.toContain('\u2014');
+      expect(swap().textContent).not.toContain('\u2014');
+    });
+  });
   describe('a video that did not finish', () => {
     it('says why in the API\'s words, and offers to make it again with the same choices', async () => {
       await mount({ videos: [failed({ voice: 'Brian', caption: { preset: 'minimal' } })] });

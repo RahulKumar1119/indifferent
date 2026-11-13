@@ -111,6 +111,7 @@ func (r *Runner) Run(ctx context.Context, userID, jobID string) (Outcome, error)
 	// that attempt. This one starts clean, so the user does not see an error on
 	// a job that is running.
 	job.Error, job.ErrorCode, job.FailedStage = "", "", ""
+	job.DelayedScene = 0
 
 	// A cancel only writes the record. Watch it, and stop the work when the job
 	// is deleted or no longer running.
