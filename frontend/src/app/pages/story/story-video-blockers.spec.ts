@@ -47,6 +47,38 @@ describe('videoBlocker', () => {
     expect(videoBlocker(rec, false)).toBe("The pictures for scenes 1 and 2 can't be used any more: the photo library no longer has them. Choose another, then save.");
   });
 
+  describe('a picture the plan chose itself (#303)', () => {
+    it('says we picked it when the one gone picture was auto-picked', () => {
+      const rec = withAllPictures();
+      rec.plan!.scenes[1].mediaSource = 'auto';
+      rec.media![1] = { provider: 'pexels', type: 'video', id: '202', status: 'unavailable' };
+      expect(videoBlocker(rec, false)).toBe('We picked the picture for scene 2, but the photo library no longer has it. Choose another, then save.');
+    });
+
+    it('says it in the plural when every gone picture was auto-picked', () => {
+      const rec = withAllPictures();
+      rec.plan!.scenes[0].mediaSource = 'auto';
+      rec.plan!.scenes[2].mediaSource = 'auto';
+      rec.media![0] = { provider: 'pixabay', type: 'photo', id: '101', status: 'unavailable' };
+      rec.media![2] = { provider: 'pixabay', type: 'photo', id: '303', status: 'unavailable' };
+      expect(videoBlocker(rec, false)).toBe('We picked the pictures for scenes 1 and 3, but the photo library no longer has them. Choose another, then save.');
+    });
+
+    it('keeps the general wording when the user chose one of the gone pictures', () => {
+      const rec = withAllPictures();
+      rec.plan!.scenes[0].mediaSource = 'auto';
+      rec.media![0] = { provider: 'pixabay', type: 'photo', id: '101', status: 'unavailable' };
+      rec.media![1] = { provider: 'pexels', type: 'video', id: '202', status: 'unavailable' };
+      expect(videoBlocker(rec, false)).toBe("The pictures for scenes 1 and 2 can't be used any more: the photo library no longer has them. Choose another, then save.");
+    });
+
+    it('keeps the empty-scene wording, auto-pick or not', () => {
+      const rec = planRecord();
+      rec.plan!.scenes[0].mediaSource = 'auto';
+      expect(videoBlocker(rec, false)).toBe('Scene 3 has no picture. Choose one, then save.');
+    });
+  });
+
   it('does not block on a picture that could not be looked up for now', () => {
     const rec = withAllPictures();
     rec.media![0] = { provider: 'pixabay', type: 'photo', id: '101', status: 'error' };

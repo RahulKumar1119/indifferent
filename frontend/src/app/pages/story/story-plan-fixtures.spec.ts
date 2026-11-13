@@ -14,6 +14,7 @@ import {
   LucideSearch,
   LucideTrash2,
   LucideTriangleAlert,
+  LucideWandSparkles,
   LucideX,
   provideLucideIcons,
 } from '@lucide/angular';
@@ -38,8 +39,16 @@ export const STORY_ICONS = provideLucideIcons(
   LucideSearch,
   LucideTrash2,
   LucideTriangleAlert,
+  LucideWandSparkles,
   LucideX,
 );
+
+/** planRecord with scene 1's picture chosen by the plan (#302) and scene 2's by the user. */
+export function autoPickedRecord(over: Partial<StoryPlanRecord> = {}): StoryPlanRecord {
+  const rec = planRecord(over);
+  rec.plan!.scenes[0] = { ...rec.plan!.scenes[0], mediaSource: 'auto' };
+  return rec;
+}
 
 /** Stands in for the navbar, which needs the whole auth stack. */
 @Component({ selector: 'app-navbar', standalone: true, template: '' })

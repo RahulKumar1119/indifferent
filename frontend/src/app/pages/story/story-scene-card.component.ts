@@ -31,6 +31,7 @@ import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './sto
     .frame img, .frame video { width: 100%; height: 100%; object-fit: contain; display: block; }
     .state { margin: 0; padding: var(--space-sm); text-align: center; font-size: var(--type-sm); color: var(--color-ink); }
     .state svg { display: block; margin: 0 auto var(--space-2xs); color: var(--color-ink-2); }
+    .picked { margin: var(--space-xs) 0 0; color: var(--color-ink-2); }
     figcaption { margin-top: var(--space-2xs); font-size: var(--type-sm); color: var(--color-ink-2); overflow-wrap: anywhere; }
     figcaption a { display: inline-flex; align-items: center; min-height: 44px; }
     .acts { margin-top: var(--space-xs); display: flex; flex-wrap: wrap; gap: var(--space-xs); }
@@ -95,6 +96,16 @@ import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './sto
               }
             }
           </div>
+
+          @if (picked()) {
+            <p class="picked" data-testid="picked-label">
+              <span class="ui-pill">
+                <svg lucideIcon="wand-sparkles" [size]="14" aria-hidden="true"></svg>
+                Picked for you
+              </span>
+              <span class="sr">. We chose this picture from the scene’s search words. Replace it if it doesn’t fit the scene.</span>
+            </p>
+          }
 
           <figcaption>
             @switch (media().state) {
@@ -179,6 +190,11 @@ export class StorySceneCardComponent {
   protected readonly asset = computed(() => {
     const m = this.media();
     return m.state === 'asset' ? m.asset : null;
+  });
+  /** The plan chose this picture and the user has not changed it (#302, #303). */
+  protected readonly picked = computed(() => {
+    const m = this.media();
+    return m.state === 'asset' && m.auto;
   });
   protected readonly providerName = computed(() => {
     const m = this.media();

@@ -27,6 +27,10 @@ export function videoBlocker(record: StoryPlanRecord, hasUnsavedChanges: boolean
   const gone = scenes.flatMap((s, i) => (s.media && record.media?.[i]?.status === 'unavailable' ? [i + 1] : []));
   if (gone.length > 0) {
     const one = gone.length === 1;
+    // Pictures the plan chose itself (#302): say so, so it is clear the user did nothing wrong.
+    if (gone.every((n) => scenes[n - 1].mediaSource === 'auto')) {
+      return `We picked the ${one ? 'picture' : 'pictures'} for ${sceneList(gone).toLowerCase()}, but the photo library no longer has ${one ? 'it' : 'them'}. Choose another, then save.`;
+    }
     return `The ${one ? 'picture' : 'pictures'} for ${sceneList(gone).toLowerCase()} can't be used any more: the photo library no longer has ${one ? 'it' : 'them'}. Choose another, then save.`;
   }
   return '';

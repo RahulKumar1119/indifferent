@@ -27,6 +27,11 @@ export interface PlanScene {
   /** Seconds, estimated from the narration. */
   duration: number;
   media?: MediaRef;
+  /**
+   * "auto" when the plan picked `media` itself when it was made (#302). The
+   * server clears it once the user swaps or removes that picture.
+   */
+  mediaSource?: 'auto';
 }
 
 export interface StoryPlan {
