@@ -36,14 +36,14 @@ const maxRawScenes = MaxScenes * 3
 func parseRawPlan(text string, extract func(string) string) (rawPlan, error) {
 	js := extract(text)
 	if js == "" {
-		return rawPlan{}, invalidPlan("the answer contains no JSON object")
+		return rawPlan{}, invalidPlan(ReasonNoJSON, nil, "the answer contains no JSON object")
 	}
 	var rp rawPlan
 	if err := json.Unmarshal([]byte(js), &rp); err != nil {
-		return rawPlan{}, invalidPlan("the answer is not a plan in the expected shape")
+		return rawPlan{}, invalidPlan(ReasonBadShape, nil, "the answer is not a plan in the expected shape")
 	}
 	if len(rp.Scenes) == 0 {
-		return rawPlan{}, invalidPlan("the answer has no scenes")
+		return rawPlan{}, invalidPlan(ReasonNoScenes, nil, "the answer has no scenes")
 	}
 	if len(rp.Scenes) > maxRawScenes {
 		rp.Scenes = rp.Scenes[:maxRawScenes]
