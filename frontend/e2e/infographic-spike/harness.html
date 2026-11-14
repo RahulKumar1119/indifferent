@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Infographic spike (#217)</title>
+  <!-- The same stylesheets the app will use, from the @fontsource packages. -->
+  <link rel="stylesheet" href="/fonts/noto-sans/400.css">
+  <link rel="stylesheet" href="/fonts/noto-sans/700.css">
+  <link rel="stylesheet" href="/fonts/noto-sans-arabic/400.css">
+  <link rel="stylesheet" href="/fonts/noto-sans-arabic/700.css">
+  <link rel="stylesheet" href="/fonts/noto-sans-sc/400.css">
+  <link rel="stylesheet" href="/fonts/noto-sans-sc/700.css">
+  <style>
+    :root { --stack: 'Noto Sans', 'Noto Sans Arabic', 'Noto Sans SC', sans-serif; }
+    html, body { margin: 0; background: #fff; }
+    #holder { transform-origin: top left; }
+    .stage { box-sizing: border-box; position: relative; overflow: hidden; background: #FBF6EE; color: #231F1A;
+      font-family: var(--stack); font-weight: 400; line-height: 1.5; padding: 72px 72px 56px; display: flex; flex-direction: column; gap: 40px; }
+    /* Script-safe typography: no tracking, no case changes, taller lines for marks. */
+    .stage * { letter-spacing: 0; text-transform: none; }
+    .stage:lang(hi) { line-height: 1.7; }
+    .stage:lang(ar) { line-height: 1.8; }
+    .stage:lang(zh) { line-height: 1.65; }
+    h1 { margin: 0; font-size: 84px; line-height: 1.15; font-weight: 700; color: #231F1A; }
+    .sub { margin: 16px 0 0; font-size: 36px; color: #4A4238; }
+    .steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 28px; }
+    .steps li { display: flex; gap: 28px; align-items: flex-start; padding: 28px; background: #fff; border: 2px solid #E4D9C8; border-radius: 24px;
+      border-inline-start: 12px solid #BC5227; }
+    .n { flex: none; width: 76px; height: 76px; border-radius: 50%; background: #BC5227; color: #FFFBF6; font-weight: 700; font-size: 40px; display: grid; place-items: center; line-height: 1; }
+    .steps h2 { margin: 0; font-size: 44px; line-height: 1.25; font-weight: 700; }
+    .steps p { margin: 8px 0 0; font-size: 32px; color: #4A4238; }
+    .panel { background: #fff; border: 2px solid #E4D9C8; border-radius: 24px; padding: 28px; }
+    .panel h3 { margin: 0 0 16px; font-size: 38px; font-weight: 700; }
+    canvas { display: block; }
+    footer { margin-top: auto; display: flex; justify-content: space-between; gap: 24px; font-size: 28px; color: #4A4238; }
+    footer .stress { flex: 1; }
+    .mix { unicode-bidi: plaintext; }
+    /* Layout per size: portrait and square stack; landscape is two columns. */
+    .stage.landscape { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: auto 1fr auto; gap: 32px 56px; padding: 56px 72px 44px; }
+    .stage.landscape header { grid-column: 1 / -1; }
+    .stage.landscape footer { grid-column: 1 / -1; margin-top: 0; }
+    .stage.landscape h1 { font-size: 72px; }
+    .stage.landscape .sub { font-size: 32px; }
+    .stage.landscape .steps { gap: 20px; align-content: start; }
+    .stage.landscape .steps li { padding: 20px 24px; }
+    .stage.landscape .steps h2 { font-size: 38px; }
+    .stage.landscape .steps p { font-size: 28px; }
+    .stage.square { padding: 44px 64px 32px; gap: 20px; }
+    .stage.square h1 { font-size: 56px; }
+    .stage.square .sub { margin-top: 8px; font-size: 26px; }
+    .stage.square .steps { gap: 12px; }
+    .stage.square .steps li { padding: 14px 20px; gap: 20px; }
+    .stage.square .n { width: 56px; height: 56px; font-size: 30px; }
+    .stage.square .steps h2 { font-size: 32px; }
+    .stage.square .steps p { margin-top: 4px; font-size: 22px; }
+    .stage.square .panel { padding: 16px 24px; }
+    .stage.square .panel h3 { margin-bottom: 8px; font-size: 30px; }
+    .stage.square footer { font-size: 22px; }
+  </style>
+</head>
+<body>
+  <div id="holder"><div id="stage" class="stage"></div></div>
+  <script src="/harness.js"></script>
+</body>
+</html>
