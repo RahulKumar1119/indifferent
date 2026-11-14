@@ -70,9 +70,10 @@ type TopField = 'title' | 'subtitle' | 'footer';
               </div>
             }
             <div class="ui-f">
-              <label class="ui-flabel" [for]="'ig-heading-' + s.id">Heading</label>
+              <label class="ui-flabel" [for]="'ig-heading-' + s.id">{{ template().headingName ?? 'Heading' }}</label>
               <input [id]="'ig-heading-' + s.id" class="ui-field" dir="auto" type="text" [attr.maxlength]="limits.heading" [value]="s.heading" (input)="sec(s.id, 'heading', $event)" />
             </div>
+            @if (!template().noBody) {
             <div class="ui-f">
               <label class="ui-flabel" [for]="'ig-body-' + s.id">{{ template().bullets ? 'Bullets' : 'Text' }}</label>
               <textarea [id]="'ig-body-' + s.id" class="ui-field" dir="auto" rows="3" [attr.maxlength]="limits.body" [value]="s.body" (input)="sec(s.id, 'body', $event)"></textarea>
@@ -80,10 +81,14 @@ type TopField = 'title' | 'subtitle' | 'footer';
                 <p class="hint">One bullet per line.</p>
               }
             </div>
+            }
           </div>
         }
       </div>
 
+      @if (template().hint) {
+        <p class="hint" data-testid="template-hint">{{ template().hint }}</p>
+      }
       <button type="button" id="ig-add" class="ui-btn ui-btn--secondary add" [disabled]="!canAdd()" (click)="add()">
         <svg lucideIcon="plus" [size]="16" aria-hidden="true"></svg>
         Add section

@@ -91,6 +91,12 @@ function draft(tpl, format, lang, themeId = 'paper', long = false) {
   const sections = [];
   for (let i = 0; i < Math.max(n, tpl.min); i++) {
     const own = text ? text.sections[i % text.sections.length] : [tpl.defaults[i % tpl.defaults.length].heading, tpl.defaults[i % tpl.defaults.length].body];
+    if (tpl.chart && text) {
+      const digits = lang === 'gu' ? ['૧૨', '૯', '૭', '૫', '૩', '૨'] : ['१२', '९', '७', '५', '३', '२'];
+      const name = long ? own[0].repeat(3).slice(0, 24) : own[0].slice(0, 24);
+      sections.push({ id: `s${i}`, label: name, heading: tpl.id === 'big-numbers' ? (lang === 'gu' ? '૧,૨૦૦' : '१,२००') : digits[i % digits.length], body: tpl.noBody ? '' : own[1].slice(0, long ? 120 : 40) });
+      continue;
+    }
     let body = own[1];
     if (tpl.bullets) body = text ? `${body}\n${own[0]}\n${body.slice(0, 30)}` : body;
     if (long) body = Array(tpl.bullets ? 8 : 3).fill(body).join(tpl.bullets ? '\n' : ' ');
@@ -186,10 +192,13 @@ async function readTemplate(id) {
       defaults: secs.map((s) => ({
         label: s.querySelector('input[id^="ig-label-"]')?.value ?? '',
         heading: s.querySelector('input[id^="ig-heading-"]').value,
-        body: s.querySelector('textarea').value,
+        body: s.querySelector('textarea')?.value ?? '',
       })),
       labelName: document.querySelector('label[for^="ig-label-"]')?.textContent.trim() ?? '',
       bullets: document.querySelector('label[for^="ig-body-"]')?.textContent.trim() === 'Bullets',
+      // The statistics templates call the heading "Value" or "Number" and read a number out of it.
+      chart: document.querySelector('label[for^="ig-heading-"]')?.textContent.trim() !== 'Heading',
+      noBody: !document.querySelector('label[for^="ig-body-"]'),
     };
   });
   // The limits, by using the buttons: add until it stops, then remove until it stops.
@@ -455,7 +464,7 @@ for (const tpl of templates) {
   const m = await page.evaluate(() => {
     const a = document.querySelector('[data-testid="artboard"]');
     const box = a.getBoundingClientRect();
-    const first = a.querySelector('.num') ?? a.querySelector('.when') ?? a.querySelector('.band') ?? a.querySelector('.card');
+    const first = a.querySelector('.num') ?? a.querySelector('.when') ?? a.querySelector('.band') ?? a.querySelector('.card') ?? a.querySelector('.rh h2') ?? a.querySelector('.xs span') ?? a.querySelector('.sw') ?? a.querySelector('.nc');
     const fr = first?.getBoundingClientRect();
     return { dir: a.getAttribute('dir'), lang: a.getAttribute('lang'), titleAlign: getComputedStyle(a.querySelector('h1')).textAlign, firstCenter: fr ? (fr.left + fr.width / 2 - box.left) / box.width : null };
   });

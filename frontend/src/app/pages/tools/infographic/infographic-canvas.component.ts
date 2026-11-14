@@ -17,6 +17,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { CANVAS_STYLES } from './canvas.styles';
+import { InfographicChartComponent } from './infographic-chart.component';
 import { docText } from './doc-ops';
 import { FORMATS, InfographicDoc, MARK_TEXT } from './infographic.model';
 import { TEMPLATES, Template, templateById } from './templates';
@@ -42,6 +43,7 @@ export const FIT_STEPS = [1.4, 1.32, 1.24, 1.16, 1.08, 1, 0.94, 0.88, 0.82, 0.76
   selector: 'app-infographic-canvas',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [InfographicChartComponent],
   styles: [CANVAS_STYLES],
   template: `
     <div class="holder" [style.margin-inline]="'auto'" [style.width.px]="size().width * scale()" [style.height.px]="size().height * scale()">
@@ -100,6 +102,18 @@ export const FIT_STEPS = [1.4, 1.32, 1.24, 1.16, 1.08, 1, 0.94, 0.88, 0.82, 0.76
                 </li>
               }
             </ol>
+          }
+          @case ('bars') {
+            <app-infographic-chart layout="bars" [doc]="doc()" [rtl]="dir() === 'rtl'" />
+          }
+          @case ('line') {
+            <app-infographic-chart layout="line" [doc]="doc()" [rtl]="dir() === 'rtl'" />
+          }
+          @case ('donut') {
+            <app-infographic-chart layout="donut" [doc]="doc()" [rtl]="dir() === 'rtl'" />
+          }
+          @case ('numbers') {
+            <app-infographic-chart layout="numbers" [doc]="doc()" [rtl]="dir() === 'rtl'" />
           }
           @default {
             <ol class="list">
@@ -236,7 +250,7 @@ export class InfographicCanvasComponent implements OnDestroy {
   /** How far content runs past the artboard, or a heading's word runs past its box, in design pixels. */
   private static overflowOf(stage: HTMLElement): number {
     let over = Math.max(stage.scrollHeight - stage.clientHeight, stage.scrollWidth - stage.clientWidth, 0);
-    stage.querySelectorAll<HTMLElement>('h1, h2').forEach((h) => {
+    stage.querySelectorAll<HTMLElement>('h1, h2, .big, .val').forEach((h) => {
       over = Math.max(over, h.scrollWidth - h.clientWidth);
     });
     return over;

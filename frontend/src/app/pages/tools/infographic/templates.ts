@@ -6,7 +6,7 @@ import { InfographicDoc, LIMITS, Section } from './infographic.model';
  * The artboard draws each `layout` (infographic-canvas.component.ts).
  * Categories follow the issue; the rest of the 20 arrive in later PRs.
  */
-export type Layout = 'points' | 'concept' | 'steps' | 'compare' | 'timeline';
+export type Layout = 'points' | 'concept' | 'steps' | 'compare' | 'timeline' | 'bars' | 'line' | 'donut' | 'numbers';
 
 export interface Template {
   id: string;
@@ -20,6 +20,14 @@ export interface Template {
   labelName: string;
   /** True when each line of a section's body is a bullet. */
   bullets: boolean;
+  /** True for the statistics templates: each section is a data point and its heading is a number. */
+  chart?: boolean;
+  /** What the heading box is called when it is not "Heading", such as "Value". */
+  headingName?: string;
+  /** True when a section has no text box below the heading. */
+  noBody?: boolean;
+  /** A line of help under the sections. */
+  hint?: string;
   /** The text a new document starts with. */
   title: string;
   subtitle: string;
@@ -125,6 +133,104 @@ export const TEMPLATES: Template[] = [
       { label: '1993', heading: 'Open to all', body: 'The web is released into the public domain.' },
       { label: '2004', heading: 'Social web', body: 'Sites where people post and share become part of daily life.' },
       { label: '2007', heading: 'In your pocket', body: 'Smartphones put the whole web in one hand.' },
+    ],
+  },
+  {
+    id: 'bar-chart',
+    name: 'Bar chart',
+    category: 'Statistics',
+    description: 'Compare amounts with horizontal bars.',
+    layout: 'bars',
+    minSections: 2,
+    maxSections: 8,
+    labelName: 'Name',
+    bullets: false,
+    chart: true,
+    headingName: 'Value',
+    noBody: true,
+    hint: 'Type a number in each value box, like 12, 3.5 or 40%. Bars are drawn to scale from zero.',
+    title: 'Where our study time goes',
+    subtitle: 'Hours per week, sample data',
+    footer: 'Replace the sample numbers with your own',
+    sections: [
+      { label: 'Maths', heading: '12', body: '' },
+      { label: 'Science', heading: '9', body: '' },
+      { label: 'Languages', heading: '7', body: '' },
+      { label: 'History', heading: '5', body: '' },
+      { label: 'Art', heading: '3', body: '' },
+    ],
+  },
+  {
+    id: 'line-chart',
+    name: 'Line chart',
+    category: 'Statistics',
+    description: 'Show how a number changes over time.',
+    layout: 'line',
+    minSections: 3,
+    maxSections: 10,
+    labelName: 'Point name',
+    bullets: false,
+    chart: true,
+    headingName: 'Value',
+    noBody: true,
+    hint: 'Points are drawn left to right in the order of the sections. Type a number in each value box.',
+    title: 'Steps walked this week',
+    subtitle: 'Sample data',
+    footer: 'Replace the sample numbers with your own',
+    sections: [
+      { label: 'Mon', heading: '4200', body: '' },
+      { label: 'Tue', heading: '6100', body: '' },
+      { label: 'Wed', heading: '5300', body: '' },
+      { label: 'Thu', heading: '7800', body: '' },
+      { label: 'Fri', heading: '6900', body: '' },
+    ],
+  },
+  {
+    id: 'donut-chart',
+    name: 'Donut chart',
+    category: 'Statistics',
+    description: 'Show how a whole is split into parts.',
+    layout: 'donut',
+    minSections: 2,
+    maxSections: 6,
+    labelName: 'Name',
+    bullets: false,
+    chart: true,
+    headingName: 'Value',
+    noBody: true,
+    hint: 'Each slice is its value as a share of the total. Type a number in each value box.',
+    title: 'How a school day is spent',
+    subtitle: 'Share of the day, sample data',
+    footer: 'Replace the sample numbers with your own',
+    sections: [
+      { label: 'Lessons', heading: '40', body: '' },
+      { label: 'Homework', heading: '25', body: '' },
+      { label: 'Breaks', heading: '15', body: '' },
+      { label: 'Sport', heading: '10', body: '' },
+      { label: 'Free time', heading: '10', body: '' },
+    ],
+  },
+  {
+    id: 'big-numbers',
+    name: 'Key numbers',
+    category: 'Statistics',
+    description: 'Large figures with a short caption each.',
+    layout: 'numbers',
+    minSections: 2,
+    maxSections: 6,
+    labelName: 'Name',
+    bullets: false,
+    chart: true,
+    headingName: 'Number',
+    hint: 'The number is shown as you type it, so you can add a unit, like 96% or 1,200+.',
+    title: 'Our year in numbers',
+    subtitle: 'Sample data',
+    footer: 'Replace the sample numbers with your own',
+    sections: [
+      { label: 'Students', heading: '1,200', body: 'Across all classes' },
+      { label: 'Teachers', heading: '48', body: 'Full time and visiting' },
+      { label: 'Pass rate', heading: '96%', body: 'Up from 91% last year' },
+      { label: 'Awards', heading: '12', body: 'State and national' },
     ],
   },
 ];
