@@ -38,8 +38,14 @@ class FakeExporter {
   calls: string[] = [];
   uncovered: string[] = [];
   fail = false;
+  slow = false;
+  private gate: (() => void) | null = null;
+  release() {
+    this.gate?.();
+  }
   async export(_s: HTMLElement, doc: InfographicDoc, kind: string) {
     this.calls.push(kind);
+    if (this.slow) await new Promise<void>((resolve) => (this.gate = resolve));
     if (this.fail) throw new Error('nope');
     return { blob: new Blob(['x']), filename: `x.${kind}`, width: 1080, height: 1920, uncovered: this.uncovered };
   }
@@ -519,6 +525,72 @@ describe('InfographicMakerComponent', () => {
     });
   });
 
+  describe('icons and shapes', () => {
+    beforeEach(async () => create());
+    const decos = () => Array.from(el.querySelectorAll<HTMLElement>('[data-testid="deco"]'));
+
+    it('are added from the panel and drawn on the artboard', async () => {
+      await click(q('[aria-label="Add circle"]'));
+      await click(q('[aria-label="Add light bulb icon"]'));
+      expect(decos().length).toBe(2);
+      expect(el.querySelectorAll('li[data-item]').length).toBe(2);
+      expect(byTest('announcement')!.textContent).toContain('added as item 2');
+    });
+
+    it('move with the arrow keys and add up when the key is held, and one undo takes back the held key', async () => {
+      await click(q('[aria-label="Add circle"]'));
+      const first = decos()[0];
+      const x0 = parseFloat(first.style.left);
+      for (let i = 0; i < 4; i++) first.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+      await settle();
+      expect(parseFloat(decos()[0].style.left)).toBeCloseTo(x0 + 4, 5);
+      await click(button('Undo'));
+      expect(parseFloat(decos()[0].style.left)).toBeCloseTo(x0, 5);
+    });
+
+    it('are removed with Delete, and undo brings them back', async () => {
+      await click(q('[aria-label="Add circle"]'));
+      decos()[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }));
+      await settle();
+      expect(decos().length).toBe(0);
+      expect(byTest('announcement')!.textContent).toContain('Undo brings it back');
+      await click(button('Undo'));
+      expect(decos().length).toBe(1);
+    });
+
+    it('are saved with the draft and come back after a reload', async () => {
+      await click(q('[aria-label="Add circle"]'));
+      await wait(650);
+      expect(saved()!.items.length).toBe(1);
+      fixture.destroy();
+      await create();
+      expect(decos().length).toBe(1);
+    });
+
+    it('are removed by Reset design, which says so, and undo brings them back', async () => {
+      await click(q('[aria-label="Add circle"]'));
+      await click(button('Reset design'));
+      expect(decos().length).toBe(0);
+      expect(byTest('announcement')!.textContent).toContain('Icons and shapes were removed');
+      await click(button('Undo'));
+      expect(decos().length).toBe(1);
+    });
+
+    it('are kept when the template changes', async () => {
+      await click(q('[aria-label="Add circle"]'));
+      await click(q('input[name="template"][value="cycle"]'));
+      expect(decos().length).toBe(1);
+    });
+
+    it('are gone after Start new', async () => {
+      await click(q('[aria-label="Add circle"]'));
+      await click(q('#ig-new'));
+      const confirm = q('[aria-label="Confirm start new"]')!;
+      await click(Array.from(confirm.querySelectorAll('button')).find((b) => b.textContent!.trim() === 'Start new') as HTMLElement);
+      expect(decos().length).toBe(0);
+    });
+  });
+
   describe('languages', () => {
     beforeEach(async () => create());
 
@@ -575,6 +647,26 @@ describe('InfographicMakerComponent', () => {
       await flush();
       expect(byTest('export-message')!.textContent).toContain('could not be made');
       expect((byTest('export-png') as HTMLButtonElement).disabled).toBeFalse();
+    });
+
+    it('makes a PDF and says plainly that its words cannot be selected', async () => {
+      byTest('export-pdf')!.click();
+      await flush();
+      expect(exporter.calls).toEqual(['pdf']);
+      const message = byTest('export-message')!.textContent!;
+      expect(message).toContain('Saved x.pdf: one page, 1080 × 1920 pixels');
+      expect(message).toContain('cannot be selected or searched');
+    });
+
+    it('disables all three download buttons while one is being made', async () => {
+      exporter.slow = true;
+      byTest('export-pdf')!.click();
+      fixture.detectChanges();
+      for (const id of ['export-png', 'export-jpg', 'export-pdf']) expect((byTest(id) as HTMLButtonElement).disabled).withContext(id).toBeTrue();
+      expect(byTest('export-pdf')!.textContent).toContain('Making the PDF');
+      exporter.release();
+      await flush();
+      expect((byTest('export-pdf') as HTMLButtonElement).disabled).toBeFalse();
     });
 
     it('shows the real image size', () => {

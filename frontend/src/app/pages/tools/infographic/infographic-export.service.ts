@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { FORMATS, InfographicDoc } from './infographic.model';
 import { InfographicFonts } from './infographic-fonts.service';
+import { buildPdf } from './pdf-writer';
 import { themeById } from './themes';
 import { slugify } from './text-utils';
 
-export type ExportKind = 'png' | 'jpg';
+export type ExportKind = 'png' | 'jpg' | 'pdf';
 
 export interface ExportedImage {
   blob: Blob;
@@ -16,6 +17,8 @@ export interface ExportedImage {
 }
 
 export const JPG_QUALITY = 0.92;
+/** The picture inside a PDF is kept a little sharper than a JPG download, because pages are zoomed and printed. */
+export const PDF_JPEG_QUALITY = 0.95;
 
 /** `data:image/png;base64,...` to a Blob, without a network call. */
 export function dataUrlToBlob(url: string): Blob {
@@ -65,13 +68,21 @@ export class InfographicExporter {
       fontEmbedCSS: embed.css,
       // The preview is scaled to fit the screen; the image is made at full size.
       style: { transform: 'none' },
+      // Editing aids that are drawn on the artboard (the ring round a selected icon) are not part of the picture.
+      filter: (node: Node) => !(node instanceof HTMLElement && node.hasAttribute('data-skip-export')),
     };
-    const url =
-      kind === 'png'
-        ? await toPng(stage, options)
-        : await toJpeg(stage, { ...options, quality: JPG_QUALITY, backgroundColor: themeById(doc.themeId).bg });
+    const background = themeById(doc.themeId).bg;
+    let blob: Blob;
+    if (kind === 'png') {
+      blob = dataUrlToBlob(await toPng(stage, options));
+    } else if (kind === 'jpg') {
+      blob = dataUrlToBlob(await toJpeg(stage, { ...options, quality: JPG_QUALITY, backgroundColor: background }));
+    } else {
+      const jpeg = dataUrlToBlob(await toJpeg(stage, { ...options, quality: PDF_JPEG_QUALITY, backgroundColor: background }));
+      blob = new Blob([buildPdf(new Uint8Array(await jpeg.arrayBuffer()), { title: doc.title })], { type: 'application/pdf' });
+    }
     return {
-      blob: dataUrlToBlob(url),
+      blob,
       filename: exportFilename(doc, kind),
       width: f.width,
       height: f.height,

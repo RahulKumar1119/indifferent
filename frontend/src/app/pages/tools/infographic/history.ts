@@ -43,6 +43,11 @@ export class DocHistory {
     return true;
   }
 
+  /** Ends the current run of merged changes, so the next change starts a new undo step even for the same key. */
+  endGroup(): void {
+    this.lastKey = '';
+  }
+
   undo(): InfographicDoc | null {
     const previous = this.past.pop();
     if (!previous) return null;

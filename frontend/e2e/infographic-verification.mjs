@@ -7,6 +7,7 @@
 // the PNG matches the preview. Also checks the keyboard, undo and redo, autosave and the right-to-left mirror.
 // Writes screenshots and results.json to outDir (default ~/shots303/infographic), never into the repo. Exit 1 on any failure.
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -130,6 +131,64 @@ const fail = (msg) => {
   console.log('  FAIL', msg);
 };
 
+/**
+ * Checks a PDF with the tools a reader would use: pdfinfo (one page, the picture's size at 96 pixels to the inch),
+ * qpdf (the file is well formed), pdfimages (one JPEG of the exact pixel size) and pdftoppm (the page, drawn at
+ * 96 dpi by two renderers, matches the PNG). Returns the problems found and the PSNR of the drawn page against the PNG.
+ */
+function checkPdf(bytes, W, H, pngDecoded, label) {
+  const problems = [];
+  const dir = fs.mkdtempSync(path.join(downloadDir, 'pdf-'));
+  const file = path.join(dir, 'x.pdf');
+  fs.writeFileSync(file, bytes);
+  const run = (cmd, args) => {
+    try {
+      return { out: execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }), code: 0 };
+    } catch (e) {
+      return { out: `${e.stdout ?? ''}${e.stderr ?? ''}`, code: e.status ?? 1 };
+    }
+  };
+  if (String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') problems.push('does not start with %PDF-');
+  const info = run('pdfinfo', [file]);
+  const pages = Number(/Pages:\s+(\d+)/.exec(info.out)?.[1]);
+  const size = /Page size:\s+([\d.]+) x ([\d.]+) pts/.exec(info.out);
+  if (info.code !== 0 || pages !== 1) problems.push(`has ${pages} pages (${info.code})`);
+  if (!size || Math.abs(Number(size[1]) - W * 0.75) > 0.5 || Math.abs(Number(size[2]) - H * 0.75) > 0.5) problems.push(`page is ${size?.[1]} x ${size?.[2]} pt, expected ${W * 0.75} x ${H * 0.75}`);
+  const check = run('qpdf', ['--check', file]);
+  if (check.code !== 0 || /WARNING|ERROR/.test(check.out)) problems.push(`qpdf: ${check.out.split('\n').find((l) => /WARNING|ERROR/.test(l)) ?? 'exit ' + check.code}`);
+  const images = run('pdfimages', ['-list', file]).out.split('\n').filter((l) => /^\s*1\s/.test(l));
+  const cols = (images[0] ?? '').trim().split(/\s+/);
+  if (images.length !== 1 || Number(cols[3]) !== W || Number(cols[4]) !== H || cols[8] !== 'jpeg') problems.push(`image list: ${images.join(' | ') || 'none'}`);
+  // Two renderers. pdftocairo puts the picture on the page pixel for pixel, so the page must match the PNG
+  // closely (the JPEG inside costs a little). pdftoppm smooths the picture when it draws it, so it is only
+  // held to "the same page", not to the pixel.
+  let psnr = null;
+  for (const [tool, args, ext, minPsnr] of [
+    ['pdftocairo', ['-r', '96', '-png'], 'c', 38],
+    ['pdftoppm', ['-r', '96', '-png'], 'p', 22],
+  ]) {
+    const drawn = run(tool, [...args, file, path.join(dir, ext)]);
+    const page = fs.readdirSync(dir).find((n) => n.startsWith(ext + '-') && n.endsWith('.png'));
+    if (drawn.code !== 0 || !page) {
+      problems.push(`could not be drawn by ${tool}`);
+      continue;
+    }
+    const png = PNG.sync.read(fs.readFileSync(path.join(dir, page)));
+    if (png.width !== W || png.height !== H) {
+      problems.push(`${tool} drew ${png.width}x${png.height}, expected ${W}x${H}`);
+      continue;
+    }
+    let sum = 0;
+    let n = 0;
+    for (let i = 0; i < png.data.length; i += 4) for (let k = 0; k < 3; k++) { const d = png.data[i + k] - pngDecoded.data[i + k]; sum += d * d; n++; }
+    const mse = sum / n;
+    const value = Math.round((mse === 0 ? 99 : 10 * Math.log10((255 * 255) / mse)) * 10) / 10;
+    if (tool === 'pdftocairo') psnr = value;
+    if (value < minPsnr) problems.push(`${tool}'s page differs from the PNG (PSNR ${value} dB, needs ${minPsnr})`);
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+  return { problems, psnr };
+}
 const settle = (ms = 150) => new Promise((r) => setTimeout(r, ms));
 /** Replaces the text of a field the way typing does, without relying on a triple click. */
 async function typeInto(page, selector, text) {
@@ -257,9 +316,9 @@ for (const lang of LANG_LIST) {
       if (info.overflowWarning || !info.scrollOk) fail(`${id}: content does not fit (k ${info.k})`);
       if (info.unsupported) fail(`${id}: says fonts are missing for a released language`);
       const ref = await (await page.$('[data-testid="artboard"]')).screenshot({ type: 'png' });
-      for (const kind of ['png', 'jpg']) {
+      for (const [index, kind] of ['png', 'jpg', 'pdf'].entries()) {
         await pressButton(page, `[data-testid="export-${kind}"]`);
-        await page.waitForFunction((n) => window.__files.length >= n && !document.querySelector('[aria-busy="true"]'), { timeout: 60000 }, kind === 'png' ? 1 : 2);
+        await page.waitForFunction((n) => window.__files.length >= n && !document.querySelector('[aria-busy="true"]'), { timeout: 60000 }, index + 1);
       }
       const files = await page.evaluate(async () => {
         const out = [];
@@ -274,8 +333,9 @@ for (const lang of LANG_LIST) {
       const message = await page.$eval('[data-testid="export-message"]', (e) => e.textContent.trim()).catch(() => '');
       const pngFile = files.find((f) => f.type === 'image/png');
       const jpgFile = files.find((f) => f.type === 'image/jpeg');
-      if (!pngFile || !jpgFile) {
-        fail(`${id}: no PNG or JPG was made`);
+      const pdfFile = files.find((f) => f.type === 'application/pdf');
+      if (!pngFile || !jpgFile || !pdfFile) {
+        fail(`${id}: no PNG, JPG or PDF was made`);
       } else {
         const png = PNG.sync.read(Buffer.from(pngFile.b64, 'base64'));
         if (png.width !== W || png.height !== H) fail(`${id}: PNG is ${png.width}x${png.height}, expected ${W}x${H}`);
@@ -315,12 +375,16 @@ for (const lang of LANG_LIST) {
         }, pngFile.b64, jpgFile.b64);
         entry.psnr = Math.round(psnr * 10) / 10;
         if (psnr < 36) fail(`${id}: JPG quality is low (PSNR ${entry.psnr} dB)`);
+        const pdf = checkPdf(Buffer.from(pdfFile.b64, 'base64'), W, H, png, id);
+        entry.pdfKB = Math.round(pdfFile.bytes / 1024);
+        entry.pdfPsnr = pdf.psnr;
+        for (const problem of pdf.problems) fail(`${id}: PDF ${problem}`);
         if (size === 'portrait' || size === 'landscape') fs.writeFileSync(path.join(outDir, `${lang}-${tpl.id}-${size}.png`), Buffer.from(pngFile.b64, 'base64'));
       }
       if (/no font here/.test(message)) fail(`${id}: export says characters have no font: ${message}`);
       if (errors.length) fail(`${id}: page errors: ${errors.join(' | ')}`);
       results.cases.push(entry);
-      console.log(`${id.padEnd(30)} k ${entry.k} diff ${entry.differingPercent ?? '-'}%  png ${entry.pngKB ?? '-'} kB  jpg ${entry.jpgKB ?? '-'} kB  psnr ${entry.psnr ?? '-'}`);
+      console.log(`${id.padEnd(30)} k ${entry.k} diff ${entry.differingPercent ?? '-'}%  png ${entry.pngKB ?? '-'} kB  jpg ${entry.jpgKB ?? '-'} kB  psnr ${entry.psnr ?? '-'}  pdf ${entry.pdfKB ?? '-'} kB psnr ${entry.pdfPsnr ?? '-'}`);
       await page.close();
     }
   }
@@ -508,6 +572,156 @@ for (const [name, vp] of [['desktop', { width: 1366, height: 900 }], ['phone', {
   }
 }
 
+// --- icons and shapes: add, drag, keys, undo, export without the ring, PDF, reset, restore
+{
+  const tpl = templates.find((t) => t.id === 'key-points');
+  const { page, errors } = await openPage({ width: 1400, height: 1500 }, draft(tpl, 'portrait', 'en'));
+  const ok = (name, cond, detail = '') => {
+    results.interactions.push({ check: name, ok: !!cond, detail });
+    if (!cond) fail(`${name} ${detail}`);
+  };
+  const items = () => page.$$eval('[data-testid="deco"]', (els) => els.map((e) => ({ id: e.dataset.id, x: parseFloat(e.style.left), y: parseFloat(e.style.top), w: parseFloat(e.style.width), label: e.getAttribute('aria-label') })));
+  const art = () => page.$eval('[data-testid="artboard"]', (e) => { const r = e.getBoundingClientRect(); return { w: r.width, h: r.height }; });
+  const center = (i) => page.$$eval('[data-testid="deco"]', (els, k) => { const r = els[k].getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, i);
+  const drag = async (i, dx, dy) => {
+    const c = await center(i);
+    await page.mouse.move(c.x, c.y);
+    await page.mouse.down();
+    await page.mouse.move(c.x + dx, c.y + dy, { steps: 10 });
+    await page.mouse.up();
+    await settle();
+  };
+  const undo = async () => {
+    await page.evaluate(() => document.activeElement?.blur());
+    await page.keyboard.down('Control'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Control');
+    await settle();
+  };
+  const near = (a, b, tol = 0.35) => Math.abs(a - b) <= tol;
+  const exportOf = async (kind) => {
+    const before = await page.evaluate(() => window.__files.length);
+    await pressButton(page, `[data-testid="export-${kind}"]`);
+    await page.waitForFunction((n) => window.__files.length > n && !document.querySelector('[aria-busy="true"]'), { timeout: 60000 }, before);
+    const b64 = await page.evaluate(async () => {
+      const b = window.__files[window.__files.length - 1];
+      const buf = new Uint8Array(await b.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+      return btoa(bin);
+    });
+    return Buffer.from(b64, 'base64');
+  };
+
+  await pressButton(page, '[aria-label="Add light bulb icon"]');
+  await pressButton(page, '[aria-label="Add circle"]');
+  await settle();
+  let list = await items();
+  ok('adding an icon and a shape puts both on the artboard', list.length === 2, JSON.stringify(list));
+  ok('each one has a spoken name that says how to move it', list.every((l) => /arrow keys/.test(l.label)) && /Light bulb/.test(list[0].label) && /Circle/.test(list[1].label));
+  ok('the panel lists them with number boxes', (await page.$$('input[id^="ig-x-"]')).length === 2);
+
+  // dragging
+  const a = await art();
+  const start = list[0];
+  await drag(0, 60, 40);
+  let now = (await items())[0];
+  ok('dragging moves the icon by the distance dragged, in artboard percent', near(now.x, start.x + (60 / a.w) * 100) && near(now.y, start.y + (40 / a.h) * 100), `${JSON.stringify(start)} -> ${JSON.stringify(now)}`);
+  ok('the panel shows the new place', near(Number(await page.$eval(`#ig-x-${now.id}`, (e) => e.value)), now.x, 0.1));
+  await drag(0, 4000, -4000);
+  now = (await items())[0];
+  ok('dragging far outside stops at the edge of the artboard', now.x === 100 && now.y === 0, JSON.stringify(now));
+  await undo();
+  now = (await items())[0];
+  ok('one drag is one undo step, even when two drags follow each other closely', near(now.x, start.x + (60 / a.w) * 100) && near(now.y, start.y + (40 / a.h) * 100), JSON.stringify(now));
+  await undo();
+  now = (await items())[0];
+  ok('another undo puts the icon back where it was added', near(now.x, start.x) && near(now.y, start.y), JSON.stringify(now));
+
+  // keys
+  await page.focus('[data-testid="deco"]');
+  const k0 = (await items())[0];
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+  await page.keyboard.down('Shift'); await page.keyboard.press('ArrowDown'); await page.keyboard.up('Shift');
+  await settle();
+  const k1 = (await items())[0];
+  ok('arrow keys move 1 percent, and 5 with Shift', near(k1.x, k0.x + 3, 0.15) && near(k1.y, k0.y + 5, 0.15), `${JSON.stringify(k0)} -> ${JSON.stringify(k1)}`);
+  ok('a focused icon shows a ring', await page.$eval('[data-testid="deco"]', (e) => getComputedStyle(e.querySelector('.ring')).display !== 'none'));
+  await page.keyboard.press('Delete');
+  await settle();
+  ok('Delete removes the focused icon, and says so', (await items()).length === 1 && /Removed/.test(await page.$eval('[data-testid="announcement"]', (e) => e.textContent)));
+  await undo();
+  ok('undo brings it back', (await items()).length === 2);
+
+  // size, colour and place from the panel
+  const id0 = (await items())[0].id;
+  await page.$eval(`#ig-size-${id0}`, (e) => { e.value = '30'; e.dispatchEvent(new Event('input', { bubbles: true })); });
+  await settle();
+  ok('the size slider resizes the icon', near((await items())[0].w, 30, 0.01));
+  await page.select(`#ig-color-${id0}`, 'ink2');
+  await settle();
+  ok('the colour list recolours it with a colour of the theme', await page.$eval('[data-testid="deco"]', (e) => getComputedStyle(e).color) === 'rgb(74, 66, 56)');
+  await typeInto(page, `#ig-x-${id0}`, '50');
+  await typeInto(page, `#ig-y-${id0}`, '84');
+  const placed = (await items())[0];
+  ok('the number boxes place the icon', placed.x === 50 && placed.y === 84, JSON.stringify(placed));
+
+  // export: the ring is not in the picture, the icon is, and the PDF holds it too
+  await page.focus('[data-testid="deco"]');
+  const withRing = await exportOf('png');
+  await page.evaluate(() => document.activeElement?.blur());
+  await settle(700);
+  await page.reload({ waitUntil: 'networkidle0' });
+  await page.waitForSelector('[data-testid="artboard"]');
+  await page.evaluate(() => document.fonts.ready);
+  await settle(500);
+  ok('the draft keeps icons and shapes across a reload', (await items()).length === 2);
+  const clean = await exportOf('png');
+  const A = PNG.sync.read(withRing);
+  const B = PNG.sync.read(clean);
+  const diffPx = pixelmatch(A.data, B.data, null, A.width, A.height, { threshold: 0.1, includeAA: false });
+  ok('the ring round a selected icon is not in the exported picture', A.width === B.width && diffPx / (A.width * A.height) < 0.0005, `${diffPx} pixels differ`);
+  fs.writeFileSync(path.join(outDir, 'decor-export.png'), clean);
+  await (await page.$('[data-testid="artboard"]')).screenshot({ path: path.join(outDir, 'decor-preview.png') });
+  const it = (await items())[0];
+  const pdf = await exportOf('pdf');
+  const pdfCheck = checkPdf(pdf, 1080, 1920, B, 'icons');
+  ok('the PDF with icons passes pdfinfo, qpdf, pdfimages and both renderers', pdfCheck.problems.length === 0, pdfCheck.problems.join('; '));
+  // Take the icon away and export again: the pictures must differ inside the icon's box, and only there.
+  await pressButton(page, '[aria-label="Remove light bulb 1"]');
+  await settle();
+  const without = PNG.sync.read(await exportOf('png'));
+  const cx = Math.round((it.x / 100) * B.width);
+  const cy = Math.round((it.y / 100) * B.height);
+  const half = Math.round((it.w / 100) * B.width * 0.6);
+  let inside = 0;
+  let outside = 0;
+  for (let yy = 0; yy < B.height; yy++) for (let xx = 0; xx < B.width; xx++) {
+    const o = (yy * B.width + xx) * 4;
+    if (Math.abs(B.data[o] - without.data[o]) + Math.abs(B.data[o + 1] - without.data[o + 1]) + Math.abs(B.data[o + 2] - without.data[o + 2]) > 60) {
+      if (Math.abs(xx - cx) <= half && Math.abs(yy - cy) <= half) inside++;
+      else outside++;
+    }
+  }
+  ok('the icon is drawn in the exported picture, inside its own box', inside > 300, `${inside} pixels differ inside the icon's box`);
+  ok('and nowhere else changes when it is removed', outside < 50, `${outside} pixels differ outside it`);
+  await undo();
+
+  // reset, and a draft with a damaged item
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /Reset design/.test(b.textContent)).click());
+  await settle();
+  ok('Reset design removes the icons and shapes and says so', (await items()).length === 0 && /Icons and shapes were removed/.test(await page.$eval('[data-testid="announcement"]', (e) => e.textContent)));
+  await undo();
+  ok('undo brings them back', (await items()).length === 2);
+  ok('no page errors', errors.length === 0, errors.join(' | '));
+  await page.close();
+
+  // a saved draft with damaged items opens without error
+  const bad = draft(tpl, 'portrait', 'en');
+  bad.items = [{ id: '<x>', glyph: 'lightbulb', x: 'a', y: 500, size: 9000, color: 'pink' }, { id: 'b', glyph: 'nope', x: 1, y: 1, size: 5, color: 'ink' }, null, 5];
+  const second = await openPage({ width: 1400, height: 1500 }, bad);
+  const dec = await second.page.$$eval('[data-testid="deco"]', (els) => els.map((e) => ({ x: parseFloat(e.style.left), y: parseFloat(e.style.top), w: parseFloat(e.style.width), id: e.dataset.id })));
+  ok('a damaged saved item is repaired and an unknown one is dropped', dec.length === 1 && dec[0].x === 50 && dec[0].y === 100 && dec[0].w === 60 && /^[\w-]+$/.test(dec[0].id), JSON.stringify(dec));
+  await second.page.close();
+}
 await browser.close();
 server.close();
 fs.writeFileSync(path.join(outDir, 'results.json'), JSON.stringify(results, null, 2));
