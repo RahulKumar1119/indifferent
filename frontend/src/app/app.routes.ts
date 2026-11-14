@@ -3,6 +3,7 @@ import { LoginComponent, AuthCallbackComponent, authGuard } from './auth';
 import { VerifyEmailComponent } from './pages/verify-email/verify-email.component';
 import { LandingComponent } from './pages/landing';
 import { NotFoundComponent } from './pages/not-found';
+import { environment } from '../environments/environment';
 
 export const routes: Routes = [
   { path: '', component: LandingComponent, pathMatch: 'full' },
@@ -165,6 +166,16 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/tools/watermark/watermark.component').then((m) => m.WatermarkComponent),
   },
+  // The infographic maker (#217). Built, but left out of production until its integration PR turns the flag on.
+  ...(environment.infographicMaker
+    ? [
+        {
+          path: 'tools/infographic-maker',
+          loadComponent: () =>
+            import('./pages/tools/infographic/infographic-maker.component').then((m) => m.InfographicMakerComponent),
+        },
+      ]
+    : []),
   {
     path: 'blog',
     loadComponent: () =>

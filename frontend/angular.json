@@ -22,6 +22,36 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "{400,700}.css",
+                "input": "node_modules/@fontsource/noto-sans",
+                "output": "/fonts/infographic/noto-sans"
+              },
+              {
+                "glob": "*-{400,700}-normal.woff2",
+                "input": "node_modules/@fontsource/noto-sans/files",
+                "output": "/fonts/infographic/noto-sans/files"
+              },
+              {
+                "glob": "LICENSE",
+                "input": "node_modules/@fontsource/noto-sans",
+                "output": "/fonts/infographic/noto-sans"
+              },
+              {
+                "glob": "{400,700}.css",
+                "input": "node_modules/@fontsource/noto-sans-gujarati",
+                "output": "/fonts/infographic/noto-sans-gujarati"
+              },
+              {
+                "glob": "*-{400,700}-normal.woff2",
+                "input": "node_modules/@fontsource/noto-sans-gujarati/files",
+                "output": "/fonts/infographic/noto-sans-gujarati/files"
+              },
+              {
+                "glob": "LICENSE",
+                "input": "node_modules/@fontsource/noto-sans-gujarati",
+                "output": "/fonts/infographic/noto-sans-gujarati"
               }
             ],
             "styles": [
