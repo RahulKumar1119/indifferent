@@ -32,9 +32,16 @@ const DRAFT_KEY = 'indifferent.infographic.draft.v1';
 // --- a static server with the single page app fallback
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webp': 'image/webp', '.jpg': 'image/jpeg' };
 const server = http.createServer((req, res) => {
-  const p = decodeURIComponent(req.url.split('?')[0]);
-  let f = path.join(dist, p);
-  if (!f.startsWith(dist) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) f = path.join(dist, 'index.html');
+  let p = '/';
+  try {
+    p = decodeURIComponent(req.url.split('?')[0]);
+  } catch {
+    /* a malformed escape gets the app page */
+  }
+  // Resolve against dist and accept only files inside it (the separator keeps a sibling like dist-x out).
+  let f = path.resolve(dist, '.' + path.posix.normalize('/' + p));
+  const inside = f === dist || f.startsWith(dist + path.sep);
+  if (p.includes('\0') || !inside || !fs.existsSync(f) || fs.statSync(f).isDirectory()) f = path.join(dist, 'index.html');
   res.writeHead(200, { 'content-type': mime[path.extname(f)] ?? 'application/octet-stream' });
   fs.createReadStream(f).pipe(res);
 });
