@@ -34,6 +34,24 @@ export interface Section {
   body: string;
 }
 
+/** The colours an icon or shape can take. Each is a colour of the chosen theme, so it always suits the page. */
+export type DecorColor = 'accent' | 'ink' | 'ink2';
+export const DECOR_COLORS: DecorColor[] = ['accent', 'ink', 'ink2'];
+
+/** An icon or a shape placed on the artboard. Its place and size are percentages of the artboard's width and height, so they hold at every size. */
+export interface Decoration {
+  id: string;
+  /** Which icon or shape, by id (decor-library.ts). */
+  glyph: string;
+  /** The centre, in percent of the artboard's width (0 is the left edge). */
+  x: number;
+  /** The centre, in percent of the artboard's height (0 is the top edge). */
+  y: number;
+  /** The width, in percent of the artboard's width. */
+  size: number;
+  color: DecorColor;
+}
+
 export interface InfographicDoc {
   version: 1;
   templateId: string;
@@ -48,6 +66,8 @@ export interface InfographicDoc {
   footer: string;
   /** The optional "Made with indifferent.fun" line on the image. Off unless asked for. */
   mark: boolean;
+  /** Icons and shapes, the first at the back. */
+  items: Decoration[];
 }
 
 /** The longest each text may be. The page and the stored draft both enforce them. */
@@ -60,6 +80,11 @@ export const LIMITS = {
   footer: 100,
   /** The most sections any template allows. */
   sections: 10,
+  /** The most icons and shapes on one artboard. */
+  items: 20,
+  /** The smallest and the largest width of an icon or shape, in percent of the artboard's width. */
+  itemMin: 4,
+  itemMax: 60,
 } as const;
 
 export const MARK_TEXT = 'Made with indifferent.fun';

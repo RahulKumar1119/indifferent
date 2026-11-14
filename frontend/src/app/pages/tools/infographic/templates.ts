@@ -494,6 +494,7 @@ export function newDoc(template: Template, over: Partial<InfographicDoc> = {}): 
     sections: template.sections.map((s) => ({ id: newSectionId(), label: s.label, heading: trim(s.heading, LIMITS.heading), body: trim(s.body, LIMITS.body) })),
     footer: trim(template.footer, LIMITS.footer),
     mark: false,
+    items: [],
     ...over,
   };
 }

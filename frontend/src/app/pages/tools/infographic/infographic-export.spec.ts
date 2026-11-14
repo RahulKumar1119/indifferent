@@ -72,6 +72,35 @@ describe('infographic export', () => {
       expect(fonts.ensured).toEqual(['Hello']);
     }, 30000);
 
+    it('makes a PDF whose page is the real size in points and whose picture is the real size in pixels', async () => {
+      const out = await exporter.export(stage, newDoc(TEMPLATES[0], { format: 'square', title: 'कहानी' }), 'pdf');
+      expect(out.blob.type).toBe('application/pdf');
+      expect(out.filename).toBe('कहानी-1080x1080.pdf');
+      expect([out.width, out.height]).toEqual([1080, 1080]);
+      const text = Array.from(new Uint8Array(await out.blob.arrayBuffer()), (b) => String.fromCharCode(b)).join('');
+      expect(text.startsWith('%PDF-1.4')).toBeTrue();
+      expect(text).toContain('/MediaBox [0 0 810 810]');
+      expect(text).toContain('/Width 1080 /Height 1080');
+      expect(text).toContain('/Filter /DCTDecode');
+      expect(text).toContain('/Title <FEFF09150939093E09280940>');
+    }, 30000);
+
+    it('leaves out anything marked as an editing aid', async () => {
+      const ring = document.createElement('span');
+      ring.setAttribute('data-skip-export', '');
+      ring.style.cssText = 'position:absolute;left:0;top:0;width:1080px;height:1080px;background:#00ff00';
+      stage.appendChild(ring);
+      const out = await exporter.export(stage, newDoc(TEMPLATES[0], { format: 'square' }), 'png');
+      const bmp = await createImageBitmap(out.blob);
+      const c = document.createElement('canvas');
+      c.width = bmp.width;
+      c.height = bmp.height;
+      const g = c.getContext('2d')!;
+      g.drawImage(bmp, 0, 0);
+      const [r, gr, b] = g.getImageData(540, 540, 1, 1).data;
+      expect([r, gr, b]).not.toEqual([0, 255, 0]);
+    }, 30000);
+
     it('makes a JPG at the real size', async () => {
       stage.style.width = '1920px';
       const out = await exporter.export(stage, newDoc(TEMPLATES[0], { format: 'landscape' }), 'jpg');

@@ -6,10 +6,11 @@ import { SiteFooterComponent } from '../../../shared/components/site-footer/site
 import { ROBOTS_NOINDEX, setPageSeo, setRobots } from '../../../shared/seo';
 import { dataIssues } from './chart-data';
 import { DraftStore } from './draft-store';
-import { docText, replacesSections, resetDesign, startNew } from './doc-ops';
+import { docText, removeDecoration, replacesSections, resetDesign, startNew, updateDecoration } from './doc-ops';
 import { DocHistory } from './history';
 import { DocChange, InfographicDesignPanelComponent } from './infographic-design-panel.component';
 import { InfographicContentPanelComponent } from './infographic-content-panel.component';
+import { InfographicDecorPanelComponent } from './infographic-decor-panel.component';
 import { FitResult, InfographicCanvasComponent } from './infographic-canvas.component';
 import { ExportKind, InfographicExporter, downloadBlob } from './infographic-export.service';
 import { InfographicFonts } from './infographic-fonts.service';
@@ -26,7 +27,7 @@ type Message = { kind: 'ok' | 'warn' | 'error'; text: string } | null;
   selector: 'app-infographic-maker',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LucideDynamicIcon, PublicHeaderComponent, SiteFooterComponent, InfographicCanvasComponent, InfographicDesignPanelComponent, InfographicContentPanelComponent],
+  imports: [LucideDynamicIcon, PublicHeaderComponent, SiteFooterComponent, InfographicCanvasComponent, InfographicDesignPanelComponent, InfographicContentPanelComponent, InfographicDecorPanelComponent],
   styles: [`
     :host { display: block; }
     .page { background: var(--color-paper-2); color: var(--color-ink); font-family: var(--font-body); min-height: 100dvh; -webkit-font-smoothing: antialiased; }
@@ -54,7 +55,7 @@ type Message = { kind: 'ok' | 'warn' | 'error'; text: string } | null;
       <main id="main" class="wrap">
         <header class="intro">
           <h1 class="ui-h1">Infographic maker</h1>
-          <p class="ui-lead">Pick a template, write your text, and download a PNG or JPG. Free, no account.</p>
+          <p class="ui-lead">Pick a template, write your text, and download a PNG, JPG or PDF. Free, no account.</p>
           <p class="local" data-testid="privacy">
             <svg lucideIcon="shield-check" [size]="18" aria-hidden="true"></svg>
             <span>
@@ -99,7 +100,16 @@ type Message = { kind: 'ok' | 'warn' | 'error'; text: string } | null;
         <div class="grid">
           <section class="ui-card card preview" aria-labelledby="ig-preview-title">
             <h2 id="ig-preview-title">Preview</h2>
-            <app-infographic-canvas [doc]="doc()" (fitted)="onFit($event)" />
+            <app-infographic-canvas
+              [doc]="doc()"
+              [selected]="selectedDeco()"
+              (fitted)="onFit($event)"
+              (decoMoved)="moveDeco($event)"
+              (decoNudged)="nudgeDeco($event)"
+              (decoSelected)="selectedDeco.set($event)"
+              (decoRemoved)="removeDeco($event)"
+              (decoDropped)="endDrag()"
+            />
             @if (fit().overflowPx > 0) {
               <p class="ui-alert ui-alert--warn note" role="status" data-testid="overflow">
                 There is too much text for this size, so part of it is cut off. Shorten some text, remove a section, or choose a taller size.
@@ -131,6 +141,10 @@ type Message = { kind: 'ok' | 'warn' | 'error'; text: string } | null;
                 <svg lucideIcon="download" [size]="16" aria-hidden="true"></svg>
                 {{ exporting() === 'jpg' ? 'Making the JPG…' : 'Download JPG' }}
               </button>
+              <button type="button" class="ui-btn ui-btn--secondary" [disabled]="!!exporting()" [attr.aria-busy]="exporting() === 'pdf'" (click)="exportAs('pdf')" data-testid="export-pdf">
+                <svg lucideIcon="download" [size]="16" aria-hidden="true"></svg>
+                {{ exporting() === 'pdf' ? 'Making the PDF…' : 'Download PDF' }}
+              </button>
             </div>
             <p class="status note">{{ size().width }} &times; {{ size().height }} pixels, made on your device.</p>
             @if (message(); as m) {
@@ -142,6 +156,16 @@ type Message = { kind: 'ok' | 'warn' | 'error'; text: string } | null;
             <section class="ui-card card" aria-labelledby="ig-design-title">
               <h2 id="ig-design-title">Design</h2>
               <app-infographic-design-panel [doc]="doc()" [detected]="detected()" (docChange)="commit($event)" />
+            </section>
+            <section class="ui-card card" aria-labelledby="ig-decor-title">
+              <h2 id="ig-decor-title">Icons and shapes</h2>
+              <app-infographic-decor-panel
+                [doc]="doc()"
+                [selected]="selectedDeco()"
+                (docChange)="commit($event)"
+                (announce)="announcement.set($event)"
+                (pick)="selectedDeco.set($event)"
+              />
             </section>
             <section class="ui-card card" aria-labelledby="ig-content-title">
               <h2 id="ig-content-title">Content</h2>
@@ -174,6 +198,7 @@ export class InfographicMakerComponent implements OnInit {
   protected readonly fit = signal<FitResult>({ k: 1, overflowPx: 0 });
   protected readonly exporting = signal<ExportKind | null>(null);
   protected readonly message = signal<Message>(null);
+  protected readonly selectedDeco = signal<string | null>(null);
 
   protected readonly template = computed<Template>(() => templateById(this.doc().templateId) ?? TEMPLATES[0]);
   protected readonly size = computed(() => FORMATS[this.doc().format]);
@@ -249,8 +274,9 @@ export class InfographicMakerComponent implements OnInit {
       this.announcement.set('The design is already the default.');
       return;
     }
+    const hadItems = this.doc().items.length > 0;
     this.commit({ doc: next });
-    this.announcement.set('Design reset. Your text is unchanged.');
+    this.announcement.set(hadItems ? 'Design reset. Icons and shapes were removed. Your text is unchanged.' : 'Design reset. Your text is unchanged.');
   }
 
   protected askStartNew(): void {
@@ -293,6 +319,35 @@ export class InfographicMakerComponent implements OnInit {
     e.preventDefault();
   }
 
+  // --- icons and shapes on the preview
+
+  protected moveDeco(e: { id: string; x: number; y: number }): void {
+    const next = updateDecoration(this.doc(), e.id, { x: e.x, y: e.y });
+    // One drag is one undo step: moves of the same item close together are merged.
+    if (next !== this.doc()) this.commit({ doc: next, key: `deco:${e.id}:move` });
+  }
+
+  /** Keys move an icon relative to where it is now, read from the latest document, so a held key adds up even before the screen has redrawn. */
+  protected nudgeDeco(e: { id: string; dx: number; dy: number }): void {
+    const item = this.doc().items.find((i) => i.id === e.id);
+    if (!item) return;
+    const next = updateDecoration(this.doc(), e.id, { x: item.x + e.dx, y: item.y + e.dy });
+    if (next !== this.doc()) this.commit({ doc: next, key: `deco:${e.id}:move` });
+  }
+
+  /** Letting go of an icon ends the undo step, so two drags in a row are two steps. */
+  protected endDrag(): void {
+    this.history.endGroup();
+  }
+
+  protected removeDeco(id: string): void {
+    const next = removeDecoration(this.doc(), id);
+    if (next === this.doc()) return;
+    this.commit({ doc: next });
+    this.selectedDeco.set(null);
+    this.announcement.set('Removed. Undo brings it back.');
+  }
+
   // --- the draft
 
   /** Save a moment after the last change, not on every key. A draft just loaded is not saved again. */
@@ -328,7 +383,13 @@ export class InfographicMakerComponent implements OnInit {
       this.message.set(
         image.uncovered.length > 0
           ? { kind: 'warn', text: `Saved ${image.filename}. These characters have no font here and use your device's font: ${shown}${new Set(image.uncovered).size > 12 ? ' and more' : ''}.` }
-          : { kind: 'ok', text: `Saved ${image.filename} (${image.width} × ${image.height}).` },
+          : {
+              kind: 'ok',
+              text:
+                kind === 'pdf'
+                  ? `Saved ${image.filename}: one page, ${image.width} × ${image.height} pixels. The words are part of the picture, so they cannot be selected or searched.`
+                  : `Saved ${image.filename} (${image.width} × ${image.height}).`,
+            },
       );
     } catch {
       this.message.set({ kind: 'error', text: "The image could not be made in this browser. Try again, or try a smaller size." });

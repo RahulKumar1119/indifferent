@@ -53,4 +53,10 @@ export const CANVAS_STYLES = `
   .when { display: inline-block; margin-block-end: calc(6px * var(--k)); padding: calc(2px * var(--k)) calc(14px * var(--k)); border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: calc(var(--small) * var(--k)); font-weight: 700; }
   footer { margin-block-start: auto; display: flex; justify-content: space-between; gap: calc(24px * var(--k)); font-size: calc(var(--small) * var(--k)); color: var(--ink2); }
   .mark { margin-inline-start: auto; font-weight: 700; }
+  /* The icons are clipped to the artboard here, so one dragged to the edge never makes the page think the text overflows. */
+  .decos { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .deco { pointer-events: auto; position: absolute; aspect-ratio: 1; transform: translate(-50%, -50%); cursor: grab; touch-action: none; user-select: none; outline: none; }
+  .deco:active { cursor: grabbing; }
+  .deco .ring { display: none; position: absolute; inset: -10px; border: 5px solid #fff; border-radius: 10px; box-shadow: 0 0 0 4px #1a1714, inset 0 0 0 4px #1a1714; pointer-events: none; }
+  .deco.sel .ring, .deco:focus-visible .ring { display: block; }
 `;

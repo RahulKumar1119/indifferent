@@ -17,11 +17,13 @@ import {
   viewChild,
 } from '@angular/core';
 import { CANVAS_STYLES } from './canvas.styles';
+import { DecorGlyphComponent } from './decor-glyph.component';
+import { glyphById } from './decor-library';
 import { InfographicChartComponent } from './infographic-chart.component';
 import { InfographicDiagramComponent, LIST_LAYOUTS, ListLayout, MAP_LAYOUTS, MapLayout } from './infographic-diagram.component';
 import { InfographicMapComponent } from './infographic-map.component';
 import { docText } from './doc-ops';
-import { FORMATS, InfographicDoc, MARK_TEXT } from './infographic.model';
+import { DecorColor, Decoration, FORMATS, InfographicDoc, MARK_TEXT } from './infographic.model';
 import { TEMPLATES, Template, templateById } from './templates';
 import { themeById } from './themes';
 import { detectDirection, detectLanguage, scriptsIn } from './text-utils';
@@ -45,7 +47,7 @@ export const FIT_STEPS = [1.4, 1.32, 1.24, 1.16, 1.08, 1, 0.94, 0.88, 0.82, 0.76
   selector: 'app-infographic-canvas',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [InfographicChartComponent, InfographicDiagramComponent, InfographicMapComponent],
+  imports: [InfographicChartComponent, InfographicDiagramComponent, InfographicMapComponent, DecorGlyphComponent],
   styles: [CANVAS_STYLES],
   template: `
     <div class="holder" [style.margin-inline]="'auto'" [style.width.px]="size().width * scale()" [style.height.px]="size().height * scale()">
@@ -150,6 +152,32 @@ export const FIT_STEPS = [1.4, 1.32, 1.24, 1.16, 1.08, 1, 0.94, 0.88, 0.82, 0.76
             <span class="mark">{{ mark }}</span>
           }
         </footer>
+        <div class="decos">
+          @for (d of doc().items; track d.id) {
+            <div
+              class="deco"
+              role="button"
+              tabindex="0"
+              data-testid="deco"
+              [attr.data-id]="d.id"
+              [class.sel]="selected() === d.id"
+              [style.left.%]="d.x"
+              [style.top.%]="d.y"
+              [style.width.%]="d.size"
+              [style.color]="color(d.color)"
+              [attr.aria-label]="describe(d)"
+              (pointerdown)="down($event, d)"
+              (pointermove)="move($event, d)"
+              (pointerup)="up($event)"
+              (pointercancel)="up($event)"
+              (keydown)="key($event, d)"
+              (focus)="decoSelected.emit(d.id)"
+            >
+              <app-decor-glyph [glyph]="glyphOf(d)" />
+              <span class="ring" data-skip-export aria-hidden="true"></span>
+            </div>
+          }
+        </div>
       </div>
     </div>
   `,
@@ -163,6 +191,16 @@ export class InfographicCanvasComponent implements OnDestroy {
   readonly doc = input.required<InfographicDoc>();
   /** Told after every fit, so the page can warn when the text does not fit. */
   readonly fitted = output<FitResult>();
+  /** The icon or shape that has the ring round it. */
+  readonly selected = input<string | null>(null);
+  /** An icon or shape was dragged or moved with the keys: where its centre is now, in percent. */
+  readonly decoMoved = output<{ id: string; x: number; y: number }>();
+  /** An icon or shape was moved by the keys, by this many percent. The page applies it to the latest document, so quick key repeats add up. */
+  readonly decoNudged = output<{ id: string; dx: number; dy: number }>();
+  readonly decoSelected = output<string>();
+  readonly decoRemoved = output<string>();
+  /** The pointer was let go after dragging, which ends one undo step. */
+  readonly decoDropped = output<void>();
 
   protected readonly mark = MARK_TEXT;
   protected readonly template = computed<Template>(() => templateById(this.doc().templateId) ?? TEMPLATES[0]);
@@ -175,6 +213,14 @@ export class InfographicCanvasComponent implements OnDestroy {
   protected readonly scale = signal(1);
   protected readonly k = signal(FIT_STEPS[0]);
 
+  /**
+   * What the layout depends on. Moving an icon changes the document but not the layout, so the text is not measured again for it:
+   * this string stays the same while an icon is dragged, and the effect that fits the text does not run.
+   */
+  private readonly fitKey = computed(() => {
+    const d = this.doc();
+    return JSON.stringify([d.templateId, d.format, d.themeId, d.language, d.direction, d.title, d.subtitle, d.footer, d.mark, d.sections]);
+  });
   /** Everything written on the artboard, to tell the language, direction and line height. */
   readonly allText = computed(() => docText(this.doc()));
   protected readonly lang = computed(() => (this.doc().language !== 'auto' ? this.doc().language : detectLanguage(this.allText())));
@@ -212,7 +258,7 @@ export class InfographicCanvasComponent implements OnDestroy {
   constructor() {
     // Fit again whenever what is drawn changes.
     effect(() => {
-      this.doc();
+      this.fitKey();
       untracked(() => {
         this.updateScale();
         afterNextRender(() => this.fit(), { injector: this.injector });
@@ -312,6 +358,74 @@ export class InfographicCanvasComponent implements OnDestroy {
     this.k.set(result.k);
     this.fitted.emit(result);
     return result;
+  }
+
+  // --- icons and shapes
+
+  protected glyphOf(d: Decoration) {
+    return glyphById(d.glyph);
+  }
+
+  protected color(c: DecorColor): string {
+    return c === 'accent' ? 'var(--accent)' : c === 'ink' ? 'var(--ink)' : 'var(--ink2)';
+  }
+
+  protected describe(d: Decoration): string {
+    const name = glyphById(d.glyph)?.label ?? 'Icon';
+    return `${name}, ${Math.round(d.x)} percent across and ${Math.round(d.y)} percent down. Move it with the arrow keys, or press Delete to remove it.`;
+  }
+
+  private drag: { id: string; startX: number; startY: number; x: number; y: number; pointer: number } | null = null;
+
+  protected down(e: PointerEvent, d: Decoration): void {
+    if (e.button !== 0) return;
+    this.decoSelected.emit(d.id);
+    this.drag = { id: d.id, startX: e.clientX, startY: e.clientY, x: d.x, y: d.y, pointer: e.pointerId };
+    this.capture(e, true);
+    e.preventDefault();
+  }
+
+  /** The pointer's travel is measured on the screen, where the artboard is scaled down, so it is turned into percent of the artboard as it is shown. */
+  protected move(e: PointerEvent, d: Decoration): void {
+    if (!this.drag || this.drag.id !== d.id || this.drag.pointer !== e.pointerId) return;
+    const box = this.stageRef().nativeElement.getBoundingClientRect();
+    if (box.width <= 0 || box.height <= 0) return;
+    const x = Math.min(100, Math.max(0, this.drag.x + ((e.clientX - this.drag.startX) / box.width) * 100));
+    const y = Math.min(100, Math.max(0, this.drag.y + ((e.clientY - this.drag.startY) / box.height) * 100));
+    this.decoMoved.emit({ id: d.id, x, y });
+  }
+
+  /** Keeps the pointer's moves coming to the icon while it is dragged past its own edge. A pointer that is already gone makes the browser throw; the drag still works without capture. */
+  private capture(e: PointerEvent, on: boolean): void {
+    const target = e.currentTarget as HTMLElement;
+    try {
+      if (on) target.setPointerCapture?.(e.pointerId);
+      else target.releasePointerCapture?.(e.pointerId);
+    } catch {
+      /* the pointer is no longer active */
+    }
+  }
+
+  protected up(e: PointerEvent): void {
+    if (this.drag && this.drag.pointer === e.pointerId) {
+      this.capture(e, false);
+      this.drag = null;
+      this.decoDropped.emit();
+    }
+  }
+
+  protected key(e: KeyboardEvent, d: Decoration): void {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const step = e.shiftKey ? 5 : 1;
+    const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+    const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+    if (dx || dy) {
+      this.decoNudged.emit({ id: d.id, dx, dy });
+      e.preventDefault();
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      this.decoRemoved.emit(d.id);
+      e.preventDefault();
+    }
   }
 
   protected lines(body: string): string[] {

@@ -1,4 +1,5 @@
-import { DEFAULT_FORMAT, DEFAULT_THEME_ID, InfographicDoc, LIMITS, Section } from './infographic.model';
+import { glyphById } from './decor-library';
+import { DEFAULT_FORMAT, DEFAULT_THEME_ID, DECOR_COLORS, DecorColor, Decoration, InfographicDoc, LIMITS, Section } from './infographic.model';
 import { Template, blankSection, newSectionId, newDoc, templateById } from './templates';
 
 /**
@@ -86,10 +87,57 @@ export function setSectionField(doc: InfographicDoc, id: string, field: 'label' 
   return { ...doc, sections };
 }
 
-/** Back to the default look. The template, the text and the sections stay as they are. */
+/** Back to the default look: size, colours, language, direction, the mark, and no icons or shapes. The template, the text and the sections stay as they are. */
 export function resetDesign(doc: InfographicDoc): InfographicDoc {
-  const same = doc.format === DEFAULT_FORMAT && doc.themeId === DEFAULT_THEME_ID && doc.language === 'auto' && doc.direction === 'auto' && !doc.mark;
-  return same ? doc : { ...doc, format: DEFAULT_FORMAT, themeId: DEFAULT_THEME_ID, language: 'auto', direction: 'auto', mark: false };
+  const same = doc.format === DEFAULT_FORMAT && doc.themeId === DEFAULT_THEME_ID && doc.language === 'auto' && doc.direction === 'auto' && !doc.mark && doc.items.length === 0;
+  return same ? doc : { ...doc, format: DEFAULT_FORMAT, themeId: DEFAULT_THEME_ID, language: 'auto', direction: 'auto', mark: false, items: [] };
+}
+
+// --- icons and shapes
+
+/** A number held inside a range, rounded to one decimal, which is finer than anyone can place by hand. A value that is not a number gives the low end. */
+export function clampTo(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.round(Math.min(max, Math.max(min, value)) * 10) / 10;
+}
+
+export const DEFAULT_ITEM_SIZE = 14;
+
+/** Adds an icon or shape near the middle, each new one a little further along so they do not hide each other. Nothing happens past the limit or for an unknown icon. */
+export function addDecoration(doc: InfographicDoc, glyph: string): InfographicDoc {
+  if (!glyphById(glyph) || doc.items.length >= LIMITS.items) return doc;
+  const n = doc.items.length;
+  const item: Decoration = { id: newSectionId(), glyph, x: 30 + ((n * 9) % 40), y: 30 + ((n * 11) % 40), size: DEFAULT_ITEM_SIZE, color: 'accent' };
+  return { ...doc, items: [...doc.items, item] };
+}
+
+export function removeDecoration(doc: InfographicDoc, id: string): InfographicDoc {
+  return doc.items.some((i) => i.id === id) ? { ...doc, items: doc.items.filter((i) => i.id !== id) } : doc;
+}
+
+export interface DecorationPatch {
+  x?: number;
+  y?: number;
+  size?: number;
+  color?: DecorColor;
+}
+
+/** Changes the place, size or colour of one icon or shape. Values are held inside what the artboard can show. */
+export function updateDecoration(doc: InfographicDoc, id: string, patch: DecorationPatch): InfographicDoc {
+  const at = doc.items.findIndex((i) => i.id === id);
+  if (at < 0) return doc;
+  const old = doc.items[at];
+  const next: Decoration = {
+    ...old,
+    x: patch.x === undefined ? old.x : clampTo(patch.x, 0, 100),
+    y: patch.y === undefined ? old.y : clampTo(patch.y, 0, 100),
+    size: patch.size === undefined ? old.size : clampTo(patch.size, LIMITS.itemMin, LIMITS.itemMax),
+    color: patch.color !== undefined && DECOR_COLORS.includes(patch.color) ? patch.color : old.color,
+  };
+  if (next.x === old.x && next.y === old.y && next.size === old.size && next.color === old.color) return doc;
+  const items = [...doc.items];
+  items[at] = next;
+  return { ...doc, items };
 }
 
 /** A fresh document from the same template, with its own starting text and the default design. */

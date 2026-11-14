@@ -1,5 +1,7 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
-import { DIRECTIONS, Direction, FORMAT_IDS, FormatId, InfographicDoc, LIMITS, Section } from './infographic.model';
+import { glyphById } from './decor-library';
+import { clampTo } from './doc-ops';
+import { DECOR_COLORS, DIRECTIONS, DecorColor, Decoration, Direction, FORMAT_IDS, FormatId, InfographicDoc, LIMITS, Section } from './infographic.model';
 import { isReleasedLanguage } from './languages';
 import { TEMPLATES, Template, blankSection, newDoc, newSectionId, templateById } from './templates';
 import { THEMES } from './themes';
@@ -58,6 +60,27 @@ export function sanitizeDoc(raw: unknown): InfographicDoc | null {
   }
   while (sections.length < template.minSections) sections.push(blankSection());
 
+  const items: Decoration[] = [];
+  if (Array.isArray(r['items'])) {
+    for (const raw of r['items']) {
+      if (items.length >= LIMITS.items) break;
+      if (typeof raw !== 'object' || raw === null) continue;
+      const it = raw as Record<string, unknown>;
+      if (typeof it['glyph'] !== 'string' || !glyphById(it['glyph'])) continue;
+      let id = typeof it['id'] === 'string' && /^[\w-]{1,40}$/.test(it['id']) ? it['id'] : newSectionId();
+      if (seen.has(id)) id = newSectionId();
+      seen.add(id);
+      const num = (v: unknown, fallback: number) => (typeof v === 'number' ? v : fallback);
+      items.push({
+        id,
+        glyph: it['glyph'],
+        x: clampTo(num(it['x'], 50), 0, 100),
+        y: clampTo(num(it['y'], 50), 0, 100),
+        size: clampTo(num(it['size'], 14), LIMITS.itemMin, LIMITS.itemMax),
+        color: DECOR_COLORS.includes(it['color'] as DecorColor) ? (it['color'] as DecorColor) : 'accent',
+      });
+    }
+  }
   const language = typeof r['language'] === 'string' && (r['language'] === 'auto' || isReleasedLanguage(r['language'])) ? r['language'] : 'auto';
   return {
     version: 1,
@@ -71,6 +94,7 @@ export function sanitizeDoc(raw: unknown): InfographicDoc | null {
     sections,
     footer: text(r['footer'], LIMITS.footer),
     mark: r['mark'] === true,
+    items,
   };
 }
 
