@@ -22,7 +22,7 @@ export const GENERAL_FAQ: FeatureFaq[] = [
   FREE_BETA_FAQ,
   {
     q: 'Do I need an account?',
-    a: 'The AI Shorts generator, the TXT to quiz video generator and the Story to video generator need you to sign in with Google. The watermark tool needs no account.',
+    a: 'The AI Shorts generator, the TXT to quiz video generator and the Story to video generator need you to sign in with Google. The watermark tool and the infographic maker need no account.',
   },
   {
     q: 'How long are my files kept?',
@@ -134,14 +134,14 @@ export class HelpComponent implements OnInit {
 
   readonly sections: HelpSection[] = [
     { id: 'general', title: 'Accounts, files and pricing', faqs: GENERAL_FAQ },
-    ...(['ai-shorts', 'txt-to-video-quiz', 'watermark'] as const).map((slug) => this.toolSection(FEATURE_DATA[slug])),
+    ...(['ai-shorts', 'txt-to-video-quiz', 'watermark', 'infographic-maker'] as const).map((slug) => this.toolSection(FEATURE_DATA[slug])),
   ];
 
   ngOnInit(): void {
     setPageSeo(this.document, {
       title: 'Help and FAQ | Indifferent',
       description:
-        'Answers about the AI Shorts generator, the TXT to quiz video generator, the Story to video generator and the watermark tool: limits, file formats, fixes, privacy and your account.',
+        'Answers about the AI Shorts generator, the TXT to quiz video generator, the Story to video generator, the watermark tool and the infographic maker: limits, file formats, fixes, privacy and your account.',
       canonical: 'https://indifferent.fun/help',
     });
   }

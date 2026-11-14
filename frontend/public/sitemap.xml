@@ -17,17 +17,20 @@
   </url>
   <url>
     <loc>https://indifferent.fun/privacy</loc>
-    <lastmod>2026-11-13</lastmod>
+    <lastmod>2026-11-14</lastmod>
   </url>
   <url>
     <loc>https://indifferent.fun/terms</loc>
-    <lastmod>2026-11-13</lastmod>
+    <lastmod>2026-11-14</lastmod>
   </url>
   <url>
     <loc>https://indifferent.fun/tools</loc>
   </url>
   <url>
     <loc>https://indifferent.fun/tools/add-watermark</loc>
+  </url>
+  <url>
+    <loc>https://indifferent.fun/tools/infographic-maker</loc>
   </url>
   <url>
     <loc>https://indifferent.fun/shorts-maker</loc>
@@ -43,6 +46,9 @@
   </url>
   <url>
     <loc>https://indifferent.fun/features/story-video</loc>
+  </url>
+  <url>
+    <loc>https://indifferent.fun/features/infographic-maker</loc>
   </url>
   <url>
     <loc>https://indifferent.fun/blog</loc>

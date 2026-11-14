@@ -83,6 +83,7 @@ export class PublicHeaderComponent {
       items: [
         { label: 'TXT to narrated video', path: '/features/txt-to-video-quiz', note: 'Text-based quiz files (.txt) into narrated video content with answer reveals, ready for YouTube or any platform.' },
         { label: 'Watermark tool', path: '/features/watermark', note: 'Draggable text and logo watermarks on images and video. Free, private, 100% in-browser.' },
+        { label: 'Infographic maker', path: '/features/infographic-maker', note: 'Twenty templates, charts from your numbers, icons you can drag. PNG, JPG or PDF. Free, private, 100% in-browser.' },
         { label: 'AI Shorts generator', path: '/features/ai-shorts', note: 'Turn a long video or audio file into ranked 9:16 vertical clips with burned-in captions. AI finds the most engaging moments automatically.' },
         { label: 'Story to video', path: '/features/story-video', note: 'Paste a short story and get a narrated 9:16 video. A model plans the scenes and matches stock footage, and you confirm every pick.' },
       ],

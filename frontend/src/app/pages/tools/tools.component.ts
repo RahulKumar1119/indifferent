@@ -3,9 +3,12 @@ import { DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { PRODUCT_FACTS } from '../../core/config/product-facts';
 import { setCanonical, setJsonLd } from '../../shared/seo';
 import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../shared/components/site-footer/site-footer.component';
+
+const I = PRODUCT_FACTS.infographic;
 
 interface Tool {
   id: string;
@@ -65,8 +68,8 @@ interface Tool {
       <app-public-header />
       <header class="hero">
         <div class="wrap">
-          <h1>Five tools, <em>one studio.</em></h1>
-          <p class="lead">Make quiz videos, cut shorts, turn a story into a video, pick a thumbnail and watermark your files. The watermark tool is free and runs in your browser with no account.</p>
+          <h1>Six tools, <em>one studio.</em></h1>
+          <p class="lead">Make infographics, quiz videos and shorts, turn a story into a video, pick a thumbnail and watermark your files. The watermark tool and the infographic maker are free and run in your browser with no account.</p>
         </div>
       </header>
       <main id="main">
@@ -145,6 +148,18 @@ export class ToolsComponent implements OnInit {
       ctaLabel: 'Open the watermark tool',
     },
     {
+      id: 'infographic',
+      icon: 'chart-column',
+      title: 'Infographic maker',
+      text: `${I.templates} templates, charts from your own numbers and icons you can drag. Your text never leaves your device.`,
+      points: ['Key points, steps, timelines, charts, flow charts and mind maps', `English, Hindi, Gujarati and ${I.languages.length - 3} more languages`, `${I.exports.join(', ')} download`],
+      image: { src: '/screenshots/tools-infographic.webp', alt: 'The infographic maker: a key points infographic in the preview, and the template, size and colour choices beside it', w: 1280, h: 800 },
+      free: true,
+      infoLink: '/features/infographic-maker',
+      ctaLink: '/tools/infographic-maker',
+      ctaLabel: 'Open the infographic maker',
+    },
+    {
       id: 'quiz',
       icon: 'file-text',
       title: 'Quiz videos',
@@ -196,7 +211,7 @@ export class ToolsComponent implements OnInit {
 
   ngOnInit(): void {
     const url = 'https://indifferent.fun/tools';
-    const description = 'Free creator tools: in-browser image and video watermarking, plus TXT to quiz video, AI shorts, story to video and AI thumbnails.';
+    const description = 'Free creator tools: an in-browser infographic maker and image and video watermarking, plus TXT to quiz video, AI shorts, story to video and AI thumbnails.';
     this.title.setTitle('Free Creator Tools | Indifferent');
     this.meta.updateTag({ name: 'description', content: description });
     this.meta.updateTag({ property: 'og:title', content: 'Free Creator Tools | Indifferent' });

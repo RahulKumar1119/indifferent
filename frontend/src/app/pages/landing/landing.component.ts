@@ -370,6 +370,7 @@ Answer: C</code></pre>
                   <li><a href="#process" class="foot-link">How it works</a></li>
                   <li><a routerLink="/blog" class="foot-link">Journal</a></li>
                   <li><a routerLink="/features/watermark" class="foot-link">Watermark tool</a></li>
+                  <li><a routerLink="/features/infographic-maker" class="foot-link">Infographic maker</a></li>
                   <li><a routerLink="/features/ai-shorts" class="foot-link">AI Shorts generator</a></li>
                   <li><a routerLink="/features/story-video" class="foot-link">Story to video</a></li>
                   <li><a routerLink="/features/txt-to-video-quiz" class="foot-link">TXT to quiz video</a></li>

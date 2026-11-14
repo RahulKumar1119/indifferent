@@ -3,7 +3,8 @@ import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, Injector,
 import { LucideDynamicIcon } from '@lucide/angular';
 import { PublicHeaderComponent } from '../../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
-import { ROBOTS_NOINDEX, setPageSeo, setRobots } from '../../../shared/seo';
+import { PRODUCT_FACTS, joinOr } from '../../../core/config/product-facts';
+import { setJsonLd, setPageSeo } from '../../../shared/seo';
 import { dataIssues } from './chart-data';
 import { DraftStore } from './draft-store';
 import { docText, removeDecoration, replacesSections, resetDesign, startNew, updateDecoration } from './doc-ops';
@@ -31,10 +32,18 @@ type Message = { kind: 'ok' | 'warn' | 'error'; text: string } | null;
   styles: [`
     :host { display: block; }
     .page { background: var(--color-paper-2); color: var(--color-ink); font-family: var(--font-body); min-height: 100dvh; -webkit-font-smoothing: antialiased; }
-    .wrap { width: min(80rem, 100%); margin-inline: auto; padding: calc(56px + var(--space-lg)) var(--space-md) var(--space-2xl); }
+    .wrap { width: min(80rem, 100%); margin-inline: auto; padding: 0 var(--space-md); }
     @media (min-width: 48rem) { .wrap { padding-inline: var(--space-xl); } }
-    .intro { display: flex; flex-direction: column; gap: var(--space-sm); margin-block-end: var(--space-md); }
-    .local { margin: 0; display: flex; align-items: flex-start; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-control); background: color-mix(in oklab, var(--color-positive) 9%, var(--color-paper)); border: 1px solid color-mix(in oklab, var(--color-positive) 30%, transparent); font-size: var(--type-sm); }
+    main.wrap { padding-block: var(--space-md) var(--space-2xl); }
+    .hero { background: var(--color-paper); color: var(--color-ink); padding: calc(56px + var(--space-xl)) 0 var(--space-lg); margin-block-end: var(--space-md); }
+    .hero h1 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: var(--type-display-s); line-height: 1; letter-spacing: var(--tracking-display); }
+    .hero h1 em { color: var(--color-accent-text); }
+    .lead { margin: var(--space-sm) 0 0; max-width: 54ch; font-size: var(--type-lead); line-height: 1.45; color: var(--color-ink-2); }
+    .facts { margin: var(--space-md) 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); font-size: var(--type-sm); color: var(--color-ink-2); }
+    .facts li { display: inline-flex; align-items: center; gap: var(--space-xs); }
+    .facts svg { color: var(--color-accent-text); }
+
+    .local { margin: 0 0 var(--space-md); display: flex; align-items: flex-start; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-control); background: color-mix(in oklab, var(--color-positive) 9%, var(--color-paper)); border: 1px solid color-mix(in oklab, var(--color-positive) 30%, transparent); font-size: var(--type-sm); }
     .local svg { flex: none; margin-block-start: 2px; color: var(--color-positive); }
     .bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); margin-block-end: var(--space-md); }
     .bar .sp { flex: 1; }
@@ -52,18 +61,25 @@ type Message = { kind: 'ok' | 'warn' | 'error'; text: string } | null;
   template: `
     <div class="page hm hm-on-light">
       <app-public-header />
+      <header class="hero">
+        <div class="wrap">
+          <h1>Make an infographic <em>in your browser.</em></h1>
+          <p class="lead">Pick a template, write your text, and download a PNG, JPG or PDF. Free, with no sign-in.</p>
+          <ul class="facts">
+            <li><svg lucideIcon="lock" [size]="16" aria-hidden="true"></svg>Processed in your browser</li>
+            <li><svg lucideIcon="user-x" [size]="16" aria-hidden="true"></svg>No account needed</li>
+            <li><svg lucideIcon="image" [size]="16" aria-hidden="true"></svg>{{ templateCount }} templates, 3 sizes</li>
+          </ul>
+        </div>
+      </header>
       <main id="main" class="wrap">
-        <header class="intro">
-          <h1 class="ui-h1">Infographic maker</h1>
-          <p class="ui-lead">Pick a template, write your text, and download a PNG, JPG or PDF. Free, no account.</p>
-          <p class="local" data-testid="privacy">
-            <svg lucideIcon="shield-check" [size]="18" aria-hidden="true"></svg>
-            <span>
-              Everything happens in this browser tab. Your text and your images are never uploaded. Your draft is kept in this browser's local storage,
-              so a refresh does not lose it. Nothing is stored anywhere else.
-            </span>
-          </p>
-        </header>
+        <p class="local" data-testid="privacy">
+          <svg lucideIcon="shield-check" [size]="18" aria-hidden="true"></svg>
+          <span>
+            Everything happens in this browser tab. Your text and your images are never uploaded. Your draft is kept in this browser's local storage,
+            so a refresh does not lose it. Nothing is stored anywhere else.
+          </span>
+        </p>
 
         <p class="sr-only" role="status" aria-live="polite" data-testid="announcement">{{ announcement() }}</p>
 
@@ -192,6 +208,7 @@ export class InfographicMakerComponent implements OnInit {
   protected readonly canRedo = signal(false);
   protected readonly restored = signal(false);
   protected readonly hasDraft = signal(false);
+  protected readonly templateCount = TEMPLATES.length;
   protected readonly saveState = signal<'idle' | 'saved' | 'blocked'>('idle');
   protected readonly confirmingNew = signal(false);
   protected readonly announcement = signal('');
@@ -226,13 +243,26 @@ export class InfographicMakerComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    setPageSeo(this.document, {
-      title: 'Infographic maker | Indifferent',
-      description: 'Make an infographic in your browser. Free, no account, nothing is uploaded.',
-      canonical: 'https://indifferent.fun/tools/infographic-maker',
+    const facts = PRODUCT_FACTS.infographic;
+    const url = 'https://indifferent.fun/tools/infographic-maker';
+    const description = `Make an infographic from ${facts.templates} templates and download it as ${joinOr(facts.exports)}. Free, no account, and nothing is uploaded: it all happens in your browser.`;
+    setPageSeo(this.document, { title: 'Free Infographic Maker: PNG, JPG and PDF | Indifferent', description, canonical: url });
+    setJsonLd(this.document, 'software-infographic', {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Indifferent Infographic Maker',
+      url,
+      applicationCategory: 'DesignApplication',
+      operatingSystem: 'Web',
+      description,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'Free, no account' },
+      featureList: [
+        `${facts.templates} templates`,
+        `Download as ${joinOr(facts.exports)}`,
+        'Icons and shapes you can drag',
+        'Runs entirely in the browser',
+      ],
     });
-    // Not listed or indexed until the tool is finished (#217).
-    setRobots(this.document, ROBOTS_NOINDEX);
     void this.fonts.load();
   }
 

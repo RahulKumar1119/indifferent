@@ -1,8 +1,8 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import {
-  LucideChevronDown, LucideChevronUp, LucideCopy, LucideDownload, LucideGripVertical, LucidePlus, LucideRedo2, LucideRotateCcw,
-  LucideShieldCheck, LucideTrash2, LucideUndo2, provideLucideIcons,
+  LucideChevronDown, LucideChevronUp, LucideCopy, LucideDownload, LucideGripVertical, LucideImage, LucideLock, LucidePlus, LucideRedo2, LucideRotateCcw,
+  LucideShieldCheck, LucideTrash2, LucideUndo2, LucideUserX, provideLucideIcons,
 } from '@lucide/angular';
 import { PublicHeaderComponent } from '../../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
@@ -98,7 +98,7 @@ describe('InfographicMakerComponent', () => {
     TestBed.configureTestingModule({
       imports: [InfographicMakerComponent],
       providers: [
-        provideLucideIcons(LucideChevronDown, LucideChevronUp, LucideCopy, LucideDownload, LucideGripVertical, LucidePlus, LucideRedo2, LucideRotateCcw, LucideShieldCheck, LucideTrash2, LucideUndo2),
+        provideLucideIcons(LucideChevronDown, LucideChevronUp, LucideCopy, LucideDownload, LucideGripVertical, LucideImage, LucideLock, LucidePlus, LucideRedo2, LucideRotateCcw, LucideShieldCheck, LucideTrash2, LucideUndo2, LucideUserX),
         { provide: INFOGRAPHIC_STORAGE, useValue: store },
         { provide: InfographicFonts, useValue: new FakeFonts() },
         { provide: InfographicExporter, useValue: exporter },
@@ -127,9 +127,40 @@ describe('InfographicMakerComponent', () => {
     expect(text).toContain("this browser's local storage");
   });
 
-  it('is kept out of search results for now', async () => {
+  describe('search and sharing', () => {
+    afterEach(() => document.head.querySelectorAll('meta[name="robots"], script[data-seo-id], link[rel="canonical"]').forEach((e) => e.remove()));
+
+    it('is open to search engines: no noindex', async () => {
+      await create();
+      expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content') ?? '').not.toContain('noindex');
+    });
+
+    it('has its own title, description and canonical address, with the facts it states', async () => {
+      await create();
+      expect(document.title).toBe('Free Infographic Maker: PNG, JPG and PDF | Indifferent');
+      const description = document.head.querySelector('meta[name="description"]')!.getAttribute('content')!;
+      expect(description).toContain('20 templates');
+      expect(description).toContain('PNG, JPG or PDF');
+      expect(description).toContain('nothing is uploaded');
+      expect(document.head.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe('https://indifferent.fun/tools/infographic-maker');
+    });
+
+    it('describes the tool as free software for structured data', async () => {
+      await create();
+      const ld = JSON.parse(document.head.querySelector('script[data-seo-id="software-infographic"]')!.textContent!);
+      expect(ld['@type']).toBe('SoftwareApplication');
+      expect(ld.offers.price).toBe('0');
+      expect(ld.url).toBe('https://indifferent.fun/tools/infographic-maker');
+    });
+  });
+
+  it('opens with a heading that says what it does, and facts a visitor can trust', async () => {
     await create();
-    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toContain('noindex');
+    // The title drawn on the artboard is a picture of text, not a heading of the page.
+    expect(el.querySelectorAll('h1').length).toBe(1);
+    expect(el.querySelector('header.hero h1')!.textContent).toContain('Make an infographic in your browser.');
+    const facts = Array.from(el.querySelectorAll('.facts li')).map((l) => l.textContent!.trim());
+    expect(facts).toEqual(['Processed in your browser', 'No account needed', '20 templates, 3 sizes']);
   });
 
   it('starts with the first template and no saved draft', async () => {
@@ -146,7 +177,7 @@ describe('InfographicMakerComponent', () => {
 
     it('shows what is typed on the artboard', async () => {
       await type('#ig-title', 'Brand new title');
-      expect(byTest('artboard')!.querySelector('h1')!.textContent).toContain('Brand new title');
+      expect(byTest('artboard')!.querySelector('.title')!.textContent).toContain('Brand new title');
     });
 
     it('turns pasted ligatures into letters', async () => {
@@ -593,6 +624,24 @@ describe('InfographicMakerComponent', () => {
 
   describe('languages', () => {
     beforeEach(async () => create());
+
+    it('says nothing about review for English, and says Hindi is not yet reviewed by a reader', async () => {
+      expect(byTest('lang-note')).toBeNull();
+      await type('#ig-title', 'कहानी');
+      const note = byTest('lang-note')!.textContent!;
+      expect(note).toContain('Hindi');
+      expect(note).toContain('has not reviewed the output yet');
+      expect(note).toContain('never translated or changed');
+    });
+
+    it('names the language that was chosen by hand, not the one detected', async () => {
+      const select = q<HTMLSelectElement>('#ig-lang')!;
+      select.value = 'gu';
+      select.dispatchEvent(new Event('change'));
+      await settle();
+      expect(byTest('lang-note')!.textContent).toContain('Gujarati');
+    });
+
 
     it('shows Hindi and Gujarati with no warning about fonts', async () => {
       await type('#ig-title', 'कहानी से वीडियो ક');

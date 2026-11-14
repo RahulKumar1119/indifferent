@@ -71,8 +71,8 @@ export function cycleArrows(n: number, rtl: boolean, aspect = 1): { x: number; y
 
     /* mind map and tree: the title is the centre or the top */
     .core { justify-self: center; text-align: center; max-width: 86%; padding: calc(var(--gap) * 0.7 * var(--k)) calc(var(--gap) * 1.3 * var(--k)); border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
-    .core h1 { font-size: calc(var(--h1) * 0.75 * var(--k)); line-height: 1.2; font-weight: 700; overflow-wrap: normal; text-wrap: balance; }
-    :host-context([data-break]) .core h1 { overflow-wrap: anywhere; }
+    .core .title { font-size: calc(var(--h1) * 0.75 * var(--k)); line-height: 1.2; font-weight: 700; overflow-wrap: normal; text-wrap: balance; }
+    :host-context([data-break]) .core .title { overflow-wrap: anywhere; }
     .mm, .tr { display: grid; gap: calc(var(--gap) * 0.9 * var(--k)); align-content: start; }
     .mm-grid { position: relative; display: grid; gap: calc(var(--gap) * 0.7 * var(--k)) calc(var(--gap) * 1.2 * var(--k)); grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .mm-grid::before { content: ''; position: absolute; inset-block: calc(var(--gap) * -0.9 * var(--k)) calc(var(--gap) * 0.35 * var(--k)); inset-inline-start: 50%; width: calc(6px * var(--k)); margin-inline-start: calc(-3px * var(--k)); background: var(--accent); border-radius: 3px; opacity: 0.55; }
@@ -127,7 +127,7 @@ export function cycleArrows(n: number, rtl: boolean, aspect = 1): { x: number; y
       }
       @case ('mindmap') {
         <div class="mm">
-          <div class="core"><h1 dir="auto">{{ doc().title }}</h1></div>
+          <div class="core"><p class="title" dir="auto">{{ doc().title }}</p></div>
           <ul class="mm-grid">
             @for (s of doc().sections; track s.id) {
               <li class="card">
@@ -142,7 +142,7 @@ export function cycleArrows(n: number, rtl: boolean, aspect = 1): { x: number; y
       }
       @default {
         <div class="tr">
-          <div class="core top"><h1 dir="auto">{{ doc().title }}</h1></div>
+          <div class="core top"><p class="title" dir="auto">{{ doc().title }}</p></div>
           <ul class="tr-cols" [style.--cols2]="wide() ? doc().sections.length : 2">
             @for (s of doc().sections; track s.id) {
               <li class="card">

@@ -1,6 +1,6 @@
 /** Date of the last review of the privacy policy and the terms against what the
  * product does. Change it together with the text, never on its own. */
-export const LEGAL_LAST_UPDATED = '2026-11-13';
+export const LEGAL_LAST_UPDATED = '2026-11-14';
 
 /** "November 4, 2026" */
 export function legalUpdatedLabel(): string {

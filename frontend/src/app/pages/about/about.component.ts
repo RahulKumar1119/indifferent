@@ -80,7 +80,7 @@ import { PRODUCT_FACTS, joinAnd, shortsLengthLabel } from '../../core/config/pro
       <section class="hero hm-on-dark" aria-labelledby="about-title">
         <div class="wrap">
           <h1 id="about-title">The studio behind the video.</h1>
-          <p class="lead">Indifferent is a small studio of four video tools: quiz films from a text file, vertical clips from long footage, narrated videos from a written story, and a watermark tool that runs in your browser. No editing skills required.</p>
+          <p class="lead">Indifferent is a small studio of five tools: quiz films from a text file, vertical clips from long footage, narrated videos from a written story, and a watermark tool and an infographic maker that run in your browser. No editing skills required.</p>
         </div>
       </section>
 
@@ -97,7 +97,7 @@ import { PRODUCT_FACTS, joinAnd, shortsLengthLabel } from '../../core/config/pro
 
         <section class="block tint" aria-labelledby="tools-heading">
           <div class="wrap">
-            <h2 id="tools-heading">Four tools, one studio</h2>
+            <h2 id="tools-heading">Five tools, one studio</h2>
             <p class="body">They share one account. Each has its own page with the exact limits and a step-by-step guide.</p>
             <ul class="rows">
               @for (t of tools; track t.href) {
@@ -220,7 +220,7 @@ export class AboutComponent implements OnInit {
     setPageSeo(this.document, {
       title: 'About the Studio | Indifferent',
       description:
-        'An AI video studio: quiz films from TXT files, vertical Shorts from long footage, narrated videos from a story, and a watermark tool that runs in your browser.',
+        'An AI video studio: quiz films from TXT files, vertical Shorts from long footage, narrated videos from a story, and a watermark tool and an infographic maker that run in your browser.',
       canonical: 'https://indifferent.fun/about',
     });
   }
@@ -247,6 +247,11 @@ export class AboutComponent implements OnInit {
       title: 'Watermark tool',
       href: '/features/watermark',
       text: 'Stamp a text or logo watermark on an image or a video. It runs in your browser, so nothing is uploaded.',
+    },
+    {
+      title: 'Infographic maker',
+      href: '/features/infographic-maker',
+      text: `Pick one of ${PRODUCT_FACTS.infographic.templates} templates, add your text, numbers and icons, and download a ${joinAnd(PRODUCT_FACTS.infographic.exports)}. It runs in your browser, so nothing is uploaded.`,
     },
   ];
   voices = [

@@ -6,6 +6,7 @@
 - **AI Shorts** — upload a video or audio file of 30 seconds to 1 hour (up to 2 GB) and get up to three ranked 1080×1920 clips with burned-in captions and face-aware framing.
 - **Story to video**: paste a short story and get a narrated 1080×1920 MP4 of up to 90 seconds. A model plans the scenes, you confirm a stock photo or clip from Pexels or Pixabay for each one, and Amazon Polly narrates it in the story's own language.
 - **Watermark tool** — add a watermark to an image entirely in the browser; nothing is uploaded to a server.
+- **Infographic maker**: 20 templates (key points, steps, comparisons, timelines, charts from your own numbers, flow charts, mind maps), draggable icons and shapes, three sizes, and PNG, JPG or PDF download. It runs entirely in the browser; the draft is kept in local storage. Fonts for Latin, Cyrillic, Greek, Devanagari and Gujarati are self-hosted (SIL Open Font License).
 
 One account holds every quiz project, shorts job and story video, with progress, previews, thumbnails and downloads in one place. Output is ready for YouTube, Shorts, Reels or any other platform.
 
@@ -46,6 +47,7 @@ Four products share one account and one asset bucket:
 | **AI Shorts Generator** | A video or audio file (30 seconds to 1 hour, up to 2 GB) | Up to three 1080×1920 clips with burned-in captions and subject-aware cropping |
 | **Story to video** | A short story (30 to 5,000 characters) | A narrated 1080×1920 MP4 of up to 90 seconds, with the stock photos and clips you chose, scene by scene |
 | **Watermark tool** | An image, in the browser | A watermarked image. Nothing is uploaded to a server |
+| **Infographic maker** | Your text, numbers and icons, in the browser | A PNG, JPG or one-page PDF at 1080×1920, 1080×1080 or 1920×1080. Nothing is uploaded to a server |
 
 Projects are unified: one project holds quiz configuration, linked shorts jobs and saved watermark preferences. Everything is visible on the project page across logins, and a shorts history page lists every job newest-first.
 Story plans and story videos belong to the account, not to a project. Each plan is saved on its own, and each video is made from one confirmed plan.
@@ -59,6 +61,7 @@ flowchart TB
     subgraph Browser["Browser"]
         UI["Angular 20 SPA / PWA<br/>Tailwind CSS 4 · GSAP · Three.js"]
         WATERMARK["Watermark tool<br/>client-side canvas only"]
+        INFOGRAPHIC["Infographic maker<br/>client-side only, draft in local storage"]
     end
 
     subgraph Edge["Hosting and edge"]
@@ -646,13 +649,14 @@ bash deploy/setup-storyvideo.sh --apply       # stock-key parameters, roles, 7-d
 ```
 `setup-storyvideo.sh` reads `PIXABAY_API_KEY` and/or `PEXELS_API_KEY` from `deploy/.env`, stores them in SSM, and refuses to go on without one. Working files under `storyvideo-work/` expire after 7 days only once this script has been applied; the Privacy page says so. It builds a Docker image, so it needs Docker, and it does not deploy the API code (it prints the commands). The scripts in steps 6 to 8 are dry runs unless given `--apply`.
 
-Frontend deployment is handled by Amplify from [`amplify.yml`](amplify.yml): `npm ci`, production Angular build, then `node scripts/prerender.mjs`. To reproduce the production build locally:
+Frontend deployment is handled by Amplify from [`amplify.yml`](amplify.yml): `npm ci`, production Angular build, `node scripts/prerender.mjs`, then `node scripts/check-fonts.mjs`, which fails the build if a self-hosted font is not on the checked list, lacks its licence file or is missing its files. To reproduce the production build locally:
 
 ```bash
 cd frontend
 npm ci
 npx ng build --configuration production
 node scripts/prerender.mjs
+node scripts/check-fonts.mjs
 ```
 
 Lambda code is updated by re-running the relevant setup script (`setup.sh`, `setup-shorts.sh`, or `setup-thumbnails.sh`); each updates existing functions instead of failing on duplicates.

@@ -418,14 +418,14 @@ if (!longTextReacted) fail('long text: no template shrank or warned, so the chec
 
   // typing, one undo step per field, redo
   await typeInto(page, '#ig-title', 'A brand new title');
-  ok('typing changes the artboard', (await page.$eval('[data-testid="artboard"] h1', (e) => e.textContent)) === 'A brand new title');
+  ok('typing changes the artboard', (await page.$eval('[data-testid="artboard"] .title', (e) => e.textContent)) === 'A brand new title');
   await page.evaluate(() => document.activeElement?.blur());
   await page.keyboard.down('Control'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Control');
   await settle();
-  ok('Ctrl+Z outside a field undoes the whole typing at once', (await page.$eval('[data-testid="artboard"] h1', (e) => e.textContent)) !== 'A brand new title');
+  ok('Ctrl+Z outside a field undoes the whole typing at once', (await page.$eval('[data-testid="artboard"] .title', (e) => e.textContent)) !== 'A brand new title');
   await page.keyboard.down('Control'); await page.keyboard.down('Shift'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Shift'); await page.keyboard.up('Control');
   await settle();
-  ok('Ctrl+Shift+Z redoes it', (await page.$eval('[data-testid="artboard"] h1', (e) => e.textContent)) === 'A brand new title');
+  ok('Ctrl+Shift+Z redoes it', (await page.$eval('[data-testid="artboard"] .title', (e) => e.textContent)) === 'A brand new title');
 
   // sections: keyboard only
   const headings = () => page.$$eval('[data-section] input[id^="ig-heading-"]', (els) => els.map((e) => e.value));
@@ -466,7 +466,7 @@ if (!longTextReacted) fail('long text: no template shrank or warned, so the chec
   await settle();
   const reset = await page.evaluate(() => {
     const a = document.querySelector('[data-testid="artboard"]');
-    return { cls: a.className, bg: getComputedStyle(a).backgroundColor, mark: !!a.querySelector('.mark'), title: a.querySelector('h1').textContent };
+    return { cls: a.className, bg: getComputedStyle(a).backgroundColor, mark: !!a.querySelector('.mark'), title: a.querySelector('.title').textContent };
   });
   ok('Reset design restores the look and keeps the words', reset.cls.includes('f-portrait') && reset.bg === 'rgb(251, 246, 238)' && !reset.mark && reset.title === 'A brand new title', JSON.stringify(reset));
 
@@ -476,7 +476,7 @@ if (!longTextReacted) fail('long text: no template shrank or warned, so the chec
   await page.reload({ waitUntil: 'networkidle0' });
   await page.waitForSelector('[data-testid="artboard"]');
   await settle(400);
-  ok('the draft comes back after a reload, with a notice', (await page.$eval('[data-testid="artboard"] h1', (e) => e.textContent)) === 'A brand new title' && !!(await page.$('[data-testid="restored"]')));
+  ok('the draft comes back after a reload, with a notice', (await page.$eval('[data-testid="artboard"] .title', (e) => e.textContent)) === 'A brand new title' && !!(await page.$('[data-testid="restored"]')));
   await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.includes('Clear saved draft')).click());
   await settle();
   ok('Clear saved draft removes it from local storage', await page.evaluate((k) => localStorage.getItem(k) === null, DRAFT_KEY));
@@ -487,16 +487,16 @@ if (!longTextReacted) fail('long text: no template shrank or warned, so the chec
   ok('Start new asks first and focuses Keep editing', await page.evaluate(() => document.activeElement?.id === 'ig-keep'));
   await page.keyboard.press('Enter');
   await settle();
-  ok('Keep editing leaves the work alone', (await page.$eval('[data-testid="artboard"] h1', (e) => e.textContent)) === 'A brand new title');
+  ok('Keep editing leaves the work alone', (await page.$eval('[data-testid="artboard"] .title', (e) => e.textContent)) === 'A brand new title');
   await pressButton(page, '#ig-new');
   await settle();
   await page.evaluate(() => [...document.querySelectorAll('.confirm button')].find((b) => b.textContent.includes('Start new')).click());
   await settle();
-  ok('Start new replaces the work', (await page.$eval('[data-testid="artboard"] h1', (e) => e.textContent)) !== 'A brand new title');
+  ok('Start new replaces the work', (await page.$eval('[data-testid="artboard"] .title', (e) => e.textContent)) !== 'A brand new title');
   await page.evaluate(() => document.activeElement?.blur());
   await page.keyboard.down('Control'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Control');
   await settle();
-  ok('and Undo brings it back', (await page.$eval('[data-testid="artboard"] h1', (e) => e.textContent)) === 'A brand new title');
+  ok('and Undo brings it back', (await page.$eval('[data-testid="artboard"] .title', (e) => e.textContent)) === 'A brand new title');
 
   // keyboard reach: every control can be tabbed to, in a sensible order, with a visible focus ring somewhere
   const stops = [];
@@ -538,7 +538,7 @@ for (const tpl of templates) {
     // Where the text of a heading really starts, not the width of its box.
     const box = (el) => {
       if (!el) return null;
-      if (!el.matches('h2, h1')) return el.getBoundingClientRect();
+      if (!el.matches('h2, .title')) return el.getBoundingClientRect();
       const r = document.createRange();
       r.selectNodeContents(el);
       return r.getBoundingClientRect();
@@ -547,7 +547,7 @@ for (const tpl of templates) {
     const first = nodes.length > 1 ? nodes[1] : q('.num') ?? q('.badge') ?? q('.check') ?? q('.pill') ?? q('.when') ?? q('.sym') ?? q('.band h2') ?? q('.band') ?? q('.card') ?? q('.rh h2') ?? q('.xs span') ?? q('.sw') ?? q('.nc');
     const fr = box(first);
     const cycle = nodes.length > 1;
-    return { dir: a.getAttribute('dir'), lang: a.getAttribute('lang'), titleAlign: getComputedStyle(a.querySelector('h1')).textAlign, firstCenter: fr ? (fr.left + fr.width / 2 - ab.left) / ab.width : null, cycle };
+    return { dir: a.getAttribute('dir'), lang: a.getAttribute('lang'), titleAlign: getComputedStyle(a.querySelector('.title')).textAlign, firstCenter: fr ? (fr.left + fr.width / 2 - ab.left) / ab.width : null, cycle };
   });
   const rtl = m.dir === 'rtl';
   const side = tpl.id === 'compare' ? true : m.cycle ? m.firstCenter < 0.5 : m.firstCenter > 0.5; // number badges, dots and bands start on the right

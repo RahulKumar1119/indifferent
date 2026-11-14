@@ -15,6 +15,7 @@ describe('PublicHeaderComponent', () => {
     for (const href of [
       '/features/txt-to-video-quiz',
       '/features/watermark',
+      '/features/infographic-maker',
       '/features/ai-shorts',
       '/features/story-video',
       '/blog/quiz-videos-youtube',

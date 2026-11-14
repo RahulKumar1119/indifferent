@@ -36,11 +36,13 @@ export const INDEXED_ROUTES = [
   '/terms',
   '/tools',
   '/tools/add-watermark',
+  '/tools/infographic-maker',
   '/shorts-maker',
   '/features/ai-shorts',
   '/features/txt-to-video-quiz',
   '/features/watermark',
   '/features/story-video',
+  '/features/infographic-maker',
   '/blog',
 ];
 

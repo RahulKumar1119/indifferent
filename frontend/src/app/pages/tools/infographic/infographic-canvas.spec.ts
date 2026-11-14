@@ -37,7 +37,7 @@ describe('InfographicCanvasComponent', () => {
   it('draws the title and every section', async () => {
     const d = newDoc(TEMPLATES[0]);
     await show(d);
-    expect(stage().querySelector('h1')!.textContent).toContain(d.title);
+    expect(stage().querySelector('.title')!.textContent).toContain(d.title);
     expect(stage().querySelectorAll('h2').length).toBe(d.sections.length);
   });
 
@@ -134,7 +134,7 @@ describe('InfographicCanvasComponent', () => {
   it('treats typed markup as text', async () => {
     await show({ ...newDoc(TEMPLATES[0]), title: '<img src=x onerror=alert(1)>' });
     expect(stage().querySelector('img')).toBeNull();
-    expect(stage().querySelector('h1')!.textContent).toContain('<img');
+    expect(stage().querySelector('.title')!.textContent).toContain('<img');
   });
 
   it('draws bullets for the compare layout from the lines of the body', async () => {

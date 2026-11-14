@@ -31,8 +31,8 @@ describe('FeaturePageComponent', () => {
 
   const slugs = Object.keys(FEATURE_DATA);
 
-  it('has a page for each of the four tools', () => {
-    expect(slugs.sort()).toEqual(['ai-shorts', 'story-video', 'txt-to-video-quiz', 'watermark']);
+  it('has a page for each of the five tools', () => {
+    expect(slugs.sort()).toEqual(['ai-shorts', 'infographic-maker', 'story-video', 'txt-to-video-quiz', 'watermark']);
   });
 
   for (const slug of slugs) {
@@ -47,7 +47,7 @@ describe('FeaturePageComponent', () => {
           'Limits and formats',
           'How your files are handled',
           'Troubleshooting',
-          'Guides',
+          ...(data.guides.length > 0 ? ['Guides'] : []),
         ]);
         expect(page.querySelectorAll('#steps-heading + ol > li').length).toBe(data.steps.length);
         expect(data.steps.length).toBeGreaterThanOrEqual(4);
@@ -60,7 +60,8 @@ describe('FeaturePageComponent', () => {
         const data = FEATURE_DATA[slug];
         const page = await open(slug);
 
-        expect(data.guides.length).toBeGreaterThanOrEqual(1);
+        // The infographic maker has no journal article yet, so its page shows no empty Guides block.
+        expect(data.guides.length >= 1 || slug === 'infographic-maker').toBeTrue();
         for (const guide of data.guides) {
           expect(findArticle(guide)).withContext(guide).toBeDefined();
           expect(page.querySelector(`a[href="/blog/${guide}"]`)).withContext(guide).not.toBeNull();
@@ -130,6 +131,20 @@ describe('FeaturePageComponent', () => {
     expect(text).toContain('Nothing is uploaded');
     expect(text).toContain('jsDelivr');
     expect(text).toContain('They draw a dashed guide on the preview');
+  });
+
+  it('Infographic maker page quotes the same facts as the tool and says nothing is uploaded', async () => {
+    const text = (await open('infographic-maker')).textContent!;
+    const i = PRODUCT_FACTS.infographic;
+    expect(text).toContain(`${i.templates} templates`);
+    for (const c of i.categories) expect(text).withContext(c).toContain(c);
+    for (const size of i.sizes) expect(text).withContext(size).toContain(size);
+    for (const e of i.exports) expect(text).withContext(e).toContain(e);
+    for (const l of i.languages) expect(text).withContext(l).toContain(l);
+    expect(text).toContain(`up to ${i.maxIcons} on one image`);
+    expect(text).toContain('Nothing is uploaded');
+    expect(text).toContain('Clear saved draft');
+    expect(text).not.toContain('Guides');
   });
 
   it('keeps an unknown slug out of the index', async () => {

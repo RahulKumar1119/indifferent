@@ -50,6 +50,7 @@ const S = PRODUCT_FACTS.shorts;
 const Q = PRODUCT_FACTS.quiz;
 const W = PRODUCT_FACTS.watermark;
 const T = PRODUCT_FACTS.story;
+const I = PRODUCT_FACTS.infographic;
 
 /** Shared template for product feature pages; content comes from FEATURE_DATA. */
 export const FEATURE_DATA: Record<string, FeatureData> = {
@@ -252,6 +253,75 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
     ],
     guides: ['add-watermark-to-image-in-browser', 'mp4-vs-webm-formats'],
     reviewed: '2026-10-25',
+  },
+  'infographic-maker': {
+    slug: 'infographic-maker',
+    title: 'Free Infographic Maker',
+    hook: 'Pick a template, write your text and download a PNG, JPG or PDF: free, private, in your browser.',
+    description:
+      `Make an infographic from ${I.templates} templates: key points, steps, comparisons, timelines, charts from your own numbers, flow charts and mind maps. Add icons and shapes, pick a size and colours, and download it as ${joinOr(I.exports)}. Everything is made in your browser, so your text is never uploaded.`,
+    bullets: [
+      `${I.templates} templates in ${I.categories.length} groups: ${joinAnd(I.categories)}`,
+      `Three sizes for stories, feed posts and slides: ${joinAnd(I.sizes)}`,
+      'Charts from your own numbers: bars, a line, a donut and big figures',
+      `${I.iconsAndShapes} icons and shapes you can drag, and ${I.themes} colour themes`,
+      `Text in ${I.languages.length} languages, including Hindi, Marathi and Gujarati, with the right fonts`,
+      'Undo and redo, and a draft that saves itself in your browser',
+    ],
+    steps: [
+      { title: 'Choose a template', text: 'Pick the shape that fits what you want to say. Switching template later keeps your title and your sections.' },
+      { title: 'Write your text', text: 'Change the title and fill in each section. For a chart, type one number in each value box, like 12, 3.5 or 40%.' },
+      { title: 'Add icons and choose a look', text: 'Pick a size and a colour theme. Add icons and shapes, then drag them where you want them, or move them with the arrow keys.' },
+      { title: 'Download', text: 'Download the image as a PNG or JPG at its full size, or as a one-page PDF.' },
+    ],
+    cta: 'Make an infographic now',
+    ctaLink: '/tools/infographic-maker',
+    specs: ['Free, no account', 'In-browser only', I.exports.join(' · '), `${I.templates} templates`],
+    limits: [
+      { label: 'Templates', value: `${I.templates}, in ${I.categories.length} groups` },
+      { label: 'Sizes', value: I.sizes.join(', ') },
+      { label: 'Downloads', value: `${joinAnd(I.exports)}. PNG and JPG at the exact pixel size; the PDF is one page holding the picture` },
+      { label: 'Sections', value: `Up to ${I.maxSections}, depending on the template` },
+      { label: 'Icons and shapes', value: `${I.iconsAndShapes} to choose from, up to ${I.maxIcons} on one image` },
+      { label: 'Languages', value: I.languages.join(', ') },
+      { label: 'Account', value: 'None needed' },
+    ],
+    handling:
+      "Nothing is uploaded. Your text and your icons are drawn in your browser tab, and the image is made there too. The fonts are served from indifferent.fun itself, not from a font service. Your draft is kept in this browser's local storage so a refresh does not lose it. Use Clear saved draft to remove it, or clear this site's data in your browser.",
+    troubleshooting: [
+      {
+        q: 'Some of my text is small, or the page says it is cut off.',
+        a: 'There is more text than fits at that size. The page makes the text smaller until it fits, and warns you when even the smallest size is too big. Shorten the text, remove a section, or choose a taller size.',
+      },
+      {
+        q: 'A chart does not show my number.',
+        a: 'Each value box needs one number, like 12, 3.5, 40% or ₹1,200. Hindi and Gujarati digits work too. Text with no number, or with two, is drawn as 0 and the page names the section.',
+      },
+      {
+        q: 'The words in my PDF cannot be selected.',
+        a: 'The PDF holds the image of your infographic, so the words are part of the picture. Use the PNG or JPG for sharing, and keep the text somewhere else if you need to copy it.',
+      },
+      {
+        q: 'My draft is gone.',
+        a: "Drafts are kept in the browser you made them in. A private window, another browser, another device, or cleared site data starts empty. Download your image to keep it.",
+      },
+      {
+        q: 'A writing system is not supported, or a letter shows in another font.',
+        a: 'Fonts for the Latin, Cyrillic, Greek, Devanagari and Gujarati scripts come with the tool. Arabic, Thai, Chinese, Japanese and Korean are not released yet, so the page tells you your device font is used and the image may look different on other devices.',
+      },
+      {
+        q: 'A word in Hindi, Gujarati or another language looks wrong.',
+        a: 'The fonts and the layout of each language are checked by our own tests, and a reader of the language has not reviewed all of them yet. The tool never translates or changes your words. Please tell us what you see.',
+        link: { label: 'Contact us', path: '/contact' },
+      },
+      {
+        q: 'The image could not be made.',
+        a: 'Close other tabs and try again, or choose a smaller size. If it keeps failing, tell us which browser you use.',
+        link: { label: 'Contact us', path: '/contact' },
+      },
+    ],
+    guides: [],
+    reviewed: '2026-11-14',
   },
   'txt-to-video-quiz': {
     slug: 'txt-to-video-quiz',
@@ -472,19 +542,21 @@ export const FEATURE_DATA: Record<string, FeatureData> = {
           </div>
         </section>
 
-        <section class="block" aria-labelledby="guides-heading">
+        <section class="block" [attr.aria-labelledby]="guides.length > 0 ? 'guides-heading' : null" [attr.aria-label]="guides.length > 0 ? null : 'Other tools'">
           <div class="wrap">
-            <h2 id="guides-heading">Guides</h2>
-            <ul class="cards">
-              @for (g of guides; track g.slug) {
-                <li>
-                  <a [routerLink]="path(g.slug)" class="card">
-                    <small>{{ g.category }}</small>
-                    <strong>{{ g.title }}</strong>
-                  </a>
-                </li>
-              }
-            </ul>
+            @if (guides.length > 0) {
+              <h2 id="guides-heading">Guides</h2>
+              <ul class="cards">
+                @for (g of guides; track g.slug) {
+                  <li>
+                    <a [routerLink]="path(g.slug)" class="card">
+                      <small>{{ g.category }}</small>
+                      <strong>{{ g.title }}</strong>
+                    </a>
+                  </li>
+                }
+              </ul>
+            }
             <p class="muted" style="font-size:var(--type-sm);font-weight:600;margin-top:var(--space-xl)">Other tools</p>
             <div class="others">
               @for (f of others; track f.slug) {

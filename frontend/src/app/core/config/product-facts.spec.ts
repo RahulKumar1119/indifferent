@@ -1,5 +1,10 @@
 import { PRODUCT_FACTS, durationLabel, joinAnd, joinOr, shortsLengthLabel, shortsOutputLabel, storyOutputLabel } from './product-facts';
 import { LEGAL_LAST_UPDATED, legalUpdatedLabel } from './legal';
+import { GLYPHS } from '../../pages/tools/infographic/decor-library';
+import { FORMATS, FORMAT_IDS, LIMITS } from '../../pages/tools/infographic/infographic.model';
+import { LANGUAGES } from '../../pages/tools/infographic/languages';
+import { TEMPLATES } from '../../pages/tools/infographic/templates';
+import { THEMES } from '../../pages/tools/infographic/themes';
 
 describe('product facts', () => {
   it('formats lists the way the pages read them', () => {
@@ -86,7 +91,35 @@ describe('legal date', () => {
     expect(LEGAL_LAST_UPDATED >= '2026-11-04').toBeTrue();
   });
 
+  it('is not older than the infographic maker text added to the privacy policy and the terms (2026-11-14)', () => {
+    expect(LEGAL_LAST_UPDATED >= '2026-11-14').toBeTrue();
+  });
+
   it('reads as a long date in English', () => {
     expect(legalUpdatedLabel()).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/);
+  });
+});
+
+describe('infographic facts', () => {
+  // The facts are `as const`; compare them as plain numbers and strings.
+  const I = PRODUCT_FACTS.infographic as unknown as {
+    templates: number; categories: string[]; sizes: string[]; exports: string[]; themes: number;
+    maxSections: number; iconsAndShapes: number; maxIcons: number; languages: string[];
+  };
+
+  it('match what the tool really offers, so the pages cannot promise more', () => {
+    expect(I.templates).toBe(TEMPLATES.length);
+    expect(I.categories).toEqual(Array.from(new Set(TEMPLATES.map((t) => t.category))));
+    expect(I.sizes).toEqual(FORMAT_IDS.map((id) => `${FORMATS[id].width}×${FORMATS[id].height} ${id}`));
+    expect(I.themes).toBe(THEMES.length);
+    expect(I.maxSections).toBe(LIMITS.sections);
+    expect(I.maxSections).toBe(Math.max(...TEMPLATES.map((t) => t.maxSections)));
+    expect(I.iconsAndShapes).toBe(GLYPHS.length);
+    expect(I.maxIcons).toBe(LIMITS.items);
+    expect(I.languages).toEqual(LANGUAGES.map((l) => l.name));
+  });
+
+  it('lists the downloads the page offers', () => {
+    expect(I.exports).toEqual(['PNG', 'JPG', 'PDF']);
   });
 });
