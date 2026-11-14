@@ -1,5 +1,5 @@
 import { DEFAULT_FORMAT, DEFAULT_THEME_ID, InfographicDoc, LIMITS, Section } from './infographic.model';
-import { Template, blankSection, newSectionId, newDoc } from './templates';
+import { Template, blankSection, newSectionId, newDoc, templateById } from './templates';
 
 /**
  * Changes to a document, each returning a new one and never editing the old,
@@ -17,9 +17,22 @@ function maxSections(template: Template): number {
   return Math.min(template.maxSections, LIMITS.sections);
 }
 
-/** Switches template and keeps the content, adding or dropping sections to fit it. */
+/** True when moving between these two templates cannot keep the sections: text sections are not numbers, and numbers are not text. */
+export function replacesSections(from: Template | undefined, to: Template): boolean {
+  return !!from && !!from.chart !== !!to.chart;
+}
+
+/**
+ * Switches template. The title, subtitle and footer stay. The sections stay too,
+ * with sections added or dropped to fit, unless the switch is between a text
+ * template and a statistics one: then they are replaced by the new template's
+ * sample sections, since a paragraph is not a number.
+ */
 export function withTemplate(doc: InfographicDoc, template: Template): InfographicDoc {
   if (doc.templateId === template.id) return doc;
+  if (replacesSections(templateById(doc.templateId), template)) {
+    return { ...doc, templateId: template.id, sections: template.sections.map((s) => ({ id: newSectionId(), ...s })) };
+  }
   let sections = doc.sections.slice(0, maxSections(template));
   for (let i = sections.length; i < template.minSections; i++) {
     const own = template.sections[i];

@@ -401,6 +401,69 @@ describe('InfographicMakerComponent', () => {
     });
   });
 
+  describe('statistics templates', () => {
+    beforeEach(async () => create());
+    const pick = (id: string) => click(q(`input[name="template"][value="${id}"]`));
+
+    it('offers the four statistics templates', () => {
+      for (const id of ['bar-chart', 'line-chart', 'donut-chart', 'big-numbers']) expect(q(`input[name="template"][value="${id}"]`)).withContext(id).not.toBeNull();
+    });
+
+    it('calls the heading box "Value", hides the text box and shows the hint', async () => {
+      await pick('bar-chart');
+      expect(el.querySelector('label[for^="ig-heading-"]')!.textContent!.trim()).toBe('Value');
+      expect(el.querySelector('textarea[id^="ig-body-"]')).toBeNull();
+      expect(byTest('template-hint')!.textContent).toContain('Type a number');
+    });
+
+    it('keeps the text box for key numbers, which show a note', async () => {
+      await pick('big-numbers');
+      expect(el.querySelector('label[for^="ig-heading-"]')!.textContent!.trim()).toBe('Number');
+      expect(el.querySelector('textarea[id^="ig-body-"]')).not.toBeNull();
+    });
+
+    it('draws the starting data of each without any warning', async () => {
+      for (const id of ['bar-chart', 'line-chart', 'donut-chart', 'big-numbers']) {
+        await pick(id);
+        expect(byTest('data-issues')).withContext(id).toBeNull();
+        expect(byTest('artboard')!.querySelector('app-infographic-chart')).withContext(id).not.toBeNull();
+      }
+    });
+
+    it('says which number cannot be read, and stops when it is fixed', async () => {
+      await pick('bar-chart');
+      const heading = q<HTMLInputElement>('input[id^="ig-heading-"]')!;
+      await type(`#${heading.id}`, 'lots');
+      const warning = byTest('data-issues')!;
+      expect(warning.textContent).toContain('Section 1');
+      expect(warning.textContent).toContain('type one number');
+      await type(`#${heading.id}`, '12');
+      expect(byTest('data-issues')).toBeNull();
+    });
+
+    it('reads Hindi digits without a warning', async () => {
+      await pick('bar-chart');
+      await type(`#${q<HTMLInputElement>('input[id^="ig-heading-"]')!.id}`, '१२');
+      expect(byTest('data-issues')).toBeNull();
+    });
+
+    it('switching between text and statistics gives sample sections, says so, and undo brings the text back', async () => {
+      const before = headings();
+      await type('#ig-title', 'Mine');
+      await pick('donut-chart');
+      expect(byTest('data-issues')).toBeNull();
+      expect(title()).toBe('Mine');
+      expect(byTest('announcement')!.textContent).toContain('Sections replaced');
+      await click(button('Undo'));
+      expect(headings()).toEqual(before);
+    });
+
+    it('does not say that between two text templates', async () => {
+      await pick('steps');
+      expect(byTest('announcement')!.textContent).not.toContain('Sections replaced');
+    });
+  });
+
   describe('languages', () => {
     beforeEach(async () => create());
 

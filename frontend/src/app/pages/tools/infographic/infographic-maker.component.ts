@@ -4,8 +4,9 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import { PublicHeaderComponent } from '../../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
 import { ROBOTS_NOINDEX, setPageSeo, setRobots } from '../../../shared/seo';
+import { dataIssues } from './chart-data';
 import { DraftStore } from './draft-store';
-import { docText, resetDesign, startNew } from './doc-ops';
+import { docText, replacesSections, resetDesign, startNew } from './doc-ops';
 import { DocHistory } from './history';
 import { DocChange, InfographicDesignPanelComponent } from './infographic-design-panel.component';
 import { InfographicContentPanelComponent } from './infographic-content-panel.component';
@@ -106,6 +107,16 @@ type Message = { kind: 'ok' | 'warn' | 'error'; text: string } | null;
             } @else if (fit().k < 1) {
               <p class="status note" data-testid="shrunk">The text was made smaller to fit this size.</p>
             }
+            @if (issues().length > 0) {
+              <div class="ui-alert ui-alert--warn note" role="status" data-testid="data-issues">
+                <p>These numbers cannot be drawn as typed:</p>
+                <ul>
+                  @for (m of issues(); track m) {
+                    <li>{{ m }}</li>
+                  }
+                </ul>
+              </div>
+            }
             @if (unsupported().length > 0) {
               <p class="ui-alert ui-alert--warn note" role="status" data-testid="unsupported">
                 Fonts for {{ unsupported().join(', ') }} are not available yet. Your device's font is used instead, so the image may look different on other devices.
@@ -167,6 +178,7 @@ export class InfographicMakerComponent implements OnInit {
   protected readonly template = computed<Template>(() => templateById(this.doc().templateId) ?? TEMPLATES[0]);
   protected readonly size = computed(() => FORMATS[this.doc().format]);
   private readonly scripts = computed(() => scriptsIn(docText(this.doc())));
+  protected readonly issues = computed(() => dataIssues(this.doc(), this.template()));
   protected readonly detected = computed(() => detectLanguage(docText(this.doc())));
   protected readonly unsupported = computed(() => unreleasedScripts(this.scripts()).map((s) => SCRIPT_NAMES[s]));
   protected readonly saveText = computed(() => {
@@ -202,7 +214,9 @@ export class InfographicMakerComponent implements OnInit {
   // --- editing
 
   protected commit(change: DocChange): void {
+    const swapped = change.doc.templateId !== this.doc().templateId && replacesSections(templateById(this.doc().templateId), templateById(change.doc.templateId) ?? TEMPLATES[0]);
     if (this.history.push(change.doc, change.key)) {
+      if (swapped) this.announcement.set('Sections replaced with sample data for this kind of template. Undo brings your sections back.');
       this.restored.set(false);
       this.syncFromHistory();
     }

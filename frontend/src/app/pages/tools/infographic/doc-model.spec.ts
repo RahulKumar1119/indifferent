@@ -63,6 +63,25 @@ describe('doc-ops', () => {
     expect(withTemplate(one, compare).sections.length).toBe(compare.minSections);
   });
 
+  it('replaces the sections when going between a text template and a statistics one, and keeps the title', () => {
+    const d = { ...doc(), title: 'Mine', footer: 'Foot' };
+    const toChart = withTemplate(d, T('bar-chart'));
+    expect(toChart.title).toBe('Mine');
+    expect(toChart.footer).toBe('Foot');
+    expect(toChart.sections.map((s) => s.heading)).toEqual(T('bar-chart').sections.map((s) => s.heading));
+    expect(toChart.sections.some((s) => d.sections.some((o) => o.id === s.id))).toBeFalse();
+    const back = withTemplate(toChart, T('steps'));
+    expect(back.sections.map((s) => s.heading)).toEqual(T('steps').sections.map((s) => s.heading));
+  });
+
+  it('keeps the sections between two statistics templates', () => {
+    const d = withTemplate(doc(), T('bar-chart'));
+    const edited = setSectionField(d, d.sections[0].id, 'heading', '99');
+    const next = withTemplate(edited, T('donut-chart'));
+    expect(next.sections[0].heading).toBe('99');
+    expect(next.sections[0].id).toBe(d.sections[0].id);
+  });
+
   it('adds a section until the template is full, then does nothing', () => {
     let d = doc();
     for (let i = 0; i < 20; i++) d = addSection(d, kp());
