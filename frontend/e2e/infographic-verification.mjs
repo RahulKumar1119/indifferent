@@ -8,6 +8,7 @@
 // Writes screenshots and results.json to outDir (default ~/shots303/infographic), never into the repo. Exit 1 on any failure.
 import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -97,7 +98,7 @@ function draft(tpl, format, lang, themeId = 'paper', long = false) {
       sections.push({ id: `s${i}`, label: name, heading: tpl.id === 'big-numbers' ? (lang === 'gu' ? '૧,૨૦૦' : '१,२००') : digits[i % digits.length], body: tpl.noBody ? '' : own[1].slice(0, long ? 120 : 40) });
       continue;
     }
-    let body = own[1];
+    let body = tpl.noBody ? '' : own[1];
     if (tpl.bullets) body = text ? `${body}\n${own[0]}\n${body.slice(0, 30)}` : body;
     if (long) body = Array(tpl.bullets ? 8 : 3).fill(body).join(tpl.bullets ? '\n' : ' ');
     sections.push({ id: `s${i}`, label: tpl.labelName ? (text ? String(1990 + i * 10) : tpl.defaults[i % tpl.defaults.length].label) : '', heading: own[0], body: body.slice(0, 400) });
@@ -117,7 +118,12 @@ function draft(tpl, format, lang, themeId = 'paper', long = false) {
   };
 }
 
+// The page's own download buttons are pressed, and Chrome would save every file in ~/Downloads. Send them to a
+// temporary folder instead, and remove it at the end; the check reads each file from the page itself.
+const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'infographic-downloads-'));
+process.on('exit', () => fs.rmSync(downloadDir, { recursive: true, force: true }));
 const browser = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--disable-gpu'] });
+await (await browser.target().createCDPSession()).send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir });
 const results = { chrome: await browser.version(), cases: [], interactions: [], failures: [] };
 const fail = (msg) => {
   results.failures.push(msg);
@@ -197,7 +203,7 @@ async function readTemplate(id) {
       labelName: document.querySelector('label[for^="ig-label-"]')?.textContent.trim() ?? '',
       bullets: document.querySelector('label[for^="ig-body-"]')?.textContent.trim() === 'Bullets',
       // The statistics templates call the heading "Value" or "Number" and read a number out of it.
-      chart: document.querySelector('label[for^="ig-heading-"]')?.textContent.trim() !== 'Heading',
+      chart: ['Value', 'Number'].includes(document.querySelector('label[for^="ig-heading-"]')?.textContent.trim()),
       noBody: !document.querySelector('label[for^="ig-body-"]'),
     };
   });
@@ -463,13 +469,24 @@ for (const tpl of templates) {
   await new Promise((r) => setTimeout(r, 400));
   const m = await page.evaluate(() => {
     const a = document.querySelector('[data-testid="artboard"]');
-    const box = a.getBoundingClientRect();
-    const first = a.querySelector('.num') ?? a.querySelector('.when') ?? a.querySelector('.band') ?? a.querySelector('.card') ?? a.querySelector('.rh h2') ?? a.querySelector('.xs span') ?? a.querySelector('.sw') ?? a.querySelector('.nc');
-    const fr = first?.getBoundingClientRect();
-    return { dir: a.getAttribute('dir'), lang: a.getAttribute('lang'), titleAlign: getComputedStyle(a.querySelector('h1')).textAlign, firstCenter: fr ? (fr.left + fr.width / 2 - box.left) / box.width : null };
+    const ab = a.getBoundingClientRect();
+    const q = (sel) => a.querySelector(sel);
+    // Where the text of a heading really starts, not the width of its box.
+    const box = (el) => {
+      if (!el) return null;
+      if (!el.matches('h2, h1')) return el.getBoundingClientRect();
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      return r.getBoundingClientRect();
+    };
+    const nodes = [...a.querySelectorAll('.node')];
+    const first = nodes.length > 1 ? nodes[1] : q('.num') ?? q('.badge') ?? q('.check') ?? q('.pill') ?? q('.when') ?? q('.sym') ?? q('.band h2') ?? q('.band') ?? q('.card') ?? q('.rh h2') ?? q('.xs span') ?? q('.sw') ?? q('.nc');
+    const fr = box(first);
+    const cycle = nodes.length > 1;
+    return { dir: a.getAttribute('dir'), lang: a.getAttribute('lang'), titleAlign: getComputedStyle(a.querySelector('h1')).textAlign, firstCenter: fr ? (fr.left + fr.width / 2 - ab.left) / ab.width : null, cycle };
   });
   const rtl = m.dir === 'rtl';
-  const side = tpl.id === 'compare' ? true : m.firstCenter > 0.5; // number badges, dots and bands start on the right
+  const side = tpl.id === 'compare' ? true : m.cycle ? m.firstCenter < 0.5 : m.firstCenter > 0.5; // number badges, dots and bands start on the right
   results.interactions.push({ check: `right to left, ${tpl.id}`, ...m, ok: rtl && side });
   if (!rtl) fail(`right to left ${tpl.id}: dir is ${m.dir}`);
   else if (!side) fail(`right to left ${tpl.id}: first element is at ${m.firstCenter}, not on the right`);

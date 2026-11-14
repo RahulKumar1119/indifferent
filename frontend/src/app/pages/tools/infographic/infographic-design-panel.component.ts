@@ -24,6 +24,8 @@ const DIRECTION_LABELS: Record<Direction, string> = { auto: 'Automatic', ltr: 'L
     legend { padding: 0; margin-block-end: var(--space-xs); font-size: var(--type-sm); font-weight: 600; }
     .group + .group { margin-block-start: var(--space-lg); }
     .tiles { display: grid; gap: var(--space-xs); grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); }
+    .cat { margin: var(--space-sm) 0 var(--space-xs); font-size: var(--type-xs); font-weight: 600; color: var(--color-ink-2); }
+    .cat:first-child { margin-block-start: 0; }
     .tile { position: relative; display: block; cursor: pointer; }
     .tile > span { display: flex; flex-direction: column; gap: 2px; min-height: 44px; height: 100%; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper); color: var(--color-ink); }
     .tile:hover > span { border-color: var(--color-ink-2); }
@@ -40,15 +42,20 @@ const DIRECTION_LABELS: Record<Direction, string> = { auto: 'Automatic', ltr: 'L
   template: `
     <fieldset class="group">
       <legend>Template</legend>
-      <div class="tiles" role="radiogroup" aria-label="Template">
-        @for (t of templates; track t.id) {
-          <label class="tile">
-            <input type="radio" class="sr-only" name="template" [value]="t.id" [checked]="doc().templateId === t.id" (change)="template(t.id)" />
-            <span>
-              <strong>{{ t.name }}</strong>
-              <small>{{ t.category }}. {{ t.description }}</small>
-            </span>
-          </label>
+      <div role="radiogroup" aria-label="Template">
+        @for (g of groups; track g.name) {
+          <p class="cat">{{ g.name }}</p>
+          <div class="tiles">
+            @for (t of g.items; track t.id) {
+              <label class="tile">
+                <input type="radio" class="sr-only" name="template" [value]="t.id" [checked]="doc().templateId === t.id" (change)="template(t.id)" />
+                <span>
+                  <strong>{{ t.name }}</strong>
+                  <small>{{ t.description }}</small>
+                </span>
+              </label>
+            }
+          </div>
         }
       </div>
     </fieldset>
@@ -123,6 +130,8 @@ export class InfographicDesignPanelComponent {
   readonly docChange = output<DocChange>();
 
   protected readonly templates = TEMPLATES;
+  /** The templates under their category, in the order the categories first appear. */
+  protected readonly groups = Array.from(new Set(TEMPLATES.map((t) => t.category))).map((name) => ({ name, items: TEMPLATES.filter((t) => t.category === name) }));
   protected readonly themes = THEMES;
   protected readonly languages = LANGUAGES;
   protected readonly directions = DIRECTIONS;
