@@ -464,6 +464,61 @@ describe('InfographicMakerComponent', () => {
     });
   });
 
+  describe('the template picker', () => {
+    beforeEach(async () => create());
+    const pick = (id: string) => click(q(`input[name="template"][value="${id}"]`));
+
+    it('lists all twenty templates under seven category headings', () => {
+      expect(el.querySelectorAll('input[name="template"]').length).toBe(20);
+      expect(Array.from(el.querySelectorAll('.cat')).map((c) => c.textContent!.trim())).toEqual(
+        ['Educational', 'Step by step', 'Comparison', 'Timeline', 'Statistics', 'Process', 'Mind map'],
+      );
+    });
+
+    it('is one radio group, so the arrow keys move through every template', () => {
+      expect(el.querySelectorAll('[role="radiogroup"][aria-label="Template"]').length).toBe(1);
+      const names = new Set(Array.from(el.querySelectorAll<HTMLInputElement>('input[name="template"]')).map((i) => i.name));
+      expect(names.size).toBe(1);
+    });
+
+    it('holds a fixed two sections for pros and cons, and says so', async () => {
+      await pick('pros-cons');
+      expect(el.querySelectorAll('[data-section]').length).toBe(2);
+      expect(q<HTMLButtonElement>('#ig-add')!.disabled).toBeTrue();
+      expect(el.textContent).toContain('holds up to 2 sections');
+      expect(el.querySelector<HTMLButtonElement>('[aria-label="Remove section 1"]')!.disabled).toBeTrue();
+      expect(byTest('template-hint')!.textContent).toContain('one point on each line');
+    });
+
+    it('lets the cycle take up to six steps and no text box', async () => {
+      await pick('cycle');
+      for (let i = 0; i < 10; i++) if (!q<HTMLButtonElement>('#ig-add')!.disabled) await click(q('#ig-add'));
+      expect(el.querySelectorAll('[data-section]').length).toBe(6);
+      expect(el.querySelector('textarea[id^="ig-body-"]')).toBeNull();
+    });
+
+    it('names the branches of a mind map and the groups of a tree', async () => {
+      await pick('mind-map');
+      expect(el.querySelector('label[for^="ig-heading-"]')!.textContent!.trim()).toBe('Branch');
+      await pick('tree');
+      expect(el.querySelector('label[for^="ig-heading-"]')!.textContent!.trim()).toBe('Group');
+      expect(el.querySelector('label[for^="ig-body-"]')!.textContent!.trim()).toBe('Bullets');
+    });
+
+    it('keeps the sections when moving between two text templates', async () => {
+      const before = headings();
+      await pick('staircase');
+      expect(headings().slice(0, 2)).toEqual(before.slice(0, 2));
+    });
+
+    it('keeps the text of the title for a mind map, drawn once on the artboard', async () => {
+      await type('#ig-title', 'Centre');
+      await pick('mind-map');
+      expect(title()).toBe('Centre');
+      expect(byTest('artboard')!.textContent!.split('Centre').length - 1).toBe(1);
+    });
+  });
+
   describe('languages', () => {
     beforeEach(async () => create());
 

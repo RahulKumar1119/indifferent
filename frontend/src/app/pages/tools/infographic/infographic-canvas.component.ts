@@ -18,6 +18,8 @@ import {
 } from '@angular/core';
 import { CANVAS_STYLES } from './canvas.styles';
 import { InfographicChartComponent } from './infographic-chart.component';
+import { InfographicDiagramComponent, LIST_LAYOUTS, ListLayout, MAP_LAYOUTS, MapLayout } from './infographic-diagram.component';
+import { InfographicMapComponent } from './infographic-map.component';
 import { docText } from './doc-ops';
 import { FORMATS, InfographicDoc, MARK_TEXT } from './infographic.model';
 import { TEMPLATES, Template, templateById } from './templates';
@@ -43,7 +45,7 @@ export const FIT_STEPS = [1.4, 1.32, 1.24, 1.16, 1.08, 1, 0.94, 0.88, 0.82, 0.76
   selector: 'app-infographic-canvas',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [InfographicChartComponent],
+  imports: [InfographicChartComponent, InfographicDiagramComponent, InfographicMapComponent],
   styles: [CANVAS_STYLES],
   template: `
     <div class="holder" [style.margin-inline]="'auto'" [style.width.px]="size().width * scale()" [style.height.px]="size().height * scale()">
@@ -59,12 +61,19 @@ export const FIT_STEPS = [1.4, 1.32, 1.24, 1.16, 1.08, 1, 0.94, 0.88, 0.82, 0.76
         [style.transform]="scale() < 1 ? 'scale(' + scale() + ')' : null"
       >
         <header [class.head]="template().layout === 'concept'">
-          <h1 dir="auto">{{ doc().title }}</h1>
+          @if (!titleInside()) {
+            <h1 dir="auto">{{ doc().title }}</h1>
+          }
           @if (doc().subtitle) {
             <p class="sub" dir="auto">{{ doc().subtitle }}</p>
           }
         </header>
 
+        @if (listLayout(); as d) {
+          <app-infographic-diagram [layout]="d" [doc]="doc()" [rtl]="dir() === 'rtl'" />
+        } @else if (mapLayout(); as m) {
+          <app-infographic-map [layout]="m" [doc]="doc()" [rtl]="dir() === 'rtl'" />
+        } @else {
         @switch (template().layout) {
           @case ('compare') {
             <div class="list">
@@ -132,7 +141,7 @@ export const FIT_STEPS = [1.4, 1.32, 1.24, 1.16, 1.08, 1, 0.94, 0.88, 0.82, 0.76
             </ol>
           }
         }
-
+        }
         <footer>
           @if (doc().footer) {
             <span dir="auto">{{ doc().footer }}</span>
@@ -158,6 +167,11 @@ export class InfographicCanvasComponent implements OnDestroy {
   protected readonly mark = MARK_TEXT;
   protected readonly template = computed<Template>(() => templateById(this.doc().templateId) ?? TEMPLATES[0]);
   protected readonly size = computed(() => FORMATS[this.doc().format]);
+  /** The layout when it is one of the diagrams, which the diagram components draw. */
+  protected readonly listLayout = computed<ListLayout | null>(() => (LIST_LAYOUTS.includes(this.template().layout) ? (this.template().layout as ListLayout) : null));
+  protected readonly mapLayout = computed<MapLayout | null>(() => (MAP_LAYOUTS.includes(this.template().layout) ? (this.template().layout as MapLayout) : null));
+  /** The mind map and the tree draw the title as their centre or top, so the header leaves it out. */
+  protected readonly titleInside = computed(() => this.mapLayout() === 'mindmap' || this.mapLayout() === 'tree');
   protected readonly scale = signal(1);
   protected readonly k = signal(FIT_STEPS[0]);
 
@@ -253,7 +267,25 @@ export class InfographicCanvasComponent implements OnDestroy {
     stage.querySelectorAll<HTMLElement>('h1, h2, .big, .val').forEach((h) => {
       over = Math.max(over, h.scrollWidth - h.clientWidth);
     });
-    return over;
+    return Math.max(over, InfographicCanvasComponent.overlapOf(stage));
+  }
+
+  /** How far two marked boxes (`data-node`: the nodes of a cycle) run into each other, in design pixels. 0 when none do. */
+  private static overlapOf(stage: HTMLElement): number {
+    const nodes = Array.from(stage.querySelectorAll<HTMLElement>('[data-node]'));
+    if (nodes.length < 2) return 0;
+    // The preview is scaled down; measure in design pixels.
+    const scale = stage.offsetWidth > 0 ? stage.getBoundingClientRect().width / stage.offsetWidth : 1;
+    const rects = nodes.map((n) => n.getBoundingClientRect());
+    let worst = 0;
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        const w = Math.min(rects[i].right, rects[j].right) - Math.max(rects[i].left, rects[j].left);
+        const h = Math.min(rects[i].bottom, rects[j].bottom) - Math.max(rects[i].top, rects[j].top);
+        if (w > 0 && h > 0) worst = Math.max(worst, Math.min(w, h) / scale);
+      }
+    }
+    return worst > 1 ? worst : 0;
   }
 
   /**
