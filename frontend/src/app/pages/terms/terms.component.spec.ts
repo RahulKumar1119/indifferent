@@ -28,14 +28,16 @@ describe('TermsComponent', () => {
     expect(page.textContent).not.toContain('January 2025');
   });
 
-  it('describes all four tools, not only the quiz generator', () => {
+  it('describes all five tools, not only the quiz generator', () => {
     const text = render().textContent!;
 
-    expect(text).toContain('Indifferent offers four tools');
+    expect(text).toContain('Indifferent offers five tools');
     expect(text).toContain('the AI Shorts generator');
     expect(text).toContain('the TXT to quiz video generator');
     expect(text).toContain('the Story to video generator');
     expect(text).toContain('a watermark tool that runs in your browser');
+    expect(text).toContain('an infographic maker that also runs in your browser');
+    expect(text).toContain('The watermark tool and the infographic maker need no account');
     expect(text).toContain('in beta and free to use');
   });
 

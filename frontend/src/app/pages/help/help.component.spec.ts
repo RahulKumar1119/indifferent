@@ -22,7 +22,7 @@ describe('HelpComponent', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('covers accounts and all three tools, not only the quiz generator', () => {
+  it('covers accounts and the tools with their own help, not only the quiz generator', () => {
     const page = render();
 
     expect(page.querySelectorAll('h1').length).toBe(1);
@@ -31,6 +31,7 @@ describe('HelpComponent', () => {
       'AI Shorts Generator',
       'TXT to Quiz Video Generator',
       'Free Watermark Tool',
+      'Free Infographic Maker',
       'Still stuck?',
     ]);
   });
@@ -40,7 +41,7 @@ describe('HelpComponent', () => {
     const questions = Array.from(page.querySelectorAll('summary')).map((s) => s.textContent?.trim());
 
     for (const f of GENERAL_FAQ) expect(questions).withContext(f.q).toContain(f.q);
-    for (const slug of ['ai-shorts', 'txt-to-video-quiz', 'watermark']) {
+    for (const slug of ['ai-shorts', 'txt-to-video-quiz', 'watermark', 'infographic-maker']) {
       for (const t of FEATURE_DATA[slug].troubleshooting) expect(questions).withContext(t.q).toContain(t.q);
     }
   });
@@ -48,7 +49,7 @@ describe('HelpComponent', () => {
   it('links each tool section to its full page', () => {
     const page = render();
 
-    for (const slug of ['ai-shorts', 'txt-to-video-quiz', 'watermark']) {
+    for (const slug of ['ai-shorts', 'txt-to-video-quiz', 'watermark', 'infographic-maker']) {
       expect(page.querySelector(`a[href="/features/${slug}"]`)).withContext(slug).not.toBeNull();
     }
   });
@@ -65,7 +66,7 @@ describe('HelpComponent', () => {
     const page = render();
 
     const jumps = Array.from(page.querySelectorAll('nav[aria-label="Sections"] a')).map((a) => a.getAttribute('href'));
-    expect(jumps).toEqual(['#general', '#ai-shorts', '#txt-to-video-quiz', '#watermark']);
+    expect(jumps).toEqual(['#general', '#ai-shorts', '#txt-to-video-quiz', '#watermark', '#infographic-maker']);
     for (const href of jumps) expect(page.querySelector(href!)).withContext(href!).not.toBeNull();
     expect(page.querySelector('a[href="mailto:support@indifferent.fun"]')).not.toBeNull();
   });

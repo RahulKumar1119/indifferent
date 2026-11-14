@@ -16,7 +16,7 @@ describe('SiteFooterComponent', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('links the four tools, the journal, help, the company pages and the legal pages', () => {
+  it('links the tools, the journal, help, the company pages and the legal pages', () => {
     const hrefs = Array.from(render().querySelectorAll('a')).map((a) => a.getAttribute('href'));
 
     for (const path of [
@@ -24,6 +24,7 @@ describe('SiteFooterComponent', () => {
       '/features/txt-to-video-quiz',
       '/features/story-video',
       '/features/watermark',
+      '/features/infographic-maker',
       '/blog',
       '/help',
       '/',

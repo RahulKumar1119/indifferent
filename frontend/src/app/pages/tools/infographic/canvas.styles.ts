@@ -13,13 +13,13 @@ export const CANVAS_STYLES = `
     font-family: 'Noto Sans', 'Noto Sans Gujarati', sans-serif; font-weight: 400; line-height: var(--lh); font-synthesis: none; }
   .stage *, .stage *::before, .stage *::after { box-sizing: border-box; letter-spacing: 0; text-transform: none; overflow-wrap: break-word; }
   /* Headings keep whole words: the fit makes the text smaller until the longest word fits, and only then lets it break. */
-  .stage h1, .stage h2 { overflow-wrap: normal; }
-  .stage[data-break] h1, .stage[data-break] h2 { overflow-wrap: anywhere; }
+  .stage .title, .stage h2 { overflow-wrap: normal; }
+  .stage[data-break] .title, .stage[data-break] h2 { overflow-wrap: anywhere; }
   .stage { --pad: 72px; --gap: 36px; --h1: 84px; --sub: 36px; --h2: 44px; --body: 32px; --small: 28px; --num: 76px; --cols: 1; }
   .stage.f-square { --pad: 56px; --gap: 22px; --h1: 66px; --sub: 28px; --h2: 36px; --body: 26px; --small: 22px; --num: 60px; }
   .stage.f-landscape { --pad: 56px; --gap: 26px; --h1: 70px; --sub: 30px; --h2: 38px; --body: 28px; --small: 24px; --num: 64px; --cols: 2; }
-  h1, h2, p, ul, ol { margin: 0; padding: 0; }
-  h1 { font-size: calc(var(--h1) * var(--k)); line-height: 1.2; font-weight: 700; text-wrap: balance; }
+  h2, p, ul, ol { margin: 0; padding: 0; }
+  .title { font-size: calc(var(--h1) * var(--k)); line-height: 1.2; font-weight: 700; text-wrap: balance; }
   .sub { margin-block-start: calc(12px * var(--k)); font-size: calc(var(--sub) * var(--k)); color: var(--ink2); }
   .list { flex: 1 0 auto; display: grid; align-content: start; gap: calc(var(--gap) * 0.7 * var(--k)); grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); list-style: none; }
   .card, .item { background: var(--surface); border: 2px solid var(--rule); border-radius: calc(24px * var(--k)); padding: calc(var(--gap) * 0.8 * var(--k)); }

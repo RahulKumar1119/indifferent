@@ -23,7 +23,7 @@ describe('AboutComponent', () => {
     expect(page.querySelector('h1')?.textContent?.trim()).toBe('The studio behind the video.');
     expect(Array.from(page.querySelectorAll('h2')).map((h) => h.textContent?.trim())).toEqual([
       'Our mission',
-      'Four tools, one studio',
+      'Five tools, one studio',
       'How a quiz film is made',
       'Quiz file formats',
       'Quiz film specifications',
@@ -33,7 +33,7 @@ describe('AboutComponent', () => {
       'Built with',
     ]);
 
-    expect(page.textContent).toContain('Indifferent is a small studio of four video tools');
+    expect(page.textContent).toContain('Indifferent is a small studio of five tools');
     expect(page.textContent).toContain(
       'A design sets the palette, type scale and layout together',
     );
@@ -50,7 +50,7 @@ describe('AboutComponent', () => {
     }
   });
 
-  it('introduces all four tools, each linked to its own page and quoting the shared product facts', () => {
+  it('introduces all five tools, each linked to its own page and quoting the shared product facts', () => {
     const page = render();
     const section = page.querySelector('#tools-heading')!.closest('section')!;
     const hrefs = Array.from(section.querySelectorAll('a')).map((a) => a.getAttribute('href'));
@@ -59,6 +59,7 @@ describe('AboutComponent', () => {
       '/features/ai-shorts',
       '/features/story-video',
       '/features/watermark',
+      '/features/infographic-maker',
     ]);
     const text = section.textContent!;
     const t = PRODUCT_FACTS.story;
@@ -68,6 +69,7 @@ describe('AboutComponent', () => {
     expect(text).toContain(`of ${shortsLengthLabel()}`);
     expect(text).toContain(`up to ${PRODUCT_FACTS.shorts.maxClips} ranked vertical clips`);
     expect(text).toContain('nothing is uploaded');
+    expect(text).toContain(`Pick one of ${PRODUCT_FACTS.infographic.templates} templates`);
   });
 
   it('does not describe the whole studio as a quiz tool, and uses no em dashes', () => {

@@ -110,7 +110,7 @@ export class PrivacyComponent implements OnInit {
       n: '01',
       title: 'Who we are',
       body: [
-        'Indifferent (indifferent.fun) is four tools: the AI Shorts generator, the TXT to quiz video generator, the Story to video generator and a watermark tool. It is built and run by one developer and is in beta.',
+        'Indifferent (indifferent.fun) is five tools: the AI Shorts generator, the TXT to quiz video generator, the Story to video generator, a watermark tool and an infographic maker. It is built and run by one developer and is in beta.',
         'This policy says what the tools collect, where it goes, how long it stays and how you remove it. If something is missing, write to us at the address in section 12.',
       ],
     },
@@ -118,7 +118,7 @@ export class PrivacyComponent implements OnInit {
       id: 'collect',
       n: '02',
       title: 'What we collect',
-      body: ['The watermark tool collects nothing: your images and videos stay in your browser. The other two tools collect the following.'],
+      body: ['The watermark tool and the infographic maker collect nothing: your files and your text stay in your browser. The other tools collect the following.'],
       items: [
         'Account details from Google sign-in: your name, email address and profile picture.',
         'Files you upload: TXT quiz files, and video or audio files for AI Shorts.',
@@ -139,6 +139,7 @@ export class PrivacyComponent implements OnInit {
         'Story videos, the plan: the story you write is sent to a language model on Amazon Bedrock, which writes the plan. We keep the plan and not the story, and only the story’s length is recorded. The plan’s narration lines can follow your own wording closely, and they are kept.',
         'Story videos, the pictures: when you search, our server sends the search words (the scene’s keywords, or what you type) to Pexels and Pixabay, without your name, email or account. When you make a plan, our server may also search Pixabay with each scene’s keywords to suggest a picture, the same search the picker makes when you open it. A scene whose keywords look like contact details, a link or a long number is not searched. Your browser then loads the preview pictures and clips directly from those services and the networks they use, so they can see your IP address and browser details, as any site you visit can.',
         'Story videos, the video: the pictures and clips you chose are copied into our private storage, Amazon Polly speaks the narration, and FFmpeg renders the video on AWS. Only the narration text goes to Polly. The pictures and clips are not sent to any image or face recognition service.',
+        'Infographic maker: your text, your choices and the image are all made inside your browser tab and are not uploaded. The fonts are served from indifferent.fun, not from a font service. A draft is kept in this browser’s local storage so a refresh does not lose it: use Clear saved draft in the tool, or clear this site’s data in your browser, to remove it.',
         'Watermark tool: images and video are processed inside your browser tab and are not uploaded. The first video export downloads a processing engine of about 30 MB from the jsDelivr CDN. That request does not include your file.',
       ],
       body: ['We do not sell your content, and we do not use it to train any model.'],
@@ -187,6 +188,7 @@ export class PrivacyComponent implements OnInit {
       title: 'Cookies, local storage and advertising',
       items: [
         'Sign-in: your browser keeps a refresh token in local storage, not in a cookie, until you sign out.',
+        'Infographic maker: local storage holds one draft of your infographic (the text, the template, the size and colours, and the icons). It stays in this browser and is never sent to us.',
         'Preferences: local storage also holds your theme, the progress of an upload in flight, an upload speed estimate used for time estimates, and some profile settings.',
         'Google Analytics sets cookies to measure how the site is used. It loads after your first scroll, click, touch or key press, or after three seconds.',
         'Amazon CloudWatch RUM sets cookies to record sessions, errors and page performance.',

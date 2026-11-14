@@ -65,6 +65,19 @@ export const PRODUCT_FACTS = {
     /** The tool warns about video files larger than this. */
     videoWarnMb: 500,
   },
+  /** The browser-only infographic maker. product-facts.spec.ts compares each value with the tool's own code. */
+  infographic: {
+    templates: 20,
+    categories: ['Educational', 'Step by step', 'Comparison', 'Timeline', 'Statistics', 'Process', 'Mind map'],
+    sizes: ['1080×1920 portrait', '1080×1080 square', '1920×1080 landscape'],
+    exports: ['PNG', 'JPG', 'PDF'],
+    themes: 8,
+    maxSections: 10,
+    /** Shapes and icons to pick from, and how many fit on one image. */
+    iconsAndShapes: 36,
+    maxIcons: 20,
+    languages: ['English', 'Spanish', 'French', 'German', 'Portuguese', 'Italian', 'Russian', 'Turkish', 'Indonesian', 'Vietnamese', 'Hindi', 'Marathi', 'Gujarati'],
+  },
   pricing: 'Free during beta',
   /**
    * Per-account usage limits during the beta, as the API enforces them.

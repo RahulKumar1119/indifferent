@@ -236,9 +236,9 @@ describe('InfographicDiagramComponent', () => {
 
   it('mind map and tree draw the title themselves, as a heading', () => {
     show('mind-map', { title: 'Centre idea' });
-    expect(el().querySelector('.core h1')!.textContent).toBe('Centre idea');
+    expect(el().querySelector('.core .title')!.textContent).toBe('Centre idea');
     show('tree', { title: 'Top idea' });
-    expect(el().querySelector('.core.top h1')!.textContent).toBe('Top idea');
+    expect(el().querySelector('.core.top .title')!.textContent).toBe('Top idea');
   });
 
   it('tree makes a bullet of each line and a column of each group', () => {
@@ -292,7 +292,7 @@ describe('the artboard with diagrams', () => {
 
   it('keeps the title in the header for the other diagrams', async () => {
     await fit(newDoc(T('flow-chart'), { title: 'In header' }));
-    expect(stage().querySelector('header h1')!.textContent).toBe('In header');
+    expect(stage().querySelector('header .title')!.textContent).toBe('In header');
   });
 
   it('every template fits its own starting text at every size', async () => {

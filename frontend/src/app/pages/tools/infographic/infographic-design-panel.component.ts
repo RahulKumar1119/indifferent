@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { withTemplate } from './doc-ops';
 import { DIRECTIONS, Direction, FORMATS, FORMAT_IDS, FormatId, InfographicDoc, MARK_TEXT } from './infographic.model';
-import { LANGUAGES } from './languages';
+import { LANGUAGES, unreviewedLanguage } from './languages';
 import { TEMPLATES } from './templates';
 import { THEMES } from './themes';
 
@@ -37,6 +37,7 @@ const DIRECTION_LABELS: Record<Direction, string> = { auto: 'Automatic', ltr: 'L
     .dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--color-rule); }
     .two { display: grid; gap: var(--space-sm); grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
     .mark { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+    .note { margin: var(--space-xs) 0 0; font-size: var(--type-xs); color: var(--color-ink-2); }
     .mark p { margin: 0; font-size: var(--type-xs); color: var(--color-ink-2); }
   `],
   template: `
@@ -111,6 +112,11 @@ const DIRECTION_LABELS: Record<Direction, string> = { auto: 'Automatic', ltr: 'L
         </select>
       </div>
     </div>
+    @if (unreviewed(); as l) {
+      <p class="note" data-testid="lang-note">
+        {{ l.name }}: the fonts and the layout are checked by our own tests. A reader of {{ l.name }} has not reviewed the output yet, so please look at your image before you share it. Your words are never translated or changed.
+      </p>
+    }
 
     <div class="group mark">
       <div>
@@ -137,6 +143,8 @@ export class InfographicDesignPanelComponent {
   protected readonly directions = DIRECTIONS;
   protected readonly markText = MARK_TEXT;
   protected readonly formats = computed(() => FORMAT_IDS.map((id) => FORMATS[id]));
+  /** The language in use (chosen, or detected) when no reader of it has reviewed the output yet. */
+  protected readonly unreviewed = computed(() => unreviewedLanguage(this.doc().language === 'auto' ? this.detected() : this.doc().language));
   protected readonly detectedName = computed(() => LANGUAGES.find((l) => l.code === this.detected())?.name ?? this.detected());
 
   protected directionLabel(d: Direction): string {

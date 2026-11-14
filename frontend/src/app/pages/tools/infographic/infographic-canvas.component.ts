@@ -64,7 +64,7 @@ export const FIT_STEPS = [1.4, 1.32, 1.24, 1.16, 1.08, 1, 0.94, 0.88, 0.82, 0.76
       >
         <header [class.head]="template().layout === 'concept'">
           @if (!titleInside()) {
-            <h1 dir="auto">{{ doc().title }}</h1>
+            <p class="title" dir="auto">{{ doc().title }}</p>
           }
           @if (doc().subtitle) {
             <p class="sub" dir="auto">{{ doc().subtitle }}</p>
@@ -310,7 +310,7 @@ export class InfographicCanvasComponent implements OnDestroy {
   /** How far content runs past the artboard, or a heading's word runs past its box, in design pixels. */
   private static overflowOf(stage: HTMLElement): number {
     let over = Math.max(stage.scrollHeight - stage.clientHeight, stage.scrollWidth - stage.clientWidth, 0);
-    stage.querySelectorAll<HTMLElement>('h1, h2, .big, .val').forEach((h) => {
+    stage.querySelectorAll<HTMLElement>('.title, h2, .big, .val').forEach((h) => {
       over = Math.max(over, h.scrollWidth - h.clientWidth);
     });
     return Math.max(over, InfographicCanvasComponent.overlapOf(stage));

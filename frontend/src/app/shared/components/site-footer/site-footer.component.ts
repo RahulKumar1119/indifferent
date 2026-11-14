@@ -65,6 +65,7 @@ export class SiteFooterComponent {
     { label: 'TXT to quiz video', path: '/features/txt-to-video-quiz' },
     { label: 'Story to video', path: '/features/story-video' },
     { label: 'Watermark tool', path: '/features/watermark' },
+    { label: 'Infographic maker', path: '/features/infographic-maker' },
   ];
 
   readonly learn: FooterLink[] = [

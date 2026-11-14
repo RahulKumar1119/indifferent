@@ -12,7 +12,8 @@
     "verify:story-licensing": "node e2e/story-licensing-verification.mjs",
     "seo:generate": "node scripts/seo-files.mjs",
     "verify:seo": "node scripts/seo-files.mjs --check",
-    "verify:facts": "node scripts/check-facts.mjs"
+    "verify:facts": "node scripts/check-facts.mjs",
+    "verify:fonts": "node scripts/check-fonts.mjs"
   },
   "prettier": {
     "printWidth": 100,

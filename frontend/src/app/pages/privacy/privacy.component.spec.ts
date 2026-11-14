@@ -49,9 +49,9 @@ describe('PrivacyComponent', () => {
     ]);
   });
 
-  it('lists all four tools without a not-yet-available hedge on Story videos', () => {
+  it('lists all five tools without a not-yet-available hedge on Story videos', () => {
     const text = render().textContent!;
-    expect(text).toContain('is four tools: the AI Shorts generator, the TXT to quiz video generator, the Story to video generator and a watermark tool');
+    expect(text).toContain('is five tools: the AI Shorts generator, the TXT to quiz video generator, the Story to video generator, a watermark tool and an infographic maker');
     expect(text).not.toContain('being introduced');
     expect(text).not.toContain('may not be available to every account yet');
   });
@@ -180,10 +180,18 @@ describe('PrivacyComponent', () => {
     expect(text).toContain('We send no name or email with it');
   });
 
+  it('says the infographic maker keeps your text in the browser, and what it keeps in local storage', () => {
+    const text = render().textContent!;
+    expect(text).toContain('Infographic maker: your text, your choices and the image are all made inside your browser tab and are not uploaded');
+    expect(text).toContain('Clear saved draft');
+    expect(text).toContain('Infographic maker: local storage holds one draft of your infographic');
+    expect(text).toContain('never sent to us');
+  });
+
   it('says the watermark tool keeps files in the browser, and what its one request is', () => {
     const text = render().textContent!;
 
-    expect(text).toContain('The watermark tool collects nothing');
+    expect(text).toContain('The watermark tool and the infographic maker collect nothing');
     expect(text).toContain('about 30 MB from the jsDelivr CDN');
     expect(text).toContain('That request does not include your file');
   });

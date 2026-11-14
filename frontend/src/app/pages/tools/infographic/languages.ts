@@ -12,12 +12,14 @@ export interface LanguageOption {
   code: string;
   name: string;
   batch: number;
+  /** True once someone who reads the language has looked at the real output. Until then the page says it is checked by script only. */
+  reviewed?: boolean;
 }
 
 export const RELEASED_BATCHES = [1];
 
 const ALL: LanguageOption[] = [
-  { code: 'en', name: 'English', batch: 1 },
+  { code: 'en', name: 'English', batch: 1, reviewed: true },
   { code: 'es', name: 'Spanish', batch: 1 },
   { code: 'fr', name: 'French', batch: 1 },
   { code: 'de', name: 'German', batch: 1 },
@@ -36,6 +38,12 @@ export const LANGUAGES: LanguageOption[] = ALL.filter((l) => RELEASED_BATCHES.in
 
 /** Writing systems whose fonts ship with the released batches. Greek comes with Noto Sans. */
 export const RELEASED_SCRIPTS: ReadonlySet<Script> = new Set<Script>(['latin', 'cyrillic', 'greek', 'devanagari', 'gujarati']);
+
+/** The language that is not yet reviewed by a reader, or null when it is reviewed or unknown. */
+export function unreviewedLanguage(code: string): LanguageOption | null {
+  const l = LANGUAGES.find((x) => x.code === code);
+  return l && !l.reviewed ? l : null;
+}
 
 export function isReleasedLanguage(code: string): boolean {
   return LANGUAGES.some((l) => l.code === code);
