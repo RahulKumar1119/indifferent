@@ -320,7 +320,7 @@ func (h *APIHandler) handleGoogleCallback(ctx context.Context, req events.APIGat
 		return errorResponse(http.StatusUnauthorized, "AUTH_FAILED", "Authentication failed"), nil
 	}
 
-	return jsonResponse(http.StatusOK, tokens), nil
+	return tokensResponse(http.StatusOK, tokens), nil
 }
 
 // handleSignup registers an email/password user and returns tokens.
@@ -351,7 +351,7 @@ func (h *APIHandler) handleSignup(ctx context.Context, req events.APIGatewayProx
 		return errorResponse(http.StatusInternalServerError, "SIGNUP_FAILED", "Signup failed"), nil
 	}
 
-	return jsonResponse(http.StatusCreated, tokens), nil
+	return tokensResponse(http.StatusCreated, tokens), nil
 }
 
 // handleLogin verifies an email/password pair and returns tokens. Failures
@@ -386,7 +386,7 @@ func (h *APIHandler) handleLogin(ctx context.Context, req events.APIGatewayProxy
 		return errorResponse(http.StatusUnauthorized, "AUTH_FAILED", "Invalid email or password"), nil
 	}
 
-	return jsonResponse(http.StatusOK, tokens), nil
+	return tokensResponse(http.StatusOK, tokens), nil
 }
 
 // isValidationError reports whether err is a client input problem rather than
@@ -396,51 +396,65 @@ func isValidationError(err error) bool {
 	return strings.HasPrefix(msg, "invalid email") || strings.HasPrefix(msg, "password must be")
 }
 
-// handleRefresh refreshes an access token using a refresh token.
+// handleRefresh refreshes an access token using a refresh token. The token comes
+// from the HttpOnly cookie, or from the body for web app copies that predate it.
 func (h *APIHandler) handleRefresh(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var body struct {
 		RefreshToken string `json:"refreshToken"`
 	}
-	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
-		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	if strings.TrimSpace(req.Body) != "" {
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+		}
 	}
-
-	if strings.TrimSpace(body.RefreshToken) == "" {
+	token, fromCookie := presentedRefreshToken(req, body.RefreshToken)
+	if token == "" {
 		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Refresh token is required"), nil
 	}
-
-	tokens, err := h.JWTService.RefreshToken(ctx, body.RefreshToken)
-	if err != nil {
-		if errors.Is(err, auth.ErrTokenReuse) {
-			return errorResponse(http.StatusUnauthorized, "SESSION_REVOKED", "Your session has been revoked for security. Please sign in again."), nil
-		}
-		return errorResponse(http.StatusUnauthorized, "REFRESH_FAILED", "Token refresh failed"), nil
+	if fromCookie && !originAllowed(req) {
+		return errorResponse(http.StatusForbidden, "FORBIDDEN_ORIGIN", "This request is not allowed from this site"), nil
 	}
-
-	return jsonResponse(http.StatusOK, tokens), nil
+	tokens, err := h.JWTService.RefreshToken(ctx, token)
+	if err != nil {
+		var resp events.APIGatewayProxyResponse
+		if errors.Is(err, auth.ErrTokenReuse) {
+			resp = errorResponse(http.StatusUnauthorized, "SESSION_REVOKED", "Your session has been revoked for security. Please sign in again.")
+		} else {
+			resp = errorResponse(http.StatusUnauthorized, "REFRESH_FAILED", "Token refresh failed")
+		}
+		// A cookie that no longer works is removed so the browser stops sending it.
+		if fromCookie {
+			resp = clearRefreshCookie(resp)
+		}
+		return resp, nil
+	}
+	return tokensResponse(http.StatusOK, tokens), nil
 }
 
-// handleLogout invalidates a session.
+// handleLogout invalidates a session and removes the cookie.
 func (h *APIHandler) handleLogout(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var body struct {
 		RefreshToken string `json:"refreshToken"`
 	}
-	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
-		return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+	if strings.TrimSpace(req.Body) != "" {
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
+		}
 	}
-
-	if strings.TrimSpace(body.RefreshToken) == "" {
+	token, fromCookie := presentedRefreshToken(req, body.RefreshToken)
+	if token == "" {
 		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Refresh token is required"), nil
 	}
-
-	if err := h.JWTService.Logout(ctx, body.RefreshToken); err != nil {
+	if fromCookie && !originAllowed(req) {
+		return errorResponse(http.StatusForbidden, "FORBIDDEN_ORIGIN", "This request is not allowed from this site"), nil
+	}
+	if err := h.JWTService.Logout(ctx, token); err != nil {
 		return errorResponse(http.StatusInternalServerError, "LOGOUT_FAILED", "Logout failed"), nil
 	}
-
-	return events.APIGatewayProxyResponse{
+	return clearRefreshCookie(events.APIGatewayProxyResponse{
 		StatusCode: http.StatusNoContent,
 		Headers:    corsHeaders(),
-	}, nil
+	}), nil
 }
 
 // handleLogoutAll signs the caller out of every device: no refresh token from a
@@ -451,10 +465,10 @@ func (h *APIHandler) handleLogoutAll(ctx context.Context, req events.APIGatewayP
 		log.Printf("logout_all_failed user=%s err=%v", claims.UserID, err)
 		return errorResponse(http.StatusInternalServerError, "LOGOUT_FAILED", "Could not sign you out everywhere. Please try again."), nil
 	}
-	return events.APIGatewayProxyResponse{
+	return clearRefreshCookie(events.APIGatewayProxyResponse{
 		StatusCode: http.StatusNoContent,
 		Headers:    corsHeaders(),
-	}, nil
+	}), nil
 }
 
 // UserProfile is the safe public view of a user record returned by
