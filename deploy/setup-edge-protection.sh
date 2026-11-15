@@ -19,6 +19,12 @@
 #                            - AWS managed Common and IP reputation groups,
 #                              in COUNT mode first (see --managed-mode)
 #   4. Access logs         JSON lines in /aws/apigateway/indifferent-fun-api-access
+#   5. WAF logs            every inspected request and the rule that matched, in
+#                          aws-waf-logs-indifferent-fun-api (30 days). The
+#                          authorization and cookie headers are redacted. Needed
+#                          to see what the COUNT-mode groups matched before
+#                          switching them to block. About $0.10 a month at the
+#                          current traffic.
 #
 # Costs: a WAF ACL is about $5 a month, plus about $1 for each rule or managed
 # group (4 here) and $0.60 per million requests inspected.
@@ -102,6 +108,7 @@ echo "  1. stage throttle ${RATE} req/s, burst ${BURST}"
 echo "  2. reserved concurrency ${RESERVE} on ${FUNCTION}"
 echo "  3. WAF ${ACL_NAME} (rate rules: block; managed groups: ${MANAGED_MODE}) attached to the stage"
 echo "  4. access logs to ${LOG_GROUP}"
+echo "  5. WAF logs to aws-waf-logs-${PROJECT}-api (authorization and cookie redacted)"
 if [ "$APPLY" != true ]; then
   echo
   echo "Dry run. Nothing was changed. Run again with --apply to make these changes."
@@ -215,6 +222,14 @@ else
   echo "attached to ${STAGE}"
 fi
 
+# --- 5. WAF logs (the log group name must start with aws-waf-logs-)
+echo "--- WAF logs"
+WAF_LOG_GROUP="aws-waf-logs-${PROJECT}-api"
+aws logs create-log-group --log-group-name "$WAF_LOG_GROUP" --region "$REGION" 2>/dev/null || echo "log group exists"
+aws logs put-retention-policy --log-group-name "$WAF_LOG_GROUP" --retention-in-days 30 --region "$REGION"
+aws wafv2 put-logging-configuration --region "$REGION" --logging-configuration \
+  "{\"ResourceArn\":\"${ACL_ARN}\",\"LogDestinationConfigs\":[\"arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:${WAF_LOG_GROUP}\"],\"RedactedFields\":[{\"SingleHeader\":{\"Name\":\"authorization\"}},{\"SingleHeader\":{\"Name\":\"cookie\"}}]}" \
+  --query 'LoggingConfiguration.LogDestinationConfigs' --output text
 echo
 echo "Done. Check:"
 echo "  aws apigateway get-stage --rest-api-id ${API_ID} --stage-name ${STAGE} --region ${REGION} --query '{m:methodSettings,w:webAclArn,a:accessLogSettings}'"
