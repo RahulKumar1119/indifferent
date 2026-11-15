@@ -98,11 +98,18 @@ async function prerenderRoute(browser, base, route) {
         el.classList.add('is-visible');
       }
     });
+    // The infographic maker adds its font stylesheets with the address of the page it runs on,
+    // which here is the local server of this script. They must not be saved: the live page
+    // adds its own, with the live address.
+    await page.evaluate(() => {
+      for (const el of document.querySelectorAll('link[data-infographic-font]')) el.remove();
+    });
     const html = await page.content();
     if (!html.includes('<app-root')) throw new Error('app-root missing from DOM');
     if (html.includes('reveal-armed') || /<html[^>]*class="[^"]*\bjs\b/.test(html)) throw new Error('a scroll reveal is still armed, so its content would be hidden without JavaScript');
     if (html.includes('data-cookie-banner') || html.includes('data-cookie-preferences')) throw new Error('the consent banner or panel was saved into the prerendered page');
     if (/googletagmanager|googlesyndication/.test(html)) throw new Error('a Google script was saved into the prerendered page');
+    if (html.includes(`localhost:${PORT}`)) throw new Error(`the saved page still points at the local prerender server (localhost:${PORT})`);
     if (errors.length > 0) throw new Error(errors[0]);
 
     const outDir = route === '/' ? DIST : join(DIST, route);
