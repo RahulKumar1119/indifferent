@@ -5,12 +5,16 @@ import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import {
   LucideCheck,
+  LucideChevronDown,
+  LucideChevronUp,
   LucideCircleX,
   LucideClock,
   LucideDownload,
   LucideFilm,
   LucideImage,
   LucideLoader2,
+  LucideMerge,
+  LucideScissors,
   LucideSearch,
   LucideSquare,
   LucideTrash2,
@@ -32,6 +36,10 @@ import {
 
 export const STORY_ICONS = provideLucideIcons(
   LucideCheck,
+  LucideChevronDown,
+  LucideChevronUp,
+  LucideMerge,
+  LucideScissors,
   LucideCircleX,
   LucideClock,
   LucideDownload,

@@ -19,22 +19,28 @@ import { NavbarComponent } from '../../shared/components/navbar/navbar.component
 import { setPageSeo, setRobots, ROBOTS_NOINDEX } from '../../shared/seo';
 import { StoryAttributionComponent } from './story-attribution.component';
 import { StoryMediaPickerComponent } from './story-media-picker.component';
+import { SceneMediaView, currentRef, sceneMediaView } from './story-plan-edits';
 import {
-  PendingMedia,
-  SceneMediaView,
-  buildEdits,
-  changedSceneCount,
-  currentRef,
-  sceneMediaView,
-  withPick,
-  withRemoval,
-} from './story-plan-edits';
+  WorkingPlan,
+  buildWorkingEdits,
+  mergeScenes,
+  moveScene,
+  opsToSend,
+  pickFor,
+  removalFor,
+  sceneEdited,
+  splitScene,
+  startWorking,
+  structureChanged,
+  StructureResult,
+  withNarration,
+} from './story-plan-structure';
 import { StoryPlanProblem, describeProblem } from './story-plan-problem';
 import { DEFAULT_STORY_PLAN_LIMITS, StockAsset, StoryPlanLimits, StoryPlanRecord } from './story-plan.models';
 import { StoryPlanService } from './story-plan.service';
 import { StoryProblemComponent } from './story-problem.component';
 import { StoryVoicePreview } from './story-voice-preview';
-import { StorySceneCardComponent } from './story-scene-card.component';
+import { SceneTools, StorySceneCardComponent } from './story-scene-card.component';
 import { StoryVideoPanelComponent } from './story-video-panel.component';
 import { videoBlocker } from './story-video-blockers';
 
@@ -96,6 +102,7 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
     .save-status { margin: 0 auto 0 0; font-size: var(--type-sm); }
     .saved { display: inline-flex; align-items: center; gap: var(--space-xs); font-weight: 600; color: var(--color-positive); }
     .muted { color: var(--color-ink-2); }
+    .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .bar { position: sticky; bottom: 0; z-index: 10; margin-inline: calc(-1 * var(--space-md)); padding: var(--space-sm) var(--space-md); border-top: 1px solid var(--color-rule); background: var(--app-page); }
     @media (min-width: 40rem) { .bar { margin-inline: calc(-1 * var(--space-lg)); padding-inline: var(--space-lg); } }
     .bar .save { max-height: 50dvh; overflow-y: auto; }
@@ -148,7 +155,10 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
                   <h2 id="hook-label" class="hook-label">Opening line</h2>
                   <p class="hook" [attr.lang]="plan.language">{{ plan.hook }}</p>
                   <p class="summary" data-testid="summary">
-                    {{ plan.scenes.length }} scenes, about {{ roundedSeconds(plan.totalSeconds) }} seconds. The limit is 90.
+                    {{ work().scenes.length }} scenes, about {{ roundedSeconds(plan.totalSeconds) }} seconds. The limit is 90.
+                    @if (structureDirty()) {
+                      <span data-testid="length-note"> The length is worked out again when you save.</span>
+                    }
                   </p>
                 </section>
 
@@ -205,22 +215,31 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
               </aside>
 
               <div class="work">
+                <p class="sr" role="status" data-testid="structure-status">{{ structureAnnouncement() }}</p>
+                @if (structureProblem(); as reason) {
+                  <p class="ui-alert ui-alert--warn" role="alert" data-testid="structure-problem" style="margin: 0">{{ reason }}</p>
+                }
                 <ol class="scenes">
-                  @for (scene of plan.scenes; track $index; let i = $index) {
+                  @for (ws of work().scenes; track $index; let i = $index) {
                     <li (focusin)="currentScene.set(i + 1)">
                       <app-story-scene-card
                         [index]="i"
-                        [scene]="scene"
-                        [narration]="narrations()[i]"
+                        [scene]="plan.scenes[ws.src]"
+                        [narration]="ws.narration"
                         [media]="views()[i]"
                         [language]="plan.language"
                         [disabled]="saving()"
                         [edited]="isEdited(i)"
+                        [tools]="toolsFor(i)"
+                        [lengthPending]="ws.touched"
                         [voiceAvailable]="voicesOffered()"
                         [voice]="voicePreview.view(i)"
                         [voiceNote]="voiceNote()"
                         (hear)="hear(i)"
                         (narrationChange)="setNarration(i, $event)"
+                        (move)="move(i, $event)"
+                        (split)="split(i, $event)"
+                        (merge)="merge(i)"
                         (choose)="openPicker(i)"
                         (remove)="removePicture(i)"
                       />
@@ -262,6 +281,8 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
           <p role="status" class="save-status" data-testid="save-status">
             @if (saving()) {
               Saving…
+            } @else if (dirty() && changedCount() === 0) {
+              The scene order has changes that are not saved
             } @else if (dirty()) {
               {{ changedCount() }} {{ changedCount() === 1 ? 'scene has' : 'scenes have' }} changes that are not saved
             } @else if (justSaved()) {
@@ -318,24 +339,32 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
   protected readonly loading = signal(true);
   protected readonly loadProblem = signal<StoryPlanProblem | null>(null);
   protected readonly record = signal<StoryPlanRecord | null>(null);
-  /** Narration as typed, one entry per scene. */
-  protected readonly narrations = signal<string[]>([]);
-  /** Picture changes not saved yet, one slot per scene. */
-  protected readonly pending = signal<(PendingMedia | undefined)[]>([]);
+  /**
+   * The scenes as the page shows them: their order, the narration as typed,
+   * and picture changes not saved yet, plus the split, merge and move
+   * operations that lead there from the saved plan (#326).
+   */
+  protected readonly work = signal<WorkingPlan>({ scenes: [], ops: [] });
+  protected readonly structureAnnouncement = signal('');
+  protected readonly structureProblem = signal('');
   protected readonly saving = signal(false);
   protected readonly saveProblem = signal<StoryPlanProblem | null>(null);
   protected readonly justSaved = signal(false);
 
   protected readonly edits = computed(() => {
     const rec = this.record();
-    return rec ? buildEdits(rec, this.narrations(), this.pending()) : [];
+    return rec ? buildWorkingEdits(rec, this.work()) : [];
   });
-  protected readonly changedCount = computed(() => changedSceneCount(this.edits()));
-  protected readonly dirty = computed(() => this.changedCount() > 0);
+  /** The order or number of scenes differs from what is saved. */
+  protected readonly structureDirty = computed(() => structureChanged(this.work(), this.record()?.plan?.scenes.length ?? 0));
+  protected readonly changedCount = computed(() => {
+    const edits = this.edits();
+    return this.work().scenes.filter((w, i) => sceneEdited(edits[i], w)).length;
+  });
+  protected readonly dirty = computed(() => this.changedCount() > 0 || this.structureDirty());
   protected readonly views = computed(() => {
     const rec = this.record();
-    const pending = this.pending();
-    return (rec?.plan?.scenes ?? []).map((_, i) => sceneMediaView(rec!, i, pending[i]));
+    return this.work().scenes.map((w) => sceneMediaView(rec!, w.src, w.pending));
   });
 
   /**
@@ -478,37 +507,87 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
     this.voicePreview.toggle({
       planId: rec.planId,
       revision: rec.revision,
-      scene: index,
-      text: this.narrations()[index] ?? '',
+      // The audio depends on the words alone, so a scene the saved plan lacks
+      // (made by an unsaved split) is asked for as the last saved one.
+      scene: Math.min(index, Math.max(0, (rec.plan?.scenes.length ?? 1) - 1)),
+      text: this.work().scenes[index]?.narration ?? '',
       voice: this.previewVoice(),
     });
   }
 
   protected setNarration(index: number, text: string): void {
     this.justSaved.set(false);
-    this.narrations.update((n) => n.map((v, i) => (i === index ? text : v)));
+    this.work.update((w) => withNarration(w, index, text));
+  }
+
+  protected toolsFor(index: number): SceneTools {
+    const n = this.work().scenes.length;
+    const lim = this.planLimits();
+    return { up: index > 0, down: index < n - 1, split: n < lim.maxScenes, merge: index < n - 1 && n > lim.minScenes };
+  }
+
+  protected move(index: number, by: -1 | 1): void {
+    this.structure(moveScene(this.work(), index, index + by), () => {
+      const to = index + by;
+      const n = this.work().scenes.length;
+      // Keep the pressed button in reach: follow the scene, or use the other arrow at either end.
+      const kind = by === -1 ? (to > 0 ? 'up' : 'down') : to < n - 1 ? 'down' : 'up';
+      this.document.getElementById(`scene-${to + 1}-move-${kind}`)?.focus();
+    });
+  }
+
+  protected split(index: number, at: number): void {
+    const lim = this.planLimits();
+    this.structure(splitScene(this.work(), index, at, lim), () =>
+      this.document.getElementById(`scene-${index + 1}-narration`)?.focus(),
+    );
+  }
+
+  protected merge(index: number): void {
+    const lim = this.planLimits();
+    this.structure(mergeScenes(this.work(), index, lim), () =>
+      this.document.getElementById(`scene-${index + 1}-narration`)?.focus(),
+    );
+  }
+
+  /** Applies a split, merge or move, or says why it cannot be done. */
+  private structure(result: StructureResult, afterRender: () => void): void {
+    if (!result.ok) {
+      this.structureProblem.set(result.reason);
+      this.structureAnnouncement.set('');
+      return;
+    }
+    // The preview audio belongs to the old numbering.
+    this.voicePreview.stop();
+    this.justSaved.set(false);
+    this.structureProblem.set('');
+    this.structureAnnouncement.set(result.announce);
+    this.work.set(result.plan);
+    this.currentScene.set(0);
+    afterNextRender(afterRender, { injector: this.injector });
   }
 
   protected openPicker(index: number): void {
     const rec = this.record();
-    const scene = rec?.plan?.scenes[index];
-    if (!rec || !scene) return;
+    const w = this.work().scenes[index];
+    const scene = w && rec?.plan?.scenes[w.src];
+    if (!rec || !w || !scene) return;
     this.pickerScene = index;
-    this.picker().open(scene, index + 1, currentRef(rec, index, this.pending()[index]));
+    this.picker().open(scene, index + 1, currentRef(rec, w.src, w.pending));
   }
 
   protected onPicked(asset: StockAsset): void {
     const rec = this.record();
     if (!rec || this.pickerScene < 0) return;
     this.justSaved.set(false);
-    this.pending.update((p) => withPick(rec, p, this.pickerScene, asset));
+    this.work.update((w) => pickFor(rec, w, this.pickerScene, asset));
   }
 
   protected removePicture(index: number): void {
     const rec = this.record();
     if (!rec) return;
     this.justSaved.set(false);
-    this.pending.update((p) => withRemoval(rec, p, index));
+    this.work.update((w) => removalFor(rec, w, index));
     // The button that was pressed is about to disappear: keep focus in the scene.
     afterNextRender(() => this.document.getElementById(`scene-${index + 1}-choose`)?.focus(), { injector: this.injector });
   }
@@ -540,8 +619,7 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
   }
 
   protected isEdited(index: number): boolean {
-    const e = this.edits()[index];
-    return !!e && (e.narration !== undefined || e.media !== undefined || !!e.clearMedia);
+    return sceneEdited(this.edits()[index], this.work().scenes[index]);
   }
 
   protected roundedSeconds(total: number): number {
@@ -556,7 +634,11 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
     this.saveProblem.set(null);
     this.justSaved.set(false);
     this.requestSub?.unsubscribe();
-    this.requestSub = this.service.save(rec.planId, rec.revision, this.edits()).subscribe({
+    const ops = opsToSend(rec, this.work());
+    const request = ops.length
+      ? this.service.save(rec.planId, rec.revision, this.edits(), ops)
+      : this.service.save(rec.planId, rec.revision, this.edits());
+    this.requestSub = request.subscribe({
       next: (updated) => {
         this.adopt(updated);
         this.justSaved.set(true);
@@ -588,8 +670,9 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
   private adopt(rec: StoryPlanRecord): void {
     this.voicePreview.stop();
     this.record.set(rec);
-    this.narrations.set((rec.plan?.scenes ?? []).map((s) => s.narration));
-    this.pending.set([]);
+    this.work.set(startWorking(rec));
+    this.structureProblem.set('');
+    this.structureAnnouncement.set('');
     this.saving.set(false);
     this.saveProblem.set(null);
     this.justSaved.set(false);
