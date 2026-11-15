@@ -168,7 +168,7 @@ describe('PrivacyComponent', () => {
     expect(text).toContain('the app has no delete-account button yet');
     expect(text).toContain('the site has no newsletter');
     expect(text).toContain('We do not sell your content');
-    expect(text).toContain('There is no cookie banner at the moment');
+    expect(text).not.toContain('There is no cookie banner');
     expect(text).toContain('refresh token in local storage, not in a cookie');
   });
 
@@ -176,7 +176,7 @@ describe('PrivacyComponent', () => {
     const text = render().textContent!;
 
     expect(text).toContain('Google Ads conversion measurement');
-    expect(text).toContain('when you click “Continue with Google”');
+    expect(text).toContain('When you click “Continue with Google”');
     expect(text).toContain('We send no name or email with it');
   });
 
@@ -184,7 +184,7 @@ describe('PrivacyComponent', () => {
     const text = render().textContent!;
     expect(text).toContain('Infographic maker: your text, your choices and the image are all made inside your browser tab and are not uploaded');
     expect(text).toContain('Clear saved draft');
-    expect(text).toContain('Infographic maker: local storage holds one draft of your infographic');
+    expect(text).toContain('The infographic draft stays in this browser and is never sent to us');
     expect(text).toContain('never sent to us');
   });
 
@@ -214,5 +214,42 @@ describe('PrivacyComponent', () => {
 
     expect(document.title).toBe('Privacy Policy | Indifferent');
     expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/privacy');
+  });
+
+  describe('cookies and consent', () => {
+    function cookies(): string {
+      return Array.from(render().querySelectorAll('#cookies li')).map((li) => li.textContent).join('\n');
+    }
+    it('describes the banner, the six months, the categories and how to change the choice', () => {
+      const t = cookies();
+      expect(t).toContain('Nothing optional is on until you turn it on');
+      expect(t).toContain('Reject All has the same weight as Accept All');
+      expect(t).toContain('“Cookie preferences” in the footer or in Settings');
+      expect(t).toContain('for six months, then ask again');
+      for (const c of ['Strictly necessary', 'Analytics', 'Advertising', 'Functional']) expect(t).toContain(c);
+    });
+    it('names the third parties and says nothing loads before the choice', () => {
+      const t = cookies();
+      for (const n of ['Google Analytics', 'Amazon CloudWatch RUM', 'Google Ads', 'Google AdSense']) expect(t).toContain(n);
+      expect(t).toContain('Neither is loaded before you allow Analytics');
+      expect(t).toContain('We do not use personalised ads yet');
+    });
+    it('names only cookies that are documented or observed, and as examples', () => {
+      const t = cookies();
+      expect(t).toContain('typically sets cookies such as _ga');
+      expect(t).toContain('cwr_s and cwr_u');
+      expect(t).toContain('such as _gcl_au');
+    });
+    it('is honest about what withdrawal cannot remove', () => {
+      const t = cookies();
+      expect(t).toContain('cannot remove cookies that Google or Amazon keep on their own domains');
+      expect(t).toContain('HttpOnly');
+      expect(t).not.toMatch(/all cookies (are|were) (deleted|removed)/i);
+    });
+    it('treats sign-in storage as strictly necessary and keeps older saved values untouched until a choice', () => {
+      const t = cookies();
+      expect(t).toContain('refresh token in local storage, not in a cookie');
+      expect(t).toContain('they stay untouched until you choose');
+    });
   });
 });
