@@ -1,5 +1,23 @@
 /* Hallmark · shape: kept · genre: editorial · theme: brand · redesign: full · global sheet (#256): only live rules, all on tokens */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Outfit:wght@400;500;600;700&display=swap');
+/* Self-hosted site fonts (#321): no request to Google Fonts. */
+@import '@fontsource/cormorant-garamond/latin-400.css';
+@import '@fontsource/cormorant-garamond/latin-500.css';
+@import '@fontsource/cormorant-garamond/latin-600.css';
+@import '@fontsource/cormorant-garamond/latin-400-italic.css';
+@import '@fontsource/cormorant-garamond/latin-500-italic.css';
+@import '@fontsource/cormorant-garamond/latin-ext-400.css';
+@import '@fontsource/cormorant-garamond/latin-ext-500.css';
+@import '@fontsource/cormorant-garamond/latin-ext-600.css';
+@import '@fontsource/cormorant-garamond/latin-ext-400-italic.css';
+@import '@fontsource/cormorant-garamond/latin-ext-500-italic.css';
+@import '@fontsource/outfit/latin-400.css';
+@import '@fontsource/outfit/latin-500.css';
+@import '@fontsource/outfit/latin-600.css';
+@import '@fontsource/outfit/latin-700.css';
+@import '@fontsource/outfit/latin-ext-400.css';
+@import '@fontsource/outfit/latin-ext-500.css';
+@import '@fontsource/outfit/latin-ext-600.css';
+@import '@fontsource/outfit/latin-ext-700.css';
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./ui.css";
