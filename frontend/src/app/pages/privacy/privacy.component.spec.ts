@@ -169,7 +169,7 @@ describe('PrivacyComponent', () => {
     expect(text).toContain('the site has no newsletter');
     expect(text).toContain('We do not sell your content');
     expect(text).not.toContain('There is no cookie banner');
-    expect(text).toContain('refresh token in local storage, not in a cookie');
+    expect(text).toContain('a cookie named indifferent_rt that our API sets');
   });
 
   it('discloses the Google Ads conversion on the sign-in click, and what it does not send', () => {
@@ -248,7 +248,8 @@ describe('PrivacyComponent', () => {
     });
     it('treats sign-in storage as strictly necessary and keeps older saved values untouched until a choice', () => {
       const t = cookies();
-      expect(t).toContain('refresh token in local storage, not in a cookie');
+      expect(t).toContain('a cookie named indifferent_rt that our API sets');
+      expect(t).toContain('It is HttpOnly');
       expect(t).toContain('they stay untouched until you choose');
     });
   });

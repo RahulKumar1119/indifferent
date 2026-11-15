@@ -53,110 +53,149 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBeFalse();
   });
 
-  it('should persist the refresh token to storage via setTokens', () => {
-    service.setTokens({ accessToken: 'at', refreshToken: 'stored-rt', expiresIn: 3600 });
-    expect(service.getRefreshToken()).toBe('stored-rt');
+  const MARKER = 'indifferent.session';
+  const LEGACY = 'indifferent.refreshToken';
+  const tokens = (at = 'new-at'): AuthTokens => ({ accessToken: at, refreshToken: 'rt-from-body', expiresIn: 3600 });
+
+  it('never stores the refresh token: the cookie holds it', () => {
+    service.setTokens({ accessToken: 'at', refreshToken: 'secret-rt', expiresIn: 3600 });
+    const everything = JSON.stringify(Object.entries(localStorage)) + JSON.stringify(Object.entries(sessionStorage));
+    expect(everything).not.toContain('secret-rt');
+    expect(localStorage.getItem(LEGACY)).toBeNull();
   });
 
-  it('should send the stored refresh token in the POST /auth/refresh body', () => {
-    service.setTokens({ accessToken: 'old-at', refreshToken: 'stored-rt', expiresIn: 3600 });
-    const mockTokens: AuthTokens = { accessToken: 'new-at', refreshToken: 'new-rt', expiresIn: 3600 };
+  it('keeps a changing marker, not a secret, to know a sign-in exists', () => {
+    service.setTokens(tokens());
+    const first = localStorage.getItem(MARKER);
+    expect(first).toBeTruthy();
+    service.setTokens(tokens());
+    expect(localStorage.getItem(MARKER)).not.toBe(first);
+  });
 
-    service.refreshToken().subscribe((tokens) => {
-      expect(tokens).toEqual(mockTokens);
+  it('refreshes with the cookie: an empty body and credentials', () => {
+    service.setTokens(tokens('old-at'));
+    const mockTokens = tokens('new-at');
+    service.refreshToken().subscribe((t) => {
+      expect(t).toEqual(mockTokens);
       expect(service.getAccessToken()).toBe('new-at');
-      expect(service.getRefreshToken()).toBe('new-rt');
     });
-
     const req = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ refreshToken: 'stored-rt' });
+    expect(req.request.body).toEqual({});
     expect(req.request.withCredentials).toBeTrue();
     req.flush(mockTokens);
   });
 
-  it('should fail fast without an HTTP call when no refresh token is stored', () => {
+  it('carries an older version\'s stored token over once, then deletes it', () => {
+    localStorage.setItem(LEGACY, 'old-version-rt');
+    service.initialize().subscribe();
+    const req = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
+    expect(req.request.body).toEqual({ refreshToken: 'old-version-rt' });
+    expect(req.request.withCredentials).toBeTrue();
+    req.flush(tokens());
+    expect(localStorage.getItem(LEGACY)).toBeNull();
+    expect(localStorage.getItem(MARKER)).toBeTruthy();
+    expect(service.getAccessToken()).toBe('new-at');
+  });
+
+  it('fails fast without an HTTP call when this browser has no sign-in', () => {
     let failed = false;
     service.refreshToken().subscribe({ error: () => (failed = true) });
     expect(failed).toBeTrue();
     httpTesting.expectNone(`${environment.apiUrl}/auth/refresh`);
   });
 
-  it('should restore the session on initialize when a refresh token is stored', () => {
-    localStorage.setItem(
-      'indifferent.refreshToken',
-      'stored-rt',
-    );
-    const mockTokens: AuthTokens = { accessToken: 'new-at', refreshToken: 'new-rt', expiresIn: 3600 };
-
+  it('restores the session on initialize when the marker says a sign-in exists', () => {
+    localStorage.setItem(MARKER, '1');
     let done = false;
     service.initialize().subscribe(() => (done = true));
-
     const req = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
-    expect(req.request.body).toEqual({ refreshToken: 'stored-rt' });
-    req.flush(mockTokens);
-
+    expect(req.request.body).toEqual({});
+    req.flush(tokens());
     expect(done).toBeTrue();
     expect(service.getAccessToken()).toBe('new-at');
   });
 
-  it('should resolve null on initialize without an HTTP call when no session exists', () => {
+  it('resolves null on initialize without an HTTP call when no session exists', () => {
     let result: AuthTokens | null | undefined;
-    service.initialize().subscribe((tokens) => (result = tokens));
+    service.initialize().subscribe((t) => (result = t));
     expect(result).toBeNull();
     httpTesting.expectNone(`${environment.apiUrl}/auth/refresh`);
   });
 
-  it('should clear token and navigate to /login on logout', () => {
-    spyOn(router, 'navigate');
-    service.setTokens({ accessToken: 'token', refreshToken: 'rt', expiresIn: 3600 });
-
-    service.logout();
-
-    const req = httpTesting.expectOne(`${environment.apiUrl}/auth/logout`);
-    expect(req.request.body).toEqual({ refreshToken: 'rt' });
-    req.flush(null);
-
+  it('drops the marker when the restore fails, so the next visit does not call again', () => {
+    localStorage.setItem(MARKER, '1');
+    service.initialize().subscribe();
+    httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`).flush('no', { status: 401, statusText: 'Unauthorized' });
+    expect(localStorage.getItem(MARKER)).toBeNull();
     expect(service.getAccessToken()).toBeNull();
-    expect(service.getRefreshToken()).toBeNull();
+  });
+
+  it('signup and password login send credentials so the cookie is set', () => {
+    service.signup('a@b.c', 'N', 'pw-long-enough').subscribe();
+    const s = httpTesting.expectOne(`${environment.apiUrl}/auth/signup`);
+    expect(s.request.withCredentials).toBeTrue();
+    s.flush(tokens());
+    service.loginWithPassword('a@b.c', 'pw-long-enough').subscribe();
+    const l = httpTesting.expectOne(`${environment.apiUrl}/auth/login`);
+    expect(l.request.withCredentials).toBeTrue();
+    l.flush(tokens());
+  });
+
+  it('clears the local session and navigates to /login on logout, asking the server to end the cookie session', () => {
+    spyOn(router, 'navigate');
+    service.setTokens(tokens('token'));
+    service.logout();
+    const req = httpTesting.expectOne(`${environment.apiUrl}/auth/logout`);
+    expect(req.request.body).toEqual({});
+    expect(req.request.withCredentials).toBeTrue();
+    req.flush(null);
+    expect(service.getAccessToken()).toBeNull();
+    expect(localStorage.getItem(MARKER)).toBeNull();
     expect(router.navigate).toHaveBeenCalledWith(['/login']);
   });
 
-  it('should share one in-flight refresh between concurrent callers (singleflight)', () => {
-    service.setTokens({ accessToken: 'old-at', refreshToken: 'stored-rt', expiresIn: 3600 });
-    const mockTokens: AuthTokens = { accessToken: 'new-at', refreshToken: 'new-rt', expiresIn: 3600 };
+  it('logout also sends a token an older version left behind', () => {
+    spyOn(router, 'navigate');
+    localStorage.setItem(LEGACY, 'old-version-rt');
+    service.logout();
+    const req = httpTesting.expectOne(`${environment.apiUrl}/auth/logout`);
+    expect(req.request.body).toEqual({ refreshToken: 'old-version-rt' });
+    req.flush(null);
+    expect(localStorage.getItem(LEGACY)).toBeNull();
+  });
+
+  it('shares one in-flight refresh between concurrent callers (singleflight)', () => {
+    service.setTokens(tokens('old-at'));
+    const mockTokens = tokens('new-at');
     const seen: AuthTokens[] = [];
-
     service.refreshToken().subscribe((t) => seen.push(t));
     service.refreshToken().subscribe((t) => seen.push(t));
-
-    // Exactly one HTTP request for both subscribers.
-    const req = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
-    req.flush(mockTokens);
-
+    httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`).flush(mockTokens);
     expect(seen).toEqual([mockTokens, mockTokens]);
   });
 
-  it('should retry once with a fresher stored token after a conflict (cross-tab recovery)', () => {
-    service.setTokens({ accessToken: 'old-at', refreshToken: 'stale-rt', expiresIn: 3600 });
-    const mockTokens: AuthTokens = { accessToken: 'new-at', refreshToken: 'new-rt', expiresIn: 3600 };
+  it('retries once after a conflict when another tab rotated meanwhile (marker changed)', () => {
+    localStorage.setItem(MARKER, 'before');
+    const mockTokens = tokens('new-at');
     let resolved: unknown = null;
-
     service.refreshToken().subscribe((t) => (resolved = t));
-
-    // First attempt fails; meanwhile another tab rotated and stored new-rt.
     const first = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
-    expect(first.request.body).toEqual({ refreshToken: 'stale-rt' });
-    localStorage.setItem('indifferent.refreshToken', 'fresh-rt');
+    // Another tab refreshed and stored its own marker while this request was out.
+    localStorage.setItem(MARKER, 'after-other-tab');
     first.flush('conflict', { status: 401, statusText: 'Unauthorized' });
-
-    // Single retry with the fresher token, then success.
     const second = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
-    expect(second.request.body).toEqual({ refreshToken: 'fresh-rt' });
     second.flush(mockTokens);
-
     expect(resolved).toEqual(mockTokens);
-    expect(service.getRefreshToken()).toBe('new-rt');
+  });
+
+  it('does not retry a failure when nothing changed under it (a real expiry or reuse)', () => {
+    localStorage.setItem(MARKER, 'same');
+    let failed = false;
+    service.refreshToken().subscribe({ error: () => (failed = true) });
+    httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`).flush('no', { status: 401, statusText: 'Unauthorized' });
+    expect(failed).toBeTrue();
+    httpTesting.expectNone(`${environment.apiUrl}/auth/refresh`);
   });
 
   describe('logoutAll', () => {
@@ -168,7 +207,7 @@ describe('AuthService', () => {
       expect(service.getAccessToken()).toBe('at');
       httpTesting.expectOne(`${environment.apiUrl}/auth/logout-all`).flush(null, { status: 204, statusText: 'No Content' });
       expect(service.getAccessToken()).toBeNull();
-      expect(service.getRefreshToken()).toBeNull();
+      expect(localStorage.getItem(MARKER)).toBeNull();
       expect(navigate).toHaveBeenCalledWith(['/login']);
     });
 
