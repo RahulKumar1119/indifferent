@@ -134,6 +134,11 @@ type APIHandler struct {
 	// for it.
 	Verifier *auth.EmailVerifier
 
+	// VoiceSynth and PreviewFiles back the voice preview (#326). Nil turns it
+	// off (503), so the API can deploy before the feature is switched on.
+	VoiceSynth   VoiceSynth
+	PreviewFiles PreviewFiles
+	voiceKeys    keyedLocks
 	// QuotaTable holds the per-user daily counters (see quota.go). It must have
 	// TTL on expiresAt: the sessions table. Empty turns the quotas off.
 	QuotaTable string

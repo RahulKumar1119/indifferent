@@ -147,6 +147,10 @@ export interface StoryPlanLimits {
   maxScenes: number;
   maxTotalSeconds: number;
   perHour: number;
+  /** True when the editor may offer to play a scene's voice (#326). Absent on an older API. */
+  voicePreview?: boolean;
+  /** New voice takes a person can make in a day. */
+  voicePreviewsPerDay?: number;
 }
 
 /**
@@ -161,7 +165,20 @@ export const DEFAULT_STORY_PLAN_LIMITS: StoryPlanLimits = {
   maxScenes: 10,
   maxTotalSeconds: 90,
   perHour: 20,
+  voicePreview: false,
 };
+
+/** POST /story-plans/{id}/voice-preview: one scene's narration, ready to play. */
+export interface VoiceTake {
+  /** A signed link to the audio. It stops working after expiresInSeconds. */
+  url: string;
+  expiresInSeconds: number;
+  /** True when the take already existed, so nothing was used from the day's allowance. */
+  cached: boolean;
+  /** New takes left today; present only when this request made one. */
+  remainingToday?: number;
+  dailyLimit: number;
+}
 
 /**
  * Longest narration the editor allows in one scene (storyplan.MaxNarrationRunes).

@@ -10,6 +10,7 @@ import {
   StoryPlanLimits,
   StoryPlanList,
   StoryPlanRecord,
+  VoiceTake,
 } from './story-plan.models';
 
 // The page reports every failure inline (see describeProblem), so the global
@@ -51,6 +52,20 @@ export class StoryPlanService {
     return this.api.put<StoryPlanRecord>(
       `/story-plans/${encodeURIComponent(planId)}`,
       { revision, scenes },
+      true,
+      INLINE_ERRORS(),
+    );
+  }
+
+  /**
+   * One scene's narration as audio (#326). `narration` is the text as it is now,
+   * saved or not; the API cleans it the way a save would, so what is heard is
+   * what a save keeps. Omit `voice` for the language's default.
+   */
+  previewVoice(planId: string, body: { revision: number; scene: number; narration: string; voice?: string }): Observable<VoiceTake> {
+    return this.api.post<VoiceTake>(
+      `/story-plans/${encodeURIComponent(planId)}/voice-preview`,
+      body,
       true,
       INLINE_ERRORS(),
     );

@@ -408,6 +408,8 @@ export class StoryVideoPanelComponent implements OnDestroy {
   readonly planChanged = output<void>();
   /** A scene's number, when the failure is about its picture. */
   readonly goToScene = output<number>();
+  /** The voice chosen for the video, so the scene previews use the same one (#326). */
+  readonly voiceChange = output<string>();
 
   protected readonly primary = PRIMARY;
   protected readonly secondary = SECONDARY;
@@ -499,6 +501,10 @@ export class StoryVideoPanelComponent implements OnDestroy {
     effect(() => {
       const id = this.planId();
       untracked(() => this.load(id));
+    });
+    effect(() => {
+      const voice = this.options().voice;
+      untracked(() => this.voiceChange.emit(voice));
     });
   }
 

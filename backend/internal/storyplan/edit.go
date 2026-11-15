@@ -50,6 +50,29 @@ func invalidEdit(format string, args ...any) error {
 	return &EditError{Reason: fmt.Sprintf(format, args...)}
 }
 
+// CleanNarration applies to one scene's narration the rules an edit is held to:
+// cleaned of markup and control characters, not empty, short enough for one
+// scene and still mostly in the story's script. It returns the text as it would
+// be stored, so the voice preview speaks exactly what a save would keep (the
+// same text hashes to the same cached audio, which the render then reuses). n is
+// the scene number, used only in the messages.
+func CleanNarration(raw string, story Script, n int) (string, error) {
+	text := cleanText(raw, MaxNarrationRunes)
+	if text == "" {
+		return "", invalidEdit("scene %d: the narration is empty", n)
+	}
+	if utf8.RuneCountInString(strings.TrimSpace(raw)) > MaxNarrationRunes*2 {
+		return "", invalidEdit("scene %d: the narration is too long", n)
+	}
+	if story != ScriptNone && story != ScriptOther && ShareInScript(text, story) < minScriptShare {
+		return "", invalidEdit("scene %d: the narration should be in the same language as the story", n)
+	}
+	if estimateSpeech(text) > MaxSceneSeconds*1.2 {
+		return "", invalidEdit("scene %d: the narration is too long for one scene, split it in two", n)
+	}
+	return text, nil
+}
+
 // ApplyEdits returns a copy of plan with the edits applied. edits[i] is for
 // scene i, and len(edits) must equal the number of scenes, so an edit can never
 // be applied to the wrong scene after the plan changes under the user.
@@ -77,20 +100,11 @@ func ApplyEdits(plan Plan, edits []SceneEdit, story Script) (Plan, error) {
 		sc.Keywords = append([]string(nil), sc.Keywords...)
 
 		if e.Narration != nil {
-			text := cleanText(*e.Narration, MaxNarrationRunes)
-			if text == "" {
-				return Plan{}, invalidEdit("scene %d: the narration is empty", n)
-			}
-			if utf8.RuneCountInString(strings.TrimSpace(*e.Narration)) > MaxNarrationRunes*2 {
-				return Plan{}, invalidEdit("scene %d: the narration is too long", n)
-			}
-			if story != ScriptNone && story != ScriptOther && ShareInScript(text, story) < minScriptShare {
-				return Plan{}, invalidEdit("scene %d: the narration should be in the same language as the story", n)
+			text, err := CleanNarration(*e.Narration, story, n)
+			if err != nil {
+				return Plan{}, err
 			}
 			speech := estimateSpeech(text)
-			if speech > MaxSceneSeconds*1.2 {
-				return Plan{}, invalidEdit("scene %d: the narration is too long for one scene, split it in two", n)
-			}
 			sc.Narration = text
 			sc.Duration, _ = sceneDuration(nil, speech)
 		}

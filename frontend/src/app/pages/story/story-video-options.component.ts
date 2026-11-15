@@ -18,8 +18,9 @@ export interface VideoOptions {
  * A story in Hindi has one voice, so that is stated instead of offered: a menu
  * with a single entry is a choice that is not one. Both groups are native form
  * controls (a select, and radio buttons in a fieldset), so the keyboard and
- * screen readers work as they do everywhere else. Nothing here pretends to
- * preview a voice or a caption look: there is no sample to play or show.
+ * screen readers work as they do everywhere else. The voice is heard on the
+ * scene cards ("Hear this scene", #326), not here; there is no sample of a
+ * caption look to show.
  */
 @Component({
   selector: 'app-story-video-options',

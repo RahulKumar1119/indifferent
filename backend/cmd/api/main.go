@@ -14,11 +14,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/polly"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/rahul/indifferent/backend/internal/api"
 	"github.com/rahul/indifferent/backend/internal/auth"
 	appconfig "github.com/rahul/indifferent/backend/internal/config"
+	"github.com/rahul/indifferent/backend/internal/narrator"
 	"github.com/rahul/indifferent/backend/internal/notifier"
 	"github.com/rahul/indifferent/backend/internal/shorts/rank"
 	"github.com/rahul/indifferent/backend/internal/slidegen"
@@ -186,8 +188,19 @@ func main() {
 	passwordAuth.Verifier = verifier
 	passwordAuth.Signups = signups
 
+	// Voice previews (#326): hear one scene of a story plan before making the
+	// video. Off unless STORY_VOICE_PREVIEW_ENABLED is true or 1, so the API can
+	// ship first; the page then shows no play buttons (the route answers 503).
+	var voiceSynth api.VoiceSynth
+	var previewFiles api.PreviewFiles
+	if v := strings.ToLower(os.Getenv("STORY_VOICE_PREVIEW_ENABLED")); v == "true" || v == "1" {
+		voiceSynth = narrator.NewPollyNarrationService(polly.NewFromConfig(awsCfg))
+		previewFiles = s3Client
+	}
 	// Create API handler
 	handler := &api.APIHandler{
+		VoiceSynth:            voiceSynth,
+		PreviewFiles:          previewFiles,
 		AuthService:           authService,
 		JWTService:            jwtService,
 		PasswordAuth:          passwordAuth,
