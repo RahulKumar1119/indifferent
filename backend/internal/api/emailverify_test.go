@@ -217,7 +217,7 @@ func TestEmailGate_LetsThroughEveryoneWhoIsNotMarkedUnconfirmed(t *testing.T) {
 			t.Errorf("%d %s", resp.StatusCode, resp.Body)
 		}
 	})
-	t.Run("account from before confirmation existed", func(t *testing.T) {
+	t.Run("sign-in without a password and without the mark (Google)", func(t *testing.T) {
 		e := newVerifyEnv(t)
 		e.profile("u1", "u1@example.com", nil)
 		if resp := e.call("POST", "/shorts", generateTestToken("u1"), body); resp.StatusCode != 201 {
@@ -411,5 +411,24 @@ func TestAuthMe_NothingToConfirmWhenTheFeatureIsOff(t *testing.T) {
 	body := e.call("GET", "/auth/me", generateTestToken("u1"), "").Body
 	if !strings.Contains(body, `"canConfirmEmail":false,"emailConfirmationRequired":false`) {
 		t.Errorf("/auth/me = %s, want nothing to confirm and nothing required while the feature is off", body)
+	}
+}
+
+func TestEmailGate_HoldsPasswordAccountsFromBeforeConfirmationExisted(t *testing.T) {
+	body := `{"fileType":"mp4","duration":60}`
+	e := newVerifyEnv(t)
+	e.profile("u1", "u1@example.com", nil)
+	e.items["users-table|USER#u1|PROFILE"]["passwordHash"] = &dbtypes.AttributeValueMemberS{Value: "$2a$10$hash"}
+	if resp := e.call("POST", "/shorts", generateTestToken("u1"), body); resp.StatusCode != 403 || !strings.Contains(resp.Body, "EMAIL_NOT_VERIFIED") {
+		t.Errorf("a password account with no mark must be held back: %d %s", resp.StatusCode, resp.Body)
+	}
+	// Reading is still allowed, so the person can reach the account page and ask for a link.
+	if resp := e.call("GET", "/shorts", generateTestToken("u1"), ""); resp.StatusCode == 403 {
+		t.Errorf("reading must not be held back: %s", resp.Body)
+	}
+	// Once confirmed the mark is true and the request passes.
+	e.items["users-table|USER#u1|PROFILE"]["emailVerified"] = &dbtypes.AttributeValueMemberBOOL{Value: true}
+	if resp := e.call("POST", "/shorts", generateTestToken("u1"), body); resp.StatusCode != 201 {
+		t.Errorf("a confirmed account must pass: %d %s", resp.StatusCode, resp.Body)
 	}
 }

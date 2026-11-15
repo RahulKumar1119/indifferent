@@ -46,9 +46,9 @@ func spendingRequest(req events.APIGatewayProxyRequest) bool {
 }
 
 // requireConfirmedEmail refuses a spending request from an account that is
-// marked emailVerified=false: a password sign-up whose address nobody has
-// confirmed. Accounts without the mark (Google sign-ins, and password accounts
-// that existed before confirmation did) are not held back.
+// a password sign-up whose address nobody has confirmed (see emailHeldBack):
+// marked emailVerified=false, or a password account with no mark, which
+// predates confirmation. Google sign-ins are not held back.
 //
 // With no Verifier (the feature switched off) nothing is held back, including
 // accounts that were created while it was on.
@@ -69,12 +69,27 @@ func (h *APIHandler) requireConfirmedEmail(ctx context.Context, req events.APIGa
 		log.Printf("email_gate_lookup_failed err=%v", err)
 		return nil
 	}
-	if v, ok := out.Item["emailVerified"].(*dbtypes.AttributeValueMemberBOOL); ok && !v.Value {
+	if emailHeldBack(out.Item) {
 		resp := errorResponse(http.StatusForbidden, "EMAIL_NOT_VERIFIED",
 			"Confirm your email address first. We sent you a link; you can ask for a new one on your account page.")
 		return &resp
 	}
 	return nil
+}
+
+// emailHeldBack reports whether a profile is a password account whose address
+// nobody has confirmed: marked emailVerified=false, or a password account with
+// no mark at all (one created before confirmation existed, which confirmed
+// nothing either). Google sign-ins have no password hash and Google verified
+// the address, so they are never held back. A missing profile is not held back.
+func emailHeldBack(item map[string]dbtypes.AttributeValue) bool {
+	if v, ok := item["emailVerified"].(*dbtypes.AttributeValueMemberBOOL); ok {
+		return !v.Value
+	}
+	if v, ok := item["passwordHash"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		return true
+	}
+	return false
 }
 
 // handleVerifyEmail consumes a confirmation token from the emailed link. It
