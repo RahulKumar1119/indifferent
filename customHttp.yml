@@ -16,10 +16,12 @@
 # a change to index.html cannot silently put the policy out of date.
 #
 # The hashes (script-src and script-src-attr) are:
-#   sha256-hn61GG...   the theme script at the top of index.html
-#   sha256-iHX4kT...   the Google tag loader in index.html
+#   sha256-VZSgGy...   the theme script at the top of index.html
 #   sha256-MhtPZX...   onload="this.media='all'"  (Angular's critical-CSS loader)
-#   sha256-1jAmyY...   onload="this.onload=null;this.rel='stylesheet'"  (font loader)
+# (The Google tag and the font loader that used to be here moved out of index.html in #321.)
+# Every directive must end with a semicolon: a missing one folds the next directive's
+# name into the previous directive's list and silently drops it (frontend/e2e/csp-verification.mjs
+# loads each page under this policy and fails on any violation).
 customHeaders:
   - pattern: '**'
     headers:
@@ -45,7 +47,7 @@ customHeaders:
           https://www.googletagmanager.com https://googleads.g.doubleclick.net
           https://*.adtrafficquality.google;
           script-src-attr 'unsafe-hashes'
-          'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='
+          'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc=';
           style-src 'self' 'unsafe-inline';
           font-src 'self' data:;
           img-src 'self' data: blob: https:;

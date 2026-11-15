@@ -81,8 +81,26 @@ export function inlineCode(html) {
   return { scripts, handlers };
 }
 
+/** Every directive name the policy may use. A name found inside another directive's list means a semicolon is missing. */
+const DIRECTIVE_NAMES = new Set([
+  'default-src', 'script-src', 'script-src-elem', 'script-src-attr', 'style-src', 'style-src-elem', 'style-src-attr', 'img-src', 'font-src',
+  'connect-src', 'media-src', 'object-src', 'frame-src', 'child-src', 'worker-src', 'manifest-src', 'prefetch-src', 'base-uri', 'form-action',
+  'frame-ancestors', 'report-uri', 'report-to', 'sandbox', 'upgrade-insecure-requests', 'require-trusted-types-for', 'trusted-types',
+]);
+/** Directives whose value list holds another directive's name: the semicolon between them is missing and the browser drops the second one. */
+export function foldedDirectives(directives) {
+  const out = [];
+  for (const [name, tokens] of directives) for (const t of tokens) if (DIRECTIVE_NAMES.has(t)) out.push(`${name} contains "${t}" (a ';' is missing before it)`);
+  return out;
+}
 function main() {
   const directives = parsePolicy(policyFromYaml(readFileSync(HEADERS_FILE, 'utf8')));
+  const folded = foldedDirectives(directives);
+  if (folded.length > 0) {
+    console.error('CSP check failed. A directive is folded into the one before it:');
+    for (const f of folded) console.error(`  ${f}`);
+    process.exit(1);
+  }
   const scriptSrc = directives.get('script-src') ?? [];
   const scriptAttr = directives.get('script-src-attr') ?? [];
   const has = (list, hash) => list.includes(`'${hash}'`);
