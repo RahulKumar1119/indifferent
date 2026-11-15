@@ -123,6 +123,10 @@ type StoryPlanLimits struct {
 	MaxScenes       int     `json:"maxScenes"`
 	MaxTotalSeconds float64 `json:"maxTotalSeconds"`
 	PerHour         int     `json:"perHour"`
+	// VoicePreview says whether the editor may offer to play a scene's voice
+	// (#326); VoicePreviewsPerDay is the allowance of new takes a day.
+	VoicePreview        bool  `json:"voicePreview"`
+	VoicePreviewsPerDay int64 `json:"voicePreviewsPerDay"`
 }
 
 // storyPlanRecord is the stored form of one attempt.
@@ -201,6 +205,8 @@ func (h *APIHandler) handleStoryPlans(ctx context.Context, req events.APIGateway
 		return h.handleListStoryPlans(ctx, req, claims)
 	case req.HTTPMethod == "POST" && req.Path == "/story-plans":
 		return h.handleCreateStoryPlan(ctx, req, claims)
+	case req.HTTPMethod == "POST" && voicePreviewPath(req.Path) != "":
+		return h.handleVoicePreview(ctx, req, claims)
 	case req.HTTPMethod == "GET" && storyPlanIDFromPath(req.Path) != "":
 		return h.handleGetStoryPlan(ctx, req, claims)
 	case req.HTTPMethod == "PUT" && storyPlanIDFromPath(req.Path) != "":
@@ -219,6 +225,9 @@ func (h *APIHandler) handleGetStoryPlanLimits() events.APIGatewayProxyResponse {
 		MaxScenes:       storyplan.MaxScenes,
 		MaxTotalSeconds: storyplan.MaxTotalSeconds,
 		PerHour:         h.storyPlansPerHour(),
+
+		VoicePreview:        h.VoiceSynth != nil && h.PreviewFiles != nil,
+		VoicePreviewsPerDay: quotaVoicePreview.limit,
 	})
 }
 

@@ -26,6 +26,8 @@ import {
   VideoServiceSpy,
 } from './story-plan-fixtures.spec';
 import { StoryVideoService } from './story-video.service';
+import { LIMITS } from './story-plan-fixtures.spec';
+import { PLAYBACK_FACTORY, PlaybackElement } from './story-voice-preview';
 
 describe('StoryPlanEditorComponent', () => {
   let service: ServiceSpy;
@@ -935,6 +937,120 @@ describe('StoryPlanEditorComponent', () => {
     it('keeps one save status and one Save button, whatever the screen width', () => {
       expect(el.querySelectorAll('[data-testid="save-status"]').length).toBe(1);
       expect(Array.from(el.querySelectorAll('button')).filter((b) => b.textContent!.includes('Save changes')).length).toBe(1);
+    });
+  });
+
+  describe('hearing a scene (#326)', () => {
+    let played: PlaybackElement[];
+    const fakeAudio = (): PlaybackElement => {
+      const a: PlaybackElement = {
+        src: '',
+        play: () => Promise.resolve(),
+        pause: () => undefined,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      };
+      played.push(a);
+      return a;
+    };
+    const hearButton = (n: number) => scene(n).querySelector<HTMLButtonElement>('[data-testid="hear"]');
+    const take = { url: 'https://bucket.example/take.mp3?sig=1', expiresInSeconds: 300, cached: false, remainingToday: 59, dailyLimit: 60 };
+
+    beforeEach(() => {
+      played = [];
+      TestBed.overrideProvider(PLAYBACK_FACTORY, { useValue: fakeAudio });
+      service.getLimits.and.returnValue(of({ ...LIMITS, voicePreview: true, voicePreviewsPerDay: 60 }));
+      service.previewVoice.and.returnValue(of(take));
+    });
+
+    it('offers a button on every scene when previews are on', async () => {
+      await create();
+      expect(el.querySelectorAll('[data-testid="hear"]').length).toBe(3);
+      expect(hearButton(2)!.textContent).toContain('Hear this scene');
+      expect(hearButton(2)!.textContent).toContain('for scene 2');
+    });
+
+    it('offers nothing when the API has them off or does not say', async () => {
+      service.getLimits.and.returnValue(of({ ...LIMITS, voicePreview: false }));
+      await create();
+      expect(el.querySelectorAll('[data-testid="hear"]').length).toBe(0);
+    });
+
+    it('offers nothing when the limits cannot be read', async () => {
+      service.getLimits.and.returnValue(throwError(() => httpError(500)));
+      await create();
+      expect(el.querySelectorAll('[data-testid="hear"]').length).toBe(0);
+    });
+
+    it('speaks the narration as it is now, unsaved, against the revision on the page', async () => {
+      await create();
+      await type(2, 'Words typed a moment ago.');
+      hearButton(2)!.click();
+      await settle(fixture);
+      expect(service.previewVoice).toHaveBeenCalledTimes(1);
+      const [id, body] = service.previewVoice.calls.mostRecent().args;
+      expect(id).toBe('plan-1');
+      expect(body).toEqual(jasmine.objectContaining({ revision: 1, scene: 2, narration: 'Words typed a moment ago.' }));
+      // The voice is the one the video panel has chosen, so the preview matches the video.
+      expect(VIDEO_LIMITS.voices['en']).toContain(body.voice as string);
+      expect(played.length).toBe(1);
+      expect(played[0].src).toBe(take.url);
+    });
+
+    it('uses the voice the person picked for the video', async () => {
+      await create();
+      const select = el.querySelector<HTMLSelectElement>('#video-voice')!;
+      select.value = 'Matthew';
+      select.dispatchEvent(new Event('change'));
+      await settle(fixture);
+      hearButton(1)!.click();
+      await settle(fixture);
+      expect(service.previewVoice.calls.mostRecent().args[1].voice).toBe('Matthew');
+    });
+
+    it('tells the person how many new takes are left, once a take was made', async () => {
+      await create();
+      hearButton(1)!.click();
+      await settle(fixture);
+      expect(scene(1).querySelector('[data-testid="voice-note"]')!.textContent).toContain('59 of 60 new voice previews left today');
+    });
+
+    it('has nothing to say for an empty scene', async () => {
+      await create();
+      await type(3, '   ');
+      expect(hearButton(3)!.disabled).toBeTrue();
+    });
+
+    it('says what went wrong beside the scene, as an alert, and can be tried again', async () => {
+      await create();
+      service.previewVoice.and.returnValue(throwError(() => httpError(429, 'VOICE_BUSY', 'busy', { retryAfter: 10 })));
+      hearButton(1)!.click();
+      await settle(fixture);
+      const alert = scene(1).querySelector<HTMLElement>('[data-testid="voice-problem"]')!;
+      expect(alert.getAttribute('role')).toBe('alert');
+      expect(alert.textContent).toContain('The voice is busy. Try again in 10 seconds.');
+      expect(scene(2).querySelector('[data-testid="voice-problem"]')).toBeNull();
+      expect(hearButton(1)!.disabled).toBeFalse();
+    });
+
+    it('hides the buttons when a call finds previews switched off', async () => {
+      await create();
+      service.previewVoice.and.returnValue(throwError(() => httpError(503, 'UNAVAILABLE')));
+      hearButton(1)!.click();
+      await settle(fixture);
+      expect(el.querySelectorAll('[data-testid="hear"]').length).toBe(0);
+    });
+
+    it('announces what it is doing to a screen reader without moving focus', async () => {
+      await create();
+      const never = new Subject<never>();
+      service.previewVoice.and.returnValue(never);
+      hearButton(2)!.focus();
+      hearButton(2)!.click();
+      await settle(fixture);
+      expect(scene(2).querySelector('[data-testid="voice-status"]')!.textContent).toContain('Making the voice for scene 2');
+      expect(hearButton(2)!.getAttribute('aria-busy')).toBe('true');
+      expect(document.activeElement).toBe(hearButton(2));
     });
   });
 });

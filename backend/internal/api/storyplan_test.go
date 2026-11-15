@@ -285,7 +285,8 @@ func TestStoryPlans_LimitsArePublicAndAccurate(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := StoryPlanLimits{Enabled: true, MinStoryChars: storyplan.MinStoryRunes, MaxStoryChars: storyplan.MaxStoryRunes,
-		MinScenes: storyplan.MinScenes, MaxScenes: storyplan.MaxScenes, MaxTotalSeconds: storyplan.MaxTotalSeconds, PerHour: 20}
+		MinScenes: storyplan.MinScenes, MaxScenes: storyplan.MaxScenes, MaxTotalSeconds: storyplan.MaxTotalSeconds, PerHour: 20,
+		VoicePreview: false, VoicePreviewsPerDay: quotaVoicePreview.limit}
 	if l != want {
 		t.Errorf("limits = %+v, want %+v", l, want)
 	}

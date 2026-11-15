@@ -30,9 +30,10 @@ import {
   withRemoval,
 } from './story-plan-edits';
 import { StoryPlanProblem, describeProblem } from './story-plan-problem';
-import { StockAsset, StoryPlanRecord } from './story-plan.models';
+import { DEFAULT_STORY_PLAN_LIMITS, StockAsset, StoryPlanLimits, StoryPlanRecord } from './story-plan.models';
 import { StoryPlanService } from './story-plan.service';
 import { StoryProblemComponent } from './story-problem.component';
+import { StoryVoicePreview } from './story-voice-preview';
 import { StorySceneCardComponent } from './story-scene-card.component';
 import { StoryVideoPanelComponent } from './story-video-panel.component';
 import { videoBlocker } from './story-video-blockers';
@@ -49,6 +50,7 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
   selector: 'app-story-plan-editor',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [StoryVoicePreview],
   imports: [
     NgTemplateOutlet,
     RouterLink,
@@ -214,6 +216,10 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
                         [language]="plan.language"
                         [disabled]="saving()"
                         [edited]="isEdited(i)"
+                        [voiceAvailable]="voicesOffered()"
+                        [voice]="voicePreview.view(i)"
+                        [voiceNote]="voiceNote()"
+                        (hear)="hear(i)"
                         (narrationChange)="setNarration(i, $event)"
                         (choose)="openPicker(i)"
                         (remove)="removePicture(i)"
@@ -230,6 +236,7 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
                   [revision]="rec.revision"
                   [language]="plan.language"
                   [blocker]="videoReason()"
+                  (voiceChange)="previewVoice.set($event)"
                   (planChanged)="load()"
                   (goToScene)="focusScene($event)"
                 />
@@ -371,6 +378,21 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
   protected readonly canMake = computed(() => !!this.record()?.plan && !this.videoReason() && !!this.videoPanel()?.startable());
 
   private heading = viewChild<{ nativeElement: HTMLElement }>('heading');
+
+  // Voice previews (#326): hear one scene before the video is made.
+  protected readonly voicePreview = inject(StoryVoicePreview);
+  private readonly planLimits = signal<StoryPlanLimits>(DEFAULT_STORY_PLAN_LIMITS);
+  /** The voice chosen in the video panel; empty until it reports one. */
+  protected readonly previewVoice = signal('');
+  /** Buttons show only when the API has previews on and has not said otherwise. */
+  protected readonly voicesOffered = computed(() => !!this.planLimits().voicePreview && this.voicePreview.available());
+  /** How many new takes are left today, once that is known. */
+  protected readonly voiceNote = computed(() => {
+    const left = this.voicePreview.remaining();
+    const limit = this.voicePreview.dailyLimit() ?? this.planLimits().voicePreviewsPerDay;
+    if (left === null || !limit) return '';
+    return `${left} of ${limit} new voice previews left today. Scenes you already heard are free.`;
+  });
   private pickerScene = -1;
   private planId = '';
   private routeSub?: Subscription;
@@ -389,6 +411,8 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
       this.wide.set(this.wideQuery.matches);
       this.wideQuery.addEventListener('change', this.onWideChange);
     }
+    // Public and cheap. If it fails the buttons simply do not show.
+    this.service.getLimits().subscribe({ next: (l) => this.planLimits.set(l), error: () => undefined });
     this.routeSub = this.route.paramMap.subscribe((params) => {
       this.planId = params.get('id') ?? '';
       this.load();
@@ -444,6 +468,19 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         this.loadProblem.set(describeProblem(err, 'load'));
       },
+    });
+  }
+
+  /** Plays the scene's narration as it is now (saved or not), or stops it. */
+  protected hear(index: number): void {
+    const rec = this.record();
+    if (!rec) return;
+    this.voicePreview.toggle({
+      planId: rec.planId,
+      revision: rec.revision,
+      scene: index,
+      text: this.narrations()[index] ?? '',
+      voice: this.previewVoice(),
     });
   }
 
@@ -512,6 +549,7 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
   }
 
   protected save(): void {
+    this.voicePreview.stop();
     const rec = this.record();
     if (!rec || this.saving() || !this.dirty()) return;
     this.saving.set(true);
@@ -548,6 +586,7 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
 
   /** Makes a plan from the server the page's truth and drops all unsaved edits. */
   private adopt(rec: StoryPlanRecord): void {
+    this.voicePreview.stop();
     this.record.set(rec);
     this.narrations.set((rec.plan?.scenes ?? []).map((s) => s.narration));
     this.pending.set([]);

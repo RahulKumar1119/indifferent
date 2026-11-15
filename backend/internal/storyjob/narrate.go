@@ -89,6 +89,32 @@ func NarrateScenes(ctx context.Context, d Deps, job *Job, progress Progress) err
 	return nil
 }
 
+// previewTake returns the audio the user already heard in the editor for this
+// text and voice, if the voice preview kept it (#326). The render uses those
+// exact bytes, so the video says what was previewed and the Polly call is saved.
+// Anything wrong with the stored take (missing, unreadable, empty) falls back to
+// making the voice again: a preview is only ever a shortcut.
+func previewTake(ctx context.Context, d Deps, job *Job, n int, text string) ([]byte, bool) {
+	key := PreviewKey(job.UserID, text, job.Voice)
+	have, err := d.Files.HeadObject(ctx, d.Bucket, key)
+	if err != nil || !have {
+		return nil, false
+	}
+	local := filepath.Join(d.WorkDir, fmt.Sprintf("scene-%02d-preview.mp3", n))
+	defer os.Remove(local)
+	if err := d.Files.DownloadToFile(ctx, d.Bucket, key, local); err != nil {
+		d.logf("storyjob scene=%d voice=preview_unreadable making it again: %v", n, err)
+		return nil, false
+	}
+	audio, err := os.ReadFile(local)
+	if err != nil || len(audio) == 0 {
+		d.logf("storyjob scene=%d voice=preview_empty making it again", n)
+		return nil, false
+	}
+	d.logf("storyjob scene=%d voice=from_preview", n)
+	return audio, true
+}
+
 func narrateOne(ctx context.Context, d Deps, job *Job, n int) (*Voice, error) {
 	text := job.Scenes[n-1].Narration
 	if text == "" {
@@ -96,7 +122,11 @@ func narrateOne(ctx context.Context, d Deps, job *Job, n int) (*Voice, error) {
 			Message: fmt.Sprintf("Scene %d has no narration. Write some and make the video again.", n)}
 	}
 
-	audio, err := d.Narrator.SynthesizeText(ctx, text, job.Voice)
+	audio, fromPreview := previewTake(ctx, d, job, n, text)
+	var err error
+	if !fromPreview {
+		audio, err = d.Narrator.SynthesizeText(ctx, text, job.Voice)
+	}
 	if err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()

@@ -12,7 +12,9 @@ import {
   LucideImage,
   LucideLoader2,
   LucideSearch,
+  LucideSquare,
   LucideTrash2,
+  LucideVolume2,
   LucideTriangleAlert,
   LucideWandSparkles,
   LucideX,
@@ -37,8 +39,12 @@ export const STORY_ICONS = provideLucideIcons(
   LucideImage,
   LucideLoader2,
   LucideSearch,
+  LucideSquare,
   LucideTrash2,
+  LucideVolume2,
+  LucideSquare,
   LucideTriangleAlert,
+  LucideVolume2,
   LucideWandSparkles,
   LucideX,
 );
@@ -169,7 +175,7 @@ export const API_FAILURES: { name: string; error: HttpErrorResponse; title: stri
 export type ServiceSpy = jasmine.SpyObj<StoryPlanService>;
 
 export function serviceSpy(): ServiceSpy {
-  const spy = jasmine.createSpyObj<StoryPlanService>('StoryPlanService', ['getLimits', 'create', 'get', 'save', 'search']);
+  const spy = jasmine.createSpyObj<StoryPlanService>('StoryPlanService', ['getLimits', 'create', 'get', 'save', 'search', 'previewVoice']);
   spy.getLimits.and.returnValue(of(LIMITS));
   return spy;
 }

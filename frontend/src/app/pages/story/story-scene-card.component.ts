@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { LucideDynamicIcon } from '@lucide/angular';
 import { SceneMediaView } from './story-plan-edits';
 import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './story-plan.models';
+import { IDLE_VOICE, VoiceView } from './story-voice-preview';
 
 /**
  * One scene of the plan: its picture (with credit), and its narration to edit.
@@ -38,6 +39,13 @@ import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './sto
     label { display: block; font-size: var(--type-sm); font-weight: 600; }
     textarea { margin-top: var(--space-2xs); min-height: 7rem; resize: vertical; line-height: 1.55; }
     .count { margin: var(--space-2xs) 0 0; font-size: var(--type-xs); color: var(--color-muted); }
+    .voice { margin-top: var(--space-sm); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-md); }
+    .voice-note { margin: 0; font-size: var(--type-xs); color: var(--color-muted); }
+    .voice-problem { margin: var(--space-xs) 0 0; font-size: var(--type-sm); color: var(--color-ink); display: flex; gap: var(--space-xs); align-items: flex-start; }
+    .voice-problem svg { flex: none; margin-top: 2px; color: var(--color-ink-2); }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
     .kw { margin: var(--space-sm) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); }
     .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   `],
@@ -158,6 +166,44 @@ import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './sto
             class="ui-field"
           ></textarea>
           <p [id]="countId()" class="count">{{ chars() }} of {{ maxChars }} characters</p>
+          @if (voiceAvailable()) {
+            <div class="voice" data-testid="voice">
+              <button
+                type="button"
+                class="ui-btn ui-btn--secondary"
+                data-testid="hear"
+                [disabled]="disabled() || !canHear()"
+                [attr.aria-busy]="voice().kind === 'loading'"
+                (click)="hear.emit()"
+              >
+                @switch (voice().kind) {
+                  @case ('loading') {
+                    <svg lucideIcon="loader-2" [size]="16" class="spin" aria-hidden="true"></svg>
+                    Making the voice
+                  }
+                  @case ('playing') {
+                    <svg lucideIcon="square" [size]="16" aria-hidden="true"></svg>
+                    Stop
+                  }
+                  @default {
+                    <svg lucideIcon="volume-2" [size]="16" aria-hidden="true"></svg>
+                    Hear this scene
+                  }
+                }
+                <span class="sr"> for scene {{ index() + 1 }}</span>
+              </button>
+              @if (voiceNote()) {
+                <p class="voice-note" data-testid="voice-note">{{ voiceNote() }}</p>
+              }
+            </div>
+            <p class="sr" role="status" data-testid="voice-status">{{ voiceStatus() }}</p>
+            @if (problem(); as p) {
+              <p class="voice-problem" data-testid="voice-problem" role="alert">
+                <svg [lucideIcon]="p.limit ? 'clock' : 'triangle-alert'" [size]="16" aria-hidden="true"></svg>
+                {{ p.message }}
+              </p>
+            }
+          }
           <p class="kw">Search words: {{ scene().keywords.join(', ') }}</p>
         </div>
       </div>
@@ -177,7 +223,15 @@ export class StorySceneCardComponent {
   /** True when this scene has a change that is not saved. */
   readonly edited = input<boolean>(false);
 
+  /** Whether to offer the voice at all: the API has previews switched on (#326). */
+  readonly voiceAvailable = input<boolean>(false);
+  /** What this scene's voice is doing. */
+  readonly voice = input<VoiceView>(IDLE_VOICE);
+  /** A short line under the button, such as how many new takes are left today. */
+  readonly voiceNote = input<string>('');
   readonly narrationChange = output<string>();
+  /** The person pressed the voice button: play, or stop when it is playing. */
+  readonly hear = output<void>();
   readonly choose = output<void>();
   readonly remove = output<void>();
 
@@ -187,6 +241,24 @@ export class StorySceneCardComponent {
   protected readonly countId = computed(() => `scene-${this.index() + 1}-count`);
   protected readonly chooseId = computed(() => `scene-${this.index() + 1}-choose`);
   protected readonly chars = computed(() => charCount(this.narration()));
+  /** An empty scene has nothing to say. */
+  protected readonly canHear = computed(() => this.narration().trim().length > 0);
+  protected readonly problem = computed(() => {
+    const v = this.voice();
+    return v.kind === 'problem' ? v : null;
+  });
+  /** Said by screen readers when the state changes; the button label alone does not announce itself. */
+  protected readonly voiceStatus = computed(() => {
+    const n = this.index() + 1;
+    switch (this.voice().kind) {
+      case 'loading':
+        return `Making the voice for scene ${n}.`;
+      case 'playing':
+        return `Playing scene ${n}.`;
+      default:
+        return '';
+    }
+  });
   protected readonly asset = computed(() => {
     const m = this.media();
     return m.state === 'asset' ? m.asset : null;

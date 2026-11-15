@@ -128,6 +128,21 @@ them and the renderer spreads the captions evenly across the audio
 no video, and the fallback is logged. Timings that are only partly wrong are
 repaired, not discarded.
 
+### A take the user already heard (#326)
+The story editor can play one scene's voice before a video is made
+(`POST /story-plans/{id}/voice-preview`, in package `api`). The take is kept,
+private, at `story-preview/<user>/<hash>.mp3` (`PreviewKey`: a hash of the
+version, engine, voice and the exact cleaned text; the key holds no text). Before
+calling Polly, `narrateOne` looks for the same key and, if the take is there and
+readable, uses those bytes: the video says exactly what was previewed and the
+Polly call is saved. Anything wrong with the stored take (missing, unreadable,
+empty, no permission to read it) falls back to making the voice, so a preview is
+only ever a shortcut. The word timings are still made at render time, from the
+same text and voice. `story-preview/` has its own lifecycle rule (2 days),
+separate from `storyvideo-work/` and `storyvideo/`; a test checks the three
+prefixes do not overlap. The render task role needs read access to
+`story-preview/*` (`deploy/setup-story-voice-preview.sh`).
+
 Once every scene is narrated the total is checked against the 90 second limit.
 A story that runs over fails here, **before any rendering time is spent**.
 

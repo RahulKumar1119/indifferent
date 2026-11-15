@@ -339,3 +339,32 @@ func TestProperty_ApplyEditsNeverBreaksAPlan(t *testing.T) {
 		}
 	})
 }
+
+func TestCleanNarration_IsTheSameRulesAnEditIsHeldTo(t *testing.T) {
+	got, err := CleanNarration("  The   <b>lighthouse</b> stood alone.  ", ScriptLatin, 2)
+	if err != nil || got != "The lighthouse stood alone." {
+		t.Fatalf("got %q, %v", got, err)
+	}
+	// What a save stores is exactly what the preview speaks.
+	p, perr := parseAndValidate(mustJSON(t, englishPlan(2)), ScriptLatin)
+	if perr != nil {
+		t.Fatal(perr)
+	}
+	raw := "  The   <b>lighthouse</b> stood alone.  "
+	out, aerr := ApplyEdits(p, []SceneEdit{{Narration: &raw}, {}}, ScriptLatin)
+	if aerr != nil || out.Scenes[0].Narration != got {
+		t.Errorf("ApplyEdits stored %q (%v), CleanNarration gave %q", out.Scenes[0].Narration, aerr, got)
+	}
+	for name, raw := range map[string]string{
+		"empty":        "   ",
+		"markup only":  "<i></i>",
+		"far too long": strings.Repeat("word ", MaxNarrationRunes),
+		"wrong script": "मछुआरा चुपचाप अँधेरे पानी में नाव खेता है और गाता है",
+	} {
+		_, err := CleanNarration(raw, ScriptLatin, 3)
+		var ee *EditError
+		if !errors.As(err, &ee) || !strings.Contains(ee.Reason, "scene 3") {
+			t.Errorf("%s: err = %v, want an edit error naming scene 3", name, err)
+		}
+	}
+}

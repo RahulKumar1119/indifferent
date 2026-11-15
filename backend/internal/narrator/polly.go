@@ -154,6 +154,17 @@ func (s *PollyNarrationService) Synthesize(ctx context.Context, question models.
 	return s.synthesizeRaw(ctx, narrationText, voiceID)
 }
 
+// EngineFor names the Polly engine a supported voice is synthesised with, "" for
+// a voice that is not supported. Cached audio is keyed by it, so a change of
+// engine can never be served from an older take.
+func EngineFor(voiceID string) string {
+	e, ok := voiceEngineMap[voiceID]
+	if !ok {
+		return ""
+	}
+	return string(e)
+}
+
 // SynthesizeText generates MP3 audio bytes for arbitrary text using Amazon Polly.
 // It retries up to 2 additional times (3 total attempts) on Polly errors.
 func (s *PollyNarrationService) SynthesizeText(ctx context.Context, text string, voiceID string) ([]byte, error) {
