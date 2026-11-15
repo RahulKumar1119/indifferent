@@ -12,6 +12,7 @@ import {
   StoryPlanRecord,
   VoiceTake,
 } from './story-plan.models';
+import { SceneOp } from './story-plan-structure';
 
 // The page reports every failure inline (see describeProblem), so the global
 // error toast would only say the same thing twice.
@@ -48,10 +49,11 @@ export class StoryPlanService {
    * Saves edits. `scenes` needs exactly one entry per scene, in order, and
    * `revision` must be the one the edit was based on (409 otherwise).
    */
-  save(planId: string, revision: number, scenes: SceneEdit[]): Observable<StoryPlanRecord> {
+  save(planId: string, revision: number, scenes: SceneEdit[], ops: SceneOp[] = []): Observable<StoryPlanRecord> {
     return this.api.put<StoryPlanRecord>(
       `/story-plans/${encodeURIComponent(planId)}`,
-      { revision, scenes },
+      // With `ops`, `scenes` lines up with the scenes they leave (#326); without, with the saved ones.
+      ops.length ? { revision, ops, scenes } : { revision, scenes },
       true,
       INLINE_ERRORS(),
     );

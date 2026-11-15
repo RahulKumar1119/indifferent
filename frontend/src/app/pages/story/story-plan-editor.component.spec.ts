@@ -1041,6 +1041,22 @@ describe('StoryPlanEditorComponent', () => {
       expect(el.querySelectorAll('[data-testid="hear"]').length).toBe(0);
     });
 
+    it('stops what is playing when the order changes, and asks for a scene the plan has after a split', async () => {
+      await create();
+      hearButton(1)!.click();
+      await settle(fixture);
+      expect(hearButton(1)!.textContent).not.toContain('Hear this scene');
+      const box = scene(3).querySelector('textarea')!;
+      box.focus();
+      box.setSelectionRange(8, 8);
+      scene(3).querySelector<HTMLButtonElement>('[data-testid="split"]')!.click();
+      await settle(fixture);
+      expect(hearButton(1)!.textContent).toContain('Hear this scene');
+      hearButton(4)!.click();
+      await settle(fixture);
+      // The audio depends on the words alone; scene 4 does not exist in the saved plan.
+      expect(service.previewVoice.calls.mostRecent().args[1].scene).toBe(3);
+    });
     it('announces what it is doing to a screen reader without moving focus', async () => {
       await create();
       const never = new Subject<never>();
@@ -1051,6 +1067,155 @@ describe('StoryPlanEditorComponent', () => {
       expect(scene(2).querySelector('[data-testid="voice-status"]')!.textContent).toContain('Making the voice for scene 2');
       expect(hearButton(2)!.getAttribute('aria-busy')).toBe('true');
       expect(document.activeElement).toBe(hearButton(2));
+    });
+  });
+
+  describe('splitting, merging and moving scenes (#326)', () => {
+    const tool = (n: number, id: string) => scene(n).querySelector<HTMLButtonElement>(`[data-testid="${id}"]`)!;
+    const sceneNarration = (n: number) => narrationBox(n).value;
+    const splitAt = async (n: number, at: number) => {
+      narrationBox(n).focus();
+      narrationBox(n).setSelectionRange(at, at);
+      tool(n, 'split').click();
+      await settle(fixture);
+    };
+
+    beforeEach(() => create());
+
+    it('shows the controls on every scene, with the impossible ones disabled', () => {
+      expect(tool(1, 'move-up').disabled).toBeTrue();
+      expect(tool(1, 'move-down').disabled).toBeFalse();
+      expect(tool(3, 'move-down').disabled).toBeTrue();
+      expect(tool(3, 'merge').disabled).toBeTrue();
+      expect(tool(1, 'merge').disabled).toBeFalse();
+      expect(tool(1, 'split').disabled).toBeFalse();
+    });
+
+    it('names each control for the scene it acts on', () => {
+      expect(tool(2, 'move-up').textContent!.replace(/\s+/g, ' ')).toContain('Move up scene 2');
+      expect(tool(2, 'split').textContent!.replace(/\s+/g, ' ')).toContain('Split at cursor in scene 2');
+      expect(scene(2).querySelector('[data-testid="tools"]')!.getAttribute('role')).toBe('group');
+    });
+
+    it('moves a scene, announces it, and keeps the focus on the moved scene', async () => {
+      tool(1, 'move-down').click();
+      await settle(fixture);
+      expect(sceneNarration(1)).toBe('Every night the keeper climbed the stairs.');
+      expect(sceneNarration(2)).toBe('The lighthouse stood alone on the cliff.');
+      expect(el.querySelector('[data-testid="structure-status"]')!.textContent).toContain('Scene 1 moved to position 2 of 3.');
+      expect(document.activeElement!.id).toBe('scene-2-move-down');
+      expect(status()).toContain('The scene order has changes that are not saved');
+      expect(el.querySelector('[data-testid="length-note"]')).not.toBeNull();
+    });
+
+    it("the picture goes with its scene", async () => {
+      tool(1, 'move-down').click();
+      await settle(fixture);
+      expect(scene(2).querySelector('img')!.getAttribute('src')).toContain('/101.jpg');
+    });
+
+    it('sends the operations with the edits that line up with the result', async () => {
+      tool(1, 'move-down').click();
+      await settle(fixture);
+      service.save.and.returnValue(of(planRecord({ revision: 2 })));
+      saveButton().click();
+      await settle(fixture);
+      expect(service.save).toHaveBeenCalledOnceWith('plan-1', 1, [{}, {}, {}], [{ op: 'move', from: 1, to: 2 }]);
+    });
+
+    it('does not send operations when the order is put back', async () => {
+      tool(1, 'move-down').click();
+      await settle(fixture);
+      tool(2, 'move-up').click();
+      await settle(fixture);
+      expect(saveButton().disabled).toBeTrue();
+      expect(status()).toBe('No changes yet');
+    });
+
+    it('splits at the cursor into two scenes with the same picture', async () => {
+      await splitAt(1, 'The lighthouse stood alone'.length);
+      expect(el.querySelectorAll('app-story-scene-card').length).toBe(4);
+      expect(sceneNarration(1)).toBe('The lighthouse stood alone');
+      expect(sceneNarration(2)).toBe('on the cliff.');
+      expect(scene(1).querySelector('img')!.getAttribute('src')).toContain('/101.jpg');
+      expect(scene(2).querySelector('img')!.getAttribute('src')).toContain('/101.jpg');
+      expect(scene(2).querySelector('[data-testid="length-pending"]')).not.toBeNull();
+      expect(el.querySelector('[data-testid="structure-status"]')!.textContent).toContain('Scene 1 split into scenes 1 and 2.');
+      expect(el.querySelector('[data-testid="summary"]')!.textContent).toContain('4 scenes');
+      expect(status()).toContain('2 scenes have changes that are not saved');
+    });
+
+    it('saves a split with both halves', async () => {
+      await splitAt(1, 'The lighthouse stood alone'.length);
+      service.save.and.returnValue(of(planRecord({ revision: 2 })));
+      saveButton().click();
+      await settle(fixture);
+      expect(service.save).toHaveBeenCalledOnceWith(
+        'plan-1',
+        1,
+        [{ narration: 'The lighthouse stood alone' }, { narration: 'on the cliff.' }, {}, {}],
+        [{ op: 'split', scene: 1 }],
+      );
+    });
+
+    it('says where to put the cursor when it is at either end', async () => {
+      await splitAt(1, 0);
+      expect(el.querySelector('[data-testid="structure-problem"]')!.textContent).toContain('Put the cursor');
+      expect(el.querySelectorAll('app-story-scene-card').length).toBe(3);
+      expect(saveButton().disabled).toBeTrue();
+    });
+
+    it('merges a scene with the next and keeps the first picture', async () => {
+      tool(1, 'merge').click();
+      await settle(fixture);
+      expect(el.querySelectorAll('app-story-scene-card').length).toBe(2);
+      expect(sceneNarration(1)).toBe('The lighthouse stood alone on the cliff. Every night the keeper climbed the stairs.');
+      expect(scene(1).querySelector('img')!.getAttribute('src')).toContain('/101.jpg');
+      service.save.and.returnValue(of(planRecord({ revision: 2 })));
+      saveButton().click();
+      await settle(fixture);
+      expect(service.save.calls.mostRecent().args[3]).toEqual([{ op: 'merge', scene: 1 }]);
+      expect(service.save.calls.mostRecent().args[2][0].narration).toContain('Every night');
+    });
+
+    it('will not merge below the fewest scenes', async () => {
+      tool(1, 'merge').click();
+      await settle(fixture);
+      expect(tool(1, 'merge').disabled).toBeTrue();
+    });
+
+    it('discarding brings the saved order back', async () => {
+      tool(1, 'move-down').click();
+      await settle(fixture);
+      buttonIn(el, /Discard changes/).click();
+      await settle(fixture);
+      expect(sceneNarration(1)).toBe('The lighthouse stood alone on the cliff.');
+      expect(status()).toBe('No changes yet');
+    });
+
+    it('blocks "Make the video" while the structure is unsaved', async () => {
+      tool(1, 'move-down').click();
+      await settle(fixture);
+      expect(el.querySelector('[data-testid="make-video"]')).toBeNull();
+    });
+
+    it('keeps the unsaved structure when a save fails', async () => {
+      tool(1, 'move-down').click();
+      await settle(fixture);
+      service.save.and.returnValue(throwError(() => httpError(409, 'STALE_REVISION')));
+      saveButton().click();
+      await settle(fixture);
+      expect(sceneNarration(1)).toBe('Every night the keeper climbed the stairs.');
+      expect(problem()).not.toBeNull();
+    });
+
+    it('warns before leaving with only an order change', async () => {
+      tool(1, 'move-down').click();
+      await settle(fixture);
+      const event = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent;
+      // Not dispatched on the window: that would prompt the test browser itself.
+      (fixture.componentInstance as unknown as { onBeforeUnload(e: BeforeUnloadEvent): void }).onBeforeUnload(event);
+      expect(event.defaultPrevented).toBeTrue();
     });
   });
 });

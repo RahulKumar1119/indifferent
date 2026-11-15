@@ -109,8 +109,12 @@ type StoryPlanResponse struct {
 // scene i, and there must be exactly one entry per scene.
 type UpdateStoryPlanRequest struct {
 	// Revision is the revision the edit was made against.
-	Revision int                   `json:"revision"`
-	Scenes   []storyplan.SceneEdit `json:"scenes"`
+	Revision int `json:"revision"`
+	// Ops changes the structure first (move, split, merge, applied in order).
+	// Clients that never reorder leave it out, and Scenes then lines up with
+	// the saved scenes as before. With Ops, Scenes lines up with the result.
+	Ops    []storyplan.SceneOp   `json:"ops,omitempty"`
+	Scenes []storyplan.SceneEdit `json:"scenes"`
 }
 
 // StoryPlanLimits tells the page what the planner accepts, so the form never
@@ -474,7 +478,7 @@ func (h *APIHandler) handleUpdateStoryPlan(ctx context.Context, req events.APIGa
 	}
 
 	script := storyplan.Script(rec.Script)
-	edited, err := storyplan.ApplyEdits(*rec.Plan, body.Scenes, script)
+	restructured, edited, err := storyplan.ApplyPlanChange(*rec.Plan, body.Ops, body.Scenes, script)
 	if err != nil {
 		var ee *storyplan.EditError
 		if errors.As(err, &ee) {
@@ -483,12 +487,11 @@ func (h *APIHandler) handleUpdateStoryPlan(ctx context.Context, req events.APIGa
 		return errorResponse(http.StatusBadRequest, "VALIDATION_ERROR", "Those changes cannot be applied"), nil
 	}
 
-	if resp := h.verifyNewPicks(ctx, *rec.Plan, edited); resp != nil {
+	if resp := h.verifyNewPicks(ctx, restructured, edited); resp != nil {
 		return *resp, nil
 	}
 
 	prev := rec.Revision
-	beforePlan := rec.Plan
 	rec.Plan = &edited
 	rec.Revision = prev + 1
 	rec.UpdatedAt = h.storyPlanNow().UTC().Format(time.RFC3339)
@@ -520,7 +523,7 @@ func (h *APIHandler) handleUpdateStoryPlan(ctx context.Context, req events.APIGa
 		log.Printf("story_plan_update_failed user=%s plan=%s err=%v", claims.UserID, id, err)
 		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Could not save the plan. Please try again."), nil
 	}
-	h.Metrics.PlanEdited(planEdits(*beforePlan, edited))
+	h.Metrics.PlanEdited(planEdits(restructured, edited))
 	resp := rec.response()
 	h.attachMedia(ctx, &resp)
 	return jsonResponse(http.StatusOK, resp), nil
