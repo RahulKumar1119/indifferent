@@ -14,6 +14,8 @@ import {
 } from '../models/creator-dna.model';
 import { ActivityItem } from '../models/creator-stats.model';
 
+import { FunctionalStorage } from '../../../core/consent/functional-storage.service';
+
 const LS_PROFILE = 'indifferent.creatorProfile.v1';
 const LS_DNA = 'indifferent.creatorDna.v1';
 const LS_SOCIAL = 'indifferent.creatorSocial.v1';
@@ -47,6 +49,8 @@ export const SOCIAL_PLATFORMS: { platform: SocialPlatform; label: string; icon: 
 export class ProfileService {
   private readonly api = inject(ApiService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  /** Everything this service keeps is Functional (#321): saved in the browser only while that is allowed. */
+  private readonly storage = inject(FunctionalStorage);
 
   // ---------------------------------------------------------------- profile
 
@@ -120,11 +124,7 @@ export class ProfileService {
   clearLocalData(): void {
     if (!this.isBrowser) return;
     for (const key of [LS_PROFILE, LS_DNA, LS_SOCIAL, LS_FAVORITES, LS_PUBLISHED, LS_ACTIVITY, LS_AVATAR_SYNCED]) {
-      try {
-        localStorage.removeItem(key);
-      } catch {
-        // Storage unavailable: nothing was kept.
-      }
+      this.storage.removeItem(key);
     }
   }
 
@@ -241,7 +241,7 @@ export class ProfileService {
   private read<T>(key: string): T | null {
     if (!this.isBrowser) return null;
     try {
-      const raw = localStorage.getItem(key);
+      const raw = this.storage.getItem(key);
       return raw ? (JSON.parse(raw) as T) : null;
     } catch {
       return null;
@@ -251,7 +251,7 @@ export class ProfileService {
   private write(key: string, value: unknown): void {
     if (!this.isBrowser) return;
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      this.storage.setItem(key, JSON.stringify(value));
     } catch {
       // Quota exceeded (large avatar data URL): keep memory-only behavior.
     }

@@ -132,10 +132,19 @@ export function findUploadForFile(file: File): PersistedUpload | null {
   );
 }
 
+/**
+ * Where the upload speed estimate is kept. It is a Functional item (#321): the
+ * store holds it in the browser only while that is allowed.
+ */
+export interface SpeedStore {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): unknown;
+}
+
 /** Bytes per second of the last upload that was measured, or null if none was. */
-export function getMeasuredSpeed(): number | null {
+export function getMeasuredSpeed(store: Pick<SpeedStore, 'getItem'>): number | null {
   try {
-    const value = Number(localStorage.getItem(SPEED_KEY));
+    const value = Number(store.getItem(SPEED_KEY));
     return Number.isFinite(value) && value > 0 ? value : null;
   } catch {
     return null;
@@ -143,10 +152,10 @@ export function getMeasuredSpeed(): number | null {
 }
 
 /** Keeps the speed of a finished upload for the next estimate. Too small to measure is skipped. */
-export function recordUploadSpeed(bytes: number, elapsedMs: number): void {
+export function recordUploadSpeed(bytes: number, elapsedMs: number, store: Pick<SpeedStore, 'setItem'>): void {
   if (bytes < 4 * 1024 * 1024 || elapsedMs < 2000) return;
   try {
-    localStorage.setItem(SPEED_KEY, String(Math.round((bytes / elapsedMs) * 1000)));
+    store.setItem(SPEED_KEY, String(Math.round((bytes / elapsedMs) * 1000)));
   } catch {
     // The next estimate falls back to the default speed.
   }

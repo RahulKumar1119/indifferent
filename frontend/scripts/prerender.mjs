@@ -70,6 +70,10 @@ async function prerenderRoute(browser, base, route) {
   const errors = [];
   page.on('pageerror', (err) => errors.push(`pageerror: ${String(err).slice(0, 160)}`));
   try {
+    // The app reads this and starts no optional integration and shows no consent banner (#321).
+    await page.evaluateOnNewDocument(() => {
+      window.__PRERENDER__ = true;
+    });
     // Decorative subresources only slow the render and can flake offline builds.
     await page.setRequestInterception(true);
     page.on('request', (req) => {
@@ -97,6 +101,8 @@ async function prerenderRoute(browser, base, route) {
     const html = await page.content();
     if (!html.includes('<app-root')) throw new Error('app-root missing from DOM');
     if (html.includes('reveal-armed') || /<html[^>]*class="[^"]*\bjs\b/.test(html)) throw new Error('a scroll reveal is still armed, so its content would be hidden without JavaScript');
+    if (html.includes('data-cookie-banner') || html.includes('data-cookie-preferences')) throw new Error('the consent banner or panel was saved into the prerendered page');
+    if (/googletagmanager|googlesyndication/.test(html)) throw new Error('a Google script was saved into the prerendered page');
     if (errors.length > 0) throw new Error(errors[0]);
 
     const outDir = route === '/' ? DIST : join(DIST, route);

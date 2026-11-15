@@ -1,4 +1,5 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
+import { CookieConsentService } from '../../../core/consent/consent.service';
 import { glyphById } from './decor-library';
 import { clampTo } from './doc-ops';
 import { DECOR_COLORS, DIRECTIONS, DecorColor, Decoration, Direction, FORMAT_IDS, FormatId, InfographicDoc, LIMITS, Section } from './infographic.model';
@@ -102,14 +103,20 @@ export function sanitizeDoc(raw: unknown): InfographicDoc | null {
 @Injectable({ providedIn: 'root' })
 export class DraftStore {
   private readonly storage = inject(INFOGRAPHIC_STORAGE);
+  private readonly consent = inject(CookieConsentService);
 
   /** True when this browser lets the page keep a draft. */
   get available(): boolean {
     return this.storage !== null;
   }
 
+  /** True when the visitor allowed Functional storage, the only case a draft is read or written. */
+  get permitted(): boolean {
+    return this.consent.allowed('functional');
+  }
+
   load(): InfographicDoc | null {
-    if (!this.storage) return null;
+    if (!this.storage || !this.permitted) return null;
     try {
       const raw = this.storage.getItem(DRAFT_KEY);
       return raw ? sanitizeDoc(JSON.parse(raw)) : null;
@@ -120,7 +127,7 @@ export class DraftStore {
 
   /** Returns false when the draft could not be kept (storage full or blocked). */
   save(doc: InfographicDoc): boolean {
-    if (!this.storage) return false;
+    if (!this.storage || !this.permitted) return false;
     try {
       this.storage.setItem(DRAFT_KEY, JSON.stringify(doc));
       return true;
@@ -130,6 +137,7 @@ export class DraftStore {
   }
 
   has(): boolean {
+    if (!this.permitted) return false;
     try {
       return !!this.storage?.getItem(DRAFT_KEY);
     } catch {

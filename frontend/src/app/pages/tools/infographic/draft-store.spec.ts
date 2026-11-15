@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { DRAFT_KEY, DraftStore, INFOGRAPHIC_STORAGE, sanitizeDoc } from './draft-store';
+import { consentProviders, noConsentProviders } from '../../../core/consent/testing';
 import { LIMITS } from './infographic.model';
 import { TEMPLATES, newDoc, templateById } from './templates';
 
@@ -114,7 +115,7 @@ describe('DraftStore', () => {
   let store: DraftStore;
 
   function setup(s: Storage | null) {
-    TestBed.configureTestingModule({ providers: [{ provide: INFOGRAPHIC_STORAGE, useValue: s }] });
+    TestBed.configureTestingModule({ providers: [{ provide: INFOGRAPHIC_STORAGE, useValue: s }, ...consentProviders()] });
     store = TestBed.inject(DraftStore);
   }
 
@@ -165,5 +166,21 @@ describe('DraftStore', () => {
     setup(angry);
     expect(store.load()).toBeNull();
     expect(store.has()).toBeFalse();
+  });
+});
+
+describe('DraftStore without Functional consent', () => {
+  it('neither saves, finds nor loads a draft, and leaves an old one in place until the visitor chooses', () => {
+    const storage = new FakeStorage();
+    storage.setItem(DRAFT_KEY, JSON.stringify(newDoc(TEMPLATES[0], { title: 'Old draft' })));
+    TestBed.configureTestingModule({ providers: [{ provide: INFOGRAPHIC_STORAGE, useValue: storage }, ...noConsentProviders()] });
+    const store = TestBed.inject(DraftStore);
+    expect(store.permitted).toBeFalse();
+    expect(store.load()).toBeNull();
+    expect(store.has()).toBeFalse();
+    expect(store.save(newDoc(TEMPLATES[0], { title: 'New' }))).toBeFalse();
+    expect(JSON.parse(storage.getItem(DRAFT_KEY)!).title).toBe('Old draft');
+    store.clear();
+    expect(storage.getItem(DRAFT_KEY)).toBeNull();
   });
 });

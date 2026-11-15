@@ -6,6 +6,7 @@ import {
 } from '@lucide/angular';
 import { PublicHeaderComponent } from '../../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
+import { consentProviders } from '../../../core/consent/testing';
 import { DRAFT_KEY, INFOGRAPHIC_STORAGE } from './draft-store';
 import { InfographicExporter } from './infographic-export.service';
 import { InfographicFonts } from './infographic-fonts.service';
@@ -100,6 +101,7 @@ describe('InfographicMakerComponent', () => {
       providers: [
         provideLucideIcons(LucideChevronDown, LucideChevronUp, LucideCopy, LucideDownload, LucideGripVertical, LucideImage, LucideLock, LucidePlus, LucideRedo2, LucideRotateCcw, LucideShieldCheck, LucideTrash2, LucideUndo2, LucideUserX),
         { provide: INFOGRAPHIC_STORAGE, useValue: store },
+        ...consentProviders(),
         { provide: InfographicFonts, useValue: new FakeFonts() },
         { provide: InfographicExporter, useValue: exporter },
       ],

@@ -19,6 +19,7 @@ import {
   PersistedUpload,
   fingerprintOf,
   recordUploadSpeed,
+  type SpeedStore,
   removeUpload,
   saveUpload,
 } from './shorts-upload-state';
@@ -117,6 +118,8 @@ export interface UploaderOptions {
   retryBaseMs: number;
   roundDelaysMs: number[];
   onProgress: (progress: UploadProgress) => void;
+  /** Where the measured speed is kept. Left out, the speed is not kept. */
+  speedStore?: SpeedStore;
 }
 
 export interface UploadJob {
@@ -671,7 +674,7 @@ export class ShortsUploader {
     this.status = 'finishing';
     this.emit(true);
     // A run that never hit trouble says what this connection can do; one that did would skew the next estimate.
-    if (this.cleanRun) recordUploadSpeed(this.movedBytes, Date.now() - this.startedAt);
+    if (this.cleanRun && this.o.speedStore) recordUploadSpeed(this.movedBytes, Date.now() - this.startedAt, this.o.speedStore);
   }
 
   private emit(force: boolean): void {
