@@ -39,8 +39,7 @@ customHeaders:
         value: >-
           default-src 'self';
           script-src 'self' blob: 'wasm-unsafe-eval'
-          'sha256-hn61GGzVxG8sSuXOE/PoS5YAzEuKXsV0TBmpE8sMvHY='
-          'sha256-iHX4kTjdBjOYOeAZNVj/rEHeWPlTmQcSGOFnSYdROgg='
+          'sha256-VZSgGyL+snPzrVgLAUh3dkJ0LFzAfU0dENLkJsJeokU='
           https://pagead2.googlesyndication.com https://partner.googleadservices.com
           https://tpc.googlesyndication.com https://www.googletagservices.com
           https://www.googletagmanager.com https://googleads.g.doubleclick.net

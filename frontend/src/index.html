@@ -29,11 +29,19 @@
   <meta name="theme-color" content="#FAF7F2">
   <script>
     // Apply the saved theme (default dark) before Angular bootstraps so there
-    // is no flash of the wrong theme on first paint.
+    // is no flash of the wrong theme on first paint. A saved theme counts only
+    // while the visitor allows Functional (#321): this reads the same consent
+    // record as the app (core/consent/consent.model.ts; a spec keeps the key and
+    // the version in step) and otherwise uses the default.
     (function () {
-      var key = 'app-theme';
-      var stored = localStorage.getItem(key);
-      var theme = stored === 'dark' || stored === 'light' ? stored : 'dark';
+      var theme = 'dark';
+      try {
+        var c = JSON.parse(localStorage.getItem('indifferent.consent.v1') || 'null');
+        if (c && c.version === 1 && Date.parse(c.expiresAt) > Date.now() && c.choices && c.choices.functional === true) {
+          var stored = localStorage.getItem('app-theme');
+          if (stored === 'dark' || stored === 'light') theme = stored;
+        }
+      } catch (e) {}
       var root = document.documentElement;
       root.classList.toggle('dark', theme === 'dark');
       root.setAttribute('data-theme', theme);
@@ -73,31 +81,10 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="alternate icon" type="image/x-icon" href="favicon.ico">
   <link rel="apple-touch-icon" href="icons/icon-192x192.png">
-  <!-- Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4438011184531485" crossorigin="anonymous"></script>
-  <!-- Google Analytics (deferred until user interaction) -->
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-
-    function loadGtag() {
-      if (window._gtagLoaded) return;
-      window._gtagLoaded = true;
-      var s = document.createElement('script');
-      s.src = 'https://www.googletagmanager.com/gtag/js?id=G-D2GB04M42D';
-      s.async = true;
-      document.head.appendChild(s);
-      gtag('js', new Date());
-      gtag('config', 'G-D2GB04M42D');
-      gtag('config', 'AW-17587685388'); // Google Ads conversion account
-    }
-
-    // Load after user interaction or 3s timeout
-    ['scroll', 'click', 'touchstart', 'keydown'].forEach(function(evt) {
-      window.addEventListener(evt, loadGtag, {once: true, passive: true});
-    });
-    setTimeout(loadGtag, 3000);
-  </script>
+  <!-- Lets Google match this site to the AdSense account. It is a passive tag: it loads nothing and sets no cookie. -->
+  <meta name="google-adsense-account" content="ca-pub-4438011184531485">
+  <!-- Google AdSense, the Google tag (Analytics and Ads) and CloudWatch RUM are not here: the app
+       adds each one only after the visitor allows it (core/consent, #321). -->
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="alternate" type="application/rss+xml" title="Indifferent journal" href="/feed.xml">
 </head>

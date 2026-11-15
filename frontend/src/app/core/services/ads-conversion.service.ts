@@ -1,5 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { Injectable, inject } from '@angular/core';
+import { CookieConsentService } from '../consent/consent.service';
+import { GoogleTagService } from '../consent/google-tag.service';
 
 /**
  * The Google Ads conversion for a click on "Continue with Google". The
@@ -15,16 +17,11 @@ export const SIGN_IN_CONVERSION = {
 /** How long to wait for Google to confirm before carrying on regardless. */
 export const CONVERSION_TIMEOUT_MS = 1000;
 
-interface GoogleTagWindow {
-  /** Defined in index.html; queues commands for the Google tag. */
-  gtag?: (...args: unknown[]) => void;
-  /** Defined in index.html; loads the Google tag now instead of on the first interaction. Safe to call twice. */
-  loadGtag?: () => void;
-}
 
 /**
- * Reports Google Ads conversions through the Google tag installed in
- * index.html.
+ * Reports Google Ads conversions through the Google tag (GoogleTagService).
+ * Nothing is reported, and the tag is not loaded, unless the visitor allowed
+ * Advertising (#321); the sign-in itself never waits on that.
  *
  * Signing in leaves the page for accounts.google.com, and a request still in
  * flight is cancelled by that navigation. So the caller hands over what to do
@@ -36,6 +33,8 @@ interface GoogleTagWindow {
 @Injectable({ providedIn: 'root' })
 export class AdsConversionService {
   private readonly document = inject(DOCUMENT);
+  private readonly consent = inject(CookieConsentService);
+  private readonly tag = inject(GoogleTagService);
 
   /**
    * Starts loading the Google tag now. Call it when a page with a conversion
@@ -44,8 +43,9 @@ export class AdsConversionService {
    * before the Ads part of the tag has loaded, and be lost. Safe to call twice.
    */
   prepare(): void {
+    if (!this.consent.allowed('advertising')) return;
     try {
-      (this.document.defaultView as (Window & GoogleTagWindow) | null)?.loadGtag?.();
+      this.tag.loadNow();
     } catch {
       // Measuring must never break the page.
     }
@@ -65,19 +65,19 @@ export class AdsConversionService {
       next();
     };
 
-    const win = this.document.defaultView as (Window & GoogleTagWindow) | null;
-    if (typeof win?.gtag !== 'function') {
+    // No Advertising consent, or the tag was never started: nothing to report, so carry on at once.
+    const gtag = this.consent.allowed('advertising') ? this.tag.gtag() : null;
+    if (!gtag || !this.document.defaultView) {
       finish();
       return;
     }
-
     try {
       // The tag normally loads on the first interaction or after three seconds.
       // Load it now so the event is not queued behind that wait, and so the
-      // queue holds js, config, config, then this event, in that order.
-      win.loadGtag?.();
+      // queue holds the defaults, the choice, js, config, then this event, in that order.
+      this.tag.loadNow();
       timer = setTimeout(finish, CONVERSION_TIMEOUT_MS);
-      win.gtag('event', 'conversion', {
+      gtag('event', 'conversion', {
         send_to: SIGN_IN_CONVERSION.sendTo,
         value: SIGN_IN_CONVERSION.value,
         currency: SIGN_IN_CONVERSION.currency,

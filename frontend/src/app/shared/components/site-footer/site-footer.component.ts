@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { CookieConsentService } from '../../../core/consent/consent.service';
 
 interface FooterLink {
   label: string;
@@ -21,6 +22,7 @@ interface FooterLink {
     ul { list-style: none; margin: var(--space-xs) 0 0; padding: 0; }
     .link { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--type-sm); color: var(--color-ink); text-underline-offset: 0.2em; }
     .link:hover { color: var(--color-accent-text); text-decoration: underline; }
+    button.link { background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer; text-align: start; }
     .link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
     .legal { max-width: 48rem; margin: var(--space-xl) auto 0; font-size: var(--type-xs); color: var(--color-muted); }
   `],
@@ -49,6 +51,7 @@ interface FooterLink {
             @for (l of company; track l.path) {
               <li><a [routerLink]="l.path" class="link min-h-[44px]">{{ l.label }}</a></li>
             }
+            <li><button type="button" class="link min-h-[44px]" (click)="openCookiePreferences($event)">Cookie preferences</button></li>
             <li><a href="mailto:support@indifferent.fun" class="link min-h-[44px]">support&#64;indifferent.fun</a></li>
           </ul>
         </nav>
@@ -58,7 +61,13 @@ interface FooterLink {
   `,
 })
 export class SiteFooterComponent {
+  private readonly consent = inject(CookieConsentService);
   readonly year = new Date().getFullYear();
+
+  /** Reopens the choices at any time; focus comes back to this button when the panel closes. */
+  openCookiePreferences(event: Event): void {
+    this.consent.openPreferences(event.currentTarget as HTMLElement);
+  }
 
   readonly tools: FooterLink[] = [
     { label: 'AI Shorts generator', path: '/features/ai-shorts' },

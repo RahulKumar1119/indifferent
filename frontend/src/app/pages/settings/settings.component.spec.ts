@@ -1,3 +1,4 @@
+import { CookieConsentService } from '../../core/consent/consent.service';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -94,5 +95,15 @@ describe('SettingsComponent', () => {
     const hrefs = Array.from(el.querySelectorAll('app-account-nav nav a')).map((a) => a.getAttribute('href'));
     expect(hrefs).toEqual(['/profile', '/profile/settings', '/account']);
     expect(el.querySelectorAll('h1').length).toBe(1);
+  });
+
+  it('has a button that opens the cookie preferences', () => {
+    const { http, el, sw } = setup();
+    http.expectOne(URL).flush(stored);
+    const consent = TestBed.inject(CookieConsentService);
+    expect(consent.preferencesOpen()).toBeFalse();
+    sw('cookie-preferences').click();
+    expect(consent.preferencesOpen()).toBeTrue();
+    expect(el.querySelector('#cookies-hint')).not.toBeNull();
   });
 });
