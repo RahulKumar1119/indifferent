@@ -18,7 +18,7 @@ describe('VerifyEmailComponent', () => {
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(query) } } },
       ],
     });
-    if (signedIn) TestBed.inject(AuthService).setTokens({ accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 });
+    if (signedIn) TestBed.inject(AuthService).setTokens({ accessToken: 'at', expiresIn: 3600 });
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     const http = TestBed.inject(HttpTestingController);

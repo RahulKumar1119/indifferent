@@ -46,7 +46,7 @@ describe('authGuard', () => {
   it('should try refresh before redirecting unauthenticated users', () => {
     spyOn(authService, 'isAuthenticated').and.returnValue(false);
     spyOn(authService, 'refreshToken').and.returnValue(
-      of({ accessToken: 'new', refreshToken: 'rt', expiresIn: 3600 }),
+      of({ accessToken: 'new', expiresIn: 3600 }),
     );
 
     const result = TestBed.runInInjectionContext(() => authGuard({} as any, {} as any));

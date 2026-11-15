@@ -38,7 +38,7 @@ describe('AuthInterceptor', () => {
   });
 
   it('should attach Authorization header when token exists', () => {
-    authService.setTokens({ accessToken: 'my-token', refreshToken: 'rt', expiresIn: 3600 });
+    authService.setTokens({ accessToken: 'my-token', expiresIn: 3600 });
 
     httpClient.get('/api/data').subscribe();
 
@@ -48,7 +48,7 @@ describe('AuthInterceptor', () => {
   });
 
   it('should NOT attach Authorization header to auth endpoints', () => {
-    authService.setTokens({ accessToken: 'my-token', refreshToken: 'rt', expiresIn: 3600 });
+    authService.setTokens({ accessToken: 'my-token', expiresIn: 3600 });
 
     httpClient.post(`${environment.apiUrl}/auth/refresh`, {}).subscribe();
 
@@ -58,7 +58,7 @@ describe('AuthInterceptor', () => {
   });
 
   it('should attempt token refresh on 401 and retry the request', () => {
-    authService.setTokens({ accessToken: 'old-token', refreshToken: 'rt', expiresIn: 3600 });
+    authService.setTokens({ accessToken: 'old-token', expiresIn: 3600 });
 
     httpClient.get('/api/data').subscribe((res) => {
       expect(res).toEqual({ result: 'ok' });
@@ -71,7 +71,7 @@ describe('AuthInterceptor', () => {
     // Interceptor triggers refresh
     const refreshReq = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
     expect(refreshReq.request.method).toBe('POST');
-    const newTokens: AuthTokens = { accessToken: 'new-token', refreshToken: 'new-rt', expiresIn: 3600 };
+    const newTokens: AuthTokens = { accessToken: 'new-token', expiresIn: 3600 };
     refreshReq.flush(newTokens);
 
     // Retried request with new token
@@ -82,7 +82,7 @@ describe('AuthInterceptor', () => {
 
   it('should call logout on refresh failure', () => {
     spyOn(authService, 'logout');
-    authService.setTokens({ accessToken: 'old-token', refreshToken: 'rt', expiresIn: 3600 });
+    authService.setTokens({ accessToken: 'old-token', expiresIn: 3600 });
 
     httpClient.get('/api/data').subscribe({
       error: () => {
@@ -102,7 +102,7 @@ describe('AuthInterceptor', () => {
   });
 
   it('sends the token with /auth/logout-all and /auth/resend-verification, which are signed-in calls', () => {
-    authService.setTokens({ accessToken: 'my-token', refreshToken: 'rt', expiresIn: 3600 });
+    authService.setTokens({ accessToken: 'my-token', expiresIn: 3600 });
     for (const path of ['/auth/logout-all', '/auth/resend-verification', '/auth/me']) {
       httpClient.post(`${environment.apiUrl}${path}`, {}).subscribe();
       const req = httpTesting.expectOne(`${environment.apiUrl}${path}`);
@@ -112,7 +112,7 @@ describe('AuthInterceptor', () => {
   });
 
   it('keeps the token off every real auth endpoint, also with a query string', () => {
-    authService.setTokens({ accessToken: 'my-token', refreshToken: 'rt', expiresIn: 3600 });
+    authService.setTokens({ accessToken: 'my-token', expiresIn: 3600 });
     for (const path of ['/auth/google/callback', '/auth/refresh', '/auth/logout', '/auth/login', '/auth/signup']) {
       httpClient.post(`${environment.apiUrl}${path}?x=1`, {}).subscribe();
       const req = httpTesting.expectOne(`${environment.apiUrl}${path}?x=1`);
