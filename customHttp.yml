@@ -46,9 +46,8 @@ customHeaders:
           https://*.adtrafficquality.google;
           script-src-attr 'unsafe-hashes'
           'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='
-          'sha256-1jAmyYXcRq6zFldLe/GCgIDJBiOONdXjTLgEFMDnDSM=';
-          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-          font-src 'self' data: https://fonts.gstatic.com;
+          style-src 'self' 'unsafe-inline';
+          font-src 'self' data:;
           img-src 'self' data: blob: https:;
           media-src 'self' blob: https://*.s3.ap-south-1.amazonaws.com
           https://*.s3-accelerate.amazonaws.com https://videos.pexels.com

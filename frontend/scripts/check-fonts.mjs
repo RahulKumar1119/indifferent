@@ -74,8 +74,23 @@ for (const [name, family] of Object.entries(ALLOWED)) {
   }
 }
 
+// The site's own fonts (#321) are bundled from pinned packages by styles.css, not copied to fonts/infographic.
+// Each must ship the SIL Open Font License 1.1 and every stylesheet the app imports must exist.
+const SITE = ['cormorant-garamond', 'outfit'];
+const pkgRoot = join(here, '..', 'node_modules', '@fontsource');
+for (const name of SITE) {
+  const licence = join(pkgRoot, name, 'LICENSE');
+  if (!existsSync(licence)) fail(`site font ${name}: no LICENSE file in node_modules.`);
+  else if (!/SIL Open Font License,? Version 1\.1/i.test(readFileSync(licence, 'utf8'))) fail(`site font ${name}: LICENSE is not the SIL Open Font License 1.1.`);
+}
+const styles = readFileSync(join(here, '..', 'src', 'styles.css'), 'utf8');
+if (/fonts\.(googleapis|gstatic)\.com/.test(styles) || /fonts\.(googleapis|gstatic)\.com/.test(readFileSync(join(here, '..', 'src', 'index.html'), 'utf8'))) fail('the site still loads fonts from Google Fonts (styles.css or index.html).');
+for (const [, sheet] of styles.matchAll(/@import '(@fontsource\/[^']+)'/g)) {
+  if (!existsSync(join(here, '..', 'node_modules', sheet))) fail(`styles.css imports ${sheet}, which does not exist.`);
+  else if (!SITE.some((n) => sheet.startsWith(`@fontsource/${n}/`))) fail(`styles.css imports ${sheet}, a font package not on the checked list.`);
+}
 if (problems.length) {
   console.error(`check-fonts: ${problems.length} problem(s):\n  ${problems.join('\n  ')}`);
   process.exit(1);
 }
-console.log(`check-fonts ok: ${found.length} font packages, ${files} font files, all under the SIL Open Font License 1.1.`);
+console.log(`check-fonts ok: ${found.length} font packages, ${files} font files, plus ${SITE.length} site font packages, all under the SIL Open Font License 1.1.`);
