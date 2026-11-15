@@ -2,6 +2,7 @@ import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { AccountNavComponent } from '../account/account-nav.component';
+import { CookieConsentService } from '../../core/consent/consent.service';
 import { ThemeService } from '../../core/services/theme.service';
 import {
   NotificationPreference,
@@ -63,6 +64,13 @@ interface NotificationRow {
               aria-describedby="theme-hint"
               (click)="themeService.toggleTheme()"
             ><span></span></button>
+          </div>
+          <div class="row">
+            <div>
+              <p class="row-title" id="cookies-label">Cookie preferences</p>
+              <p class="row-hint" id="cookies-hint">Choose which optional cookies and browser storage this site may use.</p>
+            </div>
+            <button type="button" class="ui-btn ui-btn--secondary" data-testid="cookie-preferences" aria-describedby="cookies-hint" (click)="openCookiePreferences($event)">Change</button>
           </div>
         </section>
 
@@ -140,6 +148,11 @@ interface NotificationRow {
 })
 export class SettingsComponent implements OnInit {
   readonly themeService = inject(ThemeService);
+  private readonly consent = inject(CookieConsentService);
+
+  openCookiePreferences(event: Event): void {
+    this.consent.openPreferences(event.currentTarget as HTMLElement);
+  }
   private readonly notifications = inject(NotificationSettingsService);
   private readonly destroyRef = inject(DestroyRef);
 

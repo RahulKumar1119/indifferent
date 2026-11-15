@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { CookieConsentService } from '../../core/consent/consent.service';
 import { PublicHeaderComponent } from '../../shared/components/public-header/public-header.component';
 import { RevealDirective } from '../../shared/directives/reveal.directive';
 import { setJsonLd, setPageSeo } from '../../shared/seo';
@@ -101,6 +102,7 @@ import { FREE_BETA_FAQ } from '../../core/config/free-beta';
     .foot-title { margin: 0 0 var(--space-xs); font-size: var(--type-sm); color: var(--color-muted); }
     .foot-grid ul { list-style: none; margin: 0; padding: 0; }
     .foot-link { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; font-size: var(--type-sm); color: var(--color-ink-2); text-underline-offset: 0.2em; }
+    button.foot-link { background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer; text-align: start; }
     .foot-link:hover { color: var(--color-ink); text-decoration: underline; }
     .legal { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-sm); margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); font-size: var(--type-xs); color: var(--color-muted); }
     .closing a:focus-visible, .foot-link:focus-visible, .text-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
@@ -389,6 +391,7 @@ Answer: C</code></pre>
                 <ul>
                   <li><a routerLink="/privacy" class="foot-link">Privacy</a></li>
                   <li><a routerLink="/terms" class="foot-link">Terms</a></li>
+                  <li><button type="button" class="foot-link" (click)="openCookiePreferences($event)">Cookie preferences</button></li>
                 </ul>
               </div>
               <div>
@@ -409,6 +412,12 @@ Answer: C</code></pre>
 })
 export class LandingComponent implements OnInit {
   private readonly document = inject(DOCUMENT);
+  private readonly consent = inject(CookieConsentService);
+
+  /** Reopens the cookie choices; focus comes back to this button when the panel closes. */
+  openCookiePreferences(event: Event): void {
+    this.consent.openPreferences(event.currentTarget as HTMLElement);
+  }
 
 
   currentYear = new Date().getFullYear();

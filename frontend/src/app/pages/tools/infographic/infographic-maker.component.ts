@@ -1,9 +1,10 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, Injector, OnInit, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, Injector, OnInit, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { PublicHeaderComponent } from '../../../shared/components/public-header/public-header.component';
 import { SiteFooterComponent } from '../../../shared/components/site-footer/site-footer.component';
 import { PRODUCT_FACTS, joinOr } from '../../../core/config/product-facts';
+import { CookieConsentService } from '../../../core/consent/consent.service';
 import { setJsonLd, setPageSeo } from '../../../shared/seo';
 import { dataIssues } from './chart-data';
 import { DraftStore } from './draft-store';
@@ -104,6 +105,9 @@ type Message = { kind: 'ok' | 'warn' | 'error'; text: string } | null;
           }
           <span class="sp"></span>
           <span class="status" data-testid="save-status">{{ saveText() }}</span>
+          @if (!permitted()) {
+            <button type="button" class="ui-btn ui-btn--quiet" data-testid="open-cookie-prefs" (click)="openCookiePreferences($event)">Cookie preferences</button>
+          }
           @if (hasDraft()) {
             <button type="button" class="ui-btn ui-btn--quiet" (click)="clearDraft()">Clear saved draft</button>
           }
@@ -223,13 +227,18 @@ export class InfographicMakerComponent implements OnInit {
   protected readonly issues = computed(() => dataIssues(this.doc(), this.template()));
   protected readonly detected = computed(() => detectLanguage(docText(this.doc())));
   protected readonly unsupported = computed(() => unreleasedScripts(this.scripts()).map((s) => SCRIPT_NAMES[s]));
+  /** Whether the visitor allows Functional storage, which saving a draft needs (#321). */
+  protected readonly permitted = computed(() => this.store.permitted);
   protected readonly saveText = computed(() => {
     if (!this.store.available || this.saveState() === 'blocked') return "This browser won't keep a draft.";
+    if (!this.permitted()) return 'Your draft is not saved. Turn on Functional in Cookie preferences to keep it.';
     return this.saveState() === 'saved' ? 'Draft saved in this browser.' : '';
   });
 
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private dirty = false;
+  private wasPermitted = false;
+  private readonly consent = inject(CookieConsentService);
 
   constructor() {
     const draft = this.store.load();
@@ -239,7 +248,43 @@ export class InfographicMakerComponent implements OnInit {
       this.restored.set(true);
     }
     this.hasDraft.set(this.store.has());
+    this.wasPermitted = this.store.permitted;
     inject(DestroyRef).onDestroy(() => this.flushSave());
+    // The choice can change while the page is open: use or drop the saved draft to match.
+    effect(() => {
+      const on = this.permitted();
+      untracked(() => this.onPermitChange(on));
+    });
+  }
+
+  protected openCookiePreferences(event: Event): void {
+    this.consent.openPreferences(event.currentTarget as HTMLElement);
+  }
+
+  private onPermitChange(on: boolean): void {
+    if (on === this.wasPermitted) return;
+    this.wasPermitted = on;
+    if (!on) {
+      // Turning Functional off deletes the saved draft: stop any save that is waiting.
+      clearTimeout(this.saveTimer);
+      this.dirty = false;
+      this.saveState.set('idle');
+      this.hasDraft.set(false);
+      return;
+    }
+    if (!this.canUndo()) {
+      // Nothing edited yet: bring back the draft saved on an earlier visit, if there is one.
+      const draft = this.store.load();
+      if (draft) {
+        this.history.reset(draft);
+        this.doc.set(draft);
+        this.restored.set(true);
+      }
+    } else {
+      // Work was done before choosing: keep it from now on.
+      this.scheduleSave();
+    }
+    this.hasDraft.set(this.store.has());
   }
 
   ngOnInit(): void {

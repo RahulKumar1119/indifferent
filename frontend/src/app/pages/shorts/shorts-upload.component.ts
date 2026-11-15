@@ -1,7 +1,8 @@
-import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { Component, NgZone, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { FunctionalStorage } from '../../core/consent/functional-storage.service';
 import { catchError, of, switchMap } from 'rxjs';
 import {
   CreateShortsResponse,
@@ -329,8 +330,10 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   resumable: PersistedUpload | null = null;
   /** The newest saved upload, offered until its file is chosen again or it is discarded. */
   pending: PersistedUpload | null = null;
+  /** The speed estimate is a Functional item: it is kept in the browser only when that is allowed (#321). */
+  private readonly functional = inject(FunctionalStorage);
   /** Bytes per second of the last measured upload; null until one has finished. */
-  private measuredSpeed: number | null = getMeasuredSpeed();
+  private measuredSpeed: number | null = getMeasuredSpeed(this.functional);
 
   private uploader: ShortsUploader | null = null;
   private lastJobId: string | null = null;
@@ -576,7 +579,7 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
         durationSeconds: this.durationSeconds,
         language: this.language,
       },
-      { onProgress: (p) => this.zone.run(() => this.onUploadProgress(p)) },
+      { onProgress: (p) => this.zone.run(() => this.onUploadProgress(p)), speedStore: this.functional },
     );
     this.uploader = uploader;
     // Progress events fire many times a second; only the throttled callback above re-enters Angular.
@@ -591,14 +594,14 @@ export class ShortsUploadComponent implements OnInit, OnDestroy {
   private onUploadProgress(p: UploadProgress): void {
     this.progress = p;
     this.uploadProgress = p.bytesTotal > 0 ? Math.round((p.bytesDone / p.bytesTotal) * 100) : 0;
-    this.measuredSpeed = getMeasuredSpeed();
+    this.measuredSpeed = getMeasuredSpeed(this.functional);
   }
 
   private onUploadDone(jobId: string): void {
     this.uploader = null;
     this.resumable = null;
     this.uploadProgress = 100;
-    this.measuredSpeed = getMeasuredSpeed();
+    this.measuredSpeed = getMeasuredSpeed(this.functional);
     // The job stays `uploaded` until the user saves the effects and starts it.
     this.isUploading = false;
     this.landedJobId = jobId;

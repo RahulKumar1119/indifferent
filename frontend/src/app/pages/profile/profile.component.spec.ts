@@ -28,6 +28,8 @@ import {
   LucideUser,
   LucideX,
 } from '@lucide/angular';
+import { CONSENT_KEY } from '../../core/consent/consent.model';
+import { consentProviders } from '../../core/consent/testing';
 import { ProfileComponent } from './profile.component';
 import { environment } from '../../../environments/environment';
 
@@ -38,6 +40,7 @@ describe('ProfileComponent', () => {
     for (const k of Object.keys(localStorage)) if (k.startsWith('indifferent.creator')) localStorage.removeItem(k);
   });
   afterEach(() => {
+    localStorage.removeItem(CONSENT_KEY);
     for (const k of Object.keys(localStorage)) if (k.startsWith('indifferent.creator')) localStorage.removeItem(k);
   });
 
@@ -48,6 +51,7 @@ describe('ProfileComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        ...consentProviders(undefined, localStorage),
         provideLucideIcons(
           LucideArrowRight, LucideCheck, LucideClapperboard, LucideCircleCheck, LucideClock, LucideImage, LucideLock, LucideMoon,
           LucideMoreVertical, LucidePencil, LucidePlay, LucideRefreshCw, LucideScissors, LucideShare2, LucideSparkles, LucideSquarePlay, LucideCamera, LucideMusic2, LucideStar,

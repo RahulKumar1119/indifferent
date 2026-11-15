@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { CONSENT_KEY } from '../../../core/consent/consent.model';
+import { consentProviders } from '../../../core/consent/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ProfileService } from './profile.service';
@@ -28,7 +30,7 @@ describe('ProfileService', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(), ...consentProviders(undefined, localStorage)] });
     service = TestBed.inject(ProfileService);
   });
 

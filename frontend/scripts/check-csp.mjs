@@ -115,7 +115,8 @@ function main() {
   // connect-src the full policy would block conversions, as the CSP reports showed
   // for www.googleadservices.com (#256).
   const connect = directives.get('connect-src') ?? [];
-  const adsTag = /gtag\('config',\s*'AW-/.test(readFileSync(join(DIST, 'index.html'), 'utf8'));
+  // The tag is configured in the consent-gated Google tag service (#321), no longer in index.html.
+  const adsTag = /ADS_ACCOUNT_ID\s*=\s*'AW-/.test(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/app/core/consent/google-tag.service.ts'), 'utf8'));
   const adsMissing = adsTag ? ADS_CONNECT.filter((host) => !connect.includes(host)) : [];
 
   if (PRINT) for (const [h, what] of seen) console.log(`'${h}'  ${what}`);
