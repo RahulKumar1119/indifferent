@@ -51,6 +51,17 @@ describe('StoryPlanService', () => {
     req.flush({});
   });
 
+  it('sends the scene operations only when there are some (#326)', () => {
+    service.save('p1', 3, [{}, {}], [{ op: 'move', from: 2, to: 1 }]).subscribe();
+    const req = http.expectOne(`${base}/story-plans/p1`);
+    expect(req.request.body).toEqual({ revision: 3, ops: [{ op: 'move', from: 2, to: 1 }], scenes: [{}, {}] });
+    req.flush({});
+    service.save('p1', 3, [{}, {}], []).subscribe();
+    const plain = http.expectOne(`${base}/story-plans/p1`);
+    expect('ops' in plain.request.body).toBeFalse();
+    plain.flush({});
+  });
+
   it('sends only the search parameters that were given', () => {
     service.search({ q: 'old lighthouse', type: 'photo' }).subscribe();
     const req = http.expectOne((r) => r.url === `${base}/stock-media/search`);

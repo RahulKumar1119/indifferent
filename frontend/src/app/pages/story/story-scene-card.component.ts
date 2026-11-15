@@ -5,6 +5,14 @@ import { SceneMediaView } from './story-plan-edits';
 import { MAX_NARRATION_CHARS, PROVIDER_NAMES, PlanScene, charCount } from './story-plan.models';
 import { IDLE_VOICE, VoiceView } from './story-voice-preview';
 
+/** Which structure controls apply to one scene. */
+export interface SceneTools {
+  up: boolean;
+  down: boolean;
+  split: boolean;
+  merge: boolean;
+}
+
 /**
  * One scene of the plan: its picture (with credit), and its narration to edit.
  * It holds no state of its own; the page owns the drafts and the pending
@@ -46,6 +54,9 @@ import { IDLE_VOICE, VoiceView } from './story-voice-preview';
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+    .tools { margin-top: var(--space-md); padding-top: var(--space-sm); border-top: 1px solid var(--color-rule); }
+    .tools-row { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+    .tools-hint { margin: var(--space-2xs) 0 0; font-size: var(--type-xs); color: var(--color-muted); }
     .kw { margin: var(--space-sm) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); }
     .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   `],
@@ -54,7 +65,11 @@ import { IDLE_VOICE, VoiceView } from './story-voice-preview';
       <header>
         <h3 [id]="titleId()" tabindex="-1">Scene {{ index() + 1 }}</h3>
         <p class="meta">
-          <span>About {{ scene().duration | number: '1.0-1' }} s</span>
+          @if (lengthPending()) {
+            <span data-testid="length-pending">Length is set when saved</span>
+          } @else {
+            <span>About {{ scene().duration | number: '1.0-1' }} s</span>
+          }
           @if (edited()) {
             <span class="ui-pill edited" data-testid="edited">Edited, not saved</span>
           }
@@ -155,6 +170,7 @@ import { IDLE_VOICE, VoiceView } from './story-voice-preview';
         <div style="min-width: 0">
           <label [for]="textareaId()">Narration</label>
           <textarea
+            #ta
             [id]="textareaId()"
             rows="5"
             [value]="narration()"
@@ -204,6 +220,29 @@ import { IDLE_VOICE, VoiceView } from './story-voice-preview';
               </p>
             }
           }
+          @if (tools(); as t) {
+            <div class="tools" role="group" [attr.aria-label]="'Order and length of scene ' + (index() + 1)" data-testid="tools">
+              <div class="tools-row">
+                <button type="button" [id]="toolId('up')" class="ui-btn ui-btn--quiet" data-testid="move-up" [disabled]="disabled() || !t.up" (click)="move.emit(-1)">
+                  <svg lucideIcon="chevron-up" [size]="16" aria-hidden="true"></svg>
+                  Move up<span class="sr"> scene {{ index() + 1 }}</span>
+                </button>
+                <button type="button" [id]="toolId('down')" class="ui-btn ui-btn--quiet" data-testid="move-down" [disabled]="disabled() || !t.down" (click)="move.emit(1)">
+                  <svg lucideIcon="chevron-down" [size]="16" aria-hidden="true"></svg>
+                  Move down<span class="sr"> scene {{ index() + 1 }}</span>
+                </button>
+                <button type="button" class="ui-btn ui-btn--quiet" data-testid="split" [disabled]="disabled() || !t.split" [attr.aria-describedby]="splitHintId()" (click)="split.emit(ta.selectionStart)">
+                  <svg lucideIcon="scissors" [size]="16" aria-hidden="true"></svg>
+                  Split at cursor<span class="sr"> in scene {{ index() + 1 }}</span>
+                </button>
+                <button type="button" class="ui-btn ui-btn--quiet" data-testid="merge" [disabled]="disabled() || !t.merge" (click)="merge.emit()">
+                  <svg lucideIcon="merge" [size]="16" aria-hidden="true"></svg>
+                  Merge with next<span class="sr"> scene after scene {{ index() + 1 }}</span>
+                </button>
+              </div>
+              <p [id]="splitHintId()" class="tools-hint">Click in the narration where this scene should end, then split. The new scene keeps the same picture.</p>
+            </div>
+          }
           <p class="kw">Search words: {{ scene().keywords.join(', ') }}</p>
         </div>
       </div>
@@ -229,7 +268,16 @@ export class StorySceneCardComponent {
   readonly voice = input<VoiceView>(IDLE_VOICE);
   /** A short line under the button, such as how many new takes are left today. */
   readonly voiceNote = input<string>('');
+  /** Which order and split controls are usable for this scene; null hides them. */
+  readonly tools = input<SceneTools | null>(null);
+  /** The length is not known until the scene is saved, because a split or merge changed its words. */
+  readonly lengthPending = input<boolean>(false);
   readonly narrationChange = output<string>();
+  /** Move one place up (-1) or down (1). */
+  readonly move = output<-1 | 1>();
+  /** Split at this character of the narration. */
+  readonly split = output<number>();
+  readonly merge = output<void>();
   /** The person pressed the voice button: play, or stop when it is playing. */
   readonly hear = output<void>();
   readonly choose = output<void>();
@@ -239,6 +287,10 @@ export class StorySceneCardComponent {
   protected readonly titleId = computed(() => `scene-${this.index() + 1}-title`);
   protected readonly textareaId = computed(() => `scene-${this.index() + 1}-narration`);
   protected readonly countId = computed(() => `scene-${this.index() + 1}-count`);
+  protected readonly splitHintId = computed(() => `scene-${this.index() + 1}-split-hint`);
+  protected toolId(kind: 'up' | 'down'): string {
+    return `scene-${this.index() + 1}-move-${kind}`;
+  }
   protected readonly chooseId = computed(() => `scene-${this.index() + 1}-choose`);
   protected readonly chars = computed(() => charCount(this.narration()));
   /** An empty scene has nothing to say. */
