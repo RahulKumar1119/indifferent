@@ -8,8 +8,22 @@ import { environment } from '../../../environments/environment';
 import { AuthTokens } from '../../shared';
 import { SUPPRESS_GLOBAL_ERROR } from '../interceptors/error.interceptor';
 
-/** localStorage key for the refresh token. The access token stays memory-only. */
-const REFRESH_TOKEN_KEY = 'indifferent.refreshToken';
+/**
+ * The refresh token lives in an HttpOnly cookie that the API sets (SEC-04), so
+ * no script on the page can read it. The access token stays memory-only.
+ *
+ * localStorage keeps only a marker that a sign-in exists in this browser. It is
+ * not a secret: it lets a first-time visitor skip a pointless refresh call, and
+ * its value changes on every refresh, which is how one tab notices that another
+ * tab has just rotated the cookie.
+ */
+const SESSION_MARKER_KEY = 'indifferent.session';
+/**
+ * The key older versions of the app kept the refresh token under. A browser that
+ * still has one sends it once, in the body, so its sign-in carries over to the
+ * cookie; it is then deleted.
+ */
+const LEGACY_REFRESH_TOKEN_KEY = 'indifferent.refreshToken';
 
 /** sessionStorage key for the post-auth destination (?next= passthrough). */
 const POST_LOGIN_NEXT_KEY = 'indifferent.postLoginNext';
@@ -46,12 +60,21 @@ export class AuthService {
     return this.accessToken$.getValue();
   }
 
-  /** Refresh token persisted across reloads (the API expects it in the request body). */
-  getRefreshToken(): string | null {
-    // Guarded: prerender/SSR has no localStorage.
+  /** The marker for this browser's sign-in, or null when there is none. Changes on every refresh. */
+  private sessionMarker(): string | null {
     if (!this.isBrowser) return null;
     try {
-      return localStorage.getItem(REFRESH_TOKEN_KEY);
+      return localStorage.getItem(SESSION_MARKER_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  /** A refresh token an older version of the app left in this browser (migration only). */
+  private legacyRefreshToken(): string | null {
+    if (!this.isBrowser) return null;
+    try {
+      return localStorage.getItem(LEGACY_REFRESH_TOKEN_KEY);
     } catch {
       return null;
     }
@@ -73,9 +96,14 @@ export class AuthService {
     this.accessToken$.next(tokens.accessToken);
     if (!this.isBrowser) return;
     try {
-      localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+      // The refresh token is in the cookie the API just set; it is not kept here.
+      const previous = localStorage.getItem(SESSION_MARKER_KEY);
+      let marker = String(Date.now());
+      if (marker === previous) marker += '.1';
+      localStorage.setItem(SESSION_MARKER_KEY, marker);
+      localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
     } catch {
-      // Private-mode quota: session lasts for this page load only.
+      // Private-mode quota: the cookie still keeps the sign-in; only the marker is lost.
     }
   }
 
@@ -94,27 +122,26 @@ export class AuthService {
   }
 
   private refreshOnce(retried = false): Observable<AuthTokens> {
-    const attempted = this.getRefreshToken();
-    if (!attempted) {
-      // No session to restore: fail fast instead of sending {}
-      // (the API rejects it with 400 INVALID_INPUT).
-      return throwError(() => new Error('No refresh token available'));
+    const legacy = this.legacyRefreshToken();
+    const markerAtStart = this.sessionMarker();
+    if (!legacy && !markerAtStart) {
+      // No sign-in in this browser: fail fast instead of calling the API for nothing.
+      return throwError(() => new Error('No session to restore'));
     }
+    // The cookie goes with the request by itself. A browser that still holds an
+    // older version's token sends it once so the sign-in carries over.
+    const body = legacy ? { refreshToken: legacy } : {};
     return this.http
-      .post<AuthTokens>(
-        `${environment.apiUrl}/auth/refresh`,
-        { refreshToken: attempted },
-        { withCredentials: true },
-      )
+      .post<AuthTokens>(`${environment.apiUrl}/auth/refresh`, body, { withCredentials: true })
       .pipe(
         tap((tokens) => this.setTokens(tokens)),
         catchError((err) => {
-          // Cross-tab recovery: another tab may have rotated already and
-          // stored a FRESHER token via setTokens. If the stored token changed
-          // under us, retry once with it instead of treating a conflict as
-          // theft (which would wipe the family). Genuine reuse still fails.
-          const current = this.getRefreshToken();
-          if (!retried && current && current !== attempted) {
+          // Cross-tab recovery: another tab may have rotated the cookie while this
+          // request was in flight, which shows as a changed marker. Retry once
+          // instead of treating that conflict as theft (which would end the whole
+          // sign-in). A genuine reuse or an expired sign-in still fails.
+          const current = this.sessionMarker();
+          if (!retried && current && current !== markerAtStart) {
             return this.refreshOnce(true);
           }
           return throwError(() => err);
@@ -150,7 +177,7 @@ export class AuthService {
    */
   initialize(): Observable<AuthTokens | null> {
     if (!this.isBrowser) {
-      // Server prerender has no localStorage: skip session restore. The
+      // Server prerender has no browser storage: skip session restore. The
       // client hydrates and restores the session on boot instead.
       this.initialized$.next(true);
       return of(null);
@@ -173,7 +200,8 @@ export class AuthService {
     this.accessToken$.next(null);
     if (!this.isBrowser) return;
     try {
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      localStorage.removeItem(SESSION_MARKER_KEY);
+      localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
     } catch {
       // Already gone or unavailable: nothing to clear.
     }
@@ -182,11 +210,12 @@ export class AuthService {
   logout(): void {
     // Optimistic: clear local session and leave immediately, even offline or
     // on a hanging request. The server-side revoke is fire-and-forget.
-    const refreshToken = this.getRefreshToken();
+    const legacy = this.legacyRefreshToken();
     this.clearAccessToken();
     this.router.navigate(['/login']);
+    // The cookie identifies the session; an older version's token is sent as well if one is left.
     this.http
-      .post(`${environment.apiUrl}/auth/logout`, { refreshToken }, { withCredentials: true })
+      .post(`${environment.apiUrl}/auth/logout`, legacy ? { refreshToken: legacy } : {}, { withCredentials: true })
       .subscribe({ error: () => {} });
   }
 
