@@ -71,7 +71,7 @@ describe('story plan structure', () => {
       expect(w.scenes.length).toBe(4);
       expect(w.scenes[0].narration).toBe('The lighthouse stood alone');
       expect(w.scenes[1].narration).toBe('on the cliff.');
-      expect(`${w.scenes[0].narration} ${w.scenes[1].narration}`).toBe(text.replace(' on', ' on'));
+      expect(`${w.scenes[0].narration} ${w.scenes[1].narration}`).toBe(text);
       expect(w.scenes[0].src).toBe(0);
       expect(w.scenes[1].src).toBe(0);
       expect(w.ops).toEqual([{ op: 'split', scene: 1 }]);
