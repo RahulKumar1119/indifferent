@@ -11,6 +11,7 @@ import { ToastsComponent } from '../../shared/components/toast/toasts.component'
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
+import { copyText as copyToClipboard } from '../../shared/clipboard';
 
 /** Hover previews play at most this long before pausing again. */
 const HOVER_PREVIEW_MS = 2000;
@@ -1178,26 +1179,8 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     this.clipUrl(clip).then(onUrl).catch(onError);
   }
 
-  private async copyText(text: string): Promise<boolean> {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Fallback for non-secure contexts / older browsers.
-      try {
-        const area = document.createElement('textarea');
-        area.value = text;
-        area.style.position = 'fixed';
-        area.style.opacity = '0';
-        document.body.appendChild(area);
-        area.select();
-        const ok = document.execCommand('copy');
-        document.body.removeChild(area);
-        return ok;
-      } catch {
-        return false;
-      }
-    }
+  private copyText(text: string): Promise<boolean> {
+    return copyToClipboard(text);
   }
 
   private triggerDownload(url: string, filename: string): void {
