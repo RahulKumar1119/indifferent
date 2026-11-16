@@ -151,6 +151,7 @@ func TestSpendingRequest(t *testing.T) {
 		{"POST", "/shorts/j1/start", true},
 		{"POST", "/shorts/j1/retry", true},
 		{"POST", "/shorts/j1/thumbnails", true},
+		{"POST", "/shorts/j1/copy", true},
 		{"POST", "/shorts/j1/upload/multipart/initiate", true},
 		{"POST", "/story-plans", true},
 		{"POST", "/story-videos", true},
@@ -158,6 +159,7 @@ func TestSpendingRequest(t *testing.T) {
 		{"GET", "/shorts", false},
 		{"GET", "/projects/p1/logo", false},
 		{"GET", "/story-plans/limits", false},
+		{"GET", "/shorts/j1/copy/status", false},
 		{"DELETE", "/projects/p1", false},
 		{"DELETE", "/shorts/j1", false},
 		{"PUT", "/shorts/j1/style", false},
@@ -181,7 +183,7 @@ func TestEmailGate_HoldsSpendingRequestsOfAnUnconfirmedAccount(t *testing.T) {
 	for _, tc := range [][2]string{
 		{"POST", "/projects"}, {"POST", "/shorts"}, {"POST", "/projects/p1/start"}, {"POST", "/projects/p1/upload"},
 		{"POST", "/projects/p1/logo"}, {"POST", "/shorts/j1/start"}, {"POST", "/shorts/j1/retry"},
-		{"POST", "/shorts/j1/thumbnails"}, {"POST", "/shorts/j1/upload/multipart/initiate"},
+		{"POST", "/shorts/j1/thumbnails"}, {"POST", "/shorts/j1/copy"}, {"POST", "/shorts/j1/upload/multipart/initiate"},
 		{"POST", "/story-plans"}, {"POST", "/story-videos"},
 	} {
 		resp := e.call(tc[0], tc[1], tok, `{"fileType":"mp4","duration":60}`)

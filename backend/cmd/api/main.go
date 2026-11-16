@@ -29,6 +29,7 @@ import (
 	"github.com/rahul/indifferent/backend/internal/storage"
 	"github.com/rahul/indifferent/backend/internal/storymetrics"
 	"github.com/rahul/indifferent/backend/internal/storyplan"
+	"github.com/rahul/indifferent/backend/internal/videocopy"
 )
 
 func main() {
@@ -140,6 +141,21 @@ func main() {
 		storyPlanner = storyplan.NewService(rank.NewService(bedrock, model), string(model), opts...)
 	}
 
+	// Titles, descriptions and chapters (issue #331). Off unless COPY_HELPER_ENABLED
+	// is set: the routes then answer 503 and nothing calls Bedrock. It asks the same
+	// models as story planning (PLANNING_MODEL, PLANNING_FALLBACK_MODEL).
+	var copyWriter api.CopyWriter
+	if appconfig.Enabled(os.Getenv("COPY_HELPER_ENABLED")) {
+		bedrock := bedrockruntime.NewFromConfig(awsCfg)
+		model := planningModel(os.Getenv("PLANNING_MODEL"), rank.ModelQwen3)
+		var opts []videocopy.Option
+		if fb := os.Getenv("PLANNING_FALLBACK_MODEL"); !strings.EqualFold(strings.TrimSpace(fb), "none") {
+			if fallback := planningModel(fb, rank.ModelDeepSeek); fallback != model {
+				opts = append(opts, videocopy.WithFallback(rank.NewService(bedrock, fallback), string(fallback)))
+			}
+		}
+		copyWriter = videocopy.NewService(rank.NewService(bedrock, model), string(model), opts...)
+	}
 	// Stock media search (issue #192). Built from PEXELS_API_KEY and
 	// PIXABAY_API_KEY: either alone is enough, and with neither set the
 	// /stock-media routes answer 503 instead of failing at startup, so the API
@@ -225,6 +241,7 @@ func main() {
 		S3Accelerate:    appconfig.S3Accelerate(),
 		PreviewRenderer: slidegen.NewNativeRenderer(),
 		StoryPlanner:    storyPlanner,
+		CopyWriter:      copyWriter,
 		StockMedia:      stockMedia,
 		AutoPick:        autoPick,
 	}
