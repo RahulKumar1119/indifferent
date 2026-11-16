@@ -8,22 +8,26 @@ import {
   LucideCheck,
   LucideChevronRight,
   LucideCircleX,
+  LucideClock,
+  LucideCopy,
   LucideDownload,
   LucideLoader2,
   LucideMoon,
   LucideRefreshCw,
   LucideSparkles,
   LucideSun,
+  LucideTriangleAlert,
   LucideUser,
   LucideX,
 } from '@lucide/angular';
 import { Thumbnail, ThumbnailService, ThumbnailSet } from './thumbnail.service';
+import { CopyStatus, VideoCopyService } from './video-copy.service';
 import { ThumbnailGeneratorComponent } from './thumbnail-generator.component';
 import { ThumbnailProgressComponent } from './thumbnail-progress.component';
 import { ThumbnailStyleSelectorComponent } from './thumbnail-style-selector.component';
 
 const ICONS = provideLucideIcons(
-  LucideCheck, LucideChevronRight, LucideCircleX, LucideDownload, LucideLoader2, LucideMoon, LucideRefreshCw, LucideSparkles, LucideSun, LucideUser, LucideX,
+  LucideCheck, LucideChevronRight, LucideCircleX, LucideClock, LucideCopy, LucideDownload, LucideLoader2, LucideMoon, LucideRefreshCw, LucideSparkles, LucideSun, LucideTriangleAlert, LucideUser, LucideX,
 );
 
 const thumbs: Thumbnail[] = [1, 2, 3].map(
@@ -39,8 +43,10 @@ const tidy = (el: HTMLElement) => {
   expect(el.textContent).not.toContain('\u00b7');
 };
 
+const COPY_ON: CopyStatus = { enabled: true, transcriptAvailable: true, remainingToday: 20, dailyLimit: 20, maxTopicChars: 300, maxTranscriptChars: 20000, maxRefineChars: 200 };
+
 describe('ThumbnailGeneratorComponent', () => {
-  function setup(data: ThumbnailSet | 'error', over: Record<string, unknown> = {}) {
+  function setup(data: ThumbnailSet | 'error', over: Record<string, unknown> = {}, copy: CopyStatus = COPY_ON) {
     const service = {
       get: () => (data === 'error' ? throwError(() => new Error('x')) : of(data)),
       start: jasmine.createSpy('start').and.returnValue(of({ status: 'running' })),
@@ -55,6 +61,7 @@ describe('ThumbnailGeneratorComponent', () => {
         provideRouter([]),
         ICONS,
         { provide: ThumbnailService, useValue: service },
+        { provide: VideoCopyService, useValue: { status: jasmine.createSpy('status').and.returnValue(of(copy)), write: jasmine.createSpy('write') } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'j1' }) } } },
       ],
     });
@@ -63,6 +70,29 @@ describe('ThumbnailGeneratorComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
     return { fixture, el, service, cmp: fixture.componentInstance };
   }
+
+  it('puts the title and description helper under the thumbnails, for this job', () => {
+    const { fixture, el } = setup(set({}));
+    fixture.detectChanges();
+    const copy = el.querySelector('app-thumbnail-copy')!;
+    expect(copy).toBeTruthy();
+    expect(copy.querySelector('h2')!.textContent).toContain('Title and description');
+    expect(el.querySelectorAll('h1').length).toBe(1);
+    const order = Array.from(el.querySelectorAll('app-thumbnail-card, app-thumbnail-copy'));
+    expect(order[order.length - 1]).toBe(copy);
+    expect(TestBed.inject(VideoCopyService).status).toHaveBeenCalledOnceWith('j1');
+    tidy(el);
+  });
+
+  it('shows no helper when the server has it switched off, and none on a failed load', () => {
+    const off = setup(set({}), {}, { ...COPY_ON, enabled: false });
+    off.fixture.detectChanges();
+    expect(off.el.querySelector('app-thumbnail-copy section')).toBeNull();
+    TestBed.resetTestingModule();
+    const failed = setup('error');
+    failed.fixture.detectChanges();
+    expect(failed.el.querySelector('app-thumbnail-copy')).toBeNull();
+  });
 
   it('shows the suggestions with select and download, one h1, and the link back to the clips', () => {
     const { fixture, el } = setup(set({}));

@@ -5,6 +5,7 @@ import { NavbarComponent } from '../../shared/components/navbar/navbar.component
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ThumbnailCardComponent } from './thumbnail-card.component';
+import { ThumbnailCopyComponent } from './thumbnail-copy.component';
 import { ThumbnailPreviewComponent } from './thumbnail-preview.component';
 import { ThumbnailProgressComponent } from './thumbnail-progress.component';
 import { ThumbnailStyleSelectorComponent } from './thumbnail-style-selector.component';
@@ -39,6 +40,7 @@ const POLL_ERROR_MS = 6000;
     NavbarComponent,
     ToastsComponent,
     ThumbnailCardComponent,
+    ThumbnailCopyComponent,
     ThumbnailPreviewComponent,
     ThumbnailProgressComponent,
     ThumbnailStyleSelectorComponent,
@@ -179,6 +181,9 @@ const POLL_ERROR_MS = 6000;
               </section>
             }
           }
+        }
+        @if (set() && !loading() && !loadError()) {
+          <app-thumbnail-copy [jobId]="jobId"></app-thumbnail-copy>
         }
         <app-thumbnail-preview
           [thumb]="previewThumb()"
