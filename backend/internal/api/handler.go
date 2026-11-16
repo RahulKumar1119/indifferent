@@ -94,6 +94,9 @@ type APIHandler struct {
 	// them (they answer 503 and /story-plans/limits reports enabled=false), so
 	// the API can be deployed before the feature is switched on.
 	StoryPlanner StoryPlanner
+	// CopyWriter writes titles, descriptions and chapters (#331). Nil switches
+	// the routes off: they answer 503 and nothing calls the model.
+	CopyWriter CopyWriter
 	// StoryPlansPerHour overrides the per-user hourly allowance of plans. Zero
 	// uses the default (20).
 	StoryPlansPerHour int
@@ -234,6 +237,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handleListThumbnails)
 	case isThumbnailPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleThumbnails)
+	case isCopyPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handleCopy)
 	case isMultipartPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleMultipart)
 	case req.HTTPMethod == "POST" && strings.HasPrefix(req.Path, "/shorts/") && strings.HasSuffix(req.Path, "/start"):

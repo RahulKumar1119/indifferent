@@ -40,7 +40,7 @@ func spendingRequest(req events.APIGatewayProxyRequest) bool {
 		return strings.HasSuffix(p, "/start") || strings.HasSuffix(p, "/upload") || strings.HasSuffix(p, "/logo")
 	case strings.HasPrefix(p, "/shorts/"):
 		return strings.HasSuffix(p, "/start") || strings.HasSuffix(p, "/retry") ||
-			strings.Contains(p, "/upload/multipart") || strings.Contains(p, "/thumbnails")
+			strings.Contains(p, "/upload/multipart") || strings.Contains(p, "/thumbnails") || strings.HasSuffix(p, "/copy")
 	}
 	return false
 }

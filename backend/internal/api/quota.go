@@ -38,6 +38,9 @@ var (
 	// quotaVoicePreviewReplay bounds replays of kept takes, so S3 reads and
 	// signed links cannot be used as a free loop. It is far above what a person does.
 	quotaVoicePreviewReplay = quota{name: "story-voice-replay", limit: 1000, what: "playing voice previews"}
+	// quotaCopyHelper counts calls to the model that writes titles, a description
+	// and chapters (#331). A refine is a new call and counts too.
+	quotaCopyHelper = quota{name: "copy-helper", limit: 20, what: "writing titles and descriptions"}
 )
 
 // quotaNow is replaced in tests.

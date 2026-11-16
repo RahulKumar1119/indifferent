@@ -142,3 +142,8 @@ func firstSentence(s string, maxWords int) string {
 	}
 	return strings.Join(words, " ")
 }
+
+// CleanLine is cleanText for other packages that show model-written text
+// (videocopy): markup, control and invisible characters removed, whitespace
+// collapsed to single spaces, cut to maxRunes.
+func CleanLine(s string, maxRunes int) string { return cleanText(s, maxRunes) }
