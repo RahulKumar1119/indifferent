@@ -24,6 +24,7 @@ import {
   LucideUser,
 } from '@lucide/angular';
 import { Clip, ShortsService } from './shorts.service';
+import { NEW_JOB_CAPTION_STYLE } from '../../shared/caption-style';
 import { ShortsGalleryComponent } from './shorts-gallery.component';
 import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
 
@@ -105,11 +106,39 @@ describe('ShortsGalleryComponent', () => {
     const { fixture, el, btn, service } = setup({ getStatus: () => of(job('failed')) });
     btn('Caption styles').click();
     fixture.detectChanges();
-    expect(el.querySelector('[aria-label="Caption presets"]')!.querySelectorAll('button').length).toBe(4);
+    expect(el.querySelectorAll('input[name="gal-cap-preset"]').length).toBe(4);
+    expect(el.querySelector('[data-testid="caption-preview"]')).toBeTruthy();
     const save = Array.from(el.querySelectorAll('button')).find((b) => b.textContent!.trim() === 'Save style')!;
     expect(save).toBeTruthy();
     fixture.componentInstance.saveStyle();
     expect(service.updateCaption).toHaveBeenCalled();
+  });
+
+  it('starts a job with no saved style on the new-job style: above platform controls on', () => {
+    const { fixture, el, btn, service } = setup({ getStatus: () => of(job('uploaded')) });
+    btn('Caption styles').click();
+    fixture.detectChanges();
+    expect(el.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked).toBeTrue();
+    fixture.componentInstance.saveStyle();
+    expect((service.updateCaption as jasmine.Spy).calls.mostRecent().args[1]).toEqual({ ...NEW_JOB_CAPTION_STYLE });
+  });
+
+  it('shows a job saved before the option existed as it will render: above controls off', () => {
+    const saved = { preset: 'karaoke', fontSize: 30, color: '#FFFFFF', highlight: '#FFD60A', position: 'bottom' };
+    const { fixture, el, btn, service } = setup({ getStatus: () => of(job('failed', { caption: saved })) });
+    btn('Caption styles').click();
+    fixture.detectChanges();
+    expect(el.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked).toBeFalse();
+    expect(el.querySelector<HTMLInputElement>('input[name="gal-cap-preset"]:checked')!.value).toBe('karaoke');
+    fixture.componentInstance.saveStyle();
+    expect((service.updateCaption as jasmine.Spy).calls.mostRecent().args[1]).toEqual({ ...NEW_JOB_CAPTION_STYLE, ...saved, aboveControls: false });
+  });
+
+  it('locks the studio for a job that is already rendered', () => {
+    const { fixture, el, btn } = setup();
+    btn('Caption styles').click();
+    fixture.detectChanges();
+    expect(el.querySelector<HTMLSelectElement>('select')!.disabled).toBeTrue();
   });
 
   it('says a rendered job keeps its style for future renders', () => {

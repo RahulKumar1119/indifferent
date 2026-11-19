@@ -99,6 +99,7 @@ export const FUNCTIONAL_STORAGE_KEYS: readonly string[] = [
   'indifferent.creatorActivity.v1',
   'indifferent.creatorAvatarSynced.v1',
   'indifferent.infographic.draft.v1',
+  'indifferent.captionStyle.v1',
 ];
 
 /**
