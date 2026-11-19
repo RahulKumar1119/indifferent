@@ -71,15 +71,11 @@ export interface CaptionStyle {
   color?: string;
   highlight?: string;
   position?: 'top' | 'middle' | 'bottom';
+  /** '' or absent keeps the default font. */
+  font?: '' | 'sans' | 'serif' | 'condensed';
+  /** Lifts bottom captions clear of the platform's own buttons. Absent keeps the old position. */
+  aboveControls?: boolean;
 }
-
-export const DEFAULT_CAPTION_STYLE: Required<CaptionStyle> = {
-  preset: 'bold',
-  fontSize: 18,
-  color: '#FFFFFF',
-  highlight: '#FFD60A',
-  position: 'bottom',
-};
 
 /** A word with preserved timing (mirrors backend models.Word). */
 export interface CaptionWord {

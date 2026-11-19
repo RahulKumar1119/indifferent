@@ -1,15 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import {
-  CAPTION_PRESETS,
-  CaptionPreset,
-  languageName,
-  voiceNote,
-} from './story-video.models';
-
-/** What the person chose: the voice, and which of the caption looks. */
+import { CaptionStudioComponent } from '../../shared/components/caption-studio/caption-studio.component';
+import { CaptionStyleValue } from '../../shared/caption-style';
+import { languageName, voiceNote } from './story-video.models';
+/** What the person chose: the voice, and the whole caption style. */
 export interface VideoOptions {
   voice: string;
-  caption: CaptionPreset;
+  caption: CaptionStyleValue;
 }
 
 /**
@@ -25,11 +21,12 @@ export interface VideoOptions {
 @Component({
   selector: 'app-story-video-options',
   standalone: true,
+  imports: [CaptionStudioComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     :host { display: block; }
     .grid { display: grid; gap: var(--space-lg); }
-    @media (min-width: 48rem) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 48rem) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wide { grid-column: 1 / -1; } }
     .lbl, legend { padding: 0; font-weight: 600; }
     .hint { margin: var(--space-3xs) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); }
     select { margin-top: var(--space-xs); }
@@ -75,21 +72,17 @@ export interface VideoOptions {
         }
       </div>
 
-      <fieldset [disabled]="disabled()">
-        <legend>Captions</legend>
+      <div class="wide">
+        <p class="lbl" style="margin: 0">Captions</p>
         <p id="video-caption-hint" class="hint">Burned into the video, in time with the narration.</p>
-        <div class="opts" role="radiogroup" aria-describedby="video-caption-hint">
-          @for (p of presets; track p.id) {
-            <label class="opt">
-              <input type="radio" name="video-caption" [value]="p.id" [checked]="p.id === value().caption" (change)="setCaption(p.id)" />
-              <span style="min-width: 0">
-                <span class="name">{{ p.label }}</span>
-                <span class="blurb">{{ p.blurb }}</span>
-              </span>
-            </label>
-          }
-        </div>
-      </fieldset>
+        <app-caption-studio
+          idPrefix="video-cap"
+          [value]="value().caption"
+          [disabled]="disabled()"
+          [language]="language()"
+          (valueChange)="setCaption($event)"
+        />
+      </div>
     </div>
   `,
 })
@@ -102,7 +95,6 @@ export class StoryVideoOptionsComponent {
   readonly disabled = input(false);
   readonly valueChange = output<VideoOptions>();
 
-  protected readonly presets = CAPTION_PRESETS;
   protected readonly languageName = languageName;
   protected readonly note = computed(() => voiceNote(this.value().voice, this.language()));
 
@@ -110,7 +102,7 @@ export class StoryVideoOptionsComponent {
     this.valueChange.emit({ ...this.value(), voice: (event.target as HTMLSelectElement).value });
   }
 
-  protected setCaption(caption: CaptionPreset): void {
+  protected setCaption(caption: CaptionStyleValue): void {
     this.valueChange.emit({ ...this.value(), caption });
   }
 }

@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { NEW_JOB_CAPTION_STYLE } from '../../shared/caption-style';
 import { Subject, of, throwError } from 'rxjs';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { StoryPlanEditorComponent } from './story-plan-editor.component';
@@ -628,7 +629,7 @@ describe('StoryPlanEditorComponent', () => {
         await settle(fixture);
         expect(blocker()).toBe('');
         makeButton()!.click();
-        expect(videoService.create).toHaveBeenCalledOnceWith({ planId: 'plan-1', revision: 2, voice: 'Joanna', caption: { preset: 'bold' } });
+        expect(videoService.create).toHaveBeenCalledOnceWith({ planId: 'plan-1', revision: 2, voice: 'Joanna', caption: { ...NEW_JOB_CAPTION_STYLE } });
       });
 
       it('reloads the plan when the panel says it changed somewhere else', async () => {

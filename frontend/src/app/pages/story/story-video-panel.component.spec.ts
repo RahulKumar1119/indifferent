@@ -1,6 +1,7 @@
 import { formatDate } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed, fakeAsync, flush, tick } from '@angular/core/testing';
+import { NEW_JOB_CAPTION_STYLE } from '../../shared/caption-style';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import {
   STORY_ICONS,
@@ -173,8 +174,8 @@ describe('StoryVideoPanelComponent', () => {
     });
 
     it('starts on the first voice for the language and the bold captions', () => {
-      expect(el.querySelector<HTMLSelectElement>('select')!.value).toBe('Joanna');
-      expect(el.querySelector<HTMLInputElement>('input[type="radio"]:checked')!.value).toBe('bold');
+      expect(el.querySelector<HTMLSelectElement>('#video-voice')!.value).toBe('Joanna');
+      expect(el.querySelector<HTMLInputElement>('input[name="video-cap-preset"]:checked')!.value).toBe('bold');
     });
 
     it('states the limits from the API, and that an attempt that does not finish still counts', () => {
@@ -229,7 +230,7 @@ describe('StoryVideoPanelComponent', () => {
   describe('limits', () => {
     it('are not required: without them the voices still come from the language', async () => {
       await mount({ limits: httpError(500, 'X') });
-      expect(Array.from(el.querySelectorAll('select option')).map((o) => (o as HTMLOptionElement).value)).toEqual(['Joanna', 'Matthew', 'Amy', 'Brian', 'Aditi']);
+      expect(Array.from(el.querySelectorAll('#video-voice option')).map((o) => (o as HTMLOptionElement).value)).toEqual(['Joanna', 'Matthew', 'Amy', 'Brian', 'Aditi']);
       expect(q('limits-note')).toBeNull();
       expect(make().disabled).toBeFalse();
     });
@@ -284,7 +285,7 @@ describe('StoryVideoPanelComponent', () => {
 
     it('does not offer a choice of voices for Hindi', async () => {
       await mount({ language: 'hi' });
-      expect(el.querySelector('select')).toBeNull();
+      expect(el.querySelector('#video-voice')).toBeNull();
       expect(q('voice-fixed')!.textContent).toContain('Aditi');
     });
   });
@@ -295,14 +296,14 @@ describe('StoryVideoPanelComponent', () => {
     it('sends the plan, its revision, and the voice and captions that were chosen', async () => {
       svc.create.and.returnValue(of(video()));
       await mount({ revision: 4 });
-      const select = el.querySelector<HTMLSelectElement>('select')!;
+      const select = el.querySelector<HTMLSelectElement>('#video-voice')!;
       select.value = 'Amy';
       select.dispatchEvent(new Event('change'));
       await render();
       el.querySelector<HTMLInputElement>('input[value="karaoke"]')!.click();
       await render();
       make().click();
-      expect(svc.create).toHaveBeenCalledOnceWith({ planId: 'plan-1', revision: 4, voice: 'Amy', caption: { preset: 'karaoke' } });
+      expect(svc.create).toHaveBeenCalledOnceWith({ planId: 'plan-1', revision: 4, voice: 'Amy', caption: { ...NEW_JOB_CAPTION_STYLE, preset: 'karaoke' } });
     });
 
     it('is a single request however often the button is pressed', async () => {
@@ -315,7 +316,7 @@ describe('StoryVideoPanelComponent', () => {
       expect(svc.create).toHaveBeenCalledTimes(1);
       expect(make().disabled).toBeTrue();
       expect(make().textContent).toContain('Starting…');
-      expect(el.querySelector<HTMLSelectElement>('select')!.disabled).toBeTrue();
+      expect(el.querySelector<HTMLSelectElement>('#video-voice')!.disabled).toBeTrue();
     });
 
     it('turns into the progress view and moves focus to it', async () => {
@@ -588,7 +589,7 @@ describe('StoryVideoPanelComponent', () => {
       pump();
       expect(problem()).toBeNull();
       expect(make().textContent!.trim()).toBe('Make the video again');
-      expect(el.querySelector<HTMLSelectElement>('select')!.value).toBe('Matthew');
+      expect(el.querySelector<HTMLSelectElement>('#video-voice')!.value).toBe('Matthew');
       expect(el.querySelector<HTMLInputElement>('input[type="radio"]:checked')!.value).toBe('clean');
     }));
 
@@ -732,8 +733,8 @@ describe('StoryVideoPanelComponent', () => {
       expect(problem()!.textContent).toContain("The video wasn't finished");
       expect(problem()!.textContent).toContain('Something went wrong on our side while making the video. Try again.');
       expect(make().textContent!.trim()).toBe('Make the video again');
-      expect(el.querySelector<HTMLSelectElement>('select')!.value).toBe('Brian');
-      expect(el.querySelector<HTMLInputElement>('input[type="radio"]:checked')!.value).toBe('minimal');
+      expect(el.querySelector<HTMLSelectElement>('#video-voice')!.value).toBe('Brian');
+      expect(el.querySelector<HTMLInputElement>('input[name="video-cap-preset"]:checked')!.value).toBe('minimal');
     });
 
     it('is reported quietly when found on load: it already happened', async () => {
@@ -745,7 +746,7 @@ describe('StoryVideoPanelComponent', () => {
       svc.create.and.returnValue(of(video({ jobId: 'job-2' })));
       await mount({ videos: [failed({ voice: 'Brian' })], revision: 3 });
       make().click();
-      expect(svc.create).toHaveBeenCalledOnceWith({ planId: 'plan-1', revision: 3, voice: 'Brian', caption: { preset: 'bold' } });
+      expect(svc.create).toHaveBeenCalledOnceWith({ planId: 'plan-1', revision: 3, voice: 'Brian', caption: { ...NEW_JOB_CAPTION_STYLE, aboveControls: false } });
     });
 
     it('titles a timeout and an over-long narration by what they are', async () => {

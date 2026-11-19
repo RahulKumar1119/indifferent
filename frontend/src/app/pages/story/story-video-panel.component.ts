@@ -21,11 +21,11 @@ import { switchMap } from 'rxjs/operators';
 import { StoryPlanProblem } from './story-plan-problem';
 import { StoryProblemComponent } from './story-problem.component';
 import { StoryVideoOptionsComponent, VideoOptions } from './story-video-options.component';
+import { CaptionPreference } from '../../shared/caption-preference.service';
+import { captionPayload, withSavedStyle } from '../../shared/caption-style';
 import { StoryVideoProgressComponent } from './story-video-progress.component';
 import { VideoContext, describeVideoProblem } from './story-video-problem';
 import {
-  CAPTION_PRESETS,
-  DEFAULT_CAPTION_PRESET,
   PICTURE_ERROR_CODES,
   StoryVideo,
   StoryVideoLimits,
@@ -420,7 +420,8 @@ export class StoryVideoPanelComponent implements OnDestroy {
   protected readonly loadProblem = signal<StoryPlanProblem | null>(null);
   protected readonly limits = signal<StoryVideoLimits | null>(null);
   protected readonly videos = signal<StoryVideo[]>([]);
-  protected readonly options = signal<VideoOptions>({ voice: '', caption: DEFAULT_CAPTION_PRESET });
+  private readonly captionPref = inject(CaptionPreference);
+  protected readonly options = signal<VideoOptions>({ voice: '', caption: this.captionPref.startingStyle() });
   protected readonly making = signal(false);
   protected readonly makeProblem = signal<StoryPlanProblem | null>(null);
   protected readonly cancelling = signal(false);
@@ -557,9 +558,9 @@ export class StoryVideoPanelComponent implements OnDestroy {
 
   /** A retry starts from what the last attempt used. */
   private rememberChoices(v: StoryVideo): void {
-    const preset = CAPTION_PRESETS.find((p) => p.id === v.caption?.preset)?.id ?? DEFAULT_CAPTION_PRESET;
+    const caption = withSavedStyle(v.caption);
     const voice = this.voices().includes(v.voice) ? v.voice : this.options().voice;
-    this.options.set({ voice, caption: preset });
+    this.options.set({ voice, caption });
   }
 
   private follow(v: StoryVideo): void {
@@ -641,8 +642,9 @@ export class StoryVideoPanelComponent implements OnDestroy {
     this.making.set(true);
     const { voice, caption } = this.options();
     this.requests.push(
-      this.service.create({ planId: this.planId(), revision: this.revision(), voice, caption: { preset: caption } }).subscribe({
+      this.service.create({ planId: this.planId(), revision: this.revision(), voice, caption: captionPayload(caption) }).subscribe({
         next: (v) => {
+          this.captionPref.save(caption);
           this.making.set(false);
           this.showForm.set(false);
           this.justFailed.set(false);

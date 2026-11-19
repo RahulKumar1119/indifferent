@@ -5,7 +5,10 @@ import { firstValueFrom, forkJoin } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import JSZip from 'jszip';
-import { Clip, ShortsService, CaptionStyle, DEFAULT_CAPTION_STYLE, CaptionWord, ClipEdit } from './shorts.service';
+import { Clip, ShortsService, CaptionWord, ClipEdit } from './shorts.service';
+import { CaptionStudioComponent } from '../../shared/components/caption-studio/caption-studio.component';
+import { CaptionPreference } from '../../shared/caption-preference.service';
+import { CaptionStyleValue, NEW_JOB_CAPTION_STYLE, captionPayload, withSavedStyle } from '../../shared/caption-style';
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ToastsComponent } from '../../shared/components/toast/toasts.component';
 import { ToastService } from '../../shared/components/toast/toast.service';
@@ -19,23 +22,10 @@ const HOVER_PREVIEW_MS = 2000;
 /** Fractions sampled for the thumbnail frame strip. */
 const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
 
-interface CaptionPresetMeta {
-  id: NonNullable<CaptionStyle['preset']>;
-  label: string;
-  blurb: string;
-}
-
-const CAPTION_PRESETS: CaptionPresetMeta[] = [
-  { id: 'minimal', label: 'Minimal', blurb: 'Small, subtle, no box' },
-  { id: 'bold', label: 'Bold', blurb: 'Large white on dark box' },
-  { id: 'karaoke', label: 'Karaoke Highlight', blurb: 'Word-by-word sweep' },
-  { id: 'clean', label: 'Clean Subtitles', blurb: 'Classic outlined text' },
-];
-
 @Component({
   selector: 'app-shorts-gallery',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent],
+  imports: [CommonModule, FormsModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent, CaptionStudioComponent],
   styles: [`
     :host { display: block; }
     @keyframes card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
@@ -43,18 +33,6 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
     .tools { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
     .tools .ui-btn[aria-expanded='true'] { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-paper); }
     .cs-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); }
-    .presets { margin-top: var(--space-md); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); }
-    @media (min-width: 64rem) { .presets { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-    .preset { display: flex; flex-direction: column; gap: var(--space-3xs); min-height: 44px; padding: var(--space-sm); border-radius: var(--radius-control); border: 1px solid var(--color-rule); background: transparent; color: var(--color-ink); text-align: left; font: inherit; cursor: pointer; }
-    .preset:hover { background: var(--color-paper-3); }
-    .preset[aria-pressed='true'] { border: 2px solid var(--color-accent); background: color-mix(in oklab, var(--color-accent) 7%, var(--app-card)); }
-    .preset b { font-size: var(--type-sm); }
-    .preset small { font-size: var(--type-xs); color: var(--color-muted); }
-    .sample { margin-top: var(--space-2xs); display: block; padding: var(--space-sm) var(--space-xs); border-radius: 6px; text-align: center; background: var(--color-paper); }
-    .sample.light { background: var(--color-paper-3); }
-    .unlit { color: var(--color-muted); }
-    .cs-grid { margin-top: var(--space-md); display: grid; gap: var(--space-md); }
-    @media (min-width: 40rem) { .cs-grid { grid-template-columns: 1fr 1fr; } }
     .cs-foot { margin-top: var(--space-md); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
     .bad-text { margin: var(--space-xs) 0 0; color: var(--color-negative); font-size: var(--type-sm); font-weight: 500; }
     .selbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
@@ -186,50 +164,18 @@ const CAPTION_PRESETS: CaptionPresetMeta[] = [
               } @else if (styleLoaded && !styleEditable) {
                 <p class="ui-alert ui-alert--warn" role="note">This job is already rendered. Styles apply to future renders. Retry the job to re-render with a new style.</p>
               }
-              <div class="presets" role="group" aria-label="Caption presets">
-                @for (p of captionPresets; track p.id) {
-                  <button type="button" class="preset" (click)="selectPreset(p.id)" [attr.aria-pressed]="styleDraft.preset === p.id">
-                    <b>{{ p.label }}</b>
-                    <small>{{ p.blurb }}</small>
-                    <span class="sample hm-on-dark" aria-hidden="true">
-                      @if (p.id === 'karaoke') {
-                        <span [ngStyle]="swatchStyle(p.id)">Sample</span><span class="unlit" [style.font-size]="swatchStyle(p.id)['font-size']"> caption</span>
-                      } @else {
-                        <span [ngStyle]="swatchStyle(p.id)">Sample caption</span>
-                      }
-                    </span>
-                    <span class="sample light hm-on-light" aria-hidden="true">
-                      @if (p.id === 'karaoke') {
-                        <span [ngStyle]="swatchStyle(p.id)">Sample</span><span class="unlit" [style.font-size]="swatchStyle(p.id)['font-size']"> caption</span>
-                      } @else {
-                        <span [ngStyle]="swatchStyle(p.id)">Sample caption</span>
-                      }
-                    </span>
-                  </button>
-                }
-              </div>
-              <div class="cs-grid">
-                <label class="ui-f">
-                  <span class="ui-flabel">Size <span class="ui-val">{{ styleDraft.fontSize }}</span></span>
-                  <input type="range" class="ui-range" min="8" max="72" step="1" [(ngModel)]="styleDraft.fontSize" aria-label="Caption font size" />
-                </label>
-                <div class="ui-colors">
-                  <label class="ui-col">Text <input type="color" class="ui-swatch" [(ngModel)]="styleDraft.color" aria-label="Caption text color" /></label>
-                  <label class="ui-col">Highlight <input type="color" class="ui-swatch" [(ngModel)]="styleDraft.highlight" aria-label="Karaoke highlight color" /></label>
+              <app-caption-studio
+                idPrefix="gal-cap"
+                [value]="styleDraft"
+                [disabled]="styleLoaded && !styleEditable"
+                (valueChange)="styleDraft = $event"
+              >
+                <div class="cs-foot">
+                  <button type="button" class="ui-btn ui-btn--secondary" (click)="resetStyleDraft()">Defaults</button>
+                  <button type="button" class="ui-btn ui-btn--primary" (click)="saveStyle()" [disabled]="styleSaving || !styleEditable"
+                    [title]="!styleEditable && styleLoaded ? 'Styles apply to future renders only' : 'Save caption style'">{{ styleSaving ? 'Saving' : 'Save style' }}</button>
                 </div>
-              </div>
-              <div class="cs-foot">
-                <span class="ui-flabel" id="cap-pos-label">Position</span>
-                <div class="ui-row" role="group" aria-labelledby="cap-pos-label">
-                  @for (pos of positionOptions; track pos) {
-                    <button type="button" class="ui-btn ui-btn--secondary ui-seg" (click)="styleDraft.position = pos" [attr.aria-pressed]="styleDraft.position === pos">{{ pos }}</button>
-                  }
-                </div>
-                <span class="ui-spacer"></span>
-                <button type="button" class="ui-btn ui-btn--secondary" (click)="resetStyleDraft()">Defaults</button>
-                <button type="button" class="ui-btn ui-btn--primary" (click)="saveStyle()" [disabled]="styleSaving || !styleEditable"
-                  [title]="!styleEditable && styleLoaded ? 'Styles apply to future renders only' : 'Save caption style'">{{ styleSaving ? 'Saving' : 'Save style' }}</button>
-              </div>
+              </app-caption-studio>
               @if (styleError) {
                 <p class="bad-text" role="alert">{{ styleError }}</p>
               }
@@ -504,9 +450,8 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   styleSaving = false;
   styleError = '';
   styleJobStatus = '';
-  styleDraft: Required<CaptionStyle> = { ...DEFAULT_CAPTION_STYLE };
-  readonly captionPresets = CAPTION_PRESETS;
-  readonly positionOptions: NonNullable<CaptionStyle['position']>[] = ['top', 'middle', 'bottom'];
+  styleDraft: CaptionStyleValue = { ...NEW_JOB_CAPTION_STYLE };
+  readonly captionPref = inject(CaptionPreference);
 
   /** Video effects panel (its own component loads and saves the settings). */
   effectsOpen = false;
@@ -1218,12 +1163,8 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     this.effectsOpen = !this.effectsOpen;
   }
 
-  selectPreset(preset: NonNullable<CaptionStyle['preset']>): void {
-    this.styleDraft = { ...this.styleDraft, preset };
-  }
-
   resetStyleDraft(): void {
-    this.styleDraft = { ...DEFAULT_CAPTION_STYLE };
+    this.styleDraft = this.captionPref.startingStyle();
   }
 
   saveStyle(): void {
@@ -1231,9 +1172,10 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     if (this.styleLoaded && !this.styleEditable) return;
     this.styleSaving = true;
     this.styleError = '';
-    this.shorts.updateCaption(this.jobId, { ...this.styleDraft }).subscribe({
+    this.shorts.updateCaption(this.jobId, captionPayload(this.styleDraft)).subscribe({
       next: () => {
         this.styleSaving = false;
+        this.captionPref.save(this.styleDraft);
         this.toasts.show('Caption style saved. Applies to future renders and retries.', 'success');
       },
       error: (err) => {
@@ -1248,12 +1190,13 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     this.styleLoadError = false;
     this.shorts.getStatus(this.jobId).subscribe({
       next: (job) => {
-        this.styleDraft = { ...DEFAULT_CAPTION_STYLE, ...(job.caption ?? {}) };
+        // A saved style wins; a job with none starts from the remembered or default style.
+        this.styleDraft = job.caption && Object.keys(job.caption).length > 0 ? withSavedStyle(job.caption) : this.captionPref.startingStyle();
         this.styleJobStatus = job.status ?? '';
         this.styleLoaded = true;
       },
       error: () => {
-        this.styleDraft = { ...DEFAULT_CAPTION_STYLE };
+        this.styleDraft = this.captionPref.startingStyle();
         this.styleJobStatus = '';
         this.styleLoadError = true;
         this.styleLoaded = true;
@@ -1264,22 +1207,6 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   /** Styles apply to future renders: completed/in-flight jobs are read-only. */
   get styleEditable(): boolean {
     return this.styleJobStatus === 'uploaded' || this.styleJobStatus === 'failed';
-  }
-
-  /** HTML approximation of a preset for the studio preview cards. */
-  swatchStyle(presetId: string): Record<string, string> {
-    const px = Math.round(10 + this.styleDraft.fontSize * 0.35);
-    const color = this.styleDraft.color || '#FFFFFF';
-    switch (presetId) {
-      case 'minimal':
-        return { color, 'font-size': `${Math.max(11, px - 3)}px`, 'text-shadow': '0 1px 3px rgba(0,0,0,0.8)' };
-      case 'karaoke':
-        return { color: this.styleDraft.highlight || '#FFD60A', 'font-size': `${px + 3}px`, 'font-weight': '800', 'text-shadow': '0 2px 4px rgba(0,0,0,0.9)' };
-      case 'clean':
-        return { color, 'font-size': `${px}px`, 'text-shadow': '-1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000' };
-      default:
-        return { color, 'font-size': `${px + 3}px`, 'font-weight': '800', background: 'rgba(0,0,0,0.55)', padding: '2px 8px', 'border-radius': '6px' };
-    }
   }
 
   confirmDelete(): void {
