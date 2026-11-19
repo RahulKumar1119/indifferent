@@ -8,13 +8,15 @@ export type VideoStatus = 'queued' | 'preparing' | 'narrating' | 'rendering' | '
 
 export type CaptionPreset = 'minimal' | 'bold' | 'karaoke' | 'clean';
 
-/** Only the preset is chosen on this page; the API also accepts size, colour and position. */
+/** The caption style the API accepts. The page edits all of it in the shared caption studio. */
 export interface CaptionStyle {
   preset?: CaptionPreset;
   fontSize?: number;
   color?: string;
   highlight?: string;
   position?: 'top' | 'middle' | 'bottom';
+  font?: '' | 'sans' | 'serif' | 'condensed';
+  aboveControls?: boolean;
 }
 
 /** GET/POST /story-videos. */

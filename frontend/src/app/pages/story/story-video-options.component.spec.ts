@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { StoryVideoOptionsComponent, VideoOptions } from './story-video-options.component';
 import { settle } from './story-plan-fixtures.spec';
+import { CaptionPresetId, NEW_JOB_CAPTION_STYLE } from '../../shared/caption-style';
+const look = (preset: CaptionPresetId) => ({ ...NEW_JOB_CAPTION_STYLE, preset });
 
 describe('StoryVideoOptionsComponent', () => {
   let fixture: ComponentFixture<StoryVideoOptionsComponent>;
@@ -21,11 +23,11 @@ describe('StoryVideoOptionsComponent', () => {
   }
 
   const english = ['Joanna', 'Matthew', 'Amy', 'Brian', 'Aditi'];
-  const select = () => el.querySelector<HTMLSelectElement>('select')!;
-  const radios = () => Array.from(el.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
+  const select = () => el.querySelector<HTMLSelectElement>('#video-voice')!;
+  const radios = () => Array.from(el.querySelectorAll<HTMLInputElement>('input[type="radio"]')).filter((r) => r.name.startsWith('video-cap-preset'));
 
   describe('for a story that has a choice of voices', () => {
-    beforeEach(() => create('en', english, { voice: 'Matthew', caption: 'karaoke' }));
+    beforeEach(() => create('en', english, { voice: 'Matthew', caption: look('karaoke') }));
 
     it('offers every voice the API lists, in its order, with the current one chosen', () => {
       expect(Array.from(select().options).map((o) => o.value)).toEqual(english);
@@ -42,13 +44,13 @@ describe('StoryVideoOptionsComponent', () => {
     it('reports a new voice and keeps the caption look', () => {
       select().value = 'Amy';
       select().dispatchEvent(new Event('change'));
-      expect(emitted).toEqual([{ voice: 'Amy', caption: 'karaoke' }]);
+      expect(emitted).toEqual([{ voice: 'Amy', caption: look('karaoke') }]);
     });
 
     it('offers the four caption looks as radio buttons in one group, each with its description', () => {
       expect(radios().map((r) => r.value).sort()).toEqual(['bold', 'clean', 'karaoke', 'minimal']);
       expect(new Set(radios().map((r) => r.name)).size).toBe(1);
-      expect(el.querySelector('legend')!.textContent).toContain('Captions');
+      expect(el.querySelector('legend')!.textContent).toContain('Caption look');
       expect(el.textContent).toContain('The spoken word lights up as it is said');
     });
 
@@ -58,7 +60,7 @@ describe('StoryVideoOptionsComponent', () => {
 
     it('reports a new caption look and keeps the voice', () => {
       radios().find((r) => r.value === 'clean')!.click();
-      expect(emitted).toEqual([{ voice: 'Matthew', caption: 'clean' }]);
+      expect(emitted).toEqual([{ voice: 'Matthew', caption: look('clean') }]);
     });
 
     it('can be chosen by the label text, not only the dot', () => {
@@ -73,22 +75,22 @@ describe('StoryVideoOptionsComponent', () => {
   });
 
   describe('for a story that has one voice', () => {
-    beforeEach(() => create('hi', ['Aditi'], { voice: 'Aditi', caption: 'bold' }));
+    beforeEach(() => create('hi', ['Aditi'], { voice: 'Aditi', caption: look('bold') }));
 
     it('states the voice instead of offering a menu with one entry', () => {
-      expect(el.querySelector('select')).toBeNull();
+      expect(el.querySelector('#video-voice')).toBeNull();
       expect(el.querySelector('[data-testid="voice-fixed"]')!.textContent).toContain('Aditi');
       expect(el.querySelector('[data-testid="voice-note"]')!.textContent).toContain('Hindi narration has one voice, so there is nothing to choose.');
     });
 
     it('still lets the captions be chosen', () => {
       radios().find((r) => r.value === 'minimal')!.click();
-      expect(emitted).toEqual([{ voice: 'Aditi', caption: 'minimal' }]);
+      expect(emitted).toEqual([{ voice: 'Aditi', caption: look('minimal') }]);
     });
   });
 
   describe('while a video is being started', () => {
-    beforeEach(() => create('en', english, { voice: 'Joanna', caption: 'bold' }, true));
+    beforeEach(() => create('en', english, { voice: 'Joanna', caption: look('bold') }, true));
 
     it('cannot be changed', () => {
       expect(select().disabled).toBeTrue();
@@ -98,7 +100,7 @@ describe('StoryVideoOptionsComponent', () => {
   });
 
   it('uses no em dash', async () => {
-    await create('en', english, { voice: 'Joanna', caption: 'bold' });
+    await create('en', english, { voice: 'Joanna', caption: look('bold') });
     expect(el.textContent).not.toContain('\u2014');
   });
 });
