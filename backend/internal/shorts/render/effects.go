@@ -564,10 +564,10 @@ func captionBurn(subs string, style models.CaptionStyle, animated bool) (string,
 	if err != nil {
 		return "", err
 	}
-	if animated || isKaraokeStyle(style) {
+	if animated {
 		return "subtitles=" + path, nil
 	}
-	return fmt.Sprintf("subtitles=%s:force_style='%s'", path, ResolveForceStyle(style)), nil
+	return SubtitlesFilter(path, style), nil
 }
 
 // writeImpactFiles writes each impact line to its own file in dir and points

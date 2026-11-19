@@ -248,6 +248,13 @@ type CaptionStyle struct {
 	Color     string `json:"color,omitempty"`     // #RRGGBB text color
 	Highlight string `json:"highlight,omitempty"` // #RRGGBB karaoke sweep color
 	Position  string `json:"position,omitempty"`  // top|middle|bottom
+	// Font is sans, serif or condensed (the DejaVu families the render images have). Empty keeps the
+	// font captions have always had, so a style saved before this existed renders as it did.
+	Font string `json:"font,omitempty"`
+	// AboveControls lifts bottom captions to about 15% of the height, above the buttons and text
+	// that Shorts, Reels and TikTok draw over a video. False keeps the original margin, so a style
+	// saved before this existed renders as it did, and a retry gives the same picture.
+	AboveControls bool `json:"aboveControls,omitempty"`
 }
 
 var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
@@ -272,6 +279,11 @@ func (s CaptionStyle) Validate() error {
 	case "", "top", "middle", "bottom":
 	default:
 		return fmt.Errorf("unknown caption position %q: must be top, middle or bottom", s.Position)
+	}
+	switch s.Font {
+	case "", "sans", "serif", "condensed":
+	default:
+		return fmt.Errorf("unknown caption font %q: must be sans, serif or condensed", s.Font)
 	}
 	return nil
 }

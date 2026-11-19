@@ -1485,7 +1485,7 @@ func shortsJobToItem(j models.ShortsJob) map[string]dbtypes.AttributeValue {
 	if j.ErrorCode != "" {
 		item["errorCode"] = &dbtypes.AttributeValueMemberS{Value: j.ErrorCode}
 	}
-	if j.Caption.Preset != "" || j.Caption.FontSize != 0 || j.Caption.Color != "" || j.Caption.Highlight != "" || j.Caption.Position != "" {
+	if j.Caption != (models.CaptionStyle{}) {
 		if b, err := json.Marshal(j.Caption); err == nil {
 			item["caption"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
 		}
