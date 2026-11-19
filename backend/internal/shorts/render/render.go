@@ -330,11 +330,7 @@ func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float6
 	// use SRT with a force_style override.
 	subsFilter := ""
 	if subs != "" {
-		if isKaraokeStyle(style) {
-			subsFilter = fmt.Sprintf(",subtitles=%s", subs)
-		} else {
-			subsFilter = fmt.Sprintf(",subtitles=%s:force_style='%s'", subs, ResolveForceStyle(style))
-		}
+		subsFilter = "," + SubtitlesFilter(subs, style)
 	}
 
 	if audioOnly {
@@ -821,12 +817,8 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 		case effects && plan.captions != nil:
 			doc = BuildAnimatedASS(words, clipStart, *plan.captions)
 			ext = ".ass"
-		case isKaraokeStyle(in.Caption):
-			doc = BuildASS(words, clipStart, in.Caption)
-			ext = ".ass"
 		default:
-			doc = BuildSRT(words, clipStart)
-			ext = ".srt"
+			doc, ext = Captions(words, clipStart, in.Caption, nil)
 		}
 		subsPath = filepath.Join(r.WorkDir, in.Clip.ClipID+ext)
 		if err := os.WriteFile(subsPath, []byte(doc), 0o644); err != nil {

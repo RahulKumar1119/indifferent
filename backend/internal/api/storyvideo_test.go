@@ -580,6 +580,15 @@ func TestStoryVideos_AUserWithAUUIDIdWorksToo(t *testing.T) {
 	}
 }
 
+func TestStoryVideos_StoresCaptionFontAndSafeZone(t *testing.T) {
+	e := newSVEnv(t)
+	en := planWithPictures("en")
+	e.seedPlan(svGoogleUser, svPlanA, 1, storyPlanReady, &en)
+	v := decodeVideo(t, e.do("POST", "/story-videos", createBody(svPlanA, 1, `,"caption":{"preset":"bold","font":"serif","aboveControls":true}`), svGoogleUser))
+	if j := e.stored(svGoogleUser, v.JobID); j.Caption.Font != "serif" || !j.Caption.AboveControls {
+		t.Errorf("font and aboveControls were not stored: %+v", j.Caption)
+	}
+}
 func TestStoryVideos_VoiceAndCaption(t *testing.T) {
 	e := newSVEnv(t)
 	en, hi := planWithPictures("en"), planWithPictures("hi")
@@ -608,6 +617,7 @@ func TestStoryVideos_VoiceAndCaption(t *testing.T) {
 		"an unknown caption preset":          {svPlanA, `,"caption":{"preset":"neon"}`, "unknown caption preset"},
 		"a caption colour that is not one":   {svPlanA, `,"caption":{"color":"red"}`, "#RRGGBB"},
 		"a font size out of range":           {svPlanA, `,"caption":{"fontSize":500}`, "out of range"},
+		"a font that is not offered":         {svPlanA, `,"caption":{"font":"comic"}`, "font"},
 	} {
 		resp := e.do("POST", "/story-videos", createBody(tc.plan, 1, tc.extra), svGoogleUser)
 		if resp.StatusCode != 400 || !strings.Contains(decodeErr(t, resp).Message, tc.want) {

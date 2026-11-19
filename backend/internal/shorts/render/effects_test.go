@@ -228,8 +228,8 @@ func TestBuildAnimatedASSEscapesUserText(t *testing.T) {
 	if strings.Contains(doc, "{brace}") || strings.Contains(doc, "line\nbreak") {
 		t.Errorf("braces and line breaks must not reach the ASS text\n%s", doc)
 	}
-	if got, tags := strings.Count(doc, `\`), strings.Count(doc, `{\kf`); got != tags {
-		t.Errorf("only karaoke tags may contain a backslash: %d backslashes, %d tags", got, tags)
+	if got, tags := strings.Count(doc, `\`)-strings.Count(doc, `\N`), strings.Count(doc, `{\kf`); got != tags {
+		t.Errorf("only karaoke tags and layout line breaks may contain a backslash: %d backslashes, %d tags", got, tags)
 	}
 	if got := strings.Count(doc, `{\kf`); got != len(words) {
 		t.Errorf("expected one karaoke tag per word: got %d for %d words", got, len(words))

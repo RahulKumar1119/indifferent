@@ -1029,6 +1029,27 @@ func TestUpdateCaption_SavesValidatedStyle(t *testing.T) {
 	}
 }
 
+func TestUpdateCaption_StoresFontAndSafeZoneOnly(t *testing.T) {
+	var puts []map[string]dbtypes.AttributeValue
+	db := &mockDynamoDB{
+		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+			return &dynamodb.GetItemOutput{Item: shortsJobItem("job1", "uploaded")}, nil
+		},
+		putItemFunc: func(_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+			puts = append(puts, params.Item)
+			return &dynamodb.PutItemOutput{}, nil
+		},
+	}
+	h := newShortsTestHandler(t, db)
+	resp, _ := h.HandleRequest(context.Background(), styleReq("job1", `{"caption":{"font":"condensed","aboveControls":true}}`))
+	if resp.StatusCode != 200 || len(puts) != 1 {
+		t.Fatalf("status %d, puts %d (body: %s)", resp.StatusCode, len(puts), resp.Body)
+	}
+	raw, ok := puts[0]["caption"].(*dbtypes.AttributeValueMemberS)
+	if !ok || !strings.Contains(raw.Value, `"font":"condensed"`) || !strings.Contains(raw.Value, `"aboveControls":true`) {
+		t.Errorf("font and aboveControls were not persisted: %v", puts[0]["caption"])
+	}
+}
 func TestUpdateCaption_RejectsBadInput(t *testing.T) {
 	db := &mockDynamoDB{
 		getItemFunc: func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
@@ -1042,6 +1063,7 @@ func TestUpdateCaption_RejectsBadInput(t *testing.T) {
 		`{"caption":{"fontSize":200}}`,
 		`{"caption":{"color":"red"}}`,
 		`{"caption":{"position":"left"}}`,
+		`{"caption":{"font":"comic"}}`,
 		`not-json`,
 	} {
 		resp, _ := h.HandleRequest(context.Background(), styleReq("job1", body))

@@ -29,8 +29,9 @@ func BuildAnimatedASS(words []models.Word, segmentStart float64, c models.Animat
 	b.WriteString("[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
 	outlineColour, backColour, borderStyle := backgroundColors(c.Background)
 	alignment := captionAlignment(models.CaptionStyle{Position: c.Position})
+	fontPx := int(float64(c.FontSize)*assScale + 0.5)
 	fmt.Fprintf(&b, "Style: Default,%s,%d,%s,%s,%s,%s,0,0,0,0,100,100,0,0,%d,%d,0,%d,40,40,90,1\n\n",
-		animatedFonts[c.Font], int(float64(c.FontSize)*assScale+0.5),
+		animatedFonts[c.Font], fontPx,
 		hexToASS(c.Highlight), dimmedASS(c.Color, c.Intensity),
 		outlineColour, backColour, borderStyle, c.Outline, alignment)
 	b.WriteString("[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
@@ -47,6 +48,11 @@ func BuildAnimatedASS(words []models.Word, segmentStart float64, c models.Animat
 			cueEnd = words[j].End
 			j++
 		}
+		texts := make([]string, 0, j-i)
+		for k := i; k < j; k++ {
+			texts = append(texts, words[k].Text)
+		}
+		lay := layoutCue(texts, measureFont(c.Font), fontPx, c.Outline)
 		parts := make([]string, 0, j-i)
 		prevEnd := cueStart
 		for k := i; k < j; k++ {
@@ -57,9 +63,12 @@ func BuildAnimatedASS(words []models.Word, segmentStart float64, c models.Animat
 			parts = append(parts, fmt.Sprintf(`{\kf%d}%s`, cs, assText(words[k].Text)))
 			prevEnd = words[k].End
 		}
+		text := joinCue(parts, lay.breakAt)
+		if lay.shrunk {
+			text = fmt.Sprintf(`{\fs%d}`, lay.sizePx) + text
+		}
 		fmt.Fprintf(&b, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s\n",
-			formatASSTime(shift(cueStart, segmentStart)), formatASSTime(shift(cueEnd, segmentStart)),
-			strings.Join(parts, " "))
+			formatASSTime(shift(cueStart, segmentStart)), formatASSTime(shift(cueEnd, segmentStart)), text)
 		i = j
 	}
 	return b.String()
