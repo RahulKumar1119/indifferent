@@ -4,7 +4,7 @@
 // https://api.indifferent.fun, both through request interception, so Chrome applies its real cookie rules:
 // the HttpOnly, Secure and SameSite=Strict flags, the /auth path, credentials on fetch. The fake follows what
 // the real API does (backend/internal/api/refreshcookie.go): it sets indifferent_rt on sign-in and refresh,
-// reads the cookie (or an older body token), rotates it, and clears it on logout. It cannot show that the real
+// reads the cookie only (a body token is ignored), rotates it, and clears it on logout. It cannot show that the real
 // API Gateway behaves the same; the live check of that is a bogus-token request (see the pull request).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -45,7 +45,7 @@ function makeApi() {
   };
   const setCookie = (t, clear = false) => `indifferent_rt=${clear ? '' : t}; Path=/auth; ${clear ? 'Max-Age=0' : 'Max-Age=604800'}; HttpOnly; Secure; SameSite=Strict`;
   const json = (req, status, data, extra = {}) => req.respond({ status, headers: { ...CORS, 'content-type': 'application/json', ...extra }, body: JSON.stringify(data) });
-  const tokens = (t) => ({ accessToken: 'at-' + t, refreshToken: t, expiresIn: 900 });
+  const tokens = (t) => ({ accessToken: 'at-' + t, expiresIn: 900 });
   state.handle = (req) => {
     const p = new URL(req.url()).pathname;
     if (req.method() === 'OPTIONS') return req.respond({ status: 204, headers: CORS });
@@ -57,7 +57,7 @@ function makeApi() {
     if (p === '/auth/refresh') {
       const fromCookie = cookieOf(req);
       const b = body(req);
-      const presented = fromCookie || b.refreshToken || '';
+      const presented = fromCookie;
       state.calls.push({ p, cookie: fromCookie, body: b });
       if (!presented || !state.valid.has(presented)) return json(req, 401, { code: 'REFRESH_FAILED' }, fromCookie ? { 'set-cookie': setCookie('', true) } : {});
       state.valid.delete(presented);
@@ -65,7 +65,7 @@ function makeApi() {
       return json(req, 200, tokens(t), { 'set-cookie': setCookie(t) });
     }
     if (p === '/auth/logout') {
-      const presented = cookieOf(req) || body(req).refreshToken || '';
+      const presented = cookieOf(req);
       state.calls.push({ p, cookie: cookieOf(req), body: body(req) });
       state.valid.delete(presented);
       return req.respond({ status: 204, headers: { ...CORS, 'set-cookie': setCookie('', true) } });
@@ -201,15 +201,8 @@ console.log('A browser that still holds an older version\'s token');
   const { ctx, page } = await visitor(api, { legacy });
   await page.goto(SITE + '/', { waitUntil: 'networkidle2' });
   await sleep(800);
-  const first = api.calls.find((c) => c.p === '/auth/refresh');
-  check(first && first.body.refreshToken === legacy, 'the old token is sent once, in the body');
-  const jar = await cookiesFor(page);
-  check(!!jar.find((x) => x.name === 'indifferent_rt'), 'the sign-in moved to the cookie');
+  check(api.calls.filter((c) => c.p === '/auth/refresh').length === 0, 'the old token is not sent anywhere');
   check(!(await page.evaluate(() => localStorage.getItem('indifferent.refreshToken'))), 'the old token is deleted from localStorage');
-  await page.goto(SITE + '/', { waitUntil: 'networkidle2' });
-  await sleep(600);
-  const second = api.calls.filter((c) => c.p === '/auth/refresh').at(-1);
-  check(/^rt-\d+$/.test(second.cookie) && !second.body.refreshToken, 'the next load uses the cookie only');
   await ctx.close();
 }
 

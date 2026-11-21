@@ -58,20 +58,20 @@ describe('AuthCallbackComponent', () => {
       const req = httpTesting.expectOne(`${environment.apiUrl}/auth/google/callback`);
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({ code: 'test-auth-code', codeVerifier: VERIFIER });
-      req.flush({ accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 });
+      req.flush({ accessToken: 'at', expiresIn: 3600 });
     });
 
     it('sends no verifier when the browser could not make one (state only)', () => {
       createComponent({ code: 'test-auth-code', state: STATE }, { state: STATE, verifier: '' });
       const req = httpTesting.expectOne(`${environment.apiUrl}/auth/google/callback`);
       expect(req.request.body).toEqual({ code: 'test-auth-code' });
-      req.flush({ accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 });
+      req.flush({ accessToken: 'at', expiresIn: 3600 });
     });
 
     it('should call authService.setTokens and navigate to the post-login destination on success', () => {
       createComponent({ code: 'test-auth-code', state: STATE });
       spyOn(authService, 'setTokens');
-      const mockTokens: AuthTokens = { accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 };
+      const mockTokens: AuthTokens = { accessToken: 'at', expiresIn: 3600 };
       const req = httpTesting.expectOne(`${environment.apiUrl}/auth/google/callback`);
       req.flush(mockTokens);
       expect(authService.setTokens).toHaveBeenCalledWith(mockTokens);
@@ -87,7 +87,7 @@ describe('AuthCallbackComponent', () => {
 
     it('forgets the flow, so the same callback link cannot be used twice', () => {
       createComponent({ code: 'test-auth-code', state: STATE });
-      httpTesting.expectOne(`${environment.apiUrl}/auth/google/callback`).flush({ accessToken: 'a', refreshToken: 'r', expiresIn: 1 });
+      httpTesting.expectOne(`${environment.apiUrl}/auth/google/callback`).flush({ accessToken: 'a', expiresIn: 1 });
       expect(sessionStorage.getItem('indifferent.oauthFlow')).toBeNull();
     });
   });

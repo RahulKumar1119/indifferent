@@ -406,22 +406,13 @@ func isValidationError(err error) bool {
 	return strings.HasPrefix(msg, "invalid email") || strings.HasPrefix(msg, "password must be")
 }
 
-// handleRefresh refreshes an access token using a refresh token. The token comes
-// from the HttpOnly cookie, or from the body for web app copies that predate it.
+// handleRefresh refreshes an access token using the refresh token in the cookie.
 func (h *APIHandler) handleRefresh(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var body struct {
-		RefreshToken string `json:"refreshToken"`
-	}
-	if strings.TrimSpace(req.Body) != "" {
-		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
-			return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
-		}
-	}
-	token, fromCookie := presentedRefreshToken(req, body.RefreshToken)
+	token := refreshTokenFromCookie(req)
 	if token == "" {
 		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Refresh token is required"), nil
 	}
-	if fromCookie && !originAllowed(req) {
+	if !originAllowed(req) {
 		return errorResponse(http.StatusForbidden, "FORBIDDEN_ORIGIN", "This request is not allowed from this site"), nil
 	}
 	tokens, err := h.JWTService.RefreshToken(ctx, token)
@@ -433,29 +424,18 @@ func (h *APIHandler) handleRefresh(ctx context.Context, req events.APIGatewayPro
 			resp = errorResponse(http.StatusUnauthorized, "REFRESH_FAILED", "Token refresh failed")
 		}
 		// A cookie that no longer works is removed so the browser stops sending it.
-		if fromCookie {
-			resp = clearRefreshCookie(resp)
-		}
-		return resp, nil
+		return clearRefreshCookie(resp), nil
 	}
 	return tokensResponse(http.StatusOK, tokens), nil
 }
 
-// handleLogout invalidates a session and removes the cookie.
+// handleLogout invalidates the session in the cookie and removes the cookie.
 func (h *APIHandler) handleLogout(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var body struct {
-		RefreshToken string `json:"refreshToken"`
-	}
-	if strings.TrimSpace(req.Body) != "" {
-		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
-			return errorResponse(http.StatusBadRequest, "INVALID_BODY", "Invalid request body"), nil
-		}
-	}
-	token, fromCookie := presentedRefreshToken(req, body.RefreshToken)
+	token := refreshTokenFromCookie(req)
 	if token == "" {
 		return errorResponse(http.StatusBadRequest, "INVALID_INPUT", "Refresh token is required"), nil
 	}
-	if fromCookie && !originAllowed(req) {
+	if !originAllowed(req) {
 		return errorResponse(http.StatusForbidden, "FORBIDDEN_ORIGIN", "This request is not allowed from this site"), nil
 	}
 	if err := h.JWTService.Logout(ctx, token); err != nil {

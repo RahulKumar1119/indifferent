@@ -114,11 +114,16 @@ func TestPasswordRoutes_SignupLoginRoundTrip(t *testing.T) {
 		t.Fatalf("signup status %d, want 201 (body: %s)", resp.StatusCode, resp.Body)
 	}
 	var tokens struct {
-		AccessToken  string `json:"accessToken"`
-		RefreshToken string `json:"refreshToken"`
+		AccessToken string `json:"accessToken"`
 	}
 	if err := json.Unmarshal([]byte(resp.Body), &tokens); err != nil || tokens.AccessToken == "" {
 		t.Fatalf("signup did not return tokens: %s", resp.Body)
+	}
+	if strings.Contains(resp.Body, "refreshToken") {
+		t.Errorf("signup must not put the refresh token in the body: %s", resp.Body)
+	}
+	if cs := resp.MultiValueHeaders["Set-Cookie"]; len(cs) != 1 || !strings.Contains(cs[0], "indifferent_rt=") {
+		t.Errorf("signup must set the refresh cookie: %v", cs)
 	}
 
 	resp = postJSON(t, h, "/auth/login", `{"email":"NEW@example.com","password":"s3cret-pass"}`)
