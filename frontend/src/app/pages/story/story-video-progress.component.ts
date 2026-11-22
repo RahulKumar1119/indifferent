@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { LucideDynamicIcon } from '@lucide/angular';
-import { STAGES, VideoStatus, stageIndex } from './story-video.models';
+import { STAGES, VideoStatus, picturesDone, stageIndex } from './story-video.models';
 
 /**
  * How far a video has got: the three things that happen to it, in order, and a
@@ -36,6 +36,7 @@ import { STAGES, VideoStatus, stageIndex } from './story-video.models';
     .accent .dot { border-color: var(--color-accent); background: var(--color-accent); }
     .lbl { display: block; font-weight: 600; }
     .waiting .lbl { font-weight: 500; color: var(--color-ink-2); }
+    .expect { margin: var(--space-xs) 0 0; font-size: var(--type-sm); color: var(--color-ink-2); }
     .word { display: block; font-size: var(--type-sm); color: var(--color-ink-2); }
   `],
   template: `
@@ -45,6 +46,7 @@ import { STAGES, VideoStatus, stageIndex } from './story-video.models';
       <span class="pct" data-testid="percent">{{ percent() }}%</span>
     </p>
 
+    <p class="expect" data-testid="expect">Most videos take 2 to 3 minutes. It can take longer when the photo library is slow.</p>
     <ol aria-label="Steps">
       @for (s of stages; track s.status; let i = $index) {
         <li
@@ -72,13 +74,18 @@ export class StoryVideoProgressComponent {
   readonly status = input.required<VideoStatus>();
   /** 0 to 100, from the job record. */
   readonly progress = input.required<number>();
+  /** How many scenes (pictures) the video has. 0 when not known: no count is shown. */
+  readonly sceneCount = input(0);
 
   protected readonly stages = STAGES;
   protected readonly percent = computed(() => Math.min(100, Math.max(0, Math.round(this.progress()))));
   private readonly at = computed(() => stageIndex(this.status()));
   protected readonly doing = computed(() => {
     const i = this.at();
-    return i < 0 ? 'Starting' : (STAGES[i]?.doing ?? 'Finishing');
+    if (i < 0) return 'Starting up. This can take up to a minute.';
+    const total = this.sceneCount();
+    if (i === 0 && total > 0) return `${STAGES[0].doing}: ${picturesDone(this.progress(), total)} of ${total} done`;
+    return STAGES[i]?.doing ?? 'Finishing';
   });
 
   protected state(i: number): 'done' | 'current' | 'waiting' {

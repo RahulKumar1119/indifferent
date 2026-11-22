@@ -23,6 +23,7 @@ describe('StoryVideoProgressComponent', () => {
   const steps = () => Array.from(el.querySelectorAll('ol li'));
   const states = () => steps().map((s) => s.getAttribute('data-state'));
   const bar = () => el.querySelector('progress')!;
+  const doing = () => el.querySelector('[data-testid="doing"]')!.textContent;
 
   it('shows the percent on the bar and in words', async () => {
     await show('rendering', 62);
@@ -47,9 +48,9 @@ describe('StoryVideoProgressComponent', () => {
     expect(steps().map((s) => s.querySelector('.lbl')!.textContent!.trim())).toEqual(['Pictures', 'Narration', 'Video']);
   });
 
-  it('says "Starting" before the first stage and marks nothing in progress', async () => {
+  it('says it is starting up, and that this can take a minute, before the first stage and marks nothing in progress', async () => {
     await show('queued', 0);
-    expect(el.querySelector('[data-testid="doing"]')!.textContent).toBe('Starting');
+    expect(el.querySelector('[data-testid="doing"]')!.textContent).toBe('Starting up. This can take up to a minute.');
     expect(states()).toEqual(['waiting', 'waiting', 'waiting']);
     expect(el.querySelector('[aria-current]')).toBeNull();
   });
@@ -95,5 +96,53 @@ describe('StoryVideoProgressComponent', () => {
   it('is announced politely, as a status', async () => {
     await show('narrating', 30);
     expect(el.querySelector('[data-testid="doing"]')!.getAttribute('role')).toBe('status');
+  });
+  describe('counting the pictures', () => {
+    beforeEach(async () => {
+      await show('preparing', 5);
+      fixture.componentRef.setInput('sceneCount', 8);
+      await settle(fixture);
+    });
+    it('says none are done at the start of the pictures stage', () => {
+      expect(doing()).toBe('Getting your pictures ready: 0 of 8 done');
+    });
+    it('reads the count back from the progress the worker reports, for every number of pictures done', async () => {
+      for (const total of [1, 2, 3, 8, 12, 20]) {
+        fixture.componentRef.setInput('sceneCount', total);
+        for (let done = 0; done <= total; done++) {
+          // The worker's own formula: 5 + 20 * done / total, rounded down.
+          fixture.componentRef.setInput('progress', 5 + Math.floor((20 * done) / total));
+          await settle(fixture);
+          expect(doing()).withContext(`${done} of ${total}`).toBe(`Getting your pictures ready: ${done} of ${total} done`);
+        }
+      }
+    });
+    it('never reads more pictures than there are, nor a high count with many scenes', async () => {
+      fixture.componentRef.setInput('sceneCount', 30);
+      for (let done = 0; done <= 30; done++) {
+        fixture.componentRef.setInput('progress', 5 + Math.floor((20 * done) / 30));
+        await settle(fixture);
+        const n = Number(/: (\d+) of/.exec(doing()!)![1]);
+        expect(n).withContext(`${done} of 30`).toBeLessThanOrEqual(done);
+      }
+    });
+    it('shows no count when the number of scenes is not known', async () => {
+      fixture.componentRef.setInput('sceneCount', 0);
+      await settle(fixture);
+      expect(doing()).toBe('Getting your pictures ready');
+    });
+    it('shows no count after the pictures stage', async () => {
+      fixture.componentRef.setInput('status', 'narrating');
+      fixture.componentRef.setInput('progress', 30);
+      await settle(fixture);
+      expect(doing()).toBe('Recording the narration');
+    });
+  });
+  it('says how long a video usually takes, without a countdown and without an em dash', async () => {
+    await show('preparing', 10);
+    const t = el.querySelector('[data-testid="expect"]')!.textContent!;
+    expect(t).toContain('Most videos take 2 to 3 minutes');
+    expect(t).toContain('longer when the photo library is slow');
+    expect(el.textContent).not.toContain('\u2014');
   });
 });

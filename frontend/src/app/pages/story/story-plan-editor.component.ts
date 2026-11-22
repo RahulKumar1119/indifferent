@@ -254,6 +254,7 @@ type ScenePicture = 'chosen' | 'picked' | 'missing' | 'problem';
                   [planId]="rec.planId"
                   [revision]="rec.revision"
                   [language]="plan.language"
+                  [sceneCount]="plan.scenes.length"
                   [blocker]="videoReason()"
                   (voiceChange)="previewVoice.set($event)"
                   (planChanged)="load()"

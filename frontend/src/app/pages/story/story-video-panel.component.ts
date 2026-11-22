@@ -125,7 +125,7 @@ const DANGER = 'ui-btn ui-btn--danger';
                   <p class="note" data-testid="follow-notice">{{ followNotice() }}</p>
                 }
                 <div class="wide">
-                  <app-story-video-progress [status]="v.status" [progress]="v.progress" />
+                  <app-story-video-progress [status]="v.status" [progress]="v.progress" [sceneCount]="sceneCount()" />
                 </div>
                 @if (v.delayedScene; as n) {
                   <div class="delayed" data-testid="delayed">
@@ -399,6 +399,8 @@ export class StoryVideoPanelComponent implements OnDestroy {
   /** Its revision. The API refuses to make a video from any other. */
   readonly revision = input.required<number>();
   readonly language = input.required<string>();
+  /** How many scenes the plan has, for "3 of 8 pictures done". 0 hides the count. */
+  readonly sceneCount = input(0);
   /** Why a video cannot be made from this plan right now; empty when it can. */
   readonly blocker = input('');
   /** Milliseconds between checks on a video being made. */
