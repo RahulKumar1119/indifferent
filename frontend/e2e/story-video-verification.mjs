@@ -54,7 +54,10 @@ function reset(over = {}) {
     // How a video advances each time the page asks about it.
     script: [
       { status: 'queued', progress: 0 },
-      { status: 'preparing', progress: 12 },
+      // The worker reports 5 + 20 * pictures done / 3 while it copies the pictures of a 3-scene plan.
+      { status: 'preparing', progress: 5 },
+      { status: 'preparing', progress: 11 },
+      { status: 'preparing', progress: 18 },
       { status: 'narrating', progress: 40 },
       { status: 'rendering', progress: 70 },
       { status: 'rendering', progress: 92 },
@@ -267,10 +270,16 @@ try {
   // then the caption group (one stop), then the main button.
   await page.focus('#video-voice');
   await page.keyboard.press('Tab');
-  assert.equal(await page.evaluate(() => document.activeElement?.name + ':' + document.activeElement?.checked), 'video-caption:true', 'Tab from the voice menu did not reach the checked caption look');
-  await page.keyboard.press('Tab');
-  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-testid')), 'make', 'Tab from the caption group did not reach the main button');
-  note('Tab order: voice menu -> caption looks (one stop) -> "Make the video"');
+  assert.equal(await page.evaluate(() => document.activeElement?.name + ':' + document.activeElement?.checked), 'video-cap-preset:true', 'Tab from the voice menu did not reach the checked caption look');
+  // The caption studio has more controls now (look, font, size, colour, position, safe zone):
+  // each is a stop, and Tab must still end on the main button.
+  let stops = 0;
+  for (; stops < 15; stops++) {
+    await page.keyboard.press('Tab');
+    if ((await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))) === 'make') break;
+  }
+  assert.ok(stops < 15, 'Tab never reached the main button');
+  note(`Tab order: voice menu -> caption look (one stop) -> ${stops} more caption controls -> "Make the video"`);
   await page.focus('#video-voice');
   await page.keyboard.press('ArrowDown'); // Joanna -> Matthew
   assert.equal(await page.$eval('#video-voice', (s) => s.value), 'Matthew', 'ArrowDown did not change the voice');
@@ -278,7 +287,7 @@ try {
   // Move to the caption group and change with arrows.
   await page.focus('input[value="bold"]');
   await page.keyboard.press('ArrowDown'); // radios in one group move with arrows
-  const look = await page.$eval('input[name="video-caption"]:checked', (r) => r.value);
+  const look = await page.$eval('input[name="video-cap-preset"]:checked', (r) => r.value);
   assert.notEqual(look, 'bold', 'arrow key did not move the caption look');
   note(`caption looks: ArrowDown moves the choice (bold -> ${look})`);
   // The main button shows a visible focus ring.
@@ -291,7 +300,7 @@ try {
   note(`main button: focus ring ${ring.width}px ${ring.style} ${ring.color}`);
   await page.keyboard.press('Enter');
   await waitFor(page, () => document.querySelector('[data-testid="active"]'), 'the progress view');
-  assert.deepEqual(world.lastCreate, { planId: 'plan-1', revision: 2, voice: 'Matthew', caption: { preset: look } });
+  assert.deepEqual(world.lastCreate, { planId: 'plan-1', revision: 2, voice: 'Matthew', caption: { preset: look, fontSize: 18, color: '#FFFFFF', highlight: '#FFD60A', position: 'bottom', font: '', aboveControls: true } });
   note(`Enter on "Make the video" -> POST /story-videos with ${JSON.stringify(world.lastCreate)}`);
   await sleep(150);
   assert.equal(await text(page, '[data-state-heading]'), 'Making your video');
@@ -302,9 +311,12 @@ try {
   console.log('3. Progress');
   await shot(page, 'active-light-1280');
   const seen = [];
+  const sayings = [];
   const bar = () => page.$eval('progress', (p) => p.value);
+  assert.match(await text(page, '[data-testid="expect"]'), /Most videos take 2 to 3 minutes/);
   for (let i = 0; i < 40 && !(await exists(page, '[data-testid="done"]')); i++) {
     seen.push(await bar().catch(() => null));
+    sayings.push(await text(page, '[data-testid="doing"]').catch(() => null));
     await sleep(1500);
   }
   await waitFor(page, () => document.querySelector('[data-testid="done"]'), 'the finished view', 40000);
@@ -312,6 +324,11 @@ try {
   assert.ok(distinct.length >= 3, `the bar did not move through several values: ${distinct}`);
   assert.deepEqual(distinct, [...distinct].sort((a, b) => a - b), 'the bar went backwards');
   note(`progress bar moved ${distinct.join(' -> ')} then the view became "Your video is ready"`);
+  const said = [...new Set(sayings.filter(Boolean))];
+  note(`the line under the bar said: ${said.map((x) => JSON.stringify(x)).join(' -> ')}`);
+  for (const want of ['Starting up. This can take up to a minute.', 'Getting your pictures ready: 0 of 3 done', 'Getting your pictures ready: 1 of 3 done', 'Getting your pictures ready: 2 of 3 done']) {
+    assert.ok(said.includes(want), `never said "${want}"; said ${JSON.stringify(said)}`);
+  }
   assert.equal(await text(page, '[data-testid="announcement"]'), 'Your video is ready.');
   note('completion announced in the status region: "Your video is ready."');
 
@@ -352,14 +369,14 @@ try {
   console.log('5. Another version, and deleting');
   await click(page, 'another');
   await waitFor(page, () => document.querySelector('[data-testid="make-form"]'), 'the form for another version');
-  const terracotta = await page.$$eval('button', (bs) =>
-    bs.filter((b) => b.className.includes('bg-[#BC5227]') && b.offsetParent).map((b) => ({ label: b.textContent.trim(), disabled: b.disabled })),
+  const terracotta = await page.$$eval('app-story-video-panel button', (bs) =>
+    bs.filter((b) => b.className.includes('ui-btn--primary') && b.offsetParent).map((b) => ({ label: b.textContent.trim(), disabled: b.disabled })),
   );
   const primaries = terracotta.filter((b) => !b.disabled).map((b) => b.label);
   assert.deepEqual(primaries, ['Make this version'], 'more than one main action on screen');
   note(`terracotta buttons seen: ${JSON.stringify(terracotta)} (a disabled one is not an action)`);
   note('with the form open, "Make this version" is the only main action');
-  await page.$$eval('button', (bs) => bs.find((b) => b.textContent.trim() === 'Not now').click());
+  await page.$$eval('app-story-video-panel button', (bs) => bs.find((b) => b.textContent.trim() === 'Not now').click());
   await sleep(100);
   assert.equal(await exists(page, '[data-testid="make-form"]'), false);
   note('"Not now" closes the form');
@@ -455,7 +472,7 @@ try {
   reset({ language: 'hi' });
   page = await openPage('light', 375);
   await goto(page);
-  assert.equal(await exists(page, 'select'), false);
+  assert.equal(await exists(page, '#video-voice'), false);
   assert.match(await text(page, '[data-testid="voice-note"]'), /Hindi narration has one voice/);
   note('Hindi shows the one voice as a fact, with no menu');
   await page.close();

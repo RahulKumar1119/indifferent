@@ -182,3 +182,17 @@ export function sceneInMessage(message: string | undefined): number | null {
 
 /** Failures that choosing another picture can fix. Running the same job again cannot. */
 export const PICTURE_ERROR_CODES: readonly string[] = ['MEDIA_UNAVAILABLE', 'MEDIA_INVALID'];
+
+/**
+ * The worker reports the pictures stage as 5 to 25 percent, in whole scenes:
+ * 5 + 20 * done / total, rounded down (backend/internal/storyjob/run.go). This
+ * reads it back. With more than 20 scenes, several pictures share one percent,
+ * so the count can read a picture low; it never reads high.
+ */
+export const PICTURES_FROM = 5;
+export const PICTURES_TO = 25;
+export function picturesDone(progress: number, total: number): number {
+  if (total <= 0) return 0;
+  const done = Math.ceil(((progress - PICTURES_FROM) * total) / (PICTURES_TO - PICTURES_FROM));
+  return Math.min(total, Math.max(0, done));
+}
