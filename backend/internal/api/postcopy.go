@@ -238,8 +238,14 @@ func (h *APIHandler) loadPostCopy(ctx context.Context, userID string, t postCopy
 	if len(out.Item) == 0 {
 		return nil, nil
 	}
+	return postCopyFromItem(out.Item)
+}
+
+// postCopyFromItem reads a stored copy. A record that cannot be read is an error,
+// not an empty copy, so a person is never shown a blank form over their text.
+func postCopyFromItem(item map[string]dbtypes.AttributeValue) (*PostCopySaved, error) {
 	str := func(k string) string {
-		v, _ := out.Item[k].(*dbtypes.AttributeValueMemberS)
+		v, _ := item[k].(*dbtypes.AttributeValueMemberS)
 		if v == nil {
 			return ""
 		}
@@ -603,4 +609,83 @@ func tooLittleToWrite(t postCopyTarget) string {
 		return "This story has too little text to write from."
 	}
 	return "There is too little spoken text in this clip to write from."
+}
+
+// --- the list for one Shorts job -------------------------------------------
+
+// parsePostCopyListPath recognises GET /shorts/{id}/post-copy.
+func parsePostCopyListPath(path string) (string, bool) {
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if len(parts) == 3 && parts[0] == "shorts" && parts[2] == "post-copy" && parts[1] != "" && !strings.Contains(parts[1], "#") {
+		return parts[1], true
+	}
+	return "", false
+}
+
+func isPostCopyListPath(path string) bool {
+	_, ok := parsePostCopyListPath(path)
+	return ok
+}
+
+// PostCopyListView is the body of GET /shorts/{id}/post-copy: which clips of a job
+// have copy saved, so the clips page can offer a quick copy without a request
+// for each clip.
+type PostCopyListView struct {
+	Enabled        bool                     `json:"enabled"`
+	Platforms      []videocopy.PlatformSpec `json:"platforms"`
+	Saved          map[string]PostCopySaved `json:"saved"`
+	RemainingToday *int64                   `json:"remainingToday,omitempty"`
+	DailyLimit     int64                    `json:"dailyLimit"`
+}
+
+func (h *APIHandler) handlePostCopyList(ctx context.Context, req events.APIGatewayProxyRequest, claims *models.JWTClaims) (events.APIGatewayProxyResponse, error) {
+	jobID, ok := parsePostCopyListPath(req.Path)
+	if !ok || req.HTTPMethod != http.MethodGet {
+		return errorResponse(http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed"), nil
+	}
+	view := PostCopyListView{Enabled: h.PostCopyWriter != nil, Platforms: h.postCopySpecs(), Saved: map[string]PostCopySaved{}, DailyLimit: quotaCopyHelper.limit}
+	if !view.Enabled {
+		return jsonResponse(http.StatusOK, view), nil
+	}
+	if _, err := h.getShortsJobByID(ctx, claims.UserID, jobID); err != nil {
+		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
+	}
+	prefix := "POSTCOPY#CLIP#" + jobID + "#"
+	var start map[string]dbtypes.AttributeValue
+	for {
+		out, err := h.DB.Query(ctx, &dynamodb.QueryInput{
+			TableName:              aws.String(h.TableName),
+			KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :sk)"),
+			ExpressionAttributeValues: map[string]dbtypes.AttributeValue{
+				":pk": &dbtypes.AttributeValueMemberS{Value: "USER#" + claims.UserID},
+				":sk": &dbtypes.AttributeValueMemberS{Value: prefix},
+			},
+			ExclusiveStartKey: start,
+		})
+		if err != nil {
+			log.Printf("postcopy_list_failed user=%s job=%s err=%v", claims.UserID, jobID, err)
+			return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Could not read the saved copy. Please try again."), nil
+		}
+		for _, it := range out.Items {
+			saved, err := postCopyFromItem(it)
+			if err != nil {
+				continue // one unreadable record must not hide the others
+			}
+			view.Saved[strings.TrimPrefix(pcSKString(it), prefix)] = *saved
+		}
+		if len(out.LastEvaluatedKey) == 0 {
+			break
+		}
+		start = out.LastEvaluatedKey
+	}
+	view.RemainingToday = remainingOf(quotaCopyHelper, h.quotaUsedToday(ctx, claims.UserID, quotaCopyHelper))
+	return jsonResponse(http.StatusOK, view), nil
+}
+
+func pcSKString(it map[string]dbtypes.AttributeValue) string {
+	v, _ := it["SK"].(*dbtypes.AttributeValueMemberS)
+	if v == nil {
+		return ""
+	}
+	return v.Value
 }

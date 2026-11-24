@@ -234,6 +234,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleGetStoryPlanLimits(), nil
 	case req.HTTPMethod == "GET" && req.Path == "/story-videos/limits":
 		return h.handleGetStoryVideoLimits(), nil
+	case isPostCopyListPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handlePostCopyList)
 	case isPostCopyPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handlePostCopy)
 	case isStoryVideoPath(req.Path):

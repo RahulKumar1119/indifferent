@@ -36,6 +36,9 @@ import {
   wasCancelled,
 } from './story-video.models';
 import { StoryVideoService } from './story-video.service';
+import { PostCopyComponent } from '../../shared/post-copy/post-copy.component';
+import { PostCopyTarget } from '../../shared/post-copy/post-copy.models';
+import { PostCopyService } from '../../shared/post-copy/post-copy.service';
 
 /** Voices to offer if the limits cannot be loaded. The API refuses any it does not know. */
 const FALLBACK_VOICES: Record<string, string[]> = {
@@ -67,7 +70,7 @@ const DANGER = 'ui-btn ui-btn--danger';
   selector: 'app-story-video-panel',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, NgTemplateOutlet, LucideDynamicIcon, StoryProblemComponent, StoryVideoOptionsComponent, StoryVideoProgressComponent],
+  imports: [DatePipe, NgTemplateOutlet, LucideDynamicIcon, PostCopyComponent, StoryProblemComponent, StoryVideoOptionsComponent, StoryVideoProgressComponent],
   styles: [`
     :host { display: block; }
     .video { scroll-margin-top: calc(56px + var(--space-md)); display: flex; flex-direction: column; gap: var(--space-md); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); font-family: var(--font-body); color: var(--color-ink); }
@@ -78,6 +81,8 @@ const DANGER = 'ui-btn ui-btn--danger';
     .card > * { max-width: 100%; }
     .wide { align-self: stretch; }
     .line { margin: 0; display: flex; align-items: center; gap: var(--space-sm); color: var(--color-ink-2); }
+    .post-copy { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
+    .post-copy .wide { width: 100%; }
     .note { margin: 0; max-width: 42rem; font-size: var(--type-sm); color: var(--color-ink-2); }
     .delayed { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-xs); }
     .lead { margin: 0; max-width: 42rem; color: var(--color-ink-2); }
@@ -189,6 +194,18 @@ const DANGER = 'ui-btn ui-btn--danger';
               <div class="ui-card card" data-testid="done">
                 <h3 data-state-heading tabindex="-1">Your video is ready</h3>
                 <ng-container [ngTemplateOutlet]="finished" [ngTemplateOutletContext]="{ $implicit: v, latest: true }" />
+                @if (postCopyOn()) {
+                  <div class="post-copy" data-testid="post-copy-host">
+                    <button type="button" [class]="secondary" data-testid="post-copy-toggle" aria-controls="post-copy-region" [attr.aria-expanded]="postCopyOpen()" (click)="postCopyOpen.set(!postCopyOpen())">
+                      {{ postCopyOpen() ? 'Hide post copy' : 'Post copy' }}
+                    </button>
+                    @if (postCopyOpen()) {
+                      <div id="post-copy-region" class="wide">
+                        <app-post-copy [target]="postCopyTarget(v)" />
+                      </div>
+                    }
+                  </div>
+                }
                 <p class="note" data-testid="licence-note">
                   This is the finished video only. The pictures and clips in it stay under the Pexels and Pixabay licences. Neither requires a
                   credit in your video; the credit for each picture is under its scene above.
@@ -499,6 +516,13 @@ export class StoryVideoPanelComponent implements OnDestroy {
   private requests: Subscription[] = [];
   private lastStatus = '';
   private lastDelayed = 0;
+  private readonly postCopyService = inject(PostCopyService);
+  /** The finished video the post copy switch was last asked about. */
+  private postCopyAsked = '';
+  private readonly postCopyTargets = new Map<string, PostCopyTarget>();
+  /** True when the server has post copy switched on, for the finished video on show. */
+  protected readonly postCopyOn = signal(false);
+  protected readonly postCopyOpen = signal(false);
 
   constructor() {
     effect(() => {
@@ -509,6 +533,34 @@ export class StoryVideoPanelComponent implements OnDestroy {
       const voice = this.options().voice;
       untracked(() => this.voiceChange.emit(voice));
     });
+    // Ask once per finished video whether post copy is on, so a button is never
+    // shown for a feature that is off.
+    effect(() => {
+      const v = this.latest();
+      const done = this.view() === 'done' && v ? v.jobId : '';
+      untracked(() => {
+        if (!done || done === this.postCopyAsked) return;
+        this.postCopyAsked = done;
+        this.postCopyOn.set(false);
+        this.postCopyOpen.set(false);
+        this.requests.push(
+          this.postCopyService.view({ kind: 'story', videoId: done }).subscribe({
+            next: (pc) => this.postCopyOn.set(pc.enabled),
+            error: () => this.postCopyOn.set(false),
+          }),
+        );
+      });
+    });
+  }
+
+  /** One stable target per video, so the component below is not handed a new object each time. */
+  protected postCopyTarget(v: StoryVideo): PostCopyTarget {
+    let t = this.postCopyTargets.get(v.jobId);
+    if (!t) {
+      t = { kind: 'story', videoId: v.jobId };
+      this.postCopyTargets.set(v.jobId, t);
+    }
+    return t;
   }
 
   ngOnDestroy(): void {
