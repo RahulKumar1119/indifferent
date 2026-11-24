@@ -108,7 +108,7 @@ function fakeApi(request) {
   if (method === 'OPTIONS') return request.respond({ status: 204, headers: CORS });
   world.requests.push(`${method} ${path}${url.search}`);
 
-  if (path === '/auth/refresh') return json(request, 200, { accessToken: 'e2e', refreshToken: 'e2e', expiresIn: 3600 });
+  if (path === '/auth/refresh') return json(request, 200, { accessToken: 'e2e', expiresIn: 3600 });
   if (path === '/auth/me') return json(request, 200, { id: 'u1', email: 'e2e@example.com', name: 'E2E' });
   if (path === '/story-plans/limits') return json(request, 200, { enabled: true, minStoryChars: 30, maxStoryChars: 5000, minScenes: 2, maxScenes: 10, maxTotalSeconds: 90, perHour: 20 });
   if (path === '/story-plans/plan-1' && method === 'GET') return json(request, 200, planRecord());
@@ -180,7 +180,7 @@ async function openPage(theme = 'light', width = 1280) {
   });
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   await page.evaluateOnNewDocument((t) => {
-    localStorage.setItem('indifferent.refreshToken', 'e2e-refresh-token');
+    localStorage.setItem('indifferent.session', 'e2e');
     localStorage.setItem('app-theme', t);
   }, theme);
   await page.setViewport({ width, height: 900, deviceScaleFactor: 1 });

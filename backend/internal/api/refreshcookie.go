@@ -16,9 +16,8 @@ import (
 // site, so the web app's own calls carry it and a request started from another
 // site does not.
 //
-// During the move the refresh token is also still returned in the response body
-// and still accepted in the request body, so a web app that has not been updated
-// keeps working. Both are removed once every older browser copy has expired.
+// The refresh token is only ever in this cookie: it is not in any response body
+// and not accepted in any request body.
 const (
 	refreshCookieName = "indifferent_rt"
 	refreshCookiePath = "/auth"
@@ -52,10 +51,16 @@ func withSetCookie(resp events.APIGatewayProxyResponse, cookie string) events.AP
 	return resp
 }
 
-// tokensResponse is the response for a sign-in or refresh: the tokens as JSON
-// (as before) and the refresh token in the cookie.
+// sessionBody is what a sign-in or refresh returns as JSON: the access token and
+// how long it lasts. The refresh token goes in the cookie only.
+type sessionBody struct {
+	AccessToken string `json:"accessToken"`
+	ExpiresIn   int64  `json:"expiresIn"`
+}
+
+// tokensResponse is the response for a sign-in or refresh.
 func tokensResponse(status int, tokens *models.AuthTokens) events.APIGatewayProxyResponse {
-	resp := jsonResponse(status, tokens)
+	resp := jsonResponse(status, sessionBody{AccessToken: tokens.AccessToken, ExpiresIn: tokens.ExpiresIn})
 	return withSetCookie(resp, refreshCookie(tokens.RefreshToken, int(auth.RefreshTokenTTL.Seconds())))
 }
 
@@ -96,18 +101,7 @@ func refreshTokenFromCookie(req events.APIGatewayProxyRequest) string {
 	return strings.TrimSpace(c.Value)
 }
 
-// presentedRefreshToken picks the refresh token for a request: the cookie when
-// there is one, otherwise the one in the body (older web app copies). fromCookie
-// tells the caller which, because the cookie is sent by the browser without the
-// page's say-so and so needs the origin check below.
-func presentedRefreshToken(req events.APIGatewayProxyRequest, bodyToken string) (token string, fromCookie bool) {
-	if t := refreshTokenFromCookie(req); t != "" {
-		return t, true
-	}
-	return strings.TrimSpace(bodyToken), false
-}
-
-// originAllowed is the second guard for a request that relies on the cookie, on
+// originAllowed is the second guard for a request that carries the cookie, on
 // top of SameSite=Strict: when the browser names an Origin it must be ours.
 // Requests with no Origin (not from a browser page) are not refused here; they
 // cannot carry the browser's cookie from another site anyway.

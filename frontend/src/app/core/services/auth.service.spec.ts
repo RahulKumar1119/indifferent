@@ -32,7 +32,7 @@ describe('AuthService', () => {
   });
 
   it('should store access token via setTokens', () => {
-    const tokens: AuthTokens = { accessToken: 'test-token', refreshToken: 'rt', expiresIn: 3600 };
+    const tokens: AuthTokens = { accessToken: 'test-token', expiresIn: 3600 };
     service.setTokens(tokens);
     expect(service.getAccessToken()).toBe('test-token');
   });
@@ -40,12 +40,12 @@ describe('AuthService', () => {
   it('should return the stored token from getAccessToken', () => {
     expect(service.getAccessToken()).toBeNull();
 
-    service.setTokens({ accessToken: 'my-token', refreshToken: 'rt', expiresIn: 3600 });
+    service.setTokens({ accessToken: 'my-token', expiresIn: 3600 });
     expect(service.getAccessToken()).toBe('my-token');
   });
 
   it('should return true from isAuthenticated when token exists', () => {
-    service.setTokens({ accessToken: 'token', refreshToken: 'rt', expiresIn: 3600 });
+    service.setTokens({ accessToken: 'token', expiresIn: 3600 });
     expect(service.isAuthenticated()).toBeTrue();
   });
 
@@ -55,10 +55,10 @@ describe('AuthService', () => {
 
   const MARKER = 'indifferent.session';
   const LEGACY = 'indifferent.refreshToken';
-  const tokens = (at = 'new-at'): AuthTokens => ({ accessToken: at, refreshToken: 'rt-from-body', expiresIn: 3600 });
+  const tokens = (at = 'new-at'): AuthTokens => ({ accessToken: at, expiresIn: 3600 });
 
   it('never stores the refresh token: the cookie holds it', () => {
-    service.setTokens({ accessToken: 'at', refreshToken: 'secret-rt', expiresIn: 3600 });
+    service.setTokens({ accessToken: 'at', refreshToken: 'secret-rt', expiresIn: 3600 } as AuthTokens);
     const everything = JSON.stringify(Object.entries(localStorage)) + JSON.stringify(Object.entries(sessionStorage));
     expect(everything).not.toContain('secret-rt');
     expect(localStorage.getItem(LEGACY)).toBeNull();
@@ -86,16 +86,11 @@ describe('AuthService', () => {
     req.flush(mockTokens);
   });
 
-  it('carries an older version\'s stored token over once, then deletes it', () => {
+  it('deletes a refresh token an older version left behind, and does not send it', () => {
     localStorage.setItem(LEGACY, 'old-version-rt');
     service.initialize().subscribe();
-    const req = httpTesting.expectOne(`${environment.apiUrl}/auth/refresh`);
-    expect(req.request.body).toEqual({ refreshToken: 'old-version-rt' });
-    expect(req.request.withCredentials).toBeTrue();
-    req.flush(tokens());
     expect(localStorage.getItem(LEGACY)).toBeNull();
-    expect(localStorage.getItem(MARKER)).toBeTruthy();
-    expect(service.getAccessToken()).toBe('new-at');
+    httpTesting.expectNone(`${environment.apiUrl}/auth/refresh`);
   });
 
   it('fails fast without an HTTP call when this browser has no sign-in', () => {
@@ -155,16 +150,6 @@ describe('AuthService', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/login']);
   });
 
-  it('logout also sends a token an older version left behind', () => {
-    spyOn(router, 'navigate');
-    localStorage.setItem(LEGACY, 'old-version-rt');
-    service.logout();
-    const req = httpTesting.expectOne(`${environment.apiUrl}/auth/logout`);
-    expect(req.request.body).toEqual({ refreshToken: 'old-version-rt' });
-    req.flush(null);
-    expect(localStorage.getItem(LEGACY)).toBeNull();
-  });
-
   it('shares one in-flight refresh between concurrent callers (singleflight)', () => {
     service.setTokens(tokens('old-at'));
     const mockTokens = tokens('new-at');
@@ -200,7 +185,7 @@ describe('AuthService', () => {
 
   describe('logoutAll', () => {
     it('asks the server, then clears the local session and goes to the login page', () => {
-      service.setTokens({ accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 });
+      service.setTokens({ accessToken: 'at', expiresIn: 3600 });
       const navigate = spyOn(router, 'navigate').and.resolveTo(true);
       service.logoutAll().subscribe();
       // Nothing is cleared until the server has answered.
@@ -212,7 +197,7 @@ describe('AuthService', () => {
     });
 
     it('keeps the session when the server fails, so the user can try again', () => {
-      service.setTokens({ accessToken: 'at', refreshToken: 'rt', expiresIn: 3600 });
+      service.setTokens({ accessToken: 'at', expiresIn: 3600 });
       const navigate = spyOn(router, 'navigate').and.resolveTo(true);
       let failed = false;
       service.logoutAll().subscribe({ error: () => (failed = true) });

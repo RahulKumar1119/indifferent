@@ -43,26 +43,36 @@ func TestRefreshCookie_SignInSetsIt(t *testing.T) {
 	if len(cs) != 1 || !strings.Contains(cs[0], "indifferent_rt=mock-refresh-token") || !strings.Contains(cs[0], "HttpOnly") {
 		t.Errorf("sign-in must set the cookie, got %v", cs)
 	}
-	// Still in the body while older web app copies exist.
-	if !strings.Contains(resp.Body, "mock-refresh-token") {
-		t.Errorf("the body should still carry the refresh token during the move: %s", resp.Body)
+	// The refresh token is in the cookie only.
+	if strings.Contains(resp.Body, "mock-refresh-token") || strings.Contains(resp.Body, "refreshToken") {
+		t.Errorf("the body must not carry the refresh token: %s", resp.Body)
+	}
+	if !strings.Contains(resp.Body, "mock-access-token") {
+		t.Errorf("the body should carry the access token: %s", resp.Body)
 	}
 }
 
-func TestRefreshCookie_ReadsCookieAndBody(t *testing.T) {
+func TestRefreshCookie_ReadsOnlyTheCookie(t *testing.T) {
 	r := events.APIGatewayProxyRequest{Headers: map[string]string{"cookie": "a=1; indifferent_rt=from-cookie; b=2"}}
-	if tok, fromCookie := presentedRefreshToken(r, "from-body"); tok != "from-cookie" || !fromCookie {
-		t.Errorf("cookie must win: %q %v", tok, fromCookie)
+	if tok := refreshTokenFromCookie(r); tok != "from-cookie" {
+		t.Errorf("cookie not read: %q", tok)
 	}
 	r = events.APIGatewayProxyRequest{MultiValueHeaders: map[string][]string{"Cookie": {"indifferent_rt=mv"}}}
-	if tok, _ := presentedRefreshToken(r, ""); tok != "mv" {
+	if tok := refreshTokenFromCookie(r); tok != "mv" {
 		t.Errorf("multi-value header not read: %q", tok)
 	}
-	if tok, fromCookie := presentedRefreshToken(events.APIGatewayProxyRequest{}, " from-body "); tok != "from-body" || fromCookie {
-		t.Errorf("body fallback: %q %v", tok, fromCookie)
-	}
-	if tok, _ := presentedRefreshToken(events.APIGatewayProxyRequest{Headers: map[string]string{"Cookie": "other=1"}}, ""); tok != "" {
+	if tok := refreshTokenFromCookie(events.APIGatewayProxyRequest{Headers: map[string]string{"Cookie": "other=1"}}); tok != "" {
 		t.Errorf("another cookie must not count: %q", tok)
+	}
+}
+
+func TestRefreshCookie_ABodyTokenIsNoLongerAccepted(t *testing.T) {
+	h := newTestHandler()
+	for _, path := range []string{"/auth/refresh", "/auth/logout"} {
+		resp := call(h, "POST", path, `{"refreshToken":"anything"}`, nil)
+		if resp.StatusCode != 400 {
+			t.Errorf("%s with only a body token: %d %s", path, resp.StatusCode, resp.Body)
+		}
 	}
 }
 
@@ -103,11 +113,6 @@ func TestRefreshCookie_FailedRefreshClearsTheCookie(t *testing.T) {
 	}
 	if !strings.Contains(cs[0], "Max-Age=0") && !strings.Contains(cs[0], "Max-Age=-1") {
 		t.Errorf("the cleared cookie must expire: %q", cs[0])
-	}
-	// A body token that fails does not touch the cookie: it was never the cookie that failed.
-	resp = call(h, "POST", "/auth/refresh", `{"refreshToken":"unknown"}`, nil)
-	if resp.StatusCode != 401 || len(setCookies(resp)) != 0 {
-		t.Errorf("body-token failure must not set a cookie: %d %v", resp.StatusCode, setCookies(resp))
 	}
 }
 

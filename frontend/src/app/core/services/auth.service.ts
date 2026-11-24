@@ -19,9 +19,9 @@ import { SUPPRESS_GLOBAL_ERROR } from '../interceptors/error.interceptor';
  */
 const SESSION_MARKER_KEY = 'indifferent.session';
 /**
- * The key older versions of the app kept the refresh token under. A browser that
- * still has one sends it once, in the body, so its sign-in carries over to the
- * cookie; it is then deleted.
+ * The key older versions of the app kept the refresh token under. Nothing reads
+ * it any more (the API no longer accepts a token in a request body); a copy a
+ * browser still has is deleted at start-up.
  */
 const LEGACY_REFRESH_TOKEN_KEY = 'indifferent.refreshToken';
 
@@ -70,16 +70,6 @@ export class AuthService {
     }
   }
 
-  /** A refresh token an older version of the app left in this browser (migration only). */
-  private legacyRefreshToken(): string | null {
-    if (!this.isBrowser) return null;
-    try {
-      return localStorage.getItem(LEGACY_REFRESH_TOKEN_KEY);
-    } catch {
-      return null;
-    }
-  }
-
   /** Remember where to land after the OAuth round-trip (survives Google). */
   setPostLoginNext(path: string): void {
     sessionStorage.setItem(POST_LOGIN_NEXT_KEY, path);
@@ -122,17 +112,14 @@ export class AuthService {
   }
 
   private refreshOnce(retried = false): Observable<AuthTokens> {
-    const legacy = this.legacyRefreshToken();
     const markerAtStart = this.sessionMarker();
-    if (!legacy && !markerAtStart) {
+    if (!markerAtStart) {
       // No sign-in in this browser: fail fast instead of calling the API for nothing.
       return throwError(() => new Error('No session to restore'));
     }
-    // The cookie goes with the request by itself. A browser that still holds an
-    // older version's token sends it once so the sign-in carries over.
-    const body = legacy ? { refreshToken: legacy } : {};
+    // The cookie goes with the request by itself; there is no token in the body.
     return this.http
-      .post<AuthTokens>(`${environment.apiUrl}/auth/refresh`, body, { withCredentials: true })
+      .post<AuthTokens>(`${environment.apiUrl}/auth/refresh`, {}, { withCredentials: true })
       .pipe(
         tap((tokens) => this.setTokens(tokens)),
         catchError((err) => {
@@ -182,6 +169,7 @@ export class AuthService {
       this.initialized$.next(true);
       return of(null);
     }
+    this.dropLegacyRefreshToken();
     if (this.getAccessToken() !== null) {
       this.initialized$.next(true);
       return of(null);
@@ -194,6 +182,15 @@ export class AuthService {
       }),
       finalize(() => this.initialized$.next(true)),
     );
+  }
+
+  /** Deletes the refresh token an older version of the app left in this browser. */
+  private dropLegacyRefreshToken(): void {
+    try {
+      localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+    } catch {
+      // Storage unavailable: nothing to delete.
+    }
   }
 
   clearAccessToken(): void {
@@ -210,12 +207,11 @@ export class AuthService {
   logout(): void {
     // Optimistic: clear local session and leave immediately, even offline or
     // on a hanging request. The server-side revoke is fire-and-forget.
-    const legacy = this.legacyRefreshToken();
     this.clearAccessToken();
     this.router.navigate(['/login']);
-    // The cookie identifies the session; an older version's token is sent as well if one is left.
+    // The cookie identifies the session; the server ends it and removes the cookie.
     this.http
-      .post(`${environment.apiUrl}/auth/logout`, legacy ? { refreshToken: legacy } : {}, { withCredentials: true })
+      .post(`${environment.apiUrl}/auth/logout`, {}, { withCredentials: true })
       .subscribe({ error: () => {} });
   }
 

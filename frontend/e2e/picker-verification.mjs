@@ -26,7 +26,6 @@ function fakeApi(request) {
       headers,
       body: JSON.stringify({
         accessToken: 'e2e-access-token',
-        refreshToken: 'e2e-refresh-token',
         expiresIn: 3600,
       }),
     });
@@ -86,7 +85,7 @@ const browser = await puppeteer.launch({
 });
 try {
   const page = await browser.newPage();
-  await page.evaluateOnNewDocument(() => localStorage.setItem('indifferent.refreshToken', 'e2e-refresh-token'));
+  await page.evaluateOnNewDocument(() => localStorage.setItem('indifferent.session', 'e2e'));
   await page.setRequestInterception(true);
   page.on('request', (request) => {
     const url = new URL(request.url());
