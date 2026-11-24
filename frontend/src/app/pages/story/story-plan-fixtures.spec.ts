@@ -1,5 +1,6 @@
 // Shared test data for the Story2Shorts screens. A .spec.ts file so it stays out
 // of the production build; it holds no tests of its own.
+import { PostCopyService } from '../../shared/post-copy/post-copy.service';
 import { Component } from '@angular/core';
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
@@ -20,6 +21,7 @@ import {
   LucideTrash2,
   LucideVolume2,
   LucideTriangleAlert,
+  LucideSparkles,
   LucideWandSparkles,
   LucideX,
   provideLucideIcons,
@@ -52,6 +54,7 @@ export const STORY_ICONS = provideLucideIcons(
   LucideVolume2,
   LucideSquare,
   LucideTriangleAlert,
+  LucideSparkles,
   LucideVolume2,
   LucideWandSparkles,
   LucideX,
@@ -265,5 +268,13 @@ export function videoServiceSpy(): VideoServiceSpy {
   ]);
   spy.getLimits.and.returnValue(of(VIDEO_LIMITS));
   spy.listForPlan.and.returnValue(of({ videos: [], hasMore: false }));
+  return spy;
+}
+
+/** Post copy off, the way a server without the switch answers (#330). */
+export function postCopyOffSpy(): jasmine.SpyObj<PostCopyService> {
+  const spy = jasmine.createSpyObj<PostCopyService>('PostCopyService', ['view', 'list', 'write', 'save']);
+  spy.view.and.returnValue(of({ enabled: false, platforms: [], saved: null, dailyLimit: 20 }));
+  spy.list.and.returnValue(of({ enabled: false, platforms: [], saved: {}, dailyLimit: 20 }));
   return spy;
 }

@@ -124,6 +124,7 @@ export class PrivacyComponent implements OnInit {
         'Files you upload: TXT quiz files, and video or audio files for AI Shorts.',
         'What the tools make from them: transcripts, the moments chosen and their scores, rendered clips, quiz slides and videos, and thumbnails.',
         'Project records: names, the options you chose (voice, design, language, caption style, effects), status and timestamps.',
+        'Post copy: when you ask for it, the title, captions and hashtags written for a clip or a Story video, and any changes you save to them, are kept with that clip or video.',
         'For Story videos: the plan made from your story (a hook, narration lines, scene descriptions, search words, and the picture you chose for each scene), and each video’s voice, caption style, status and timestamps. The story itself is not kept: see section 03.',
         'Your notification preferences from Settings.',
         'Usage and technical data from Google Analytics and Amazon CloudWatch RUM: pages visited, errors and performance. Section 07 describes them.',
@@ -136,6 +137,7 @@ export class PrivacyComponent implements OnInit {
       items: [
         'TXT to quiz video: the text file is uploaded and read on our servers. Amazon Polly turns each question and answer into speech, and the slides and video are rendered on AWS. The file and the result are stored with your project so you can render again.',
         'AI Shorts: the video or audio file is uploaded to private storage. Amazon Transcribe produces the transcript. The transcript is sent to a language model on Amazon Bedrock, which picks the moments. Frames sampled from the video are sent to Amazon Rekognition to find faces. FFmpeg renders the clips. The thumbnail feature sends frames to Amazon Rekognition and Amazon Bedrock.',
+        'Post copy: when you ask for it, the words of one clip (from its transcript) or the narration of one Story video are sent to a language model on Amazon Bedrock, which writes a title, captions and hashtags for YouTube, TikTok and Instagram Reels. We keep what it writes and what you change, not a second copy of the words that were sent. Nothing is posted anywhere for you.',
         'Story videos, the plan: the story you write is sent to a language model on Amazon Bedrock, which writes the plan. We keep the plan and not the story, and only the story’s length is recorded. The plan’s narration lines can follow your own wording closely, and they are kept.',
         'Story videos, the pictures: when you search, our server sends the search words (the scene’s keywords, or what you type) to Pexels and Pixabay, without your name, email or account. When you make a plan, our server may also search Pixabay with each scene’s keywords to suggest a picture, the same search the picker makes when you open it. A scene whose keywords look like contact details, a link or a long number is not searched. Your browser then loads the preview pictures and clips directly from those services and the networks they use, so they can see your IP address and browser details, as any site you visit can.',
         'Story videos, the video: the pictures and clips you chose are copied into our private storage, Amazon Polly speaks the narration, and FFmpeg renders the video on AWS. Only the narration text goes to Polly. The pictures and clips are not sent to any image or face recognition service.',
@@ -156,6 +158,7 @@ export class PrivacyComponent implements OnInit {
         'Nothing else is deleted automatically. Projects, Shorts, clips and their records stay until you delete them.',
         'Deleting a project or a Short removes its stored files and its database record.',
         'For Story videos, the pictures and clips copied from Pexels and Pixabay and the narration audio are working files, so they go after 7 days. The finished video stays until you delete it, and deleting it removes the video, its working files and its record.',
+        'Post copy is kept with its clip or Story video, and deleting the clip’s Short or the Story video deletes its post copy with it.',
         'Story plans stay until you ask us to remove them. The app has no button to delete a plan yet.',
         'Counts of events, such as how many story plans were made or failed, are kept in Amazon CloudWatch to see how the tool is doing. They carry no name, email, account id or story text. Technical logs record account and job ids and error details, not your story text. A shared cache of picture search results holds what Pexels and Pixabay returned, not who searched.',
       ],
