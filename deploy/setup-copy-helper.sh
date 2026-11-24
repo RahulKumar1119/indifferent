@@ -10,10 +10,16 @@
 # The Lambda's environment holds secrets, so it is read and written back through a
 # private file and only the one key is changed; values are never printed.
 #
+# The copy for each platform for a clip or a story video (#330) has its own switch,
+# POST_COPY_ENABLED, with the same behaviour: off until it is true, then its routes
+# answer instead of 503. Choose it with --post-copy. It shares the model, the
+# fallback model and the daily allowance with the helper.
+#
 # Usage:
 #   bash deploy/setup-copy-helper.sh --enable             # show the change
 #   bash deploy/setup-copy-helper.sh --enable --apply     # switch it on
 #   bash deploy/setup-copy-helper.sh --disable --apply    # switch it off
+#   bash deploy/setup-copy-helper.sh --post-copy --enable [--apply]   # the same, for #330
 set -euo pipefail
 REGION="ap-south-1"
 API_FUNCTION="indifferent-fun-api"
@@ -26,6 +32,7 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --apply) APPLY=true ;;
+    --post-copy) KEY="POST_COPY_ENABLED" ;;
     --enable) VALUE=true ;;
     --disable) VALUE=false ;;
     *) fail "unknown argument: $1" ;;

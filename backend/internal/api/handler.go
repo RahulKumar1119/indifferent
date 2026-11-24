@@ -26,6 +26,7 @@ import (
 	"github.com/rahul/indifferent/backend/internal/projectfail"
 	"github.com/rahul/indifferent/backend/internal/storage"
 	"github.com/rahul/indifferent/backend/internal/storymetrics"
+	"github.com/rahul/indifferent/backend/internal/videocopy"
 )
 
 // Valid templates for project creation.
@@ -97,6 +98,12 @@ type APIHandler struct {
 	// CopyWriter writes titles, descriptions and chapters (#331). Nil switches
 	// the routes off: they answer 503 and nothing calls the model.
 	CopyWriter CopyWriter
+	// PostCopyWriter writes the copy for each platform for a clip or a story
+	// video (#330). Nil switches it off: the routes answer 503 (GET answers that it
+	// is off) and nothing calls the model. PostCopySpecs overrides the platform
+	// limits; nil uses videocopy.Platforms().
+	PostCopyWriter PostCopyWriter
+	PostCopySpecs  []videocopy.PlatformSpec
 	// StoryPlansPerHour overrides the per-user hourly allowance of plans. Zero
 	// uses the default (20).
 	StoryPlansPerHour int
@@ -227,6 +234,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleGetStoryPlanLimits(), nil
 	case req.HTTPMethod == "GET" && req.Path == "/story-videos/limits":
 		return h.handleGetStoryVideoLimits(), nil
+	case isPostCopyPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handlePostCopy)
 	case isStoryVideoPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleStoryVideos)
 	case isStoryPlanPath(req.Path):

@@ -113,19 +113,12 @@ func (s *Service) Generate(ctx context.Context, r Request) (Result, error) {
 }
 
 func (s *Service) try(ctx, callCtx context.Context, c Completer, model, name string, budget time.Duration, prompt string, src *source) (Copy, error) {
-	tryCtx, cancel := context.WithTimeout(callCtx, budget)
-	defer cancel()
 	start := s.now()
-	text, err := c.Complete(tryCtx, prompt, rank.CompleteOptions{MaxTokens: MaxOutputTokens})
-	latency := s.now().Sub(start)
+	text, err := s.complete(ctx, callCtx, c, model, name, budget, prompt, src)
 	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return Copy{}, ctxErr
-		}
-		code, typed := classify(tryCtx, err)
-		s.logf("videocopy_failed model=%s attempt=%s sourceRunes=%d latencyMs=%d outcome=%s", model, name, src.runes, latency.Milliseconds(), code)
-		return Copy{}, typed
+		return Copy{}, err
 	}
+	latency := s.now().Sub(start)
 	out, err := parseAndCheck(text, src, rank.ExtractJSON)
 	if err != nil {
 		s.logf("videocopy_failed model=%s attempt=%s sourceRunes=%d latencyMs=%d outcome=invalid_answer answerRunes=%d", model, name, src.runes, latency.Milliseconds(), len([]rune(text)))
@@ -133,6 +126,26 @@ func (s *Service) try(ctx, callCtx context.Context, c Completer, model, name str
 	}
 	s.logf("videocopy_ok model=%s attempt=%s sourceRunes=%d latencyMs=%d titles=%d chapters=%d", model, name, src.runes, latency.Milliseconds(), len(out.Titles), len(out.Chapters))
 	return out, nil
+}
+
+// complete makes one model call within budget and returns the raw answer. A
+// failed call is logged by code and returned typed; a caller whose own context
+// ended gets that error back.
+func (s *Service) complete(ctx, callCtx context.Context, c Completer, model, name string, budget time.Duration, prompt string, src *source) (string, error) {
+	tryCtx, cancel := context.WithTimeout(callCtx, budget)
+	defer cancel()
+	start := s.now()
+	text, err := c.Complete(tryCtx, prompt, rank.CompleteOptions{MaxTokens: MaxOutputTokens})
+	latency := s.now().Sub(start)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
+		code, typed := classify(tryCtx, err)
+		s.logf("videocopy_failed model=%s attempt=%s sourceRunes=%d latencyMs=%d outcome=%s", model, name, src.runes, latency.Milliseconds(), code)
+		return "", typed
+	}
+	return text, nil
 }
 
 // classify maps a failed model call to a stable code and a typed error. AWS

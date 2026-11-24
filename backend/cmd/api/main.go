@@ -145,7 +145,12 @@ func main() {
 	// is set: the routes then answer 503 and nothing calls Bedrock. It asks the same
 	// models as story planning (PLANNING_MODEL, PLANNING_FALLBACK_MODEL).
 	var copyWriter api.CopyWriter
-	if appconfig.Enabled(os.Getenv("COPY_HELPER_ENABLED")) {
+	// Copy for each platform for a clip or a story video (issue #330) has its own
+	// switch, POST_COPY_ENABLED, and is off until it is set. It uses the same
+	// models and the same daily allowance as the helper above.
+	var postCopyWriter api.PostCopyWriter
+	postCopyOn := appconfig.Enabled(os.Getenv("POST_COPY_ENABLED"))
+	if appconfig.Enabled(os.Getenv("COPY_HELPER_ENABLED")) || postCopyOn {
 		bedrock := bedrockruntime.NewFromConfig(awsCfg)
 		model := planningModel(os.Getenv("PLANNING_MODEL"), rank.ModelQwen3)
 		var opts []videocopy.Option
@@ -154,7 +159,13 @@ func main() {
 				opts = append(opts, videocopy.WithFallback(rank.NewService(bedrock, fallback), string(fallback)))
 			}
 		}
-		copyWriter = videocopy.NewService(rank.NewService(bedrock, model), string(model), opts...)
+		svc := videocopy.NewService(rank.NewService(bedrock, model), string(model), opts...)
+		if appconfig.Enabled(os.Getenv("COPY_HELPER_ENABLED")) {
+			copyWriter = svc
+		}
+		if postCopyOn {
+			postCopyWriter = svc
+		}
 	}
 	// Stock media search (issue #192). Built from PEXELS_API_KEY and
 	// PIXABAY_API_KEY: either alone is enough, and with neither set the
@@ -242,6 +253,7 @@ func main() {
 		PreviewRenderer: slidegen.NewNativeRenderer(),
 		StoryPlanner:    storyPlanner,
 		CopyWriter:      copyWriter,
+		PostCopyWriter:  postCopyWriter,
 		StockMedia:      stockMedia,
 		AutoPick:        autoPick,
 	}

@@ -46,6 +46,7 @@ const minScriptShare = 0.6
 var (
 	urlPattern     = regexp.MustCompile(`(?i)\b(?:https?://|www\.)\S+`)
 	hashtagPattern = regexp.MustCompile(`(^|\s)#\p{L}[\p{L}\p{N}_]*`)
+	mentionPattern = regexp.MustCompile(`(^|\s)@[\p{L}\p{N}_.]+`)
 	blankLines     = regexp.MustCompile(`\n{3,}`)
 )
 
@@ -84,8 +85,42 @@ func parseAndCheck(answer string, s *source, extract func(string) string) (Copy,
 	} else {
 		c.Notes = append(c.Notes, "There are no timestamps, so there are no chapters.")
 	}
-	c.DescriptionWithChapters = withChapters(c.Description, c.Chapters)
+	c.fitDescriptionBytes()
 	return c, nil
+}
+
+// minDescriptionBytes is the least room the description keeps when a long
+// chapter list has to give way to it.
+const minDescriptionBytes = 300
+
+// fitDescriptionBytes makes the text a person pastes, the description and the
+// chapter list, fit YouTube's 5,000 bytes (not characters: a Hindi letter is
+// three bytes). The chapter list is kept whole when it can be. When it leaves
+// the description too little room, chapters are dropped from the end, and the
+// list is dropped altogether if fewer than three remain. The description is then
+// cut at a sentence or a word, never inside one.
+func (c *Copy) fitDescriptionBytes() {
+	chaptersLen := func() int {
+		if len(c.Chapters) == 0 {
+			return 0
+		}
+		return len(withChapters("", c.Chapters))
+	}
+	for len(c.Chapters) > 0 && MaxDescriptionBytes-chaptersLen() < minDescriptionBytes {
+		c.Chapters = c.Chapters[:len(c.Chapters)-1]
+		if len(c.Chapters) < minChapters {
+			c.Chapters = nil
+			c.Notes = append(c.Notes, "Chapters were left out because they did not fit the description limit.")
+		}
+	}
+	room := MaxDescriptionBytes - chaptersLen()
+	if fit, ok := fitPrefix(c.Description, func(x string) bool { return len(x) <= room }); ok {
+		if fit != c.Description {
+			c.Notes = append(c.Notes, "The description was shortened to fit YouTube's limit.")
+		}
+		c.Description = fit
+	}
+	c.DescriptionWithChapters = withChapters(c.Description, c.Chapters)
 }
 
 // escapeControlInStrings escapes line breaks, tabs and other control characters
