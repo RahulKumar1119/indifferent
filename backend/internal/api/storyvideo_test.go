@@ -1453,6 +1453,7 @@ func TestStoryVideos_DeleteRemovesTheFilesThenTheRecord(t *testing.T) {
 			want := []string{
 				"purge:storyvideo/" + svGoogleUser + "/" + id + "/",
 				"purge:storyvideo-work/" + svGoogleUser + "/" + id + "/",
+				"delete", // the video's post copy (#330), removed before the record
 				"delete",
 			}
 			if got := strings.Join(e.events, ","); got != strings.Join(want, ",") {

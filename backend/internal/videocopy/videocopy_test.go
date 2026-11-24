@@ -470,8 +470,8 @@ func TestParseAndCheck_Whole(t *testing.T) {
 	if !strings.HasSuffix(c.DescriptionWithChapters, "0:00 Opening\n2:00 Stairs\n4:00 Storm") || !strings.HasPrefix(c.DescriptionWithChapters, c.Description) {
 		t.Errorf("description with chapters = %q", c.DescriptionWithChapters)
 	}
-	if n := len([]rune(c.DescriptionWithChapters)); n > MaxDescriptionRunes {
-		t.Errorf("%d characters", n)
+	if n := len(c.DescriptionWithChapters); n > MaxDescriptionBytes {
+		t.Errorf("%d bytes", n)
 	}
 }
 

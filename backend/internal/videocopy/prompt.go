@@ -19,8 +19,11 @@ const (
 	TitleCount = 10
 	// MaxTitleRunes is YouTube's limit for a video title.
 	MaxTitleRunes = 100
-	// MaxDescriptionRunes is YouTube's limit for a description.
-	MaxDescriptionRunes = 5000
+	// MaxDescriptionBytes is YouTube's limit for a description: 5,000 bytes of
+	// UTF-8 (the Data API's videos.snippet.description), not 5,000 characters.
+	// A Hindi letter is three bytes, so a Hindi description holds a third as
+	// many letters as an English one.
+	MaxDescriptionBytes = 5000
 	// bodyBudget leaves room in the description for the chapter list the server adds.
 	bodyBudget       = 4000
 	MaxChapterRunes  = 100
@@ -106,7 +109,7 @@ func buildPrompt(s *source) string {
 	b.WriteString("- JSON. Every title, the description and every chapter title is a JSON string in double quotes, in every language, Hindi included. Write line breaks inside the description as \\n, never as a real line break.\n")
 	b.WriteString("- LANGUAGE. " + scriptSentence(s.script) + " Never translate. Never switch to English because these rules are in English.\n")
 	fmt.Fprintf(&b, "- titles: exactly %d different ideas, each at most %d characters, each a different angle. Plain text: no quotation marks around it, no emoji, no hashtags, no numbering.\n", TitleCount, MaxTitleRunes)
-	fmt.Fprintf(&b, "- description: two to four short paragraphs, at most %d characters in all, separated by a blank line (write it as \\n\\n). The first line says what the video is. Plain text only: no links, no hashtags, no emoji, no markup.\n", bodyBudget)
+	fmt.Fprintf(&b, "- description: two to four short paragraphs, at most %d characters in all, separated by a blank line (write it as \\n\\n). The first line says what the video is. Plain text only: no links, no hashtags, no emoji, no markup.\n", descriptionChars(s.script))
 	if chapters {
 		fmt.Fprintf(&b, "- chapters: aim for about %d, never fewer than %d or more than %d. Spread them evenly over the WHOLE material: start one roughly every %d blocks, from block 0 to near the last block (block %d). Do not stop early. Each names a block by its number and gives that part a short title (at most %d characters). Blocks must be in increasing order, and the first chapter must be block 0. Use only block numbers that appear above. Do NOT write times: the server adds them.\n", chapterTarget(s), minChapters, maxChapters, chapterStep(s), len(s.segments)-1, MaxChapterRunes)
 	}
@@ -139,4 +142,14 @@ func chapterStep(s *source) int {
 		step = 1
 	}
 	return step
+}
+
+// descriptionChars is how long to ask for a description, in characters. YouTube
+// counts bytes, so a script whose letters take three bytes gets a third of the room.
+func descriptionChars(sc storyplan.Script) int {
+	switch sc {
+	case storyplan.ScriptDevanagari, storyplan.ScriptIndic, storyplan.ScriptOther:
+		return 1200
+	}
+	return bodyBudget
 }

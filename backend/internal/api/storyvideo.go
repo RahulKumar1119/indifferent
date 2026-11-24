@@ -766,6 +766,12 @@ func (h *APIHandler) handleDeleteStoryVideo(ctx context.Context, claims *models.
 			return errorResponse(http.StatusInternalServerError, "S3_CLEANUP_FAILED", "Could not delete the video's files. Please try again."), nil
 		}
 	}
+	// The copy written for the video goes with it, before the record, so a
+	// failure leaves the video in place to be deleted again.
+	if err := h.deleteStoryPostCopy(ctx, claims.UserID, id); err != nil {
+		log.Printf("story_video_delete_postcopy_failed user=%s job=%s err=%v", claims.UserID, id, err)
+		return errorResponse(http.StatusInternalServerError, "DB_ERROR", "Could not delete the video. Please try again."), nil
+	}
 	if _, err := h.DB.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 		TableName: aws.String(h.TableName), Key: storyjob.Key(claims.UserID, id),
 	}); err != nil {

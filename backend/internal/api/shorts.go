@@ -1039,6 +1039,12 @@ func (h *APIHandler) removeShortsJob(ctx context.Context, userID, jobID string) 
 		return ErrShortsCleanupFailed
 	}
 
+	// The copy written for a clip goes with the job. It is removed before the
+	// record, so a failure leaves the job in place to be deleted again.
+	if err := h.deleteClipPostCopies(ctx, userID, jobID); err != nil {
+		log.Printf("shorts_delete_postcopy_failed user=%s job=%s err=%v", userID, jobID, err)
+		return err
+	}
 	if _, err := h.DB.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 		TableName: aws.String(h.TableName),
 		Key: map[string]dbtypes.AttributeValue{
