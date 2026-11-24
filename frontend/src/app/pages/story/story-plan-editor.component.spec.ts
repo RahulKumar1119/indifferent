@@ -1,3 +1,4 @@
+import { PostCopyService } from '../../shared/post-copy/post-copy.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -25,6 +26,7 @@ import {
   settle,
   videoServiceSpy,
   VideoServiceSpy,
+  postCopyOffSpy,
 } from './story-plan-fixtures.spec';
 import { StoryVideoService } from './story-video.service';
 import { LIMITS } from './story-plan-fixtures.spec';
@@ -44,7 +46,7 @@ describe('StoryPlanEditorComponent', () => {
     });
     await TestBed.configureTestingModule({
       imports: [StoryPlanEditorComponent],
-      providers: [provideRouter([]), routeFor('plan-1'), { provide: StoryPlanService, useValue: service }, { provide: StoryVideoService, useValue: videoService }, STORY_ICONS],
+      providers: [provideRouter([]), routeFor('plan-1'), { provide: StoryPlanService, useValue: service }, { provide: StoryVideoService, useValue: videoService }, { provide: PostCopyService, useValue: postCopyOffSpy() }, STORY_ICONS],
     }).compileComponents();
     fixture = TestBed.createComponent(StoryPlanEditorComponent);
     el = fixture.nativeElement;
@@ -230,7 +232,7 @@ describe('StoryPlanEditorComponent', () => {
       TestBed.overrideComponent(StoryPlanEditorComponent, { remove: { imports: [NavbarComponent] }, add: { imports: [NavbarStub] } });
       await TestBed.configureTestingModule({
         imports: [StoryPlanEditorComponent],
-        providers: [provideRouter([]), routeFor('plan-1'), { provide: StoryPlanService, useValue: service }, { provide: StoryVideoService, useValue: videoService }, STORY_ICONS],
+        providers: [provideRouter([]), routeFor('plan-1'), { provide: StoryPlanService, useValue: service }, { provide: StoryVideoService, useValue: videoService }, { provide: PostCopyService, useValue: postCopyOffSpy() }, STORY_ICONS],
       }).compileComponents();
       fixture = TestBed.createComponent(StoryPlanEditorComponent);
       el = fixture.nativeElement;

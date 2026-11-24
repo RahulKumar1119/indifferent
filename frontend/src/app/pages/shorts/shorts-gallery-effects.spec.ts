@@ -22,23 +22,31 @@ import {
   LucideSun,
   LucideTrash2,
   LucideUser,
+  LucideX,
 } from '@lucide/angular';
 import { Clip, ShortsService } from './shorts.service';
 import { NEW_JOB_CAPTION_STYLE } from '../../shared/caption-style';
+import { PostCopyService } from '../../shared/post-copy/post-copy.service';
+import { PostCopyListView } from '../../shared/post-copy/post-copy.models';
 import { ShortsGalleryComponent } from './shorts-gallery.component';
 import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
 
 const ICONS = provideLucideIcons(
   LucideCaptions, LucideCheck, LucideCircleX, LucideClapperboard, LucideCopy, LucideDownload, LucideFilm, LucideImage,
-  LucideLoader2, LucideMoon, LucidePencil, LucidePlay, LucideShare2, LucideSparkles, LucideSun, LucideTrash2, LucideUser,
+  LucideLoader2, LucideMoon, LucidePencil, LucidePlay, LucideShare2, LucideSparkles, LucideSun, LucideTrash2, LucideUser, LucideX,
 );
 
 const clips: Clip[] = [2, 1, 3].map((r) => ({ clipId: 'c' + r, s3Key: 'k', rank: r, score: 0.95 - r / 10, duration: 30, hookText: 'Hook ' + r, start: r * 60, end: r * 60 + 30 }));
 const job = (status: string, extra: Record<string, unknown> = {}) => ({ jobId: 'j1', status, fileType: 'mp4', sourceDuration: 600, clipEdits: {}, ...extra });
 
-function base(service: Record<string, unknown>) {
+const POST_COPY_OFF: PostCopyListView = { enabled: false, platforms: [], saved: {}, dailyLimit: 20 };
+function base(service: Record<string, unknown>, postCopy: PostCopyListView = POST_COPY_OFF) {
+  const pc = jasmine.createSpyObj<PostCopyService>('PostCopyService', ['view', 'list', 'write', 'save']);
+  pc.list.and.returnValue(of(postCopy));
+  pc.view.and.returnValue(of({ enabled: postCopy.enabled, platforms: [], saved: null, dailyLimit: 20 }));
   TestBed.configureTestingModule({
     providers: [
+      { provide: PostCopyService, useValue: pc },
       provideHttpClient(),
       provideHttpClientTesting(),
       provideRouter([]),
@@ -57,7 +65,7 @@ const tidy = (el: HTMLElement) => {
 };
 
 describe('ShortsGalleryComponent', () => {
-  function setup(over: Record<string, unknown> = {}) {
+  function setup(over: Record<string, unknown> = {}, postCopy?: PostCopyListView) {
     const service = {
       listClips: () => of(clips),
       getClipUrl: () => of({}),
@@ -69,7 +77,7 @@ describe('ShortsGalleryComponent', () => {
       updateEffects: () => of({}),
       ...over,
     };
-    base(service);
+    base(service, postCopy);
     const fixture = TestBed.createComponent(ShortsGalleryComponent);
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
@@ -176,6 +184,65 @@ describe('ShortsGalleryComponent', () => {
     expect(alert.textContent).toContain('Not ready yet.');
     expect(alert.querySelector('button')!.textContent).toContain('Try again');
   });
+  describe('post copy (#330)', () => {
+    const tiktok = { text: 'New cable, old lamp.', hashtags: ['#BrassLamp', '#Wiring', '#Restoration'] };
+    const on = (saved: PostCopyListView['saved'] = {}): PostCopyListView => ({ enabled: true, platforms: [], saved, dailyLimit: 20 });
+    let clipboard: string[];
+    beforeEach(() => {
+      clipboard = [];
+      spyOn(navigator.clipboard, 'writeText').and.callFake((t: string) => {
+        clipboard.push(t);
+        return Promise.resolve();
+      });
+    });
+    async function copyFirst(fixture: { detectChanges(): void }, el: HTMLElement): Promise<string> {
+      el.querySelector<HTMLButtonElement>('[data-clip="c1"] button[aria-label="Copy caption"]')!.click();
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+      fixture.detectChanges();
+      return clipboard[clipboard.length - 1];
+    }
+    it('the quick copy is the plain hook line, with no generic hashtags', async () => {
+      const { fixture, el } = setup();
+      const copied = await copyFirst(fixture, el);
+      expect(copied).toBe('Hook 1');
+      expect(copied).not.toContain('#');
+    });
+    it('the quick copy is the saved TikTok caption with its hashtags when there is one', async () => {
+      const saved = { c1: { copy: { tiktok }, notes: [], source: 'edited' as const, updatedAt: '2026-11-24T10:00:00Z' } };
+      const { fixture, el } = setup({}, on(saved));
+      expect(await copyFirst(fixture, el)).toBe('New cable, old lamp.\n\n#BrassLamp #Wiring #Restoration');
+    });
+    it('Copy all captions uses the same rule for every clip', async () => {
+      const saved = { c2: { copy: { tiktok }, notes: [], source: 'generated' as const, updatedAt: '2026-11-24T10:00:00Z' } };
+      const { fixture, el } = setup({}, on(saved));
+      Array.from(el.querySelectorAll('button')).find((b) => b.textContent!.includes('Copy all captions'))!.click();
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+      fixture.detectChanges();
+      expect(clipboard[0]).toBe('Hook 1\n\nNew cable, old lamp.\n\n#BrassLamp #Wiring #Restoration\n\nHook 3');
+    });
+    it('shows no Post copy button when the server has it off', () => {
+      const { el } = setup();
+      expect(el.querySelector('[data-testid="post-copy-toggle"]')).toBeNull();
+    });
+    it('shows a Post copy button on each clip when it is on, and opens it for that clip', () => {
+      const { fixture, el } = setup({}, on());
+      const toggles = el.querySelectorAll<HTMLButtonElement>('[data-testid="post-copy-toggle"]');
+      expect(toggles.length).toBe(3);
+      expect(toggles[0].getAttribute('aria-label')).toBe('Write post copy for clip 1');
+      toggles[0].click();
+      fixture.detectChanges();
+      expect(toggles[0].getAttribute('aria-expanded')).toBe('true');
+      expect(el.querySelectorAll('app-post-copy').length).toBe(1);
+      expect(el.querySelector('[data-clip="c1"] app-post-copy')).toBeTruthy();
+      toggles[0].click();
+      fixture.detectChanges();
+      expect(el.querySelector('app-post-copy')).toBeNull();
+    });
+    it('uses the newest copy for the quick copy once it is saved on the page', async () => {
+      const { fixture, el } = setup({}, on());
+      fixture.componentInstance.onPostCopySaved({ clipId: 'c1' } as never, { copy: { tiktok }, notes: [], source: 'edited', updatedAt: 'x' });
+      expect(await copyFirst(fixture, el)).toBe('New cable, old lamp.\n\n#BrassLamp #Wiring #Restoration');
+    });
 });
 
 describe('ShortsEffectsPanelComponent', () => {
@@ -225,5 +292,6 @@ describe('ShortsEffectsPanelComponent', () => {
     const { el } = setup('completed');
     expect(el.querySelector('[role="note"]')!.textContent).toContain('This job is locked.');
     expect((el.querySelector('fieldset') as HTMLFieldSetElement).disabled).toBeTrue();
+  });
   });
 });

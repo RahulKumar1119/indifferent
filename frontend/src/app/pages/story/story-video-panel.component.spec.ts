@@ -1,3 +1,4 @@
+import { PostCopyService } from '../../shared/post-copy/post-copy.service';
 import { formatDate } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed, fakeAsync, flush, tick } from '@angular/core/testing';
@@ -14,6 +15,7 @@ import {
   rendering,
   video,
   videoServiceSpy,
+  postCopyOffSpy,
 } from './story-plan-fixtures.spec';
 import { StoryVideoPanelComponent } from './story-video-panel.component';
 import { StoryVideo, StoryVideoLimits, StoryVideoList } from './story-video.models';
@@ -33,6 +35,7 @@ interface Mount {
 
 describe('StoryVideoPanelComponent', () => {
   let svc: VideoServiceSpy;
+  let postCopy: jasmine.SpyObj<PostCopyService>;
   let fixture: ComponentFixture<StoryVideoPanelComponent>;
   let el: HTMLElement;
   let changed: number;
@@ -40,11 +43,12 @@ describe('StoryVideoPanelComponent', () => {
 
   beforeEach(async () => {
     svc = videoServiceSpy();
+    postCopy = postCopyOffSpy();
     changed = 0;
     scenes = [];
     await TestBed.configureTestingModule({
       imports: [StoryVideoPanelComponent],
-      providers: [{ provide: StoryVideoService, useValue: svc }, STORY_ICONS],
+      providers: [{ provide: StoryVideoService, useValue: svc }, { provide: PostCopyService, useValue: postCopy }, STORY_ICONS],
     }).compileComponents();
   });
 
@@ -1149,6 +1153,36 @@ describe('StoryVideoPanelComponent', () => {
       const a = q('announcement')!;
       expect(a.getAttribute('role')).toBe('status');
       expect(a.classList.contains('sr-only')).toBeTrue();
+    });
+  });
+  describe('post copy for a finished video (#330)', () => {
+    it('offers no button when the server has post copy off', async () => {
+      await mount({ videos: [completed()] });
+      expect(q('done')).toBeTruthy();
+      expect(postCopy.view).toHaveBeenCalledOnceWith({ kind: 'story', videoId: completed().jobId });
+      expect(q('post-copy-toggle')).toBeNull();
+    });
+    it('offers a button when it is on, and opens the copy for this video', async () => {
+      postCopy.view.and.returnValue(of({ enabled: true, platforms: [], saved: null, dailyLimit: 20 }));
+      await mount({ videos: [completed()] });
+      const toggle = q<HTMLButtonElement>('post-copy-toggle')!;
+      expect(toggle.textContent!.trim()).toBe('Post copy');
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      toggle.click();
+      await render();
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(el.querySelector('app-post-copy')).toBeTruthy();
+      expect(toggle.textContent!.trim()).toBe('Hide post copy');
+    });
+    it('does not ask while a video is still being made', async () => {
+      await mount({ videos: [rendering()] });
+      expect(postCopy.view).not.toHaveBeenCalled();
+    });
+    it('stays out of the way when the question fails', async () => {
+      postCopy.view.and.returnValue(throwError(() => httpError(500)));
+      await mount({ videos: [completed()] });
+      expect(q('post-copy-toggle')).toBeNull();
+      expect(q('done')).toBeTruthy();
     });
   });
 });

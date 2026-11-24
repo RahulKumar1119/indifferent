@@ -6,6 +6,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import JSZip from 'jszip';
 import { Clip, ShortsService, CaptionWord, ClipEdit } from './shorts.service';
+import { PostCopyComponent } from '../../shared/post-copy/post-copy.component';
+import { PostCopySaved, PostCopyTarget, quickCopyText } from '../../shared/post-copy/post-copy.models';
+import { PostCopyService } from '../../shared/post-copy/post-copy.service';
 import { CaptionStudioComponent } from '../../shared/components/caption-studio/caption-studio.component';
 import { CaptionPreference } from '../../shared/caption-preference.service';
 import { CaptionStyleValue, NEW_JOB_CAPTION_STYLE, captionPayload, withSavedStyle } from '../../shared/caption-style';
@@ -25,7 +28,7 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
 @Component({
   selector: 'app-shorts-gallery',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent, CaptionStudioComponent],
+  imports: [CommonModule, FormsModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent, CaptionStudioComponent, PostCopyComponent],
   styles: [`
     :host { display: block; }
     @keyframes card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
@@ -69,7 +72,7 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
     .hook { margin: 0; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
     .meta { display: flex; flex-wrap: wrap; gap: 0 var(--space-sm); font-size: var(--type-xs); color: var(--color-muted); font-variant-numeric: tabular-nums; }
     .tag { padding: 0 var(--space-2xs); border-radius: var(--radius-pill); background: color-mix(in oklab, var(--color-accent) 14%, var(--app-card)); color: var(--color-accent-text); font-weight: 600; }
-    .acts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-3xs); border-top: 1px solid var(--color-rule); padding-top: var(--space-2xs); }
+    .acts { display: grid; grid-template-columns: repeat(var(--act-cols, 5), minmax(0, 1fr)); gap: var(--space-3xs); border-top: 1px solid var(--color-rule); padding-top: var(--space-2xs); }
     .act { min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-ink-2); font: 500 0.6875rem/1.1 var(--font-body); cursor: pointer; }
     .act:hover:not(:disabled) { background: var(--color-paper-3); color: var(--color-ink); }
     .act[aria-expanded='true'] { color: var(--color-accent-text); background: color-mix(in oklab, var(--color-accent) 9%, var(--app-card)); }
@@ -272,7 +275,7 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
                   </p>
                 </div>
 
-                <div class="acts">
+                <div class="acts" [style.--act-cols]="postCopyEnabled ? 6 : 5">
                   <button type="button" class="act" [disabled]="downloading[clip.clipId]" (click)="download(clip)" aria-label="Download clip">
                     @if (downloading[clip.clipId]) {
                       <svg lucideIcon="loader-2" [size]="16" class="ui-spin" aria-hidden="true"></svg>
@@ -301,7 +304,18 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
                     <svg lucideIcon="pencil" [size]="16" aria-hidden="true"></svg>
                     <span aria-hidden="true">Edit</span>
                   </button>
+                  @if (postCopyEnabled) {
+                    <button type="button" class="act" data-testid="post-copy-toggle" (click)="togglePostCopy(clip)" [attr.aria-expanded]="postCopyFor === clip.clipId" [attr.aria-label]="(postCopyFor === clip.clipId ? 'Hide' : 'Write') + ' post copy for clip ' + clip.rank">
+                      <svg lucideIcon="sparkles" [size]="16" aria-hidden="true"></svg>
+                      <span aria-hidden="true">Post copy</span>
+                    </button>
+                  }
                 </div>
+                @if (postCopyFor === clip.clipId) {
+                  <div class="editor" role="region" [attr.aria-label]="'Post copy for clip ' + clip.rank">
+                    <app-post-copy [target]="postCopyTarget(clip)" (savedChange)="onPostCopySaved(clip, $event)" />
+                  </div>
+                }
 
                 @if (stripFor === clip.clipId) {
                   <div class="strip" role="group" aria-label="Thumbnail frame choices">
@@ -425,6 +439,13 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   /** Per-card clip editor (one open at a time): trim + caption corrections. */
   editorFor: string | null = null;
+  /** True when the server has post copy switched on (#330). */
+  postCopyEnabled = false;
+  /** The saved copy of each clip, for the quick copy button. */
+  postCopySaved: Record<string, PostCopySaved> = {};
+  postCopyFor: string | null = null;
+  private readonly postCopyTargets: Record<string, PostCopyTarget> = {};
+  private readonly postCopyService = inject(PostCopyService);
   editorLoading = false;
   editor: {
     clipId: string;
@@ -543,6 +564,7 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
         // Warm poster thumbnails in the background (sequential, quiet):
         // cards show a representative frame without any tap.
         void this.warmThumbnails();
+        this.loadPostCopy();
       },
       error: (err) => {
         this.isLoading = false;
@@ -742,6 +764,32 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   boundsEdited(clip: Clip): boolean {
     return this.appliedEdits[clip.clipId] !== undefined;
+  }
+
+  /** Asks which clips have post copy saved, and whether it is on at all. One request. */
+  private loadPostCopy(): void {
+    this.postCopyService.list(this.jobId).subscribe({
+      next: (l) => {
+        this.postCopyEnabled = l.enabled;
+        this.postCopySaved = l.enabled ? { ...l.saved } : {};
+      },
+      // A bonus. If it cannot say, the clips page works as it did.
+      error: () => {
+        this.postCopyEnabled = false;
+      },
+    });
+  }
+
+  togglePostCopy(clip: Clip): void {
+    this.postCopyFor = this.postCopyFor === clip.clipId ? null : clip.clipId;
+  }
+
+  postCopyTarget(clip: Clip): PostCopyTarget {
+    return (this.postCopyTargets[clip.clipId] ??= { kind: 'clip', jobId: this.jobId, clipId: clip.clipId });
+  }
+
+  onPostCopySaved(clip: Clip, saved: PostCopySaved): void {
+    this.postCopySaved = { ...this.postCopySaved, [clip.clipId]: saved };
   }
 
   toggleEditor(clip: Clip): void {
@@ -1094,10 +1142,9 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
     this.router.navigate(['/shorts']);
   }
 
+  /** The saved TikTok caption when there is one, otherwise the plain hook line. */
   private captionText(clip: Clip): string {
-    const hook = (clip.hookText || '').trim();
-    const base = hook || `Short #${clip.rank}`;
-    return `${base}\n#shorts #viral #fyp`;
+    return quickCopyText(this.postCopySaved[clip.clipId], clip.hookText, clip.rank);
   }
 
   private clipUrl(clip: Clip): Promise<string> {
