@@ -136,7 +136,11 @@ func (d *pcDB) Query(_ context.Context, in *dynamodb.QueryInput, _ ...func(*dyna
 	for k, it := range d.items {
 		parts := strings.SplitN(k, "|", 3)
 		if parts[0] == *in.TableName && parts[1] == pk && prefix != "" && strings.HasPrefix(parts[2], prefix) {
-			out.Items = append(out.Items, map[string]dbtypes.AttributeValue{"PK": it["PK"], "SK": it["SK"]})
+			if in.ProjectionExpression != nil {
+				out.Items = append(out.Items, map[string]dbtypes.AttributeValue{"PK": it["PK"], "SK": it["SK"]})
+			} else {
+				out.Items = append(out.Items, it)
+			}
 		}
 	}
 	return out, nil
@@ -865,6 +869,54 @@ func TestPostCopy_DeletedWithTheStoryVideo(t *testing.T) {
 	storyItem, _ := storyjob.ToItem(storyjob.Job{UserID: pcUser, JobID: pcStoryID})
 	if e.db.get(pcTable, pcS(storyItem["PK"]), pcS(storyItem["SK"])) == nil {
 		t.Error("the story record was removed while its copy remained")
+	}
+}
+
+func TestPostCopy_ListForAJobTellsWhichClipsHaveCopy(t *testing.T) {
+	e := newPCEnv(t)
+	listPath := "/shorts/job1/post-copy"
+	var none PostCopyListView
+	if err := json.Unmarshal([]byte(e.do("GET", listPath, "", pcUser).Body), &none); err != nil || !none.Enabled || len(none.Saved) != 0 || len(none.Platforms) != 3 {
+		t.Fatalf("nothing saved yet: %+v %v", none, err)
+	}
+	decodePC(t, e.gen(clip2Path, pcUser, 1))
+	e.do("PUT", clip2Path, putBody(t, validCopy()), pcUser)
+	decodePC(t, e.gen(storyPath, pcUser, 2))
+	var view PostCopyListView
+	resp := e.do("GET", listPath, "", pcUser)
+	if err := json.Unmarshal([]byte(resp.Body), &view); err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Saved) != 1 || view.Saved["clip-2"].Source != "edited" || view.Saved["clip-2"].Copy[videocopy.TikTok].Text != "My caption." {
+		t.Errorf("saved %+v", view.Saved)
+	}
+	if _, ok := view.Saved["clip-1"]; ok {
+		t.Error("clip 1 has nothing saved")
+	}
+	if view.RemainingToday == nil || *view.RemainingToday != 18 {
+		t.Errorf("remaining %v", view.RemainingToday)
+	}
+	// Another person's job is not found; a job that is not there is not found.
+	if r := e.do("GET", listPath, "", pcOther); r.StatusCode != 404 {
+		t.Errorf("another user: %d", r.StatusCode)
+	}
+	if r := e.do("GET", "/shorts/nojob/post-copy", "", pcUser); r.StatusCode != 404 {
+		t.Errorf("unknown job: %d", r.StatusCode)
+	}
+	if r := e.do("POST", listPath, "{}", pcUser); r.StatusCode != 405 {
+		t.Errorf("POST: %d", r.StatusCode)
+	}
+	// Off: it says so and reads nothing.
+	e.h.PostCopyWriter = nil
+	var off PostCopyListView
+	_ = json.Unmarshal([]byte(e.do("GET", listPath, "", pcUser).Body), &off)
+	if off.Enabled || len(off.Saved) != 0 {
+		t.Errorf("off: %+v", off)
+	}
+	for _, path := range []string{"/shorts/post-copy", "/shorts//post-copy", "/shorts/j#1/post-copy", "/shorts/j1/post-copy/x"} {
+		if isPostCopyListPath(path) {
+			t.Errorf("%s should not match", path)
+		}
 	}
 }
 
