@@ -1,3 +1,4 @@
+import { canonicalForm } from './site-url';
 /** Sets (or creates) the self-referencing canonical link for the route.
  * Takes the document explicitly: inject() must not be called from a plain
  * function outside an injection context (it throws NG0203, which would abort
@@ -9,7 +10,7 @@ export function setCanonical(doc: Document, url: string): void {
     link.rel = 'canonical';
     doc.head.appendChild(link);
   }
-  link.setAttribute('href', url);
+  link.setAttribute('href', canonicalForm(url));
 }
 
 /** Sets a meta tag (creating it when absent) by name or property. */
@@ -42,7 +43,9 @@ const PRIVATE_PREFIXES = ['/dashboard', '/projects', '/shorts/', '/account', '/p
 
 /** The robots directive a path gets before its own page code runs. */
 export function robotsForUrl(url: string): string {
-  const path = url.split(/[?#]/)[0] || '/';
+  const raw = url.split(/[?#]/)[0] || '/';
+  // Router URLs end in a slash (#361); compare without it.
+  const path = raw.length > 1 ? raw.replace(/\/+$/, '') : raw;
   const isPrivate =
     PRIVATE_EXACT.includes(path) || PRIVATE_PREFIXES.some((prefix) => path === prefix.replace(/\/$/, '') || path.startsWith(prefix));
   return isPrivate ? 'noindex, nofollow' : ROBOTS_INDEX;
@@ -76,7 +79,7 @@ export function setPageSeo(
   setMetaTag(doc, 'name', 'description', opts.description);
   setMetaTag(doc, 'property', 'og:title', opts.title);
   setMetaTag(doc, 'property', 'og:description', opts.description);
-  setMetaTag(doc, 'property', 'og:url', opts.canonical);
+  setMetaTag(doc, 'property', 'og:url', canonicalForm(opts.canonical));
   setMetaTag(doc, 'name', 'twitter:title', opts.title);
   setMetaTag(doc, 'name', 'twitter:description', opts.description);
   setCanonical(doc, opts.canonical);

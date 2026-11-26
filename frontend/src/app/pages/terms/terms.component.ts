@@ -98,7 +98,7 @@ export class TermsComponent implements OnInit {
       title: 'Terms of Service | Indifferent',
       description:
         'The terms of service for Indifferent: acceptable use, content ownership, accounts, availability, and limitation of liability.',
-      canonical: 'https://indifferent.fun/terms',
+      canonical: 'https://indifferent.fun/terms/',
     });
   }
 

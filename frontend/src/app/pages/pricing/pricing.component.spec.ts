@@ -91,7 +91,7 @@ describe('PricingComponent (#255)', () => {
   it('sets a title, description and canonical URL, and uses no em dashes', () => {
     const page = render();
     expect(document.title).toBe('Pricing: free during beta | Indifferent');
-    expect(document.head.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe('https://indifferent.fun/pricing');
+    expect(document.head.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe('https://indifferent.fun/pricing/');
     expect(page.textContent).not.toContain('\u2014');
   });
 });

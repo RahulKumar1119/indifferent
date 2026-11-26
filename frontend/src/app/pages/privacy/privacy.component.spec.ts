@@ -213,7 +213,7 @@ describe('PrivacyComponent', () => {
     render();
 
     expect(document.title).toBe('Privacy Policy | Indifferent');
-    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/privacy');
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/privacy/');
   });
 
   describe('cookies and consent', () => {

@@ -11,7 +11,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { FRONTEND_DIR, INDEXED_ROUTES, NOINDEX_ROUTES, SITE_URL, loadArticles, sitemapRoutes } from './site-routes.mjs';
+import { FRONTEND_DIR, INDEXED_ROUTES, NOINDEX_ROUTES, SITE_URL, loadArticles, pageUrl, sitemapRoutes } from './site-routes.mjs';
 
 const PUBLIC = join(FRONTEND_DIR, 'public');
 const SRC = join(FRONTEND_DIR, 'src');
@@ -41,7 +41,7 @@ function lastModified() {
 export function buildSitemap() {
   const dates = lastModified();
   const urls = sitemapRoutes().map((route) => {
-    const loc = route === '/' ? `${SITE_URL}/` : `${SITE_URL}${route}`;
+    const loc = pageUrl(route);
     const last = dates.get(route);
     return `  <url>\n    <loc>${xmlEscape(loc)}</loc>${last ? `\n    <lastmod>${last}</lastmod>` : ''}\n  </url>`;
   });
@@ -52,7 +52,7 @@ export function buildFeed() {
   const articles = loadArticles();
   const built = articles.reduce((max, a) => (a.updated > max ? a.updated : max), '0000-00-00');
   const items = articles.map((a) => {
-    const url = `${SITE_URL}/blog/${a.slug}`;
+    const url = pageUrl(`/blog/${a.slug}`);
     return [
       '    <item>',
       `      <title>${xmlEscape(a.title)}</title>`,
@@ -69,7 +69,7 @@ export function buildFeed() {
     '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">',
     '  <channel>',
     '    <title>Indifferent journal</title>',
-    `    <link>${SITE_URL}/blog</link>`,
+    `    <link>${pageUrl('/blog')}</link>`,
     '    <description>Guides to the AI Shorts generator, the TXT to quiz video generator and the watermark tool.</description>',
     '    <language>en</language>',
     `    <lastBuildDate>${rfc822(built)}</lastBuildDate>`,

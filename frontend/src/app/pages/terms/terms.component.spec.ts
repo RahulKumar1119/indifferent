@@ -176,6 +176,6 @@ describe('TermsComponent', () => {
     render();
 
     expect(document.title).toBe('Terms of Service | Indifferent');
-    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/terms');
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/terms/');
   });
 });

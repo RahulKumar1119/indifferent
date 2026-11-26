@@ -36,7 +36,7 @@ describe('UseCaseComponent', () => {
 
     const page = harness.routeNativeElement as HTMLElement;
     expect(page.querySelector('h1')?.textContent?.trim()).toBe(USE_CASE_DATA['agencies'].title);
-    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/use-cases/agencies');
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/use-cases/agencies/');
     expect(page.querySelector('a[href="/use-cases/agencies"]')).toBeNull();
     expect(page.querySelector('a[href="/use-cases/coaches"]')).not.toBeNull();
   });
@@ -51,7 +51,7 @@ describe('UseCaseComponent', () => {
         await open(slug);
 
         expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex, follow');
-        expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(`https://indifferent.fun/use-cases/${slug}`);
+        expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(`https://indifferent.fun/use-cases/${slug}/`);
       });
 
       it('makes only claims the product supports', async () => {

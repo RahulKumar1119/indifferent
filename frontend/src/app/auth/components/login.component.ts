@@ -185,7 +185,7 @@ export class LoginComponent implements OnInit {
       title: 'Start Creating: Sign In | Indifferent',
       description:
         'Sign in to Indifferent to turn TXT quiz files into narrated videos and long footage into ranked vertical shorts.',
-      canonical: 'https://indifferent.fun/login',
+      canonical: 'https://indifferent.fun/login/',
     });
     // The sign-in form has nothing to read; keep it out of search results.
     setRobots(this.document, ROBOTS_NOINDEX);

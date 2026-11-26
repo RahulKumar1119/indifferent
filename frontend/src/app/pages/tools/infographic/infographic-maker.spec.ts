@@ -144,7 +144,7 @@ describe('InfographicMakerComponent', () => {
       expect(description).toContain('20 templates');
       expect(description).toContain('PNG, JPG or PDF');
       expect(description).toContain('nothing is uploaded');
-      expect(document.head.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe('https://indifferent.fun/tools/infographic-maker');
+      expect(document.head.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe('https://indifferent.fun/tools/infographic-maker/');
     });
 
     it('describes the tool as free software for structured data', async () => {
@@ -152,7 +152,7 @@ describe('InfographicMakerComponent', () => {
       const ld = JSON.parse(document.head.querySelector('script[data-seo-id="software-infographic"]')!.textContent!);
       expect(ld['@type']).toBe('SoftwareApplication');
       expect(ld.offers.price).toBe('0');
-      expect(ld.url).toBe('https://indifferent.fun/tools/infographic-maker');
+      expect(ld.url).toBe('https://indifferent.fun/tools/infographic-maker/');
     });
   });
 

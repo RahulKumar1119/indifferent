@@ -432,7 +432,7 @@ export class StoryPlanEditorComponent implements OnInit, OnDestroy {
     setPageSeo(this.document, {
       title: 'Your video plan | Indifferent',
       description: 'Edit the narration and pictures of a planned video.',
-      canonical: 'https://indifferent.fun/story',
+      canonical: 'https://indifferent.fun/story/',
     });
     setRobots(this.document, ROBOTS_NOINDEX);
     const view = this.document.defaultView;

@@ -142,7 +142,7 @@ export class HelpComponent implements OnInit {
       title: 'Help and FAQ | Indifferent',
       description:
         'Answers about the AI Shorts generator, the TXT to quiz video generator, the Story to video generator, the watermark tool and the infographic maker: limits, file formats, fixes, privacy and your account.',
-      canonical: 'https://indifferent.fun/help',
+      canonical: 'https://indifferent.fun/help/',
     });
   }
 

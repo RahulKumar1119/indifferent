@@ -289,7 +289,7 @@ export class InfographicMakerComponent implements OnInit {
 
   ngOnInit(): void {
     const facts = PRODUCT_FACTS.infographic;
-    const url = 'https://indifferent.fun/tools/infographic-maker';
+    const url = 'https://indifferent.fun/tools/infographic-maker/';
     const description = `Make an infographic from ${facts.templates} templates and download it as ${joinOr(facts.exports)}. Free, no account, and nothing is uploaded: it all happens in your browser.`;
     setPageSeo(this.document, { title: 'Free Infographic Maker: PNG, JPG and PDF | Indifferent', description, canonical: url });
     setJsonLd(this.document, 'software-infographic', {

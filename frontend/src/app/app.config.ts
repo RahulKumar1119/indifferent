@@ -1,5 +1,6 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection, APP_INITIALIZER, inject } from '@angular/core';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { UrlSerializer, provideRouter, withInMemoryScrolling } from '@angular/router';
+import { TrailingSlashUrlSerializer } from './shared/site-url';
 import { provideHttpClient, withFetch, withInterceptorsFromDi } from '@angular/common/http';
 import { firstValueFrom, catchError, of } from 'rxjs';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -30,6 +31,8 @@ export const appConfig: ApplicationConfig = {
       routes,
       withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }),
     ),
+    // One address per page: every router URL ends in a slash, as Amplify serves it (#361).
+    { provide: UrlSerializer, useClass: TrailingSlashUrlSerializer },
     provideHttpClient(withInterceptorsFromDi(), withFetch()),
     provideAnimationsAsync(),
     AUTH_INTERCEPTOR_PROVIDER,

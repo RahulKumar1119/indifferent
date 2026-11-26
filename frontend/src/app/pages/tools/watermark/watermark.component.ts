@@ -384,13 +384,13 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
       title: 'Watermark Images and Videos Free | Indifferent',
       description:
         'Add text or logo watermarks to JPG, PNG, WebP, MP4, WebM and MOV files. Free, private, processed in your browser. Nothing uploads anywhere.',
-      canonical: 'https://indifferent.fun/tools/add-watermark',
+      canonical: 'https://indifferent.fun/tools/add-watermark/',
     });
     this.addJsonLd({
       '@context': 'https://schema.org',
       '@type': 'SoftwareApplication',
       name: 'Indifferent Watermark Tool',
-      url: 'https://indifferent.fun/tools/add-watermark',
+      url: 'https://indifferent.fun/tools/add-watermark/',
       applicationCategory: 'MultimediaApplication',
       operatingSystem: 'Web',
       description:
@@ -501,7 +501,7 @@ export class WatermarkComponent implements OnInit, AfterViewInit, OnDestroy {
   sizeGateDismissed = false;
   showShare = false;
   copiedLink = false;
-  readonly shareUrl = 'https://indifferent.fun/tools/add-watermark';
+  readonly shareUrl = 'https://indifferent.fun/tools/add-watermark/';
   readonly shareText = 'Watermark images and video in your browser, free and private. Indifferent Watermark Tool.';
 
   isDragOver = false;

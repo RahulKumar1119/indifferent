@@ -75,7 +75,7 @@ describe('HelpComponent', () => {
     render();
 
     expect(document.title).toBe('Help and FAQ | Indifferent');
-    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/help');
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/help/');
   });
 
   it('answers "is it free" with the shared beta answer and links the pricing page (#255)', () => {

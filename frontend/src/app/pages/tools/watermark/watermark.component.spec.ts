@@ -144,8 +144,8 @@ describe('WatermarkComponent', () => {
 
   it('keeps the share links to the public tool URL', () => {
     const { cmp } = setup();
-    expect(cmp.xShareHref).toContain(encodeURIComponent('https://indifferent.fun/tools/add-watermark'));
-    expect(cmp.facebookShareHref).toContain(encodeURIComponent('https://indifferent.fun/tools/add-watermark'));
+    expect(cmp.xShareHref).toContain(encodeURIComponent('https://indifferent.fun/tools/add-watermark/'));
+    expect(cmp.facebookShareHref).toContain(encodeURIComponent('https://indifferent.fun/tools/add-watermark/'));
     expect(cmp.whatsappShareHref).toContain('wa.me');
   });
 

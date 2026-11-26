@@ -13,6 +13,17 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 
 export const SITE_URL = 'https://indifferent.fun';
+
+/**
+ * The one address a page is served at (#361). Amplify serves each prerendered
+ * page from `<route>/index.html`, so `/about` answers 301 to `/about/` and only
+ * `/about/` answers 200. The sitemap, the feed, canonical tags and links all use
+ * this form. The app's own copy of the rule is src/app/shared/site-url.ts.
+ */
+export function pagePath(route) {
+  return route === '/' || route.endsWith('/') ? route : `${route}/`;
+}
+export const pageUrl = (route) => `${SITE_URL}${pagePath(route)}`;
 export const FRONTEND_DIR = join(here, '..');
 export const ARTICLES_JSON = join(FRONTEND_DIR, 'src/app/pages/blog/articles/articles.json');
 

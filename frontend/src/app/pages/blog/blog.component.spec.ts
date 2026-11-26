@@ -115,6 +115,6 @@ describe('BlogComponent (journal index)', () => {
 
     expect(document.title).toContain('Journal');
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toContain('AI Shorts');
-    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/blog');
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/blog/');
   });
 });

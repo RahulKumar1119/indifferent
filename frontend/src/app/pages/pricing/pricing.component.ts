@@ -168,7 +168,7 @@ export class PricingComponent implements OnInit {
       title: 'Pricing: free during beta | Indifferent',
       description:
         'Every Indifferent tool is free during the beta, with no credit card and no paid plan. See the daily and hourly limits for each account and what beta means.',
-      canonical: 'https://indifferent.fun/pricing',
+      canonical: 'https://indifferent.fun/pricing/',
     });
   }
 }
