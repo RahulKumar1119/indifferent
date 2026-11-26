@@ -221,7 +221,7 @@ export class AboutComponent implements OnInit {
       title: 'About the Studio | Indifferent',
       description:
         'An AI video studio: quiz films from TXT files, vertical Shorts from long footage, narrated videos from a story, and a watermark tool and an infographic maker that run in your browser.',
-      canonical: 'https://indifferent.fun/about',
+      canonical: 'https://indifferent.fun/about/',
     });
   }
 

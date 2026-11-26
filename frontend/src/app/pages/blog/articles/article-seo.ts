@@ -37,7 +37,7 @@ export function setArticleSeo(doc: Document, meta: ArticleMeta): void {
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
-      { '@type': 'ListItem', position: 2, name: 'Journal', item: `${SITE_URL}/blog` },
+      { '@type': 'ListItem', position: 2, name: 'Journal', item: `${SITE_URL}/blog/` },
       { '@type': 'ListItem', position: 3, name: meta.title, item: url },
     ],
   });

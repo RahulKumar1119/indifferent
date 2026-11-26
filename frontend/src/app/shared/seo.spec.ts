@@ -30,25 +30,25 @@ describe('seo helpers', () => {
     link.href = 'https://indifferent.fun/';
     head.appendChild(link);
 
-    setCanonical(document, 'https://indifferent.fun/tools/add-watermark');
+    setCanonical(document, 'https://indifferent.fun/tools/add-watermark/');
 
     expect(head.querySelectorAll('link[rel="canonical"]').length).toBe(1);
-    expect(link.getAttribute('href')).toBe('https://indifferent.fun/tools/add-watermark');
+    expect(link.getAttribute('href')).toBe('https://indifferent.fun/tools/add-watermark/');
   });
 
   it('setCanonical creates the link when absent', () => {
-    setCanonical(document, 'https://indifferent.fun/about');
+    setCanonical(document, 'https://indifferent.fun/about/');
 
     const links = head.querySelectorAll('link[rel="canonical"]');
     expect(links.length).toBe(1);
-    expect(links[0].getAttribute('href')).toBe('https://indifferent.fun/about');
+    expect(links[0].getAttribute('href')).toBe('https://indifferent.fun/about/');
   });
 
   it('setPageSeo writes consistent title, description, OG, twitter and canonical', () => {
     setPageSeo(document, {
       title: 'Watermark Images and Videos Free | Indifferent',
       description: 'Add text or logo watermarks to JPG, PNG, WebP, and MP4 files.',
-      canonical: 'https://indifferent.fun/tools/add-watermark',
+      canonical: 'https://indifferent.fun/tools/add-watermark/',
     });
 
     expect(document.title).toContain('Watermark Images and Videos Free');
@@ -64,7 +64,7 @@ describe('seo helpers', () => {
       'Watermark Images and Videos Free',
     );
     expect(head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
-      'https://indifferent.fun/tools/add-watermark',
+      'https://indifferent.fun/tools/add-watermark/',
     );
   });
 

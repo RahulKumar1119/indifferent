@@ -117,7 +117,7 @@ describe('journal registry', () => {
   it('finds articles by slug and builds absolute URLs', () => {
     expect(findArticle('how-ai-video-clipping-works')?.product).toBe('ai-shorts');
     expect(findArticle('nope')).toBeUndefined();
-    expect(articleUrl('mp4-vs-webm-formats')).toBe('https://indifferent.fun/blog/mp4-vs-webm-formats');
+    expect(articleUrl('mp4-vs-webm-formats')).toBe('https://indifferent.fun/blog/mp4-vs-webm-formats/');
   });
 
   it('suggests articles about the same product first and never itself', () => {

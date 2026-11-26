@@ -12,6 +12,8 @@
     "verify:story-licensing": "node e2e/story-licensing-verification.mjs",
     "seo:generate": "node scripts/seo-files.mjs",
     "verify:seo": "node scripts/seo-files.mjs --check",
+    "verify:urls": "node scripts/check-site-urls.mjs",
+    "verify:live-urls": "node scripts/verify-live-urls.mjs",
     "verify:facts": "node scripts/check-facts.mjs",
     "verify:fonts": "node scripts/check-fonts.mjs"
   },

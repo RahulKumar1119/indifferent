@@ -171,7 +171,7 @@ export class BlogComponent implements OnInit {
       title: 'Journal: Guides & Notes | Indifferent',
       description:
         'Guides from the Indifferent studio on AI Shorts, quiz videos and watermarking: how the tools work, their limits, file formats and fixes.',
-      canonical: 'https://indifferent.fun/blog',
+      canonical: 'https://indifferent.fun/blog/',
     });
   }
 

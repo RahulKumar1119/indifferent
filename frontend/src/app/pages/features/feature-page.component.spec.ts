@@ -165,7 +165,7 @@ describe('FeaturePageComponent', () => {
 
     const page = harness!.routeNativeElement as HTMLElement;
     expect(page.querySelector('h1')?.textContent?.trim()).toBe(FEATURE_DATA['ai-shorts'].title);
-    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/features/ai-shorts');
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/features/ai-shorts/');
     expect(document.title).toBe(`${FEATURE_DATA['ai-shorts'].title} | Indifferent`);
     // The "Other tools" row now lists the tool the reader just left, and no longer the one on screen.
     const row = Array.from(page.querySelectorAll('p')).find((p) => p.textContent?.trim() === 'Other tools')!.nextElementSibling!;
@@ -177,12 +177,12 @@ describe('FeaturePageComponent', () => {
   it('writes one canonical URL and structured data per tool page', async () => {
     await open('watermark');
 
-    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/features/watermark');
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/features/watermark/');
     expect(document.head.querySelectorAll('script[data-seo-id="webpage"]').length).toBe(1);
     expect(document.head.querySelectorAll('script[data-seo-id="breadcrumbs"]').length).toBe(1);
 
     await open('ai-shorts');
     expect(document.head.querySelectorAll('script[data-seo-id="webpage"]').length).toBe(1);
-    expect(JSON.parse(document.head.querySelector('script[data-seo-id="webpage"]')!.textContent!).url).toBe('https://indifferent.fun/features/ai-shorts');
+    expect(JSON.parse(document.head.querySelector('script[data-seo-id="webpage"]')!.textContent!).url).toBe('https://indifferent.fun/features/ai-shorts/');
   });
 });

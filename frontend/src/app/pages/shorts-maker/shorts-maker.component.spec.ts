@@ -126,7 +126,7 @@ describe('ShortsMakerComponent (public landing page)', () => {
 
     expect(document.title).toBe('AI Shorts Maker: Long Video to Ranked Clips | Indifferent');
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toContain('Free during beta');
-    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/shorts-maker');
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe('https://indifferent.fun/shorts-maker/');
   });
 
   it('links to the legal pages, the feature guide and every persona page', () => {

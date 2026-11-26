@@ -98,7 +98,7 @@ export class PrivacyComponent implements OnInit {
       title: 'Privacy Policy | Indifferent',
       description:
         'How Indifferent handles your data: what we collect, how uploads and accounts are stored, cookies, and your choices.',
-      canonical: 'https://indifferent.fun/privacy',
+      canonical: 'https://indifferent.fun/privacy/',
     });
   }
 

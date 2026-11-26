@@ -413,7 +413,7 @@ export class ShortsMakerComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    const pageUrl = 'https://indifferent.fun/shorts-maker';
+    const pageUrl = 'https://indifferent.fun/shorts-maker/';
     const description = 'Upload a video or audio file and let AI transcribe, rank and render top 9:16 shorts with burned-in captions. Free during beta.';
     this.title.setTitle('AI Shorts Maker: Long Video to Ranked Clips | Indifferent');
     this.meta.updateTag({ name: 'description', content: description });

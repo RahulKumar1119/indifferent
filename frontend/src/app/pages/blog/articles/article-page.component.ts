@@ -162,7 +162,7 @@ export class ArticlePageComponent implements OnInit {
       setPageSeo(this.document, {
         title: 'Article not found | Indifferent',
         description: 'This article does not exist. Browse the Indifferent journal for guides on AI Shorts, quiz videos and watermarking.',
-        canonical: 'https://indifferent.fun/blog',
+        canonical: 'https://indifferent.fun/blog/',
       });
       setRobots(this.document, ROBOTS_NOINDEX);
       return;

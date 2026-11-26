@@ -178,7 +178,7 @@ type Phase = 'idle' | 'loading' | 'ready' | 'failed';
                 Check each picture before you choose it. Avoid visible logos or brand names, people who could be recognised shown in a bad
                 light or as if they back something, and private homes.
               </p>
-              <a href="/terms#stock" target="_blank" rel="noopener noreferrer" class="ui-link" data-testid="picker-terms"
+              <a href="/terms/#stock" target="_blank" rel="noopener noreferrer" class="ui-link" data-testid="picker-terms"
                 >What the terms say<span class="sr-only"> (opens in a new tab)</span></a
               >
             </div>

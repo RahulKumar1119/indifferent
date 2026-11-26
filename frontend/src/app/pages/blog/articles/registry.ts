@@ -1,6 +1,7 @@
 import articlesJson from './articles.json';
 
-export const SITE_URL = 'https://indifferent.fun';
+import { SITE_URL, siteUrl } from '../../../shared/site-url';
+export { SITE_URL };
 
 export type ArticleProduct = 'ai-shorts' | 'watermark' | 'txt-to-video-quiz';
 export type ArticleCategory = 'Shorts' | 'Watermark' | 'Video basics' | 'Quiz videos';
@@ -39,7 +40,7 @@ export function articlePath(slug: string): string {
 }
 
 export function articleUrl(slug: string): string {
-  return `${SITE_URL}${articlePath(slug)}`;
+  return siteUrl(articlePath(slug));
 }
 
 /** "October 25, 2026" from an ISO date, independent of the visitor's timezone. */

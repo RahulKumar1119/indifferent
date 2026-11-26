@@ -155,7 +155,7 @@ export class StoryPlanPageComponent implements OnInit, OnDestroy {
     setPageSeo(this.document, {
       title: 'Plan a video from a story | Indifferent',
       description: 'Paste a story and get a scene-by-scene plan for a short video, then choose a picture for each scene.',
-      canonical: 'https://indifferent.fun/story',
+      canonical: 'https://indifferent.fun/story/',
     });
     setRobots(this.document, ROBOTS_NOINDEX);
 

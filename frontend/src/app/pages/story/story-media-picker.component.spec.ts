@@ -142,7 +142,7 @@ describe('StoryMediaPickerComponent', () => {
     it('links to the part of the terms that says more, in a new tab, safely', async () => {
       await openFor();
       const link = el.querySelector<HTMLAnchorElement>('[data-testid="picker-terms"]')!;
-      expect(link.getAttribute('href')).toBe('/terms#stock');
+      expect(link.getAttribute('href')).toBe('/terms/#stock');
       expect(link.getAttribute('target')).toBe('_blank');
       expect(link.getAttribute('rel')).toContain('noopener');
       expect(link.textContent).toContain('(opens in a new tab)');

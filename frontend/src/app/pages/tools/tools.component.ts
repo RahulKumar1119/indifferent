@@ -210,7 +210,7 @@ export class ToolsComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    const url = 'https://indifferent.fun/tools';
+    const url = 'https://indifferent.fun/tools/';
     const description = 'Free creator tools: an in-browser infographic maker and image and video watermarking, plus TXT to quiz video, AI shorts, story to video and AI thumbnails.';
     this.title.setTitle('Free Creator Tools | Indifferent');
     this.meta.updateTag({ name: 'description', content: description });

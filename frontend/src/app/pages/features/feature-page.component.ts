@@ -595,7 +595,7 @@ export class FeaturePageComponent implements OnInit {
     this.others = Object.values(FEATURE_DATA).filter((f) => f.slug !== this.data.slug);
     this.guides = this.data.guides.map((g) => findArticle(g)).filter((a): a is ArticleMeta => !!a);
     this.reviewed = formatLongDate(this.data.reviewed);
-    const url = `https://indifferent.fun/features/${this.data.slug}`;
+    const url = `https://indifferent.fun/features/${this.data.slug}/`;
     setPageSeo(this.document, { title: `${this.data.title} | Indifferent`, description: this.data.description, canonical: url });
     // An unknown slug shows the Shorts page at a made-up address: keep it out of the index.
     if (!known) setRobots(this.document, ROBOTS_NOINDEX);

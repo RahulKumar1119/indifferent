@@ -198,7 +198,7 @@ export class UseCaseComponent implements OnInit {
     setPageSeo(this.document, {
       title: `${this.data.title} | Indifferent`,
       description: this.data.description,
-      canonical: `https://indifferent.fun/use-cases/${this.data.slug}`,
+      canonical: `https://indifferent.fun/use-cases/${this.data.slug}/`,
     });
     // These six pages share one template and about sixty words each. Until they
     // carry material of their own they stay out of search results; the AI Shorts

@@ -74,7 +74,7 @@ export class ContactComponent implements OnInit {
       title: 'Contact | Indifferent',
       description:
         'Get in touch with the Indifferent studio: support, feedback, and feature requests for the AI video platform.',
-      canonical: 'https://indifferent.fun/contact',
+      canonical: 'https://indifferent.fun/contact/',
     });
   }
 
