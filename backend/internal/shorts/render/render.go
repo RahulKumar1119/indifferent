@@ -105,6 +105,12 @@ type RenderInput struct {
 	// Effects holds the phase 1 video effect settings. Nil, or settings with
 	// no enabled effect, render exactly as they did before effects existed.
 	Effects *models.VideoEffects
+	// Hook is the clip's hook line (#329). Nil or switched off renders exactly
+	// as before hooks existed.
+	Hook *models.ClipHook
+	// OutputKey, when set, is where the clip is written instead of ClipKey: a
+	// single-clip render writes a new file and leaves the one that plays alone.
+	OutputKey string
 }
 
 // Renderer renders a single ranked segment into a 9:16 captioned clip and
@@ -273,12 +279,19 @@ func renderFingerprint(in RenderInput) (string, error) {
 			edit.Words = in.Edit.Words
 		}
 	}
+	var hook *models.ClipHook
+	if in.Hook.Active() {
+		h := in.Hook.Normalized()
+		h.UpdatedAt = ""
+		hook = &h
+	}
 	raw, err := json.Marshal(fingerprintSettings{
 		Caption: in.Caption,
 		Effects: effects,
 		Start:   in.ClipStart,
 		End:     in.ClipEnd,
 		Edit:    edit,
+		Hook:    hook,
 	})
 	if err != nil {
 		return "", fmt.Errorf("render settings cannot be fingerprinted: %w", err)
@@ -294,6 +307,9 @@ type fingerprintSettings struct {
 	Start   float64              `json:"start"`
 	End     float64              `json:"end"`
 	Edit    *fingerprintEdit     `json:"edit"`
+	// Hook is left out of the JSON when there is none, so a clip without a hook
+	// keeps the fingerprint it had before hooks existed.
+	Hook *models.ClipHook `json:"hook,omitempty"`
 }
 
 // fingerprintEdit is the part of a clip edit that changes the output.
@@ -324,6 +340,13 @@ func (r *Renderer) metadataStore() (storage.MetadataStorage, error) {
 // true the whole frame is scaled to fit over a blurred background instead of
 // cropping (cropX is ignored).
 func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float64, audioOnly bool, cropX string, fit bool, style models.CaptionStyle) []string {
+	return r.buildCropCaptionHookArgs(src, subs, "", out, start, end, audioOnly, cropX, fit, style)
+}
+
+// buildCropCaptionHookArgs is buildCropCaptionArgs with the hook file burned
+// after the captions. An empty hook path gives exactly the arguments renders
+// have always had.
+func (r *Renderer) buildCropCaptionHookArgs(src, subs, hook, out string, start, end float64, audioOnly bool, cropX string, fit bool, style models.CaptionStyle) []string {
 	// An empty subs path means "no captions": the subtitles filter rejects
 	// empty files, so it is omitted entirely (identical picture, no failure).
 	// Karaoke styles burn ASS (word sweep) with embedded styling; all others
@@ -331,6 +354,9 @@ func (r *Renderer) buildCropCaptionArgs(src, subs, out string, start, end float6
 	subsFilter := ""
 	if subs != "" {
 		subsFilter = "," + SubtitlesFilter(subs, style)
+	}
+	if hook != "" {
+		subsFilter += "," + HookFilter(hook)
 	}
 
 	if audioOnly {
@@ -720,6 +746,9 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 		return "", err
 	}
 	key := ClipKey(in.UserID, in.JobID, in.Clip.ClipID)
+	if in.OutputKey != "" {
+		key = in.OutputKey
+	}
 
 	// Idempotent resume: skip everything if this clip already exists with these
 	// same settings. A clip rendered with other settings renders again.
@@ -825,6 +854,14 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 			return "", fmt.Errorf("failed to write captions: %w", err)
 		}
 	}
+	outSec := clipEnd - clipStart
+	if effects {
+		outSec = plan.outSec
+	}
+	hookPath, err := r.writeHook(in, words, effects, plan, outSec)
+	if err != nil {
+		return "", err
+	}
 	done()
 
 	done = tm.start(phaseReframe)
@@ -850,14 +887,14 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 	var timeout time.Duration
 	if effects {
 		var err error
-		args, err = r.effectRenderArgs(in, plan, srcPath, subsPath, outPath, clipStart, clipEnd, cropX, fit)
+		args, err = r.effectRenderArgs(in, plan, srcPath, subsPath, hookPath, outPath, clipStart, clipEnd, cropX, fit)
 		if err != nil {
 			return "", fmt.Errorf("failed to build effect filters: %w", err)
 		}
 		progressSec = plan.outSec
 		timeout = r.effectTimeout(plan.outSec)
 	} else {
-		args = r.buildCropCaptionArgs(srcPath, subsPath, outPath, clipStart, clipEnd, in.AudioOnly, cropX, fit, in.Caption)
+		args = r.buildCropCaptionHookArgs(srcPath, subsPath, hookPath, outPath, clipStart, clipEnd, in.AudioOnly, cropX, fit, in.Caption)
 	}
 	var encCtx context.Context
 	var cancel context.CancelFunc
@@ -919,6 +956,34 @@ func (r *Renderer) render(ctx context.Context, in RenderInput, tm *renderTimer) 
 	done()
 
 	return key, nil
+}
+
+// writeHook writes the clip's hook file and returns its path, or "" when the
+// clip has no active hook. A hook that cannot be drawn (too long for two lines,
+// or no room beside the captions) is left out and logged: the API refuses to
+// save one, so this only meets records written before the rule, and a clip
+// without its hook is better than no clip. It never overlaps the captions.
+func (r *Renderer) writeHook(in RenderInput, words []models.Word, effects bool, plan clipEffects, outSec float64) (string, error) {
+	if !in.Hook.Active() {
+		return "", nil
+	}
+	caps := HookCaptions{None: len(words) == 0, Style: in.Caption}
+	if effects && plan.captions != nil {
+		caps.Animated = plan.captions
+	}
+	doc, err := BuildHookASS(*in.Hook, caps, outSec)
+	if err != nil {
+		log.Printf("hook_skipped job=%s clip=%s reason=%q", in.JobID, in.Clip.ClipID, err.Error())
+		return "", nil
+	}
+	path := filepath.Join(r.WorkDir, in.Clip.ClipID+"-hook.ass")
+	if _, err := filterPath(path); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, []byte(doc), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write the hook: %w", err)
+	}
+	return path, nil
 }
 
 // parseTranscript decodes the normalized transcript JSON stored in S3.

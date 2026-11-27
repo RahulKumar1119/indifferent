@@ -29,7 +29,7 @@ type quota struct {
 var (
 	quotaProjectCreate = quota{name: "project-create", limit: 40, what: "creating projects"}
 	quotaShortsCreate  = quota{name: "shorts-create", limit: 30, what: "uploading videos for Shorts"}
-	quotaShortsRetry   = quota{name: "shorts-retry", limit: 15, what: "retrying Shorts jobs"}
+	quotaShortsRetry   = quota{name: "shorts-retry", limit: 15, what: "retrying Shorts jobs and rendering clips again"}
 	quotaThumbnails    = quota{name: "thumbnails", limit: 30, what: "generating thumbnails"}
 	quotaUploadURL     = quota{name: "upload-url", limit: 120, what: "uploading files"}
 	// quotaVoicePreview counts voice previews that had to be made (a Polly call).

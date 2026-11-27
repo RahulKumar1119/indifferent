@@ -570,6 +570,32 @@ func captionBurn(subs string, style models.CaptionStyle, animated bool) (string,
 	return SubtitlesFilter(path, style), nil
 }
 
+// HookFilter is the ffmpeg filter that burns the hook file at path. It is the
+// ass filter with complex shaping, not the subtitles filter: in the render
+// image's ffmpeg the subtitles filter always shapes text the simple way, which
+// draws Hindi wrongly (a vowel sign after its letter, conjuncts broken apart).
+// path is put inside the filter expression, so it must already be safe there.
+func HookFilter(path string) string {
+	return "ass=" + path + ":shaping=complex"
+}
+
+// withHookBurn adds the hook's filter after the caption burn, so the hook is
+// drawn over the captions' layer and on the output timeline (after any freeze
+// or speed change). No hook file leaves burn as it is.
+func withHookBurn(burn, hookPath string) (string, error) {
+	if hookPath == "" {
+		return burn, nil
+	}
+	path, err := filterPath(hookPath)
+	if err != nil {
+		return "", err
+	}
+	if burn == "" {
+		return HookFilter(path), nil
+	}
+	return burn + "," + HookFilter(path), nil
+}
+
 // writeImpactFiles writes each impact line to its own file in dir and points
 // the cue at that file.
 func writeImpactFiles(dir, clipID string, cues []impactCue) error {
@@ -1047,7 +1073,7 @@ func effectArgs(j effectJob) ([]string, error) {
 
 // effectRenderArgs builds the ffmpeg arguments for one clip with effects. The
 // audio probe runs only when a hold needs the audio cut.
-func (r *Renderer) effectRenderArgs(in RenderInput, plan clipEffects, srcPath, subsPath, outPath string, start, end float64, cropX string, fit bool) ([]string, error) {
+func (r *Renderer) effectRenderArgs(in RenderInput, plan clipEffects, srcPath, subsPath, hookPath, outPath string, start, end float64, cropX string, fit bool) ([]string, error) {
 	hasAudio := true
 	if len(plan.holds) > 0 && !in.AudioOnly {
 		probe := r.ProbeHasAudio
@@ -1063,6 +1089,9 @@ func (r *Renderer) effectRenderArgs(in RenderInput, plan clipEffects, srcPath, s
 	}
 	burn, err := captionBurn(subsPath, in.Caption, plan.captions != nil)
 	if err != nil {
+		return nil, err
+	}
+	if burn, err = withHookBurn(burn, hookPath); err != nil {
 		return nil, err
 	}
 	return effectArgs(effectJob{

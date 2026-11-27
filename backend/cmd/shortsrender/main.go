@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rekognition"
 	"github.com/rahul/indifferent/backend/internal/models"
 	"github.com/rahul/indifferent/backend/internal/shorts"
+	"github.com/rahul/indifferent/backend/internal/shorts/cliprender"
 	"github.com/rahul/indifferent/backend/internal/shorts/render"
 	"github.com/rahul/indifferent/backend/internal/storage"
 )
@@ -95,6 +97,12 @@ func run(ctx context.Context) error {
 	}
 	// CLIP_RANK is optional metadata; default 0 when unset or unparsable.
 	rank, _ := strconv.Atoi(os.Getenv("CLIP_RANK"))
+	// RERENDER_TOKEN marks a single-clip render of a finished clip (#329),
+	// started from the clip's page rather than by the pipeline.
+	token := os.Getenv("RERENDER_TOKEN")
+	if token != "" && !cliprender.ValidToken(token) {
+		return fmt.Errorf("invalid RERENDER_TOKEN")
+	}
 
 	s3Client, err := storage.NewS3Client(ctx)
 	if err != nil {
@@ -134,6 +142,20 @@ func run(ctx context.Context) error {
 	renderer.FetchLogo = render.NewLogoFetcher(dbClient, table, userID, jobID, s3Client, bucket)
 	renderer.Table = table
 	renderer.Dynamo = dbClient
+	if token != "" {
+		// The job is finished: its progress belongs to the pipeline, not to
+		// one clip rendered again.
+		renderer.Table = ""
+		rec, err := cliprender.Get(ctx, dbClient, table, userID, jobID, clipID)
+		if err != nil {
+			return fmt.Errorf("failed to read the clip render record: %w", err)
+		}
+		if rec == nil || rec.Token != token || rec.State != models.ClipRenderRendering {
+			// A newer render took its place, or the job was deleted. Nothing to do.
+			log.Printf("clip_render_superseded job=%s clip=%s", jobID, clipID)
+			return nil
+		}
+	}
 
 	effects, err := fetchJobEffects(ctx, dbClient, table, userID, jobID)
 	if err != nil {
@@ -148,6 +170,7 @@ func run(ctx context.Context) error {
 		Caption:       fetchJobCaption(ctx, dbClient, table, userID, jobID),
 		Edit:          fetchClipEdit(ctx, dbClient, table, userID, jobID, clipID),
 		Effects:       effects,
+		Hook:          fetchClipHook(ctx, dbClient, table, userID, jobID, clipID),
 		Clip: models.Clip{
 			// Start/End ride along for caption rebuilds (Score/HookText live
 			// only in the ranker's DynamoDB record, not in worker env).
@@ -160,6 +183,10 @@ func run(ctx context.Context) error {
 		ClipStart: start,
 		ClipEnd:   end,
 		AudioOnly: isAudioOnly(sourceKey),
+	}
+
+	if token != "" {
+		return renderOne(ctx, renderer, dbClient, table, in, token)
 	}
 
 	// A user cancel only writes the job record. Poll it, and stop this render
@@ -186,6 +213,108 @@ func run(ctx context.Context) error {
 	return nil
 }
 
+// clipRenderer renders one clip. *render.Renderer implements it.
+type clipRenderer interface {
+	Render(ctx context.Context, in render.RenderInput) (string, error)
+}
+
+// renderOne renders a finished clip again (#329). The new file goes to a key of
+// its own, and the clip is pointed at it only once it rendered, and only while
+// this render is still the clip's latest. A failure or a newer request leaves
+// the file that plays as it is. The job record is not touched.
+//
+// The render stops when a newer request takes the clip's record or the record
+// is deleted with the job. A stop for that reason ends the task without an
+// error, so the state machine does not try again. Any other failure keeps its
+// reason on the record and ends with an error, so the state machine can try on
+// other capacity and, when it gives up, marks the render failed.
+func renderOne(ctx context.Context, renderer clipRenderer, db cliprender.DB, table string, in render.RenderInput, token string) error {
+	in.OutputKey = cliprender.OutputKey(in.UserID, in.JobID, in.Clip.ClipID, token)
+	renderCtx, cancelRender := context.WithCancel(ctx)
+	defer cancelRender()
+	var superseded atomicFlag
+	go render.WatchJobStatus(renderCtx, cancelPollInterval, func(ctx context.Context) (string, error) {
+		rec, err := cliprender.Get(ctx, db, table, in.UserID, in.JobID, in.Clip.ClipID)
+		if err != nil {
+			return "", err
+		}
+		if rec == nil || rec.Token != token || rec.State != models.ClipRenderRendering {
+			superseded.set()
+			return "superseded", nil
+		}
+		return "rendering", nil
+	}, cancelRender)
+
+	key, err := renderer.Render(renderCtx, in)
+	if err != nil {
+		if superseded.get() {
+			log.Printf("clip_render_superseded job=%s clip=%s", in.JobID, in.Clip.ClipID)
+			return nil
+		}
+		log.Printf("clip_render_failed job=%s clip=%s effects=%t err=%q", in.JobID, in.Clip.ClipID, in.Effects.Active(), logCause(err))
+		if msg := renderErrorMessage(err); msg != "" {
+			if rerr := cliprender.RecordError(context.Background(), db, table, in.UserID, in.JobID, in.Clip.ClipID, token, msg); rerr != nil && !errors.Is(rerr, cliprender.ErrSuperseded) {
+				log.Printf("could not record the clip render error: %v", rerr)
+			}
+		}
+		return err
+	}
+	switch err := cliprender.Promote(ctx, db, table, in.UserID, in.JobID, in.Clip.ClipID, token, key, time.Now()); {
+	case errors.Is(err, cliprender.ErrSuperseded):
+		// The file stays under the job's folder and goes when the job is deleted.
+		log.Printf("clip_render_superseded job=%s clip=%s key=%s", in.JobID, in.Clip.ClipID, key)
+		return nil
+	case err != nil:
+		return fmt.Errorf("failed to point the clip at its new file: %w", err)
+	}
+	log.Printf("clip_render_done job=%s clip=%s key=%s", in.JobID, in.Clip.ClipID, key)
+	return nil
+}
+
+// atomicFlag is a flag set by the watcher and read after the render.
+type atomicFlag struct{ v atomic.Bool }
+
+func (f *atomicFlag) set()      { f.v.Store(true) }
+func (f *atomicFlag) get() bool { return f.v.Load() }
+
+// fetchClipHook loads one clip's hook. Any failure, or none saved, renders the
+// clip without one, the way clips rendered before hooks existed.
+func fetchClipHook(ctx context.Context, dbClient *dynamodb.Client, table, userID, jobID, clipID string) *models.ClipHook {
+	out, err := dbClient.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(table),
+		Key: map[string]dbtypes.AttributeValue{
+			"PK": &dbtypes.AttributeValueMemberS{Value: "USER#" + userID},
+			"SK": &dbtypes.AttributeValueMemberS{Value: "SHORTS#" + jobID},
+		},
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil || out.Item == nil {
+		return nil
+	}
+	return hookFromItem(out.Item, clipID)
+}
+
+// hookFromItem decodes one clip's hook from a job record.
+func hookFromItem(item map[string]dbtypes.AttributeValue, clipID string) *models.ClipHook {
+	raw, ok := item["clipHooks"].(*dbtypes.AttributeValueMemberS)
+	if !ok || raw.Value == "" {
+		return nil
+	}
+	var hooks map[string]models.ClipHook
+	if err := json.Unmarshal([]byte(raw.Value), &hooks); err != nil {
+		return nil
+	}
+	h, ok := hooks[clipID]
+	if !ok || !h.Active() {
+		return nil
+	}
+	h = h.Normalized()
+	if h.Validate() != nil {
+		return nil
+	}
+	return &h
+}
+
 // fetchJobCaption loads the job's reusable caption style for the render.
 // Any failure (missing record, unreadable value) falls back to the zero
 // style, which renders the legacy bold look: branding must never block an
@@ -205,8 +334,8 @@ func fetchJobCaption(ctx context.Context, dbClient *dynamodb.Client, table, user
 }
 
 // cancelPollInterval is how often the render task re-reads its job record to see
-// whether the user cancelled the job.
-const cancelPollInterval = 10 * time.Second
+// whether the user cancelled the job (a variable so tests can shorten it).
+var cancelPollInterval = 10 * time.Second
 
 // jobStatus reads the job's status with a consistent read. A missing record
 // reads as an empty status, so a deleted job stops its render too.

@@ -1,0 +1,143 @@
+{
+  "Comment": "Render one finished Shorts clip again (issue #329). Runs the Shorts render task in single-clip mode (RERENDER_TOKEN): it writes a new file and points the clip at it only on success. This machine launches the task, Spot first then on-demand, and marks the clip's render failed if every try fails. It never touches the job record.",
+  "StartAt": "RenderOnSpot",
+  "States": {
+    "RenderOnSpot": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "TimeoutSeconds": 1200,
+      "Parameters": {
+        "Cluster": "${EcsClusterArn}",
+        "TaskDefinition": "${ShortsRenderTaskDefArn}",
+        "CapacityProviderStrategy": [
+          { "CapacityProvider": "FARGATE_SPOT", "Weight": 1 }
+        ],
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ["${SubnetIds}"],
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": ["${SecurityGroupId}"]
+          }
+        },
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "shorts-render",
+              "Environment": [
+                { "Name": "JOB_ID", "Value.$": "$.jobId" },
+                { "Name": "USER_ID", "Value.$": "$.userId" },
+                { "Name": "SOURCE_KEY", "Value.$": "$.sourceKey" },
+                { "Name": "TRANSCRIPT_KEY", "Value.$": "$.transcriptKey" },
+                { "Name": "CLIP_ID", "Value.$": "$.clipId" },
+                { "Name": "CLIP_START", "Value.$": "States.Format('{}', $.start)" },
+                { "Name": "CLIP_END", "Value.$": "States.Format('{}', $.end)" },
+                { "Name": "CLIP_RANK", "Value.$": "States.Format('{}', $.rank)" },
+                { "Name": "RERENDER_TOKEN", "Value.$": "$.token" }
+              ]
+            }
+          ]
+        }
+      },
+      "ResultPath": null,
+      "Retry": [
+        {
+          "ErrorEquals": ["ECS.AmazonECSException", "States.TaskFailed"],
+          "IntervalSeconds": 20,
+          "MaxAttempts": 1,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.spotError",
+          "Next": "RenderOnDemand"
+        }
+      ],
+      "End": true
+    },
+    "RenderOnDemand": {
+      "Type": "Task",
+      "Comment": "Spot capacity was reclaimed or unavailable, or the render failed twice: try once on regular Fargate.",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "TimeoutSeconds": 1200,
+      "Parameters": {
+        "Cluster": "${EcsClusterArn}",
+        "TaskDefinition": "${ShortsRenderTaskDefArn}",
+        "CapacityProviderStrategy": [
+          { "CapacityProvider": "FARGATE", "Weight": 1 }
+        ],
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ["${SubnetIds}"],
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": ["${SecurityGroupId}"]
+          }
+        },
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "shorts-render",
+              "Environment": [
+                { "Name": "JOB_ID", "Value.$": "$.jobId" },
+                { "Name": "USER_ID", "Value.$": "$.userId" },
+                { "Name": "SOURCE_KEY", "Value.$": "$.sourceKey" },
+                { "Name": "TRANSCRIPT_KEY", "Value.$": "$.transcriptKey" },
+                { "Name": "CLIP_ID", "Value.$": "$.clipId" },
+                { "Name": "CLIP_START", "Value.$": "States.Format('{}', $.start)" },
+                { "Name": "CLIP_END", "Value.$": "States.Format('{}', $.end)" },
+                { "Name": "CLIP_RANK", "Value.$": "States.Format('{}', $.rank)" },
+                { "Name": "RERENDER_TOKEN", "Value.$": "$.token" }
+              ]
+            }
+          ]
+        }
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "End": true
+    },
+    "MarkFailed": {
+      "Type": "Task",
+      "Comment": "Only this render's record, and only while it is still rendering: a newer request or a finished render is left alone. The reason the task kept (lastError) is shown when there is one. The clip's file is not changed.",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${DynamoTable}",
+        "Key": {
+          "PK": { "S.$": "States.Format('USER#{}', $.userId)" },
+          "SK": { "S.$": "States.Format('CLIPRENDER#{}#{}', $.jobId, $.clipId)" }
+        },
+        "UpdateExpression": "SET #state = :failed, #error = if_not_exists(lastError, :msg)",
+        "ConditionExpression": "#token = :token AND #state = :rendering",
+        "ExpressionAttributeNames": {
+          "#state": "state",
+          "#error": "error",
+          "#token": "token"
+        },
+        "ExpressionAttributeValues": {
+          ":failed": { "S": "failed" },
+          ":rendering": { "S": "rendering" },
+          ":token": { "S.$": "$.token" },
+          ":msg": { "S": "We could not render this clip again. The clip you had is unchanged. Try again." }
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": ["DynamoDB.ConditionalCheckFailedException"],
+          "Next": "AlreadyRecorded"
+        }
+      ],
+      "End": true
+    },
+    "AlreadyRecorded": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}
