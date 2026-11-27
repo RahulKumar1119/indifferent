@@ -200,11 +200,18 @@ type ShortsJob struct {
 	Effects *VideoEffects `json:"effects,omitempty"`
 	// ClipEdits maps clipId to the user's boundary/caption overrides,
 	// honored by renders and retries.
-	ClipEdits   map[string]ClipEdit `json:"clipEdits,omitempty"`
-	Error       string              `json:"error,omitempty"`
-	CreatedAt   string              `json:"createdAt"`
-	UpdatedAt   string              `json:"updatedAt"`
-	CompletedAt string              `json:"completedAt,omitempty"`
+	ClipEdits map[string]ClipEdit `json:"clipEdits,omitempty"`
+	// ClipHooks maps clipId to the hook line burned into the clip's first
+	// seconds (#329), honored by renders, retries and single-clip renders.
+	ClipHooks map[string]ClipHook `json:"clipHooks,omitempty"`
+	// ClipRenders is the state of single-clip renders, by clipId. It is kept in
+	// records of its own (see package cliprender), never in the job record, and
+	// is filled in only when a job is read for the page.
+	ClipRenders map[string]ClipRenderView `json:"clipRenders,omitempty"`
+	Error       string                    `json:"error,omitempty"`
+	CreatedAt   string                    `json:"createdAt"`
+	UpdatedAt   string                    `json:"updatedAt"`
+	CompletedAt string                    `json:"completedAt,omitempty"`
 }
 
 // RankedSegment is a candidate viral moment with its rank and score.

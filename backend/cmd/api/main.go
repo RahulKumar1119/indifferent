@@ -150,7 +150,11 @@ func main() {
 	// models and the same daily allowance as the helper above.
 	var postCopyWriter api.PostCopyWriter
 	postCopyOn := appconfig.Enabled(os.Getenv("POST_COPY_ENABLED"))
-	if appconfig.Enabled(os.Getenv("COPY_HELPER_ENABLED")) || postCopyOn {
+	// Hook line suggestions for a clip (issue #329) have their own switch,
+	// HOOK_SUGGESTIONS_ENABLED, and share the models and the daily allowance.
+	var hookWriter api.HookWriter
+	hooksOn := appconfig.Enabled(os.Getenv("HOOK_SUGGESTIONS_ENABLED"))
+	if appconfig.Enabled(os.Getenv("COPY_HELPER_ENABLED")) || postCopyOn || hooksOn {
 		bedrock := bedrockruntime.NewFromConfig(awsCfg)
 		model := planningModel(os.Getenv("PLANNING_MODEL"), rank.ModelQwen3)
 		var opts []videocopy.Option
@@ -165,6 +169,9 @@ func main() {
 		}
 		if postCopyOn {
 			postCopyWriter = svc
+		}
+		if hooksOn {
+			hookWriter = svc
 		}
 	}
 	// Stock media search (issue #192). Built from PEXELS_API_KEY and
@@ -254,8 +261,13 @@ func main() {
 		StoryPlanner:    storyPlanner,
 		CopyWriter:      copyWriter,
 		PostCopyWriter:  postCopyWriter,
-		StockMedia:      stockMedia,
-		AutoPick:        autoPick,
+		HookWriter:      hookWriter,
+		// Rendering one finished clip again (issue #329). Empty until
+		// deploy/setup-clip-render.sh has created the state machine; the route
+		// then answers 503.
+		ClipRenderStateMachineARN: os.Getenv("CLIP_RENDER_STATE_MACHINE_ARN"),
+		StockMedia:                stockMedia,
+		AutoPick:                  autoPick,
 	}
 
 	// Start Lambda

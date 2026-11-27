@@ -495,6 +495,11 @@ func (h *APIHandler) handleRetryShorts(ctx context.Context, req events.APIGatewa
 		return errorResponse(http.StatusInternalServerError, "PIPELINE_ERROR", "Failed to restart processing pipeline"), nil
 	}
 
+	// The retry renders every clip from the start, so earlier single-clip
+	// renders no longer describe what plays.
+	if err := h.removeClipRenders(ctx, claims.UserID, jobID); err != nil {
+		log.Printf("retry_shorts_cliprender_cleanup_failed user=%s job=%s err=%v", claims.UserID, jobID, err)
+	}
 	log.Printf("shorts_retried user=%s job=%s", claims.UserID, jobID)
 	return jsonResponse(http.StatusOK, map[string]string{
 		"status": "restarted",
@@ -1017,6 +1022,13 @@ func (h *APIHandler) removeShortsJob(ctx context.Context, userID, jobID string) 
 		}
 	}
 
+	// Single-clip renders are stopped and their records removed first, so none
+	// can write a file or point a clip at one once the files below are gone.
+	if err := h.removeClipRenders(ctx, userID, jobID); err != nil {
+		log.Printf("shorts_delete_cliprender_failed user=%s job=%s err=%v", userID, jobID, err)
+		return err
+	}
+
 	keys, err := h.shortsSweepKeys(ctx, userID, job)
 	if err != nil {
 		// Enumeration needs s3:ListBucket; if it is unavailable (or any
@@ -1236,6 +1248,7 @@ func (h *APIHandler) handleGetShorts(ctx context.Context, req events.APIGatewayP
 	if err != nil {
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Shorts job not found"), nil
 	}
+	h.attachClipRenders(ctx, job)
 
 	return jsonResponse(http.StatusOK, job), nil
 }
@@ -1377,7 +1390,7 @@ func (h *APIHandler) handleGetClipURL(ctx context.Context, req events.APIGateway
 		return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
 	}
 
-	url, restoring, err := h.downloadURLOrRestore(ctx, clip.S3Key)
+	url, restoring, err := h.downloadURLOrRestore(ctx, h.activeClipKey(ctx, claims.UserID, jobID, clip))
 	if err != nil {
 		if errors.Is(err, errObjectNotFound) {
 			return errorResponse(http.StatusNotFound, "NOT_FOUND", "Clip not found"), nil
@@ -1506,6 +1519,11 @@ func shortsJobToItem(j models.ShortsJob) map[string]dbtypes.AttributeValue {
 			item["clipEdits"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
 		}
 	}
+	if len(j.ClipHooks) > 0 {
+		if b, err := json.Marshal(j.ClipHooks); err == nil {
+			item["clipHooks"] = &dbtypes.AttributeValueMemberS{Value: string(b)}
+		}
+	}
 	if j.CompletedAt != "" {
 		item["completedAt"] = &dbtypes.AttributeValueMemberS{Value: j.CompletedAt}
 	}
@@ -1573,6 +1591,9 @@ func itemToShortsJob(item map[string]dbtypes.AttributeValue) models.ShortsJob {
 	}
 	if v, ok := item["clipEdits"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
 		_ = json.Unmarshal([]byte(v.Value), &j.ClipEdits)
+	}
+	if v, ok := item["clipHooks"].(*dbtypes.AttributeValueMemberS); ok && v.Value != "" {
+		_ = json.Unmarshal([]byte(v.Value), &j.ClipHooks)
 	}
 	if v, ok := item["createdAt"].(*dbtypes.AttributeValueMemberS); ok {
 		j.CreatedAt = v.Value

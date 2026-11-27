@@ -104,6 +104,13 @@ type APIHandler struct {
 	// limits; nil uses videocopy.Platforms().
 	PostCopyWriter PostCopyWriter
 	PostCopySpecs  []videocopy.PlatformSpec
+	// HookWriter writes hook line suggestions for a clip (#329). Nil switches
+	// suggestions off (503); saving a hook and the ranker's line still work.
+	HookWriter HookWriter
+	// ClipRenderStateMachineARN renders one finished clip again (#329). Empty
+	// switches that off (503), so the API can deploy before the state machine
+	// exists.
+	ClipRenderStateMachineARN string
 	// StoryPlansPerHour overrides the per-user hourly allowance of plans. Zero
 	// uses the default (20).
 	StoryPlansPerHour int
@@ -238,6 +245,8 @@ func (h *APIHandler) HandleRequest(ctx context.Context, req events.APIGatewayPro
 		return h.handleWithAuth(ctx, req, h.handlePostCopyList)
 	case isPostCopyPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handlePostCopy)
+	case isClipActionPath(req.Path):
+		return h.handleWithAuth(ctx, req, h.handleClipAction)
 	case isStoryVideoPath(req.Path):
 		return h.handleWithAuth(ctx, req, h.handleStoryVideos)
 	case isStoryPlanPath(req.Path):
