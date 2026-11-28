@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, NgZone, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom, forkJoin } from 'rxjs';
@@ -17,10 +17,16 @@ import { ToastsComponent } from '../../shared/components/toast/toasts.component'
 import { ToastService } from '../../shared/components/toast/toast.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
+import { ClipHookComponent } from './clip-hook.component';
+import { ClipHookPreviewComponent } from './clip-hook-preview.component';
+import { ClipHook, ClipRenderView, hookOpacity } from './clip-hook.models';
 import { copyText as copyToClipboard } from '../../shared/clipboard';
 
 /** Hover previews play at most this long before pausing again. */
 const HOVER_PREVIEW_MS = 2000;
+
+/** How often the page asks about clips being rendered again. */
+const RENDER_POLL_MS = 10000;
 
 /** Fractions sampled for the thumbnail frame strip. */
 const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
@@ -28,7 +34,7 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
 @Component({
   selector: 'app-shorts-gallery',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent, CaptionStudioComponent, PostCopyComponent],
+  imports: [CommonModule, FormsModule, LucideDynamicIcon, NavbarComponent, ToastsComponent, ConfirmDialogComponent, ShortsEffectsPanelComponent, CaptionStudioComponent, PostCopyComponent, ClipHookComponent, ClipHookPreviewComponent],
   styles: [`
     :host { display: block; }
     @keyframes card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
@@ -91,6 +97,7 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
     .words time { flex: none; width: 5.5rem; font-size: var(--type-xs); color: var(--color-muted); font-variant-numeric: tabular-nums; }
     .words .ui-field { flex: 1; min-width: 0; }
     .warn-text { color: var(--color-caution); font-size: var(--type-sm); }
+    .rendering { position: absolute; bottom: var(--space-xs); right: var(--space-xs); z-index: 2; display: inline-flex; align-items: center; gap: var(--space-3xs); padding: var(--space-3xs) var(--space-xs); border-radius: var(--radius-pill); font-size: var(--type-xs); font-weight: 600; background: color-mix(in oklab, var(--color-paper) 85%, transparent); color: var(--color-ink); }
     @media (prefers-reduced-motion: reduce) { .card-enter { opacity: 1; animation: none; } .track div { transition: none; } }
   `],
   template: `
@@ -258,6 +265,12 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
                     </svg>
                     <b aria-hidden="true">{{ scorePercent(clip) }}</b>
                   </span>
+                  @if (hookFor === clip.clipId && hookPreview(clip); as h) {
+                    <app-clip-hook-preview [hook]="h" />
+                  }
+                  @if (clipRenders[clip.clipId]?.state === 'rendering') {
+                    <span class="rendering" role="status" data-testid="clip-rendering"><svg lucideIcon="loader-2" [size]="12" class="ui-spin" aria-hidden="true"></svg>Rendering again</span>
+                  }
                 </div>
 
                 <div class="info">
@@ -275,7 +288,7 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
                   </p>
                 </div>
 
-                <div class="acts" [style.--act-cols]="postCopyEnabled ? 6 : 5">
+                <div class="acts" [style.--act-cols]="postCopyEnabled ? 7 : 6">
                   <button type="button" class="act" [disabled]="downloading[clip.clipId]" (click)="download(clip)" aria-label="Download clip">
                     @if (downloading[clip.clipId]) {
                       <svg lucideIcon="loader-2" [size]="16" class="ui-spin" aria-hidden="true"></svg>
@@ -304,6 +317,10 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
                     <svg lucideIcon="pencil" [size]="16" aria-hidden="true"></svg>
                     <span aria-hidden="true">Edit</span>
                   </button>
+                  <button type="button" class="act" data-testid="hook-toggle" (click)="toggleHook(clip)" [attr.aria-expanded]="hookFor === clip.clipId" [attr.aria-label]="(hookFor === clip.clipId ? 'Hide' : 'Edit') + ' the hook for clip ' + clip.rank">
+                    <svg lucideIcon="zap" [size]="16" aria-hidden="true"></svg>
+                    <span aria-hidden="true">Hook</span>
+                  </button>
                   @if (postCopyEnabled) {
                     <button type="button" class="act" data-testid="post-copy-toggle" (click)="togglePostCopy(clip)" [attr.aria-expanded]="postCopyFor === clip.clipId" [attr.aria-label]="(postCopyFor === clip.clipId ? 'Hide' : 'Write') + ' post copy for clip ' + clip.rank">
                       <svg lucideIcon="sparkles" [size]="16" aria-hidden="true"></svg>
@@ -311,6 +328,12 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
                     </button>
                   }
                 </div>
+                @if (hookFor === clip.clipId) {
+                  <div class="editor" role="region" [attr.aria-label]="'Hook for clip ' + clip.rank">
+                    <app-clip-hook [jobId]="jobIdValue" [clipId]="clip.clipId" [render]="renderOf(clip)"
+                      (draftChange)="onHookDraft(clip, $event)" (renderStarted)="onRenderStarted(clip, $event)" />
+                  </div>
+                }
                 @if (postCopyFor === clip.clipId) {
                   <div class="editor" role="region" [attr.aria-label]="'Post copy for clip ' + clip.rank">
                     <app-post-copy [target]="postCopyTarget(clip)" (savedChange)="onPostCopySaved(clip, $event)" />
@@ -390,7 +413,7 @@ const STRIP_FRACS = [0.1, 0.25, 0.4, 0.55, 0.7];
                           <button type="button" class="ui-btn ui-btn--secondary" (click)="resetEdit()" [disabled]="editor.saving">Reset to AI suggestion</button>
                         }
                       </div>
-                      <p class="small">Saved edits apply on retry or re-render. The original clip stays until the new render succeeds.</p>
+                      <p class="small">Saved edits apply when you render this clip again (Hook, then Render this clip again) or retry a failed video. The clip you have stays until the new render succeeds.</p>
                     }
                   </div>
                 }
@@ -439,6 +462,14 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   /** Per-card clip editor (one open at a time): trim + caption corrections. */
   editorFor: string | null = null;
+  /** The clip whose hook panel is open, its draft for the preview, and single-clip renders (#329). */
+  hookFor: string | null = null;
+  hookDrafts: Record<string, ClipHook> = {};
+  clipRenders: Record<string, ClipRenderView> = {};
+  private renderPoll: ReturnType<typeof setTimeout> | null = null;
+  private hookFrame = 0;
+  private readonly zone = inject(NgZone);
+  private readonly reducedMotion = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   /** True when the server has post copy switched on (#330). */
   postCopyEnabled = false;
   /** The saved copy of each clip, for the quick copy button. */
@@ -485,6 +516,10 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
   bulkDone = 0;
   bulkTotal = 0;
   bulkFailed: string[] = [];
+
+  get jobIdValue(): string {
+    return this.jobId;
+  }
 
   get jobLabel(): string {
     return this.jobId ? this.jobId.slice(0, 8) : 'this job';
@@ -565,6 +600,7 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
         // cards show a representative frame without any tap.
         void this.warmThumbnails();
         this.loadPostCopy();
+        this.loadClipRenders();
       },
       error: (err) => {
         this.isLoading = false;
@@ -1195,6 +1231,112 @@ export class ShortsGalleryComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     Object.keys(this.hoverTimers).forEach((id) => this.clearHoverTimer(id));
+    this.stopRenderPoll();
+    cancelAnimationFrame(this.hookFrame);
+  }
+
+  // ------------------------------------------------------------ hook (#329)
+
+  toggleHook(clip: Clip): void {
+    this.hookFor = this.hookFor === clip.clipId ? null : clip.clipId;
+    cancelAnimationFrame(this.hookFrame);
+    if (this.hookFor) this.startHookPreview(clip);
+  }
+
+  onHookDraft(clip: Clip, draft: ClipHook): void {
+    this.hookDrafts = { ...this.hookDrafts, [clip.clipId]: draft };
+  }
+
+  /** The hook to preview over the clip, or null when it is off or empty. */
+  hookPreview(clip: Clip): ClipHook | null {
+    const d = this.hookDrafts[clip.clipId];
+    return d && d.enabled && d.text.trim() ? { ...d, text: d.text.trim() } : null;
+  }
+
+  renderOf(clip: Clip): ClipRenderView | null {
+    return this.clipRenders[clip.clipId] ?? null;
+  }
+
+  /**
+   * Fades the preview the way the render does while the clip plays: shown for
+   * its seconds from the start, 0.2 s in and out (no fade with reduced motion).
+   * Paused or not playing, it stays fully shown so the look can be judged. Runs
+   * outside Angular and only writes one style, so it costs no change detection.
+   */
+  private startHookPreview(clip: Clip): void {
+    this.zone.runOutsideAngular(() => {
+      const tick = () => {
+        if (this.hookFor !== clip.clipId) return;
+        const card = document.querySelector(`[data-clip="${clip.clipId}"]`);
+        const ov = card?.querySelector('.hook-ov');
+        const video = card?.querySelector('video');
+        const h = this.hookDrafts[clip.clipId];
+        if (ov instanceof HTMLElement && h) {
+          const playing = video instanceof HTMLVideoElement && !video.paused && !video.ended;
+          const alpha = playing ? hookOpacity(video.currentTime, h.seconds, video.duration || clip.duration, this.reducedMotion) : 1;
+          ov.style.opacity = String(alpha);
+        }
+        this.hookFrame = requestAnimationFrame(tick);
+      };
+      this.hookFrame = requestAnimationFrame(tick);
+    });
+  }
+
+  onRenderStarted(clip: Clip, view: ClipRenderView): void {
+    this.clipRenders = { ...this.clipRenders, [clip.clipId]: view };
+    this.scheduleRenderPoll();
+  }
+
+  /** Reads the state of single-clip renders. Quiet on failure: the clips still work. */
+  private loadClipRenders(): void {
+    this.shorts.getStatus(this.jobId).subscribe({
+      next: (job) => this.applyClipRenders(job.clipRenders ?? {}),
+      error: () => {
+        if (this.anyRendering()) this.scheduleRenderPoll();
+      },
+    });
+  }
+
+  private applyClipRenders(next: Record<string, ClipRenderView>): void {
+    for (const [id, now] of Object.entries(next)) {
+      const before = this.clipRenders[id];
+      if (now.state === 'done' && (before?.state === 'rendering' || (now.renders ?? 0) > (before?.renders ?? 0)) && before) {
+        this.refreshClip(id);
+      }
+    }
+    this.clipRenders = { ...next };
+    if (this.anyRendering()) this.scheduleRenderPoll();
+  }
+
+  private anyRendering(): boolean {
+    return Object.values(this.clipRenders).some((r) => r.state === 'rendering');
+  }
+
+  private scheduleRenderPoll(): void {
+    this.stopRenderPoll();
+    this.renderPoll = setTimeout(() => {
+      this.renderPoll = null;
+      this.loadClipRenders();
+    }, RENDER_POLL_MS);
+  }
+
+  private stopRenderPoll(): void {
+    if (this.renderPoll) {
+      clearTimeout(this.renderPoll);
+      this.renderPoll = null;
+    }
+  }
+
+  /** A clip was rendered again: forget the old file's address and poster, and load the new one. */
+  private refreshClip(clipId: string): void {
+    const clip = this.clips.find((c) => c.clipId === clipId);
+    delete this.previewUrls[clipId];
+    delete this.thumbs[clipId];
+    delete this.stripThumbs[clipId];
+    this.showVideo[clipId] = false;
+    if (!clip) return;
+    this.toasts.show(`Clip #${clip.rank} was rendered again.`, 'success');
+    void this.preview(clip);
   }
 
   // ---------------------------------------------------------- caption studio

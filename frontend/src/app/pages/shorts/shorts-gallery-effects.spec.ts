@@ -23,6 +23,7 @@ import {
   LucideTrash2,
   LucideUser,
   LucideX,
+  LucideZap,
 } from '@lucide/angular';
 import { Clip, ShortsService } from './shorts.service';
 import { NEW_JOB_CAPTION_STYLE } from '../../shared/caption-style';
@@ -33,7 +34,7 @@ import { ShortsEffectsPanelComponent } from './shorts-effects-panel.component';
 
 const ICONS = provideLucideIcons(
   LucideCaptions, LucideCheck, LucideCircleX, LucideClapperboard, LucideCopy, LucideDownload, LucideFilm, LucideImage,
-  LucideLoader2, LucideMoon, LucidePencil, LucidePlay, LucideShare2, LucideSparkles, LucideSun, LucideTrash2, LucideUser, LucideX,
+  LucideLoader2, LucideMoon, LucidePencil, LucidePlay, LucideShare2, LucideSparkles, LucideSun, LucideTrash2, LucideUser, LucideX, LucideZap,
 );
 
 const clips: Clip[] = [2, 1, 3].map((r) => ({ clipId: 'c' + r, s3Key: 'k', rank: r, score: 0.95 - r / 10, duration: 30, hookText: 'Hook ' + r, start: r * 60, end: r * 60 + 30 }));

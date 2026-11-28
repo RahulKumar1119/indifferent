@@ -1,3 +1,4 @@
+import { ClipHook, ClipRenderView } from './clip-hook.models';
 import { Injectable } from '@angular/core';
 import { HttpContext } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -59,6 +60,10 @@ export interface ShortsJob {
   clipEdits?: Record<string, ClipEdit>;
   /** Phase 1 video effect settings for this job's renders. */
   effects?: VideoEffects;
+  /** Per-clip hook lines (#329). */
+  clipHooks?: Record<string, ClipHook>;
+  /** The latest single-clip render of each clip that had one (#329). */
+  clipRenders?: Record<string, ClipRenderView>;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
